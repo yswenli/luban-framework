@@ -21,7 +21,7 @@
 *描述：
 *
 *****************************************************************************/
-namespace WebApplication1.Models;
+namespace WebApplication1.Models.Vos;
 
 /// <summary>
 /// 授权用户角色

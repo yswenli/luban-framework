@@ -21,6 +21,8 @@
 *描述：用户扩展信息业务类
 *
 *****************************************************************************/
+using WebApplication1.Models.Entities;
+
 namespace Services.ApiServices;
 
 /// <summary>

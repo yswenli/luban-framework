@@ -1,5 +1,6 @@
 ﻿using LuBan.Web.Core.OnlineUser;
-using WebApplication1.Models;
+
+using WebApplication1.Models.Vos;
 
 namespace WebApplication1.Services.ApiServices;
 

@@ -1,7 +1,6 @@
-﻿
-using Models.Enums;
+﻿using WebApplication1.Models.Enums;
 
-namespace Models.Entities;
+namespace WebApplication1.Models.Entities;
 
 [SugarTable("db_block", "栏目表")]
 public class DbBlock : EntityeDataScoreBase

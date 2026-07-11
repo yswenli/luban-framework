@@ -22,6 +22,9 @@
 *
 *****************************************************************************/
 
+using WebApplication1.Models.Entities;
+using WebApplication1.Models.Vos;
+
 namespace Services.ApiServices;
 
 /// <summary>

@@ -21,7 +21,7 @@
 *描述：租户类型枚举
 *
 *****************************************************************************/
-namespace Models.Enums
+namespace WebApplication1.Models.Enums
 {
     /// <summary>
     /// 栏目状态枚举

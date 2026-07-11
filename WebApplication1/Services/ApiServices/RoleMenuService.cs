@@ -21,6 +21,8 @@
 *描述：
 *
 *****************************************************************************/
+using WebApplication1.Models.Vos;
+
 namespace Services.ApiServices
 {
     /// <summary>

@@ -379,13 +379,13 @@ public static class ConsoleUtil
     {
         try
         {
-            var base64Str = "IF9fICAgICAgIC4gICAgICAgICAuX19fICAgICAgICAgICAgICAgICAgICAgICAgICAuICAKLyAgYCAgLiBfLnwgXyAuXyAgX19bX18gLl8uIF8uLl8gXyAgXyAuICAgICwgXyAuXy47Xy8KXF9fLlxffChfLnwoXylbXylfKSB8ICAgWyAgKF9dWyB8ICkoLywgXC9cLyAoXylbICB8IFwKICAgIC5ffCAgICAgICB8ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA=";
+            var base64Str = "ICBfICAgICAgICAgIF9fX18gICAgICAgICAgICAgICAgX19fX18gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIF8gICAgCiB8IHwgICBfICAgX3wgX18gKSAgX18gXyBfIF9fICAgfCAgX19ffCBfXyBfXyBfIF8gX18gX19fICAgX19fX18gICAgICBfX19fXyAgXyBfX3wgfCBfXwogfCB8ICB8IHwgfCB8ICBfIFwgLyBfYCB8ICdfIFwgIHwgfF8gfCAnX18vIF9gIHwgJ18gYCBfIFwgLyBfIFwgXCAvXCAvIC8gXyBcfCAnX198IHwvIC8KIHwgfF9ffCB8X3wgfCB8XykgfCAoX3wgfCB8IHwgfCB8ICBffHwgfCB8IChffCB8IHwgfCB8IHwgfCAgX18vXCBWICBWIC8gKF8pIHwgfCAgfCAgIDwgCiB8X19fX19cX18sX3xfX19fLyBcX18sX3xffCB8X3wgfF98ICB8X3wgIFxfXyxffF98IHxffCB8X3xcX19ffCBcXy9cXy8gXF9fXy98X3wgIHxffFxfXAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA=";
             base64Str.ToStr().Write(color: ConsoleColor.Green);
             Environment.NewLine.Write();
             Environment.NewLine.Write();
             var year = $"{"MjAyMi0=".ToStr()}{DateTime.Now.Year}";
             var author = "IEAgeXN3ZW5saSBhbGwgcmlnaHRzIHJlc2VydmVk".ToStr();
-            $"{year}{author}".PadLeft(53).Write(ConsoleColor.DarkGray);
+            $"{year}{author}".PadLeft(87).Write(ConsoleColor.DarkGray);
             Environment.NewLine.Write();
             Environment.NewLine.Write();
             Environment.NewLine.Write();

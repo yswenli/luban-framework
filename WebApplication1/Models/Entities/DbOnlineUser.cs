@@ -1,4 +1,4 @@
-namespace WebApplication1.Models;
+namespace WebApplication1.Models.Entities;
 
 /// <summary>
 /// 系统在线用户表

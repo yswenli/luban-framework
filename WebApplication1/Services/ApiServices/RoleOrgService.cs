@@ -21,6 +21,8 @@
 *描述：系统角色机构服务
 *
 *****************************************************************************/
+using WebApplication1.Models.Entities;
+
 namespace Services.ApiServices;
 
 /// <summary>

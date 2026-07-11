@@ -1,6 +1,6 @@
-﻿using Models.Enums;
+﻿using WebApplication1.Models.Enums;
 
-namespace Models.Dto;
+namespace WebApplication1.Models.Vos;
 
 
 /// <summary>

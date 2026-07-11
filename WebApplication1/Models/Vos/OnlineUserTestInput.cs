@@ -1,4 +1,4 @@
-namespace WebApplication1.Models;
+namespace WebApplication1.Models.Vos;
 
 /// <summary>
 /// 写入在线用户会话测试输入

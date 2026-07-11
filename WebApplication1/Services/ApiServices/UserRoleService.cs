@@ -21,6 +21,8 @@
 *描述：系统用户角色服务
 *
 *****************************************************************************/
+using WebApplication1.Models.Vos;
+
 namespace Services.ApiServices;
 
 /// <summary>

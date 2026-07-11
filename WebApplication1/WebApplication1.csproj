@@ -20,16 +20,12 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<PackageReference Include="LuBan.EMailKit" Version="2026.7.11.2" />
+		<PackageReference Include="LuBan.Redis" Version="2026.7.11.2" />
+		<PackageReference Include="LuBan.Web.Core" Version="2026.7.11.2" />
+		<PackageReference Include="LuBan.Wechat" Version="2026.7.11.2" />
 		<PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.27.1" />
-		<PackageReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Design" Version="8.0.22" />
-	</ItemGroup>
-
-	<ItemGroup>
-		<ProjectReference Include="..\LuBan.EMailKit\LuBan.EMailKit.csproj" />
-		<ProjectReference Include="..\LuBan.Office\LuBan.Office.csproj" />
-		<ProjectReference Include="..\LuBan.Redis\LuBan.Redis.csproj" />
-		<ProjectReference Include="..\LuBan.Web.Core\LuBan.Web.Core.csproj" />
-		<ProjectReference Include="..\LuBan.Wechat\LuBan.Wechat.csproj" />
+		<PackageReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Design" Version="9.0.0" />
 	</ItemGroup>
 
 	<ItemGroup>

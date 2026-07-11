@@ -21,7 +21,7 @@
 *描述：业务用户表
 *
 *****************************************************************************/
-namespace WebApplication1.Models;
+namespace WebApplication1.Models.Entities;
 
 /// <summary>
 /// 业务用户表

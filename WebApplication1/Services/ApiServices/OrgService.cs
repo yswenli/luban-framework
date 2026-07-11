@@ -23,6 +23,8 @@
 *****************************************************************************/
 
 
+using WebApplication1.Models.Entities;
+
 namespace Services.ApiServices;
 
 public class OrgService : BaseService<OrgService>

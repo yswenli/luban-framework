@@ -21,6 +21,8 @@
 *描述：系统参数配置服务
 *
 *****************************************************************************/
+using WebApplication1.Models.Entities;
+
 namespace Services.ApiServices;
 
 /// <summary>

@@ -1,6 +1,8 @@
 ﻿using LuBan.EMailKit;
 using LuBan.EMailKit.Models;
 
+using WebApplication1.Models.Vos;
+
 namespace WebApplication1.Controllers.Admin;
 
 /// <summary>

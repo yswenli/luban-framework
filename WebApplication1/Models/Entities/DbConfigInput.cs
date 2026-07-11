@@ -21,7 +21,7 @@
 *描述：
 *
 *****************************************************************************/
-namespace WebApplication1.Models;
+namespace WebApplication1.Models.Entities;
 
 
 public class ConfigInput : BaseIdInput

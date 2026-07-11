@@ -45,6 +45,8 @@
 *描述：
 *
 *****************************************************************************/
+using WebApplication1.Models.Entities;
+
 namespace WebApplication1.Services.ApiServices;
 
 /// <summary>

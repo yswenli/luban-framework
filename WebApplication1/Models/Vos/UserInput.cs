@@ -21,7 +21,7 @@
 *描述：
 *
 *****************************************************************************/
-namespace WebApplication1.Models;
+namespace WebApplication1.Models.Vos;
 
 
 public class UserInput : BaseIdInput

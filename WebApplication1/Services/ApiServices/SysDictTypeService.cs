@@ -22,6 +22,8 @@
 *
 *****************************************************************************/
 
+using WebApplication1.Models.Vos;
+
 namespace WebApplication1.Services.ApiServices;
 
 /// <summary>

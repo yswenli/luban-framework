@@ -22,6 +22,7 @@
 *
 *****************************************************************************/
 
+using WebApplication1.Models.Entities;
 using WebApplication1.Services.ApiServices;
 
 namespace WebApplication1.Controllers.Admin;

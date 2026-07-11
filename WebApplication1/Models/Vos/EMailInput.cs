@@ -1,6 +1,6 @@
 ﻿using LuBan.EMailKit.Models;
 
-namespace WebApplication1.Models;
+namespace WebApplication1.Models.Vos;
 
 public class EMailInput : MsgInput
 {

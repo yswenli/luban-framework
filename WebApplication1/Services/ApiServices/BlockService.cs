@@ -21,8 +21,8 @@
 *描述：内容业务
 *
 *****************************************************************************/
-using Models.Dto;
-using Models.Entities;
+using WebApplication1.Models.Entities;
+using WebApplication1.Models.Vos;
 
 namespace Services.ApiServices;
 

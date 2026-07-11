@@ -1,4 +1,4 @@
-﻿namespace Models.Dto;
+﻿namespace WebApplication1.Models.Vos;
 
 /// <summary>
 /// Banner状态枚举

@@ -1,4 +1,4 @@
-namespace WebApplication1.Models;
+namespace WebApplication1.Models.Vos;
 
 /// <summary>
 /// 在线用户分页查询

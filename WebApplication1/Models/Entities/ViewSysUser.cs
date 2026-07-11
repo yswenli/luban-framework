@@ -24,7 +24,7 @@
 using LuBan.Orm.Attributes;
 using LuBan.Orm.Interfaces;
 
-namespace WebApplication1.Models;
+namespace WebApplication1.Models.Entities;
 
 
 /// <summary>

@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <PackageId>$(AssemblyName)</PackageId>
     <Title>$(AssemblyName)</Title>
-    <Version>2026.7.11.1</Version>
+    <Version>2026.7.11.2</Version>
     <Authors>yswenli</Authors>
     <Description>LuBan Framework中云存储SDK，目前支持阿里云、微软Azure、MiniIO的无缝集成</Description>
     <PackageIcon>favicon.png</PackageIcon>

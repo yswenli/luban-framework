@@ -1,8 +1,6 @@
-﻿
+﻿using WebApplication1.Models.Vos;
 
-using Models.Dto;
-
-namespace Models.Entities;
+namespace WebApplication1.Models.Entities;
 
 [SugarTable("db_banner", "banner表")]
 public class DbBanner : EntityeDataScoreBase
