@@ -1,0 +1,8 @@
+{
+  "tokenManagement": {
+    "Secret": "base64:HU8MlQQDHfGaQ+k+0q3z4HKJvNQUTjK5uRGodDATyKc=",
+    "Issuer": "yswenli.cnblogs.com",
+    "Audience": "WebApi",
+    "AccessExpiration": 30
+  }
+}

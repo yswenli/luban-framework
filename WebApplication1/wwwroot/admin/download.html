@@ -1,0 +1,49 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>从 header 中读取文件名并下载</title>
+</head>
+
+<body>
+    <button onclick="downloadFile()">下载文件</button>
+    <script>
+        async function downloadFile() {
+            const url = 'https://dev-namsan.luban.com/download/files/20250328164517.xlsx'; // 替换为实际的文件 URL
+
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error('网络请求失败');
+                }
+
+                // 从响应头中获取 Content-Disposition 字段
+                const contentDisposition = response.headers.get('Content-Disposition');
+                console.log(response.headers);
+                debugger;
+                let fileName = `${Date.now()}.xlsx`; // 默认文件名
+                if (contentDisposition) {
+                    const match = contentDisposition.match(/filename\*?=['"]?(?:UTF-8'')?([^;\r\n"]+)/i);
+                    if (match && match[1]) {
+                        fileName = decodeURIComponent(match[1].replace(/(^"|"$)/g, '')); // 解码文件名
+                    }
+                }
+                const blob = await response.blob();
+                const urlObject = URL.createObjectURL(blob);
+
+                const a = document.createElement('a');
+                a.href = urlObject;
+                a.download = fileName;
+                a.click();
+
+                URL.revokeObjectURL(urlObject);
+            } catch (error) {
+                console.error('下载文件时出错:', error);
+            }
+        }
+    </script>
+</body>
+
+</html>

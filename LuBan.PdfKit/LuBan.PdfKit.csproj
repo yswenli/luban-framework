@@ -1,0 +1,46 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+    <PackageId>$(AssemblyName)</PackageId>
+    <Title>$(AssemblyName)</Title>
+    <Version>2026.7.11.1</Version>
+    <Company>$(Authors)</Company>
+    <Description>基于iText7的pdf文本替换工具集</Description>
+    <Copyright>$(Authors)</Copyright>
+    <PackageIcon>favicon.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>$(AssemblyName);web;api;aspnet;aspnetcore;LuBan;yswenli</PackageTags>
+    <PackageReleaseNotes>基于iText7的pdf文本替换工具集</PackageReleaseNotes>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\favicon.png">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <None Include="README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="itext7" Version="9.7.0" />
+    <PackageReference Include="itext7.bouncy-castle-adapter" Version="9.7.0" />
+    <PackageReference Include="itext7.pdfhtml" Version="6.3.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LuBan.Common\LuBan.Common.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Update="SqlSugarCore" Version="5.1.4.216" />
+    <PackageReference Update="System.Security.Cryptography.Xml" Version="10.0.9" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,230 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>face-recorgnition</title>
+    <link href="https://cdn.staticfile.org/twitter-bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .container {
+            max-width: 800px;
+            margin: 20px auto;
+        }
+
+        .video-container {
+            position: relative;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        #video {
+            width: 640px;
+            height: 480px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        #canvas {
+            display: none;
+        }
+
+        .controls {
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            margin-right: 10px;
+        }
+
+        .results {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+
+        .detection {
+            margin: 5px 0;
+            padding: 8px;
+            background-color: #fff;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .processed-image {
+            margin-top: 20px;
+        }
+
+            .processed-image img {
+                max-width: 100%;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+            }
+
+        .loading {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+
+        .loading-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            text-align: center;
+        }
+
+        .spinner-border {
+            width: 3rem;
+            height: 3rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-center mb-4">Test</h1>
+
+        <div class="video-container">
+            <video id="video" autoplay playsinline></video>
+            <canvas id="canvas"></canvas>
+        </div>
+
+        <div class="controls text-center">
+            <button id="startButton" class="btn btn-primary">开启摄像头</button>
+            <button id="stopButton" class="btn btn-danger" disabled>关闭摄像头</button>
+            <button id="detectButton" class="btn btn-success" disabled>检测人脸</button>
+        </div>
+
+        <div id="results" class="results" style="display: none;">
+            <h3>检测结果</h3>
+            <div id="detectionCount"></div>
+            <div id="detectionList"></div>
+        </div>
+
+        <div id="processedImage" class="processed-image" style="display: none;">
+            <h3>处理后的图片</h3>
+            <img id="resultImage" alt="处理后的图片">
+        </div>
+    </div>
+
+    <div id="loading" class="loading">
+        <div class="loading-content">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">正在处理中...</p>
+        </div>
+    </div>
+
+    <script>
+        // DOM 元素
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const startButton = document.getElementById('startButton');
+        const stopButton = document.getElementById('stopButton');
+        const detectButton = document.getElementById('detectButton');
+        const results = document.getElementById('results');
+        const detectionCount = document.getElementById('detectionCount');
+        const detectionList = document.getElementById('detectionList');
+        const processedImage = document.getElementById('processedImage');
+        const resultImage = document.getElementById('resultImage');
+        const loading = document.getElementById('loading');
+
+        let stream = null;
+
+        // 开启摄像头
+        startButton.addEventListener('click', async () => {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                video.srcObject = stream;
+                startButton.disabled = true;
+                stopButton.disabled = false;
+                detectButton.disabled = false;
+            } catch (err) {
+                console.error('Error accessing camera:', err);
+                alert('无法访问摄像头，请确保已授予权限');
+            }
+        });
+
+        // 关闭摄像头
+        stopButton.addEventListener('click', () => {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                video.srcObject = null;
+                startButton.disabled = false;
+                stopButton.disabled = true;
+                detectButton.disabled = true;
+                results.style.display = 'none';
+                processedImage.style.display = 'none';
+            }
+        });
+
+        // 检测人脸
+        detectButton.addEventListener('click', async () => {
+            if (!stream) return;
+
+            loading.style.display = 'block';
+
+            try {
+                // 捕获视频帧
+                const context = canvas.getContext('2d');
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                context.drawImage(video, 0, 0, 640, 480);
+
+                // 转换为 base64
+                const imageData = canvas.toDataURL('image/jpeg').split(',')[1];
+
+                // 发送到服务器
+                const response = await fetch('/api/mobile/facerecognition/detectfaces', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ Data: imageData })
+                });
+
+                const data = await response.json();
+                debugger;
+                if (data.code == 200) {
+                    // 显示检测结果
+                    results.style.display = 'block';
+                    detectionCount.textContent = `检测到 ${data.result.detections.length} 个人脸`;
+
+                    // 显示每个检测结果的置信度
+                    detectionList.innerHTML = data.result.detections.map((detection, index) => `
+                                            <div class="detection">
+                                                人脸 ${index + 1}: ${(detection.confidence * 100).toFixed(2)}% 置信度
+                                            </div>
+                                        `).join('');
+
+                    // 显示处理后的图片
+                    processedImage.style.display = 'block';
+                    resultImage.src = `data:image/jpeg;base64,${data.result.processedImage}`;
+                } else {
+                    alert('人脸检测失败：' + data.message);
+                }
+            } catch (err) {
+                console.error('Error detecting faces:', err);
+                alert('人脸检测失败，请重试');
+            } finally {
+                loading.style.display = 'none';
+            }
+        });
+
+        // 页面关闭时停止摄像头
+        window.addEventListener('beforeunload', () => {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+        });
+    </script>
+</body>
+</html> 

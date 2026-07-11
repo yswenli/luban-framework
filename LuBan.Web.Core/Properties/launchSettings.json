@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "LuBan.Web.Core": {
+      "commandName": "Project"
+    },
+    "Docker": {
+      "commandName": "Docker"
+    }
+  }
+}

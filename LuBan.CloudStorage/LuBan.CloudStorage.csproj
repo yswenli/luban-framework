@@ -1,0 +1,47 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <PackageId>$(AssemblyName)</PackageId>
+    <Title>$(AssemblyName)</Title>
+    <Version>2026.7.11.1</Version>
+    <Authors>yswenli</Authors>
+    <Description>LuBan Framework中云存储SDK，目前支持阿里云、微软Azure、MiniIO的无缝集成</Description>
+    <PackageIcon>favicon.png</PackageIcon>
+    <PackageTags>$(AssemblyName);web;api;aspnet;aspnetcore;LuBan;yswenli</PackageTags>
+    <PackageReleaseNotes>LuBan Framework中云存储SDK，目前支持阿里云、微软Azure、MiniIO的无缝集成</PackageReleaseNotes>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\favicon.png">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <None Include="README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aliyun.OSS.SDK.NetCore" Version="2.14.1" />
+    <PackageReference Include="Azure.Storage.Blobs" Version="12.29.1" />
+    <PackageReference Include="Minio" Version="7.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LuBan.Common\LuBan.Common.csproj" />
+    <ProjectReference Include="..\LuBan.Orm\LuBan.Orm.csproj" />
+    <ProjectReference Include="..\LuBan.VideoKit\LuBan.VideoKit.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Update="SqlSugarCore" Version="5.1.4.216" />
+    <PackageReference Update="System.Security.Cryptography.Xml" Version="10.0.9" />
+  </ItemGroup>
+
+</Project>

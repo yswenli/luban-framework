@@ -1,0 +1,121 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="appsettings.json" />
+    <None Remove="files\base64png.txt" />
+    <None Remove="files\LaborServiceTemplate.pdf" />
+    <None Remove="files\picture1_replace.jpg" />
+    <None Remove="files\picture1_replace.mp4" />
+    <None Remove="files\picture1_replace.png" />
+    <None Remove="files\ReplaceLotsOfPicturesAndSlides.pptx" />
+    <None Remove="files\劳务协议.pdf" />
+    <None Remove="fonts\simsun.ttc" />
+    <None Remove="Libs\Aspose.CAD.dll" />
+    <None Remove="Libs\Aspose.Cells.dll" />
+    <None Remove="Libs\Aspose.Page.dll" />
+    <None Remove="Libs\Aspose.Pdf.dll" />
+    <None Remove="Libs\Aspose.Slides.dll" />
+    <None Remove="Libs\Aspose.Total.lic" />
+    <None Remove="Libs\Aspose.Words.dll" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Data\exampleData.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="files\base64png.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="files\LaborServiceTemplate.pdf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="files\picture1_replace.jpg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="files\picture1_replace.mp4">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="files\picture1_replace.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="files\ReplaceLotsOfPicturesAndSlides.pptx">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="fonts\simsun.ttc">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Libs\Aspose.CAD.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Libs\Aspose.Cells.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Libs\Aspose.Page.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Libs\Aspose.Pdf.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Libs\Aspose.Slides.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Libs\Aspose.Total.lic">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Libs\Aspose.Words.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="10.0.1">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.7.0" />
+    <PackageReference Include="MSTest.TestAdapter" Version="4.3.0" />
+    <PackageReference Include="MSTest.TestFramework" Version="4.3.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LuBan.AIAgent\LuBan.AIAgent.csproj" />
+    <ProjectReference Include="..\LuBan.AIFlow\LuBan.AIFlow.csproj" />
+    <ProjectReference Include="..\LuBan.EventBus\LuBan.EventBus.csproj" />
+    <ProjectReference Include="..\LuBan.ApprovalFlow\LuBan.ApprovalFlow.csproj" />
+    <ProjectReference Include="..\LuBan.Common\LuBan.Common.csproj" />
+    <ProjectReference Include="..\LuBan.Lives\LuBan.Lives.csproj" />
+    <ProjectReference Include="..\LuBan.LogLib\LuBan.LogLib.csproj" />
+    <ProjectReference Include="..\LuBan.Office\LuBan.Office.csproj" />
+    <ProjectReference Include="..\LuBan.Orm\LuBan.Orm.csproj" />
+    <ProjectReference Include="..\LuBan.PdfKit\LuBan.PdfKit.csproj" />
+    <ProjectReference Include="..\LuBan.Qingflow\LuBan.Qingflow.csproj" />
+    <ProjectReference Include="..\LuBan.Redis\LuBan.Redis.csproj" />
+    <ProjectReference Include="..\LuBan.Reporting\LuBan.Reporting.csproj" />
+    <ProjectReference Include="..\LuBan.Speech\LuBan.Speech.csproj" />
+    <ProjectReference Include="..\LuBan.VideoKit\LuBan.VideoKit.csproj" />
+    <ProjectReference Include="..\LuBan.Web.Core\LuBan.Web.Core.csproj" />
+    <ProjectReference Include="..\LuBan.Wechat\LuBan.Wechat.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Update="SqlSugarCore" Version="5.1.4.216" />
+    <PackageReference Update="System.Security.Cryptography.Xml" Version="10.0.9" />
+  </ItemGroup>
+
+</Project>

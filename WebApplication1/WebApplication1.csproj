@@ -1,0 +1,50 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+	<PropertyGroup>
+		<TargetFramework>net8.0</TargetFramework>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<InvariantGlobalization>false</InvariantGlobalization>
+		<GenerateDocumentationFile>True</GenerateDocumentationFile>
+		<NoWarn>CS1591;CS1572;CS1573</NoWarn>
+	</PropertyGroup>
+
+	<ItemGroup>
+	  <None Remove="yswenli.png" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Content Include="yswenli.png">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.27.1" />
+		<PackageReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Design" Version="8.0.22" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\LuBan.EMailKit\LuBan.EMailKit.csproj" />
+		<ProjectReference Include="..\LuBan.Office\LuBan.Office.csproj" />
+		<ProjectReference Include="..\LuBan.Redis\LuBan.Redis.csproj" />
+		<ProjectReference Include="..\LuBan.Web.Core\LuBan.Web.Core.csproj" />
+		<ProjectReference Include="..\LuBan.Wechat\LuBan.Wechat.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Content Update="wwwroot\face-recognition.html">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Folder Include="wwwroot\files\" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <PackageReference Update="SqlSugarCore" Version="5.1.4.216" />
+	  <PackageReference Update="System.Security.Cryptography.Xml" Version="10.0.9" />
+	</ItemGroup>
+
+</Project>

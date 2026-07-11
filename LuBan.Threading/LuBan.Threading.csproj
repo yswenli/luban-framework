@@ -1,0 +1,36 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+    <PackageId>$(AssemblyName)</PackageId>
+    <Title>$(AssemblyName)</Title>
+    <Version>2026.7.11.1</Version>
+    <Authors>yswenli</Authors>
+    <Description>LuBan.framework中多线程解决方案、例如同步锁、异步锁、线程工作池、任务工作池、线程安全阻塞式队列等</Description>
+    <Copyright>$(Authors)</Copyright>
+    <PackageIcon>favicon.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>$(AssemblyName);thread;lock;yswenli</PackageTags>
+    <PackageReleaseNotes>LuBan.framework中多线程解决方案、例如同步锁、异步锁、线程工作池、任务工作池、线程安全阻塞式队列等</PackageReleaseNotes>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\favicon.png">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <None Include="README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Update="SqlSugarCore" Version="5.1.4.216" />
+    <PackageReference Update="System.Security.Cryptography.Xml" Version="10.0.9" />
+  </ItemGroup>
+
+</Project>
