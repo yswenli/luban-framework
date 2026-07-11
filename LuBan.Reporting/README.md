@@ -2,7 +2,7 @@
 
 # LuBan.Reporting
 
-> **作者**: yswenli | **代码仓库**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
+> **作者**: yswenli | **联系邮箱**: yswenli@outlook.com | **代码仓库**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
 > **泛型列表一键导出 Excel/CSV，动态报表支持 SQL + Lua 脚本变换——告别重复的导出代码。**
 

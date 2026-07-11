@@ -2,7 +2,7 @@
 
 # LuBan.EventBus
 
-> **作者**: yswenli | **代码仓库**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
+> **作者**: yswenli | **联系邮箱**: yswenli@outlook.com | **代码仓库**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
 > 轻量级进程内事件总线，让模块间通信像呼吸一样自然。
 

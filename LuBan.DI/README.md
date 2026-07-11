@@ -2,7 +2,7 @@
 
 # LuBan.DI
 
-> **作者**: yswenli | **代码仓库**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
+> **作者**: yswenli | **联系邮箱**: yswenli@outlook.com | **代码仓库**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
 > **"标记接口 + 自动扫描，依赖注入从此告别手动注册。"**
 

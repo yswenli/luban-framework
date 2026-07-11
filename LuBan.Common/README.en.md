@@ -2,7 +2,7 @@
 
 # LuBan.Common
 
-> **Author**: yswenli | **Repository**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
+> **Author**: yswenli | **Contact**: yswenli@outlook.com | **Repository**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
 > **"The Swiss Army knife for enterprise development — ready out of the box, write 80% less boilerplate."**
 

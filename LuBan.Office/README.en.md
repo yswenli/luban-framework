@@ -1,7 +1,7 @@
 [中文](README.md) | English
 # LuBan.Office
 
-> **Author**: yswenli | **Repository**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
+> **Author**: yswenli | **Contact**: yswenli@outlook.com | **Repository**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
 > Office document automation — create, edit, and convert PPT, Word, and PDF files in a single line of code.
 

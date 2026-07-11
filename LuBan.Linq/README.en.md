@@ -2,7 +2,7 @@
 
 # LuBan.Linq
 
-> **Author**: yswenli | **Repository**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
+> **Author**: yswenli | **Contact**: yswenli@outlook.com | **Repository**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
 > **"Dynamic queries, expression composition, tree conversion — the ultimate LINQ enhancement package."**
 

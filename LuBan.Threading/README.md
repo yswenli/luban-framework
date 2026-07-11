@@ -2,7 +2,7 @@
 
 # LuBan.Threading
 
-> **作者**: yswenli | **代码仓库**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
+> **作者**: yswenli | **联系邮箱**: yswenli@outlook.com | **代码仓库**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
 > **"多线程不再翻车：锁、池、队列，一行代码搞定并发。"**
 

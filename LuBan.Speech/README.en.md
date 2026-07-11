@@ -2,7 +2,7 @@
 
 # LuBan.Speech
 
-> **Author**: yswenli | **Repository**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
+> **Author**: yswenli | **Contact**: yswenli@outlook.com | **Repository**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
 > Minimal speech recognition integration — connect to Speech Recognition API in one line of code. Audio-to-text has never been easier.
 

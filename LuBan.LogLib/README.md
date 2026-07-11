@@ -2,7 +2,7 @@
 
 # LuBan.LogLib
 
-> **作者**: yswenli | **代码仓库**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
+> **作者**: yswenli | **联系邮箱**: yswenli@outlook.com | **代码仓库**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
 > 数据库日志自动收集 —— 异常日志、API 调用日志批量入库，自动清理，开箱即用。
 

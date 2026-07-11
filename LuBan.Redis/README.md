@@ -1,7 +1,7 @@
 [English](README.en.md) | 中文
 # LuBan.Redis
 
-> **作者**: yswenli | **代码仓库**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
+> **作者**: yswenli | **联系邮箱**: yswenli@outlook.com | **代码仓库**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
 > 一站式 Redis 解决方案 —— 缓存、队列、发布订阅、分布式锁，一个 SDK 全搞定。
 

@@ -2,7 +2,7 @@
 
 # LuBan.VideoKit
 
-> **Author**: yswenli | **Repository**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
+> **Author**: yswenli | **Contact**: yswenli@outlook.com | **Repository**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
 > Ultra-simple video processing — extract cover thumbnails from videos in one line of code.
 

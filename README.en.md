@@ -2,7 +2,7 @@
 
 # LuBan.Framework
 
-> **Author**: yswenli | **Repository**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
+> **Author**: yswenli | **Contact**: yswenli@outlook.com | **Repository**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
 > **One-stop .NET 8 Enterprise API Development Framework — From ORM to AI Agent, Ready Out of the Box.**
 

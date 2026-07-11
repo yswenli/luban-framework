@@ -2,7 +2,7 @@
 
 # LuBan.Wechat
 
-> **Author**: yswenli | **Repository**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
+> **Author**: yswenli | **Contact**: yswenli@outlook.com | **Repository**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
 > **WeChat Official Account, Mini Program, WeCom, WeChat Pay — handle the entire WeChat ecosystem with a single factory class.**
 

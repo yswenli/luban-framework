@@ -2,7 +2,7 @@
 
 # LuBan.Service
 
-> **作者**: yswenli | **代码仓库**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
+> **作者**: yswenli | **联系邮箱**: yswenli@outlook.com | **代码仓库**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
 > 业务服务与后台任务的统一基座，让每个服务都站在巨人的肩膀上。
 

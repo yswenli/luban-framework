@@ -1,7 +1,7 @@
 [English](README.en.md) | 中文
 # LuBan.PdfKit
 
-> **作者**: yswenli | **代码仓库**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
+> **作者**: yswenli | **联系邮箱**: yswenli@outlook.com | **代码仓库**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
 > PDF 操作利器 —— 文本替换、图片替换、HTML 转 PDF，几行代码搞定。
 

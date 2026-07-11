@@ -2,7 +2,7 @@
 
 # LuBan.Qingflow
 
-> **Author**: yswenli | **Repository**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
+> **Author**: yswenli | **Contact**: yswenli@outlook.com | **Repository**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
 > **All-in-one Qingflow Open API client — app data, approval flows, user management, reports & charts, all in a single class.**
 

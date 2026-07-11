@@ -2,7 +2,7 @@
 
 # LuBan.Linq
 
-> **作者**: yswenli | **代码仓库**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
+> **作者**: yswenli | **联系邮箱**: yswenli@outlook.com | **代码仓库**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
 > **"动态查询、表达式组合、树形转换——LINQ 的终极增强包。"**
 

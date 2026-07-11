@@ -301,6 +301,7 @@ public class UserController : BaseApiController
 [![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
 
 - **作者**：yswenli
+- **联系邮箱**：yswenli@outlook.com
 - **目标框架**：.NET 8.0
 - **更新频率**：持续迭代
 

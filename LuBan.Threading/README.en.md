@@ -2,7 +2,7 @@
 
 # LuBan.Threading
 
-> **Author**: yswenli | **Repository**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
+> **Author**: yswenli | **Contact**: yswenli@outlook.com | **Repository**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
 > **"No more concurrency headaches: locks, pools, queues — one line of code handles it all."**
 

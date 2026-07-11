@@ -2,7 +2,7 @@
 
 # LuBan.AIAgent
 
-> **Author**: yswenli | **Repository**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
+> **Author**: yswenli | **Contact**: yswenli@outlook.com | **Repository**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
 > A complete AI Agent framework that gives large language models the ability to think, plan, use tools, and execute autonomously.
 

@@ -2,7 +2,7 @@
 
 # LuBan.Lives
 
-> **Author**: yswenli | **Repository**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
+> **Author**: yswenli | **Contact**: yswenli@outlook.com | **Repository**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
 > Unified multi-platform live streaming SDK — integrate four major live streaming platforms with a single codebase: TalkMed, VZan, YiBai, and HuiChang.
 

@@ -1,7 +1,7 @@
 [English](README.en.md) | 中文
 # LuBan.Office
 
-> **作者**: yswenli | **代码仓库**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
+> **作者**: yswenli | **联系邮箱**: yswenli@outlook.com | **代码仓库**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
 > Office 文档自动化 —— PPT、Word、PDF 的创建、编辑与格式转换，一行代码完成。
 

@@ -2,7 +2,7 @@
 
 # LuBan.VideoKit
 
-> **作者**: yswenli | **代码仓库**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
+> **作者**: yswenli | **联系邮箱**: yswenli@outlook.com | **代码仓库**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
 > 视频处理极简工具 —— 一行代码从视频中提取封面缩略图。
 

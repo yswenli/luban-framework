@@ -2,7 +2,7 @@
 
 # LuBan.AIAgent
 
-> **作者**: yswenli | **代码仓库**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
+> **作者**: yswenli | **联系邮箱**: yswenli@outlook.com | **代码仓库**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
 > 完整的 AI Agent 框架，让大模型拥有思考、规划、使用工具、自主执行的能力。
 

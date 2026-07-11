@@ -2,7 +2,7 @@
 
 # LuBan.ApprovalFlow
 
-> **作者**: yswenli | **代码仓库**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
+> **作者**: yswenli | **联系邮箱**: yswenli@outlook.com | **代码仓库**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
 > **JSON 定义流程、代码驱动审批——一个轻量级审批流引擎，支持会签、网关路由、HTTP 回调和自动推进。**
 

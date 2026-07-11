@@ -1,7 +1,7 @@
 [中文](README.md) | English
 # LuBan.Redis
 
-> **Author**: yswenli | **Repository**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
+> **Author**: yswenli | **Contact**: yswenli@outlook.com | **Repository**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
 > A one-stop Redis solution — caching, queues, pub/sub, distributed locks, all in a single SDK.
 

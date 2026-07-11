@@ -2,7 +2,7 @@
 
 # LuBan.Orm
 
-> **作者**: yswenli | **代码仓库**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
+> **作者**: yswenli | **联系邮箱**: yswenli@outlook.com | **代码仓库**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
 > 一站式 ORM 解决方案，从建表到查询，从单库到多租户，一个库全搞定。
 

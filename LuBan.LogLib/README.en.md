@@ -2,7 +2,7 @@
 
 # LuBan.LogLib
 
-> **Author**: yswenli | **Repository**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
+> **Author**: yswenli | **Contact**: yswenli@outlook.com | **Repository**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
 > Automatic database log collection — batch insert error logs and API call logs into the database, with automatic cleanup, ready to use out of the box.
 

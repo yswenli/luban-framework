@@ -2,7 +2,7 @@
 
 # LuBan.Common
 
-> **作者**: yswenli | **代码仓库**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
+> **作者**: yswenli | **联系邮箱**: yswenli@outlook.com | **代码仓库**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
 > **"企业级开发的瑞士军刀，开箱即用，少写 80% 的样板代码。"**
 

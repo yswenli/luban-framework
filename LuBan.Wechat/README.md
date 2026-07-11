@@ -2,7 +2,7 @@
 
 # LuBan.Wechat
 
-> **作者**: yswenli | **代码仓库**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
+> **作者**: yswenli | **联系邮箱**: yswenli@outlook.com | **代码仓库**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
 > **微信公众号、小程序、企业微信、微信支付——一个工厂类搞定全部微信生态对接。**
 

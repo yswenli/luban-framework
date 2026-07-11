@@ -1,7 +1,7 @@
 [中文](README.md) | English
 # LuBan.PdfKit
 
-> **Author**: yswenli | **Repository**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
+> **Author**: yswenli | **Contact**: yswenli@outlook.com | **Repository**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
 > A powerful PDF toolkit — text replacement, image replacement, HTML to PDF, all in just a few lines of code.
 

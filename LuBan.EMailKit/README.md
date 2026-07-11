@@ -1,7 +1,7 @@
 [English](README.en.md) | 中文
 # LuBan.E邮件处理库
 
-> **作者**: yswenli | **代码仓库**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
+> **作者**: yswenli | **联系邮箱**: yswenli@outlook.com | **代码仓库**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
 > 邮件收发一站式套件 —— SMTP 发送、IMAP/POP3 收取，统一接口轻松搞定。
 

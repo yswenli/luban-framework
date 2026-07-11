@@ -2,7 +2,7 @@
 
 # LuBan.Web.Core
 
-> **作者**: yswenli | **代码仓库**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
+> **作者**: yswenli | **联系邮箱**: yswenli@outlook.com | **代码仓库**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
 > **一行代码启动企业级 API 服务——JWT、Swagger、多租户、审批流、实时通信全内置。**
 

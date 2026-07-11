@@ -1,7 +1,7 @@
 [English](README.en.md) | 中文
 # LuBan.CloudStorage
 
-> **作者**: yswenli | **代码仓库**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
+> **作者**: yswenli | **联系邮箱**: yswenli@outlook.com | **代码仓库**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
 > 一套接口，三大云商 —— 云存储、云存储、对象存储 无缝切换，代码零改动。
 

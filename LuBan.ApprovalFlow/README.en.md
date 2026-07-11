@@ -2,7 +2,7 @@
 
 # LuBan.ApprovalFlow
 
-> **Author**: yswenli | **Repository**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
+> **Author**: yswenli | **Contact**: yswenli@outlook.com | **Repository**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
 > **Define workflows in JSON, drive approvals with code — a lightweight approval flow engine supporting countersign, gateway routing, HTTP callbacks, and auto-advancement.**
 

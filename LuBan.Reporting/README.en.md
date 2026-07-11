@@ -2,7 +2,7 @@
 
 # LuBan.Reporting
 
-> **Author**: yswenli | **Repository**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
+> **Author**: yswenli | **Contact**: yswenli@outlook.com | **Repository**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
 > **One-click Excel/CSV export for generic lists, dynamic reports with SQL + Lua script transforms — say goodbye to repetitive export code.**
 

@@ -2,7 +2,7 @@
 
 # LuBan.Orm
 
-> **Author**: yswenli | **Repository**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
+> **Author**: yswenli | **Contact**: yswenli@outlook.com | **Repository**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
 > An all-in-one ORM solution — from table creation to queries, from single database to multi-tenancy, all in one package.
 

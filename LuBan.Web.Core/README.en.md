@@ -2,7 +2,7 @@
 
 # LuBan.Web.Core
 
-> **Author**: yswenli | **Repository**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
+> **Author**: yswenli | **Contact**: yswenli@outlook.com | **Repository**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
 > **Launch enterprise-grade API services with a single line of code — JWT, Swagger, multi-tenancy, approval flow, and real-time communication all built-in.**
 

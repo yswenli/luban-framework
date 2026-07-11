@@ -1,7 +1,7 @@
 [中文](README.md) | English
 # LuBan.E邮件处理库
 
-> **Author**: yswenli | **Repository**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
+> **Author**: yswenli | **Contact**: yswenli@outlook.com | **Repository**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
 > A one-stop email suite — SMTP sending, IMAP/POP3 receiving, all through a unified interface.
 

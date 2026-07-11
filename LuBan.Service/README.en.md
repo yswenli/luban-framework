@@ -2,7 +2,7 @@
 
 # LuBan.Service
 
-> **Author**: yswenli | **Repository**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
+> **Author**: yswenli | **Contact**: yswenli@outlook.com | **Repository**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
 > The unified foundation for business services and background tasks — let every service stand on the shoulders of giants.
 

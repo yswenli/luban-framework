@@ -2,7 +2,7 @@
 
 # LuBan.EventBus
 
-> **Author**: yswenli | **Repository**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
+> **Author**: yswenli | **Contact**: yswenli@outlook.com | **Repository**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
 > A lightweight in-process event bus that makes inter-module communication as natural as breathing.
 

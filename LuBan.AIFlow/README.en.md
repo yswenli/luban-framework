@@ -2,7 +2,7 @@
 
 # LuBan.AIFlow
 
-> **Author**: yswenli | **Repository**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
+> **Author**: yswenli | **Contact**: yswenli@outlook.com | **Repository**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
 > One interface to connect multiple AI platforms — RagFlow / Dify / Coze, plug and play.
 

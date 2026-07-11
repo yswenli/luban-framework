@@ -2,7 +2,7 @@
 
 # LuBan.Speech
 
-> **作者**: yswenli | **代码仓库**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
+> **作者**: yswenli | **联系邮箱**: yswenli@outlook.com | **代码仓库**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
 > 语音识别极简集成 —— 语音识别 API 一行代码接入，音频流转文字如此简单。
 
