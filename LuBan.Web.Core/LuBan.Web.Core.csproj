@@ -8,7 +8,7 @@
 		<DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
 		<GeneratePackageOnBuild>True</GeneratePackageOnBuild>
 		<Title>$(AssemblyName)</Title>
-		<Version>2026.7.11.2</Version>
+		<Version>2026.7.12.1</Version>
 		<Authors>yswenli</Authors>
 		<Description>LuBan Framework中api核心功能项目，基于aspnetcore集成di、jwt、swagger、codefirtst、支持多种常见数据库、nacos配置中心、统一接口回复参数、全局异常捕获、全局接口日志、防重放攻击、图形验证码、快捷上下文对象、上传下载、数据导入导出等功能</Description>
 		<Copyright>yswenli</Copyright>

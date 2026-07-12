@@ -60,7 +60,7 @@ public class DbDictData : EntityBase
     /// <summary>
     /// 字典值
     /// </summary>
-    [SugarColumn(ColumnDescription = "字典值", ColumnDataType = "ntext")]
+    [SugarColumn(ColumnDescription = "字典值", ColumnDataType = StaticConfig.CodeFirst_BigString)]
     [Required(ErrorMessage = "请输入字典值")]
     public string Value { get; set; }
 
