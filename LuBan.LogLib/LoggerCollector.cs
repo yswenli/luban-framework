@@ -36,9 +36,7 @@ public class LoggerCollector : BaseSingleInstance<LoggerCollector>
 
     Batcher<ApiLogInfo> _apiLogbatcher;
 
-    BaseRepository<DbLogError> _errorLogRepo;
-
-    BaseRepository<DbLogApi> _apiLogInfoRepo;
+    readonly bool _enableDbLogs;
 
     readonly string _serviceName = "";
 
@@ -49,18 +47,19 @@ public class LoggerCollector : BaseSingleInstance<LoggerCollector>
     {
         _serviceName = ConfigUtil.GetServiceName();
 
+        DbConnectionOptions dbConnectionOptions;
         try
         {
-            _errorLogRepo = new BaseRepository<DbLogError>();
-            _apiLogInfoRepo = new BaseRepository<DbLogApi>();
-
+            var tempRepo = new BaseRepository<DbLogError>();
+            dbConnectionOptions = tempRepo.DbConnectionOptions;
         }
         catch (Exception ex)
         {
             throw new Exception("在配置文件中找不到服务名为LogsDB的数据库连接字符串", ex);
         }
 
-        if (!_errorLogRepo.DbConnectionOptions.EnableDbLogs) return;
+        _enableDbLogs = dbConnectionOptions.EnableDbLogs;
+        if (!_enableDbLogs) return;
 
         _logBatcher = new Batcher<LogInfo>();
         _logBatcher.OnBatched += _batcher1_OnBatched;
@@ -70,8 +69,7 @@ public class LoggerCollector : BaseSingleInstance<LoggerCollector>
         _apiLogbatcher.OnBatched += _batcher4_OnBatched;
         _apiLogbatcher.OnError += _batcher4_OnError;
 
-
-        _dbLogCleaner = new(_errorLogRepo.DbConnectionOptions.DbLogOptions);
+        _dbLogCleaner = new(dbConnectionOptions.DbLogOptions);
     }
 
 
@@ -80,7 +78,7 @@ public class LoggerCollector : BaseSingleInstance<LoggerCollector>
     /// </summary>
     public void Start()
     {
-        if (!_errorLogRepo.DbConnectionOptions.EnableDbLogs) return;
+        if (!_enableDbLogs) return;
         _dbLogCleaner.Start();
         Logger.OnCalled += Logger_OnReceived;
         Logger.OnError += Logger_OnReceived;
@@ -124,7 +122,8 @@ public class LoggerCollector : BaseSingleInstance<LoggerCollector>
             }
             try
             {
-                _errorLogRepo.InsertRange(list);
+                var repo = new BaseRepository<DbLogError>();
+                repo.InsertRange(list);
             }
             catch (Exception ex)
             {
@@ -190,7 +189,8 @@ public class LoggerCollector : BaseSingleInstance<LoggerCollector>
             }
             try
             {
-                var result = _apiLogInfoRepo.InsertRange(list);
+                var repo = new BaseRepository<DbLogApi>();
+                repo.InsertRange(list);
             }
             catch (Exception ex)
             {

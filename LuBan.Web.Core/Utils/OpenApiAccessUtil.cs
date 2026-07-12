@@ -28,16 +28,6 @@ namespace LuBan.Web.Core.Utils;
 /// </summary>
 public static class OpenApiAccessUtil
 {
-    static DbRepository<DbOpenAccess> _openAccessResp;
-
-    /// <summary>
-    /// 开放接口工具类
-    /// </summary>
-    static OpenApiAccessUtil()
-    {
-        _openAccessResp = new DbRepository<DbOpenAccess>();
-    }
-
     /// <summary>
     /// 生成refreshToken
     /// </summary>
@@ -47,7 +37,8 @@ public static class OpenApiAccessUtil
     /// <returns></returns>
     public static async Task<OpenAccessToken> GetRefreshTokenAsync([NotNull] string accessKey, [NotNull] string accessSecrect, int timeout = 7200)
     {
-        var entity = await _openAccessResp.FirstAsync(q => q.IsDelete == false && q.AccessKey == accessKey && q.AccessSecret == accessSecrect);
+        var resp = new DbRepository<DbOpenAccess>();
+        var entity = await resp.FirstAsync(q => q.IsDelete == false && q.AccessKey == accessKey && q.AccessSecret == accessSecrect);
         if (entity == null || entity.Id < 1) throw FriendlyError.Ex("用户凭证不正确");
         if (entity.BindUserId < 1 || !entity.IsEnabled) throw FriendlyError.Ex("当前凭证暂未启用，请联系管理员");
         if (entity.RefreshToken.IsNullOrEmpty()) throw FriendlyError.Ex("当前凭证未初始，请联系管理员");
@@ -68,7 +59,8 @@ public static class OpenApiAccessUtil
     /// <returns></returns>
     public static async Task<AccessToken> GetAccessTokenAsync([NotNull] string refreshToken, int timeout = 7200)
     {
-        var entity = await _openAccessResp.FirstAsync(q => q.IsDelete == false && q.RefreshToken == refreshToken);
+        var resp = new DbRepository<DbOpenAccess>();
+        var entity = await resp.FirstAsync(q => q.IsDelete == false && q.RefreshToken == refreshToken);
         if (entity == null || entity.Id < 1) throw FriendlyError.Ex("refreshtoken不正确");
         if (entity.BindUserId < 1 || !entity.IsEnabled) throw FriendlyError.Ex("当前凭证暂未启用，请联系管理员");
         var json = AESUtil.Decrypt(refreshToken, CommonConst.SecretSalt);
@@ -93,7 +85,8 @@ public static class OpenApiAccessUtil
     /// <returns></returns>
     public static string GenerateRefreshToken(long bindUserId, TimeSpan expired)
     {
-        var user = _openAccessResp.Change<DbUser>().First(q => q.IsDelete == false && q.Id == bindUserId);
+        var resp = new DbRepository<DbOpenAccess>();
+        var user = resp.Change<DbUser>().First(q => q.IsDelete == false && q.Id == bindUserId);
         if (user == null || user.Id < 1) throw FriendlyError.Ex("不存在此用户");
         var data = new OpenAccessUserIdExpired()
         {

@@ -28,11 +28,6 @@ namespace LuBan.Service;
 /// </summary>
 public class JobLogService : BaseService<JobLogService>
 {
-    BaseRepository<DbLogJob> _resp = new();
-
-    /// <summary>
-    /// 任务日志记录时间跟踪字典，key为任务名称，value为最近记录时间和日志ID
-    /// </summary>
     private readonly ConcurrentDictionary<string, (DateTime LastLogTime, long LogId)> _jobLogTimestamps = new();
 
     /// <summary>
@@ -49,7 +44,7 @@ public class JobLogService : BaseService<JobLogService>
             key: jobName,
             addValueFactory: (name) =>
             {
-                // 如果任务不存在于字典中，创建新的日志记录
+                var resp = new BaseRepository<DbLogJob>();
                 var jobLog = new DbLogJob
                 {
                     Name = name,
@@ -57,15 +52,14 @@ public class JobLogService : BaseService<JobLogService>
                     Status = EnumJobStatus.Running,
                     CreateTime = now
                 };
-                jobLog = _resp.InsertReturnEntity(jobLog);
+                jobLog = resp.InsertReturnEntity(jobLog);
                 return (now, jobLog.Id);
             },
             updateValueFactory: (name, existing) =>
             {
-                // 如果任务存在于字典中，检查是否超过记录间隔
                 if ((now - existing.LastLogTime).TotalSeconds >= intervalSeconds)
                 {
-                    // 超过间隔，创建新的日志记录
+                    var resp = new BaseRepository<DbLogJob>();
                     var jobLog = new DbLogJob
                     {
                         Name = name,
@@ -73,10 +67,9 @@ public class JobLogService : BaseService<JobLogService>
                         Status = EnumJobStatus.Running,
                         CreateTime = now
                     };
-                    jobLog = _resp.InsertReturnEntity(jobLog);
+                    jobLog = resp.InsertReturnEntity(jobLog);
                     return (now, jobLog.Id);
                 }
-                // 未超过间隔，返回已存在的日志ID
                 return existing;
             }
         ).LogId;
@@ -111,7 +104,8 @@ public class JobLogService : BaseService<JobLogService>
     /// <param name="message">消息</param>
     private void UpdateJobLog(long logId, EnumJobStatus status, EnumJobResult? result, string message)
     {
-        var jobLog = _resp.GetById(logId);
+        var resp = new BaseRepository<DbLogJob>();
+        var jobLog = resp.GetById(logId);
 
         if (jobLog != null)
         {
@@ -121,7 +115,7 @@ public class JobLogService : BaseService<JobLogService>
             jobLog.EndTime = DateTime.Now;
             jobLog.Duration = (long)(jobLog.EndTime.Value - jobLog.StartTime).TotalMilliseconds;
             jobLog.UpdateTime = DateTime.Now;
-            _resp.Update(jobLog);
+            resp.Update(jobLog);
         }
     }
 
@@ -139,7 +133,8 @@ public class JobLogService : BaseService<JobLogService>
     public PagedList<DbLogJob> GetJobLogs(string jobName = "", DateTime? startTime = null, DateTime? endTime = null,
         EnumJobStatus? status = null, EnumJobResult? result = null, int pageIndex = 1, int pageSize = 20)
     {
-        var query = _resp.AsQueryable();
+        var resp = new BaseRepository<DbLogJob>();
+        var query = resp.AsQueryable();
 
         if (!string.IsNullOrEmpty(jobName))
         {
@@ -181,7 +176,8 @@ public class JobLogService : BaseService<JobLogService>
     /// <returns>作业日志详情</returns>
     public DbLogJob GetJobLogDetail(long logId)
     {
-        return _resp.GetById(logId);
+        var resp = new BaseRepository<DbLogJob>();
+        return resp.GetById(logId);
     }
 
     /// <summary>
@@ -193,7 +189,8 @@ public class JobLogService : BaseService<JobLogService>
     {
         try
         {
-            var latestJob = _resp.AsQueryable()
+            var resp = new BaseRepository<DbLogJob>();
+            var latestJob = resp.AsQueryable()
                    .Where(x => x.Name == jobName)
                    .OrderByDescending(x => x.StartTime)
                    .First();
@@ -212,10 +209,11 @@ public class JobLogService : BaseService<JobLogService>
     /// <returns>删除的日志数量</returns>
     public bool DeleteJobLogs(string? jobName = null)
     {
+        var resp = new BaseRepository<DbLogJob>();
         if (string.IsNullOrEmpty(jobName))
         {
-            return _resp.Delete(q => q.Id > 0);
+            return resp.Delete(q => q.Id > 0);
         }
-        return _resp.Delete(q => q.Name == jobName);
+        return resp.Delete(q => q.Name == jobName);
     }
 }
