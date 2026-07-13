@@ -22,7 +22,7 @@
 *
 *****************************************************************************/
 
-namespace MLuBan.Orm.Entities;
+namespace LuBan.Orm.Entities;
 
 /// <summary>
 /// 系统在线用户表
