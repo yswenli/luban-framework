@@ -43,78 +43,78 @@ public class CommonConst
     /// <summary>
     /// 系统配置
     /// </summary>
-    public const string SysCode = "sys-LuBan-framework:";
+    public const string SysCode = "sys-luban-framework:";
 
     /// <summary>
     /// 演示环境开关
     /// </summary>
-    public const string SysDemoEnv = "sys-LuBan-framework:demo";
+    public const string SysDemoEnv = "sys-luban-framework:demo";
 
     /// <summary>
     /// 默认密码
     /// </summary>
-    public const string SysPasswordCode = "sys-LuBan-framework:password";
+    public const string SysPasswordCode = "sys-luban-framework:password";
 
     /// <summary>
     /// 密码盐值
     /// </summary>
-    public const string SysPasswordSaltCode = "sys-LuBan-framework:password-salt";
+    public const string SysPasswordSaltCode = "sys-luban-framework:password-salt";
 
     /// <summary>
     /// 登录二次验证
     /// </summary>
-    public const string SysSecondVerCode = "sys-LuBan-framework:second-ver";
+    public const string SysSecondVerCode = "sys-luban-framework:second-ver";
 
     /// <summary>
     /// 开启图形验证码
     /// </summary>
-    public const string SysCaptchaCode = "sys-LuBan-framework:captcha";
+    public const string SysCaptchaCode = "sys-luban-framework:captcha";
 
     /// <summary>
     /// 开启滑动验证码
     /// </summary>
-    public const string SysSliderCode = "sys-LuBan-framework:slider";
+    public const string SysSliderCode = "sys-luban-framework:slider";
 
     /// <summary>
     /// 开启水印
     /// </summary>
-    public const string SysWatermarkCode = "sys-LuBan-framework:watermark";
+    public const string SysWatermarkCode = "sys-luban-framework:watermark";
 
     /// <summary>
     /// 开启操作日志
     /// </summary>
-    public const string SysOpLog = "sys-LuBan-framework:oplog";
+    public const string SysOpLog = "sys-luban-framework:oplog";
 
     /// <summary>
     /// Token过期时间
     /// </summary>
-    public const string SysTokenExpireCode = "sys-LuBan-framework:token-expire";
+    public const string SysTokenExpireCode = "sys-luban-framework:token-expire";
 
     /// <summary>
     /// RefreshToken过期时间
     /// </summary>
-    public const string SysRefreshTokenExpireCode = "sys-LuBan-framework:refresh-token-expire";
+    public const string SysRefreshTokenExpireCode = "sys-luban-framework:refresh-token-expire";
 
     /// <summary>
     /// 单用户登录
     /// </summary>
-    public const string SysSingleLogin = "sys-LuBan-framework:single-login";
+    public const string SysSingleLogin = "sys-luban-framework:single-login";
 
     /// <summary>
     /// 系统管理员角色编码
     /// </summary>
-    public const string SysAdminRole = "sys-LuBan-framework:user:admin";
+    public const string SysAdminRole = "sys-luban-framework:user:admin";
 
     /// <summary>
     /// 系统项目key
     /// </summary>
 
-    public const string SysManagementPlatformCode = "sys-LuBan-framework:management-platform";
+    public const string SysManagementPlatformCode = "sys-luban-framework:management-platform";
 
 
 
     /// <summary>
     /// Token过期时间
     /// </summary>
-    public const string SysForbiddenAccessRolesCode = "sys-LuBan-framework:rorbidden-access:roles";
+    public const string SysForbiddenAccessRolesCode = "sys-luban-framework:rorbidden-access:roles";
 }
