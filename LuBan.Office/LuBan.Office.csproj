@@ -7,7 +7,7 @@
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <PackageId>$(AssemblyName)</PackageId>
     <Title>$(AssemblyName)</Title>
-    <Version>2026.7.13.1</Version>
+    <Version>2026.7.13.2</Version>
     <Authors>yswenli</Authors>
     <Description>LuBan Framework中Office相关的SDK，目前支持在windows平台下操作ppt，例如文本、图片、表格、视频等</Description>
     <Copyright>$(Authors)</Copyright>

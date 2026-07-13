@@ -7,7 +7,7 @@
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <PackageId>$(AssemblyName)</PackageId>
     <Title>$(AssemblyName)</Title>
-    <Version>2026.7.13.1</Version>
+    <Version>2026.7.13.2</Version>
     <Authors>yswenli</Authors>
     <Description>语音转换工具类</Description>
     <Copyright>$(Authors)</Copyright>

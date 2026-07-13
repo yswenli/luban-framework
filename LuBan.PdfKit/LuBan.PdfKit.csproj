@@ -7,7 +7,7 @@
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <PackageId>$(AssemblyName)</PackageId>
     <Title>$(AssemblyName)</Title>
-    <Version>2026.7.13.1</Version>
+    <Version>2026.7.13.2</Version>
     <Company>$(Authors)</Company>
     <Description>基于iText7的pdf文本替换工具集</Description>
     <Copyright>$(Authors)</Copyright>
