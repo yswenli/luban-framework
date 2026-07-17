@@ -203,7 +203,7 @@ public static bool ValidateTotp(string code, string secret, int digits = 6)
 - Validates code against current, previous, and next time steps (90-second window)
 - Returns `false` for any invalid input (no exceptions)
 - Matches existing `RandomUtil.ValideWFACode` pattern
-- Case-insensitive code comparison
+- Code comparison is case-sensitive (numbers only, so typically no difference)
 
 **Examples:**
 ```csharp
@@ -222,13 +222,18 @@ var invalid = OptUtil.ValidateTotp("000000", secret); // false
 ```csharp
 public static string GenerateSecret(int length = 20)
 {
+    if (length < 16 || length > 64)
+        throw new ArgumentOutOfRangeException(nameof(length), "Length must be between 16 and 64 bytes");
+    
     var key = KeyGeneration.GenerateRandomKey(length);
     return Base32Encoding.ToString(key);
 }
 ```
 
+- Validates `length` parameter (16-64 bytes range)
 - Uses Otp.NET's `KeyGeneration.GenerateRandomKey()` for cryptographic randomness
 - Converts to Base32 encoding (standard for TOTP secrets)
+- Default 20 bytes is recommended for SHA-1 based TOTP
 
 ### GetTotp Implementation
 
@@ -329,24 +334,28 @@ public static byte[] GenerateQrCode(string secret, string email, string issuer, 
     
     var uri = GenerateOtpAuthUri(secret, email, issuer);
     
-    var writer = new BarcodeWriter<SKBitmap>();
-    writer.Format = BarcodeFormat.QR_CODE;
-    writer.Options = new EncodingOptions
+    // Use ZXing.SkiaSharp.BarcodeWriter matching existing CodeUtil pattern
+    var writer = new ZXing.SkiaSharp.BarcodeWriter
     {
-        Width = width,
-        Height = height,
-        Margin = 1
+        Format = BarcodeFormat.QR_CODE,
+        Options = new EncodingOptions
+        {
+            Width = width,
+            Height = height,
+            Margin = 1
+        }
     };
     
     using var bitmap = writer.Write(uri);
+    using var image = SKImage.FromBitmap(bitmap);
     using var stream = new MemoryStream();
-    bitmap.Encode(stream, SKEncodedImageFormat.Png, 100);
+    image.Encode(SKEncodedImageFormat.Png, 100).SaveTo(stream);
     return stream.ToArray();
 }
 ```
 
 - Validates parameters including size bounds
-- Uses existing ZXing.Net dependency for QR generation
+- Uses existing ZXing.SkiaSharp dependency for QR generation (matches CodeUtil pattern)
 - Uses existing SkiaSharp dependency for image encoding
 - Returns PNG format bytes
 
