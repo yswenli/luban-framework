@@ -122,7 +122,9 @@
         /// <summary>
         /// 获取动态码
         /// </summary>
-        /// <returns></returns>
+        /// <param name="key">Base32-encoded secret key</param>
+        /// <param name="size">Code length (default 6)</param>
+        /// <returns>Current TOTP code</returns>
         public static string GetWFACode(string key, int size = 6)
         {
             return OptUtil.GetTotp(key, size);
@@ -131,14 +133,13 @@
         /// <summary>
         /// 校验动态码
         /// </summary>
-        /// <param name="valideCode"></param>
-        /// <param name="key"></param>
-        /// <param name="size"></param>
-        /// <returns></returns>
+        /// <param name="valideCode">User-provided TOTP code</param>
+        /// <param name="key">Base32-encoded secret key</param>
+        /// <param name="size">Expected code length (default 6)</param>
+        /// <returns>True if valid, false otherwise</returns>
         public static bool ValideWFACode(string valideCode, string key, int size = 6)
         {
-            var code = GetWFACode(key, size);
-            return valideCode == code;
+            return OptUtil.ValidateTotp(valideCode, key, size);
         }
 
         #endregion
