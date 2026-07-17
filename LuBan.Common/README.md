@@ -167,9 +167,36 @@ dotnet add package LuBan.Common
 
 ### 安全与防重放
 
-`AraReplayAttacksUtil`、`AntiReplayAttacks.AraInfo`
+`AraReplayAttacksUtil`、`AntiReplayAttacks.AraInfo`、`PasswordUtil`
 
-> 接口安全，防重放攻击。
+> 接口安全，防重放攻击，密码加密校验。
+
+### 双因素认证 (MFA/2FA)
+
+`OptUtil`
+
+> TOTP（Time-based One-Time Password）双因素认证，生成验证码、校验验证码、生成 QR 码供认证器应用扫描。
+> 
+> 支持 Google Authenticator、Microsoft Authenticator 等标准认证器应用。
+
+**快速上手：**
+
+```csharp
+using LuBan.Common;
+
+// 1. 生成密钥（用户启用 MFA 时）
+var secret = OptUtil.GenerateSecret();
+
+// 2. 生成 QR 码供用户扫描
+var qrCode = OptUtil.GenerateQrCode(secret, "user@example.com", "MyApp");
+
+// 3. 验证用户输入的动态码
+var userInput = "123456"; // 用户从认证器应用获取的 6 位数字
+if (OptUtil.ValidateTotp(userInput, secret))
+{
+    // 验证成功
+}
+```
 
 ### 配置与常量
 
@@ -326,6 +353,32 @@ public class UserCreatedHandler : IEventHandler<UserCreatedEvent>
 }
 
 // IEventBus 的具体实现由上层框架或业务项目注入
+```
+
+### 双因素认证 (MFA)：企业级安全标配
+
+```csharp
+using LuBan.Common;
+
+// 生成密钥并返回 QR 码供用户扫描
+var secret = OptUtil.GenerateSecret();
+var qrCodeImage = OptUtil.GenerateQrCode(secret, "user@example.com", "MyApp");
+
+// 将 QR 码返回给前端（ASP.NET Core Controller）
+// return File(qrCodeImage, "image/png");
+
+// 验证用户输入的动态码（±30秒时间容差）
+var userCode = "123456";
+if (OptUtil.ValidateTotp(userCode, secret))
+{
+    Console.WriteLine("MFA 验证成功");
+}
+
+// 或使用已有的 RandomUtil 方法
+if (RandomUtil.ValideWFACode(userCode, secret))
+{
+    Console.WriteLine("MFA 验证成功");
+}
 ```
 
 ---
