@@ -72,6 +72,8 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
     <PackageReference Include="MSTest.TestAdapter" Version="3.6.2" />
     <PackageReference Include="MSTest.TestFramework" Version="3.6.2" />
+    <PackageReference Update="System.Security.Cryptography.Xml" Version="10.0.10" />
+    <PackageReference Update="SqlSugarCore" Version="5.1.4.216" />
   </ItemGroup>
 
   <ItemGroup>
