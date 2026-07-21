@@ -600,8 +600,6 @@ public static class LuBanOrm
 
     #region 获取OrmProvider
 
-    static ConcurrentDictionary<string, OrmProvider> _ormProviders = new();
-
     /// <summary>
     /// 获取OrmProvider
     /// </summary>
@@ -613,30 +611,24 @@ public static class LuBanOrm
     {
         if (SqlSugarScope == null) throw new Exception("LuBanOrm未初始化，请先调用LuBanOrm.Init(configAction)");
 
-        return _ormProviders.GetOrAdd(tenantId, (k) =>
+        ITenant tenant = SqlSugarScope.AsTenant();
+        SqlSugarScopeProvider provider = tenant.GetConnectionScope(tenantId);
+        if (typeof(TEntity).IsDefined(typeof(TenantAttribute), false))
         {
-            ITenant tenant = SqlSugarScope.AsTenant(); ;
-            SqlSugarScopeProvider provider = tenant.GetConnectionScope(tenantId);
-            // 若实体贴有多库特性，则返回指定库连接
-            if (typeof(TEntity).IsDefined(typeof(TenantAttribute), false))
+            provider = tenant.GetConnectionScopeWithAttr<TEntity>();
+        }
+        if (typeof(TEntity).IsDefined(typeof(LogTableAttribute), false))
+        {
+            if (tenant.IsAnyConnection(LuBanOrmConst.LogConfigId))
             {
-                provider = tenant.GetConnectionScopeWithAttr<TEntity>();
+                provider = tenant.GetConnectionScope(LuBanOrmConst.LogConfigId);
             }
-            // 若实体贴有日志表特性，则返回日志库连接
-            if (typeof(TEntity).IsDefined(typeof(LogTableAttribute), false))
-            {
-                if (tenant.IsAnyConnection(LuBanOrmConst.LogConfigId))
-                {
-                    provider = tenant.GetConnectionScope(LuBanOrmConst.LogConfigId);
-                }
-            }
-            var ormProvider = new OrmProvider()
-            {
-                Tenant = tenant,
-                Provider = provider
-            };
-            return ormProvider;
-        });
+        }
+        return new OrmProvider()
+        {
+            Tenant = tenant,
+            Provider = provider
+        };
     }
 
     #endregion
