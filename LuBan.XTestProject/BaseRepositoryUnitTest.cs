@@ -61,5 +61,14 @@ namespace LuBan.XTestProject
             }
 
         }
+
+        [TestMethod]
+        public void TestGetProviderReturnsNewInstanceEachCall()
+        {
+            var provider1 = LuBanOrm.GetProvider<DbUser>(LuBanOrmConst.MainConfigId);
+            var provider2 = LuBanOrm.GetProvider<DbUser>(LuBanOrmConst.MainConfigId);
+            Assert.AreNotSame(provider1, provider2, "GetProvider should return a new instance each call, not a cached one");
+            Assert.AreNotSame(provider1.Provider, provider2.Provider, "SqlSugarScopeProvider should not be shared between calls");
+        }
     }
 }
