@@ -31,8 +31,8 @@ namespace Services.ApiServices;
 /// </summary>
 public class UserService : BaseService<UserService>
 {
-    private readonly DbRepository<DbUser> _sysUserRep;
-    private readonly DbRepository<DbUserInfo> _busUserInfoRep;
+    private DbRepository<DbUser> _sysUserRep => new();
+    private DbRepository<DbUserInfo> _busUserInfoRep => new();
     private readonly OrgService _sysOrgService;
     private readonly UserExtOrgService _sysUserExtOrgService;
 
@@ -42,8 +42,6 @@ public class UserService : BaseService<UserService>
     /// </summary>
     public UserService()
     {
-        _sysUserRep = new DbRepository<DbUser>();
-        _busUserInfoRep = new DbRepository<DbUserInfo>();
         _sysOrgService = OrgService.Instance;
         _sysUserExtOrgService = UserExtOrgService.Instance;
     }

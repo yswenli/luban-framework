@@ -30,16 +30,7 @@ namespace Services.ApiServices;
 /// </summary>
 public class RoleOrgService : BaseService<RoleOrgService>
 {
-    private readonly DbRepository<DbRoleOrg> _sysRoleOrgRep;
-
-    /// <summary>
-    /// 系统角色机构服务
-    /// </summary>
-    public RoleOrgService()
-    {
-        _sysRoleOrgRep = new DbRepository<DbRoleOrg>();
-
-    }
+    private DbRepository<DbRoleOrg> _sysRoleOrgRep => new();
 
     /// <summary>
     /// 授权角色机构

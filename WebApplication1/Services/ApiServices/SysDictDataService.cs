@@ -54,17 +54,8 @@ namespace WebApplication1.Services.ApiServices;
 /// </summary>
 public class SysDictDataService : BaseService<SysDictDataService>
 {
-    private readonly DbRepository<DbDictData> _sysDictDataRep;
-    private readonly DbRepository<DbDictType> _sysDictTypeRep;
-
-    /// <summary>
-    /// 系统字典值服务
-    /// </summary>
-    public SysDictDataService()
-    {
-        _sysDictDataRep = new DbRepository<DbDictData>();
-        _sysDictTypeRep = new DbRepository<DbDictType>();
-    }
+    private DbRepository<DbDictData> _sysDictDataRep => new();
+    private DbRepository<DbDictType> _sysDictTypeRep => new();
 
 
     /// <summary>

@@ -13,7 +13,7 @@ namespace WebApplication1.Services;
 /// </summary>
 public partial class FileService : BaseService<FileService>
 {
-    private readonly DbRepository<DbFile> _sysFileRep;
+    private DbRepository<DbFile> _sysFileRep => new();
     private readonly UploadOptions _uploadOptions;
     private readonly FileHandler _fileHandler;
 
@@ -22,7 +22,6 @@ public partial class FileService : BaseService<FileService>
     /// </summary>
     public FileService()
     {
-        _sysFileRep = new DbRepository<DbFile>();
         _uploadOptions = ConfigUtil.Read<UploadOptions>() ?? throw new Exception("uploadOptions can not be null");
         _fileHandler = new FileHandler();
     }

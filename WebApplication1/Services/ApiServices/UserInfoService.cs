@@ -30,15 +30,7 @@ namespace Services.ApiServices;
 /// </summary>
 public class UserInfoService : BaseService<UserInfoService>
 {
-    private readonly DbRepository<DbUserInfo> _busUserRep;
-
-    /// <summary>
-    /// 用户扩展信息业务类
-    /// </summary>
-    public UserInfoService()
-    {
-        _busUserRep = new DbRepository<DbUserInfo>();
-    }
+    private DbRepository<DbUserInfo> _busUserRep => new();
 
     /// <summary>
     /// 根据用户id获取用户扩展信息

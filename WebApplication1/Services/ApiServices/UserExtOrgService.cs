@@ -26,13 +26,7 @@ namespace Services.ApiServices
 
     public class UserExtOrgService : BaseService<UserExtOrgService>
     {
-        private readonly DbRepository<DbUserExtOrg> _sysUserExtOrgRep;
-
-
-        public UserExtOrgService()
-        {
-            _sysUserExtOrgRep = new DbRepository<DbUserExtOrg>();
-        }
+        private DbRepository<DbUserExtOrg> _sysUserExtOrgRep => new();
 
 
         /// <summary>

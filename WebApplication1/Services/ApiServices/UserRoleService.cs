@@ -31,15 +31,7 @@ namespace Services.ApiServices;
 public class UserRoleService : BaseService<UserRoleService>
 {
 
-    private readonly BaseRepository<DbUserRole> _sysUserRoleRep;
-
-    /// <summary>
-    /// 系统用户角色服务
-    /// </summary>
-    public UserRoleService()
-    {
-        _sysUserRoleRep = new BaseRepository<DbUserRole>();
-    }
+    private BaseRepository<DbUserRole> _sysUserRoleRep => new();
 
     /// <summary>
     /// 授权用户角色

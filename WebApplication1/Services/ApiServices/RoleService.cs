@@ -32,15 +32,7 @@ namespace Services.ApiServices;
 /// </summary>
 public class RoleService : BaseService<RoleService>
 {
-    private readonly DbRepository<DbRole> _sysRoleRep;
-
-    /// <summary>
-    /// 系统角色服务
-    /// </summary>
-    public RoleService()
-    {
-        _sysRoleRep = new DbRepository<DbRole>();
-    }
+    private DbRepository<DbRole> _sysRoleRep => new();
 
     /// <summary>
     /// 获取角色分页列表

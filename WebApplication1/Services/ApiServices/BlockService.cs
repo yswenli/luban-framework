@@ -31,15 +31,7 @@ namespace Services.ApiServices;
 /// </summary>
 public class BlockService : BaseService<BlockService>
 {
-    private readonly DbRepository<DbBlock> _busBlockRep;
-
-    /// <summary>
-    /// 内容业务
-    /// </summary>
-    public BlockService()
-    {
-        _busBlockRep = new DbRepository<DbBlock>();
-    }
+    private DbRepository<DbBlock> _busBlockRep => new();
 
     /// <summary>
     /// 获取内容列表

@@ -30,15 +30,7 @@ namespace Services.ApiServices;
 /// </summary>
 public class ConfigService : BaseService<ConfigService>
 {
-    private readonly DbRepository<DbConfig> _sysConfigRep;
-
-    /// <summary>
-    /// 系统参数配置服务
-    /// </summary>
-    public ConfigService()
-    {
-        _sysConfigRep = new DbRepository<DbConfig>();
-    }
+    private DbRepository<DbConfig> _sysConfigRep => new();
 
 
     /// <summary>

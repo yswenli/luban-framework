@@ -32,26 +32,18 @@ namespace Services.ApiServices;
 /// </summary>
 public class TenantService : BaseService<TenantService>
 {
-    private readonly DbRepository<DbTenant> _sysTenantRep;
-    private readonly DbRepository<DbOrg> _sysOrgRep;
-    private readonly DbRepository<DbRole> _sysRoleRep;
-    private readonly DbRepository<DbPos> _sysPosRep;
-    private readonly BaseRepository<DbUser> _sysUserRep;
-    private readonly DbRepository<DbUserExtOrg> _sysUserExtOrgRep;
-    private readonly DbRepository<DbRoleMenu> _sysRoleMenuRep;
-    private readonly BaseRepository<DbUserRole> _userRoleRep;
+    private DbRepository<DbTenant> _sysTenantRep => new();
+    private DbRepository<DbOrg> _sysOrgRep => new();
+    private DbRepository<DbRole> _sysRoleRep => new();
+    private DbRepository<DbPos> _sysPosRep => new();
+    private BaseRepository<DbUser> _sysUserRep => new();
+    private DbRepository<DbUserExtOrg> _sysUserExtOrgRep => new();
+    private DbRepository<DbRoleMenu> _sysRoleMenuRep => new();
+    private BaseRepository<DbUserRole> _userRoleRep => new();
     private readonly ConfigService _sysConfigService;
 
     public TenantService()
     {
-        _sysTenantRep = new DbRepository<DbTenant>();
-        _sysOrgRep = new DbRepository<DbOrg>();
-        _sysRoleRep = new DbRepository<DbRole>();
-        _sysPosRep = new DbRepository<DbPos>();
-        _sysUserRep = new DbRepository<DbUser>();
-        _sysUserExtOrgRep = new DbRepository<DbUserExtOrg>();
-        _sysRoleMenuRep = new DbRepository<DbRoleMenu>();
-        _userRoleRep = new BaseRepository<DbUserRole>();
         _sysConfigService = ConfigService.Instance;
     }
 

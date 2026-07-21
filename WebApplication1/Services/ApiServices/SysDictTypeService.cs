@@ -31,7 +31,7 @@ namespace WebApplication1.Services.ApiServices;
 /// </summary>
 public class SysDictTypeService : BaseService<SysDictTypeService>
 {
-    private readonly DbRepository<DbDictType> _sysDictTypeRep;
+    private DbRepository<DbDictType> _sysDictTypeRep => new();
     private readonly SysDictDataService _sysDictDataService;
 
     /// <summary>
@@ -39,7 +39,6 @@ public class SysDictTypeService : BaseService<SysDictTypeService>
     /// </summary>
     public SysDictTypeService()
     {
-        _sysDictTypeRep = new DbRepository<DbDictType>();
         _sysDictDataService = new SysDictDataService();
     }
 

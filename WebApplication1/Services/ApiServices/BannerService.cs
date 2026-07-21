@@ -31,16 +31,7 @@ namespace Services.ApiServices;
 /// </summary>
 public class BannerService : BaseService<BannerService>
 {
-    private readonly DbRepository<DbBanner> _butBannerRep;
-
-    /// <summary>
-    /// banner业务
-    /// </summary>
-    public BannerService()
-    {
-        _butBannerRep = new DbRepository<DbBanner>();
-    }
-
+    private DbRepository<DbBanner> _butBannerRep => new();
 
 
     /// <summary>

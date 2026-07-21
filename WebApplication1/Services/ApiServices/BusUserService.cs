@@ -2,12 +2,7 @@
 
 public class BusUserService : BaseService<BusUserService>
 {
-    DbRepository<DbUser> _busUserDbRes;
-
-    public BusUserService()
-    {
-        _busUserDbRes = new DbRepository<DbUser>();
-    }
+    private DbRepository<DbUser> _busUserDbRes => new();
 
     /// <summary>
     /// 获取列表

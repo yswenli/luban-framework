@@ -30,14 +30,7 @@ namespace Services.ApiServices
     /// </summary>
     public class RoleMenuService : BaseService<RoleMenuService>
     {
-        private readonly DbRepository<DbRoleMenu> _sysRoleMenuRep;
-        /// <summary>
-        /// 系统角色菜单服务
-        /// </summary>
-        public RoleMenuService()
-        {
-            _sysRoleMenuRep = new DbRepository<DbRoleMenu>();
-        }
+        private DbRepository<DbRoleMenu> _sysRoleMenuRep => new();
 
         /// <summary>
         /// 根据角色Id集合获取菜单Id集合

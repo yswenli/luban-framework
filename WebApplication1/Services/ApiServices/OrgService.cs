@@ -29,13 +29,12 @@ namespace Services.ApiServices;
 
 public class OrgService : BaseService<OrgService>
 {
-    private readonly DbRepository<DbOrg> _sysOrgRep;
+    private DbRepository<DbOrg> _sysOrgRep => new();
     private readonly UserExtOrgService _sysUserExtOrgService;
     private readonly RoleOrgService _sysRoleOrgService;
 
     public OrgService()
     {
-        _sysOrgRep = new DbRepository<DbOrg>();
         _sysUserExtOrgService = UserExtOrgService.Instance;
         _sysRoleOrgService = RoleOrgService.Instance;
     }
