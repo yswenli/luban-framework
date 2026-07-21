@@ -58,8 +58,8 @@ internal static class LuBanOrmExtention
                 });
             });
 
-            //注册工作单元服务到di容器（单例）
-            services.AddSingleton<ISqlSugarClient>(LuBanOrm.SqlSugarScope);
+            //注册工作单元服务到di容器（Scoped生命周期，每个请求/任务独立实例）
+            services.AddScoped<ISqlSugarClient>(sp => LuBanOrm.SqlSugarScope);
             //事务与工作单元注册到di容器,配合在控制器上方法的UnitOfWorkAttribute使用（瞬时）
             services.AddTransient<IUnitOfWork, UnitOfWork>();
         }
