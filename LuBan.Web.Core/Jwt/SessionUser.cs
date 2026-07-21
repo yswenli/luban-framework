@@ -57,6 +57,8 @@ public static class SessionUser
             return WebApp.ServiceCache.GetOrSet($"{CacheConst.KeyUser}{uid}", (k) =>
             {
                 return new DbRepository<DbUser>()
+                    .AsQueryable()
+                    .ClearFilter()
                     .Includes(q => q.Position)
                     .Includes(q => q.Organization)
                     .Includes(q => q.UserRoles)
