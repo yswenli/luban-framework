@@ -39,6 +39,7 @@ public static class LuBanOrm
     /// 缓存全局查询过滤器（内存缓存）
     /// </summary>
     static readonly MemoryCache _cache = MemoryCache.Instance;
+    static readonly object _filterCacheLock = new();
 
     /// <summary>
     /// 数据库配置
@@ -266,54 +267,75 @@ public static class LuBanOrm
         var tableFilterItemList = _cache.Get<List<TableFilterItem<object>>>(cacheKey);
         if (tableFilterItemList == null)
         {
-            try
+            lock (_filterCacheLock)
             {
-                var entityFilterTypes = RuntimeUtil.GetTypes()?.Where(u => !u.IsInterface && !u.IsAbstract && u.IsClass
-                    && u.GetInterfaces().Any(i => i.HasImplementedRawGeneric(typeof(IEntityFilter))));
-                if (entityFilterTypes == null || !entityFilterTypes.Any()) return;
-
-                var tableFilterItems = new List<TableFilterItem<object>>();
-                foreach (var entityFilter in entityFilterTypes)
+                tableFilterItemList = _cache.Get<List<TableFilterItem<object>>>(cacheKey);
+                if (tableFilterItemList != null)
                 {
                     try
                     {
-                        var instance = Activator.CreateInstance(entityFilter);
-                        var entityFilterMethod = entityFilter.GetMethod("AddEntityFilter");
-                        var entityFilters = (entityFilterMethod?.Invoke(instance, null) as IList)?.Cast<object>();
-                        if (entityFilters == null) continue;
+                        tableFilterItemList.ForEach(u => dbProvider.QueryFilter.Add(u));
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"SetEntityFilter cached items error: {ex.Message}");
+                    }
+                    return;
+                }
+                try
+                {
+                    var entityFilterTypes = RuntimeUtil.GetTypes()?.Where(u => !u.IsInterface && !u.IsAbstract && u.IsClass
+                        && u.GetInterfaces().Any(i => i.HasImplementedRawGeneric(typeof(IEntityFilter))));
+                    if (entityFilterTypes == null || !entityFilterTypes.Any())
+                    {
+                        //无过滤器类型时也写入空缓存，避免每次调用都重复扫描程序集
+                        _cache.Set(cacheKey, new List<TableFilterItem<object>>());
+                        return;
+                    }
 
-                        foreach (var u in entityFilters)
+                    var tableFilterItems = new List<TableFilterItem<object>>();
+                    foreach (var entityFilter in entityFilterTypes)
+                    {
+                        try
                         {
-                            var tableFilterItem = (TableFilterItem<object>)u;
-                            var entityType = tableFilterItem.GetType().GetProperty("type", BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(tableFilterItem, null) as Type;
-                            if (entityType != null)
+                            var instance = Activator.CreateInstance(entityFilter);
+                            var entityFilterMethod = entityFilter.GetMethod("AddEntityFilter");
+                            var entityFilters = (entityFilterMethod?.Invoke(instance, null) as IList)?.Cast<object>();
+                            if (entityFilters == null) continue;
+
+                            foreach (var u in entityFilters)
                             {
-                                var tAtt = entityType.GetCustomAttribute<TenantAttribute>();
-                                if (tAtt != null && dbProvider.CurrentConnectionConfig.ConfigId.ToString() != tAtt.configId.ToString() ||
-                                    tAtt == null && dbProvider.CurrentConnectionConfig.ConfigId.ToString() != LuBanOrmConst.MainConfigId)
-                                    continue;
-                            }
-                            tableFilterItems.Add(tableFilterItem);
-                            try
-                            {
-                                dbProvider.QueryFilter.Add(tableFilterItem);
-                            }
-                            catch (Exception ex2)
-                            {
-                                Logger.Error($"QueryFilter.Add error: {ex2.Message}, EntityType: {entityType?.Name}");
+                                var tableFilterItem = (TableFilterItem<object>)u;
+                                var entityType = tableFilterItem.GetType().GetProperty("type", BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(tableFilterItem, null) as Type;
+                                if (entityType != null)
+                                {
+                                    var tAtt = entityType.GetCustomAttribute<TenantAttribute>();
+                                    if (tAtt != null && dbProvider.CurrentConnectionConfig.ConfigId.ToString() != tAtt.configId.ToString() ||
+                                        tAtt == null && dbProvider.CurrentConnectionConfig.ConfigId.ToString() != LuBanOrmConst.MainConfigId)
+                                        continue;
+                                }
+                                tableFilterItems.Add(tableFilterItem);
+                                try
+                                {
+                                    dbProvider.QueryFilter.Add(tableFilterItem);
+                                }
+                                catch (Exception ex2)
+                                {
+                                    Logger.Error($"QueryFilter.Add error: {ex2.Message}, EntityType: {entityType?.Name}");
+                                }
                             }
                         }
+                        catch (Exception ex3)
+                        {
+                            Logger.Error($"EntityFilter process error: {ex3.Message}, FilterType: {entityFilter?.Name}");
+                        }
                     }
-                    catch (Exception ex3)
-                    {
-                        Logger.Error($"EntityFilter process error: {ex3.Message}, FilterType: {entityFilter?.Name}");
-                    }
+                    _cache.Set(cacheKey, tableFilterItems);
                 }
-                _cache.Set(cacheKey, tableFilterItems);
-            }
-            catch (Exception ex4)
-            {
-                Logger.Error($"SetEntityFilter process error: {ex4.Message}");
+                catch (Exception ex4)
+                {
+                    Logger.Error($"SetEntityFilter process error: {ex4.Message}");
+                }
             }
         }
         else

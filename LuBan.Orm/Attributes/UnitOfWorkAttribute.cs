@@ -213,8 +213,25 @@ public sealed class UnitOfWorkAttribute : Attribute, IAsyncActionFilter, IOrdere
 
         if (dynamicResultContext.Exception == null)
         {
-            // 调用提交事务方法
-            _unitOfWork.CommitTransaction(resultContext, unitOfWorkAttribute);
+            try
+            {
+                // 调用提交事务方法
+                _unitOfWork.CommitTransaction(resultContext, unitOfWorkAttribute);
+            }
+            catch (Exception commitEx)
+            {
+                Logger.Error("LuBanOrm UnitOfWork CommitTransaction failed, rolling back.", commitEx);
+                // 提交失败时回滚事务，避免事务悬挂在连接上
+                try
+                {
+                    _unitOfWork.RollbackTransaction(resultContext, unitOfWorkAttribute);
+                }
+                catch (Exception rollbackEx)
+                {
+                    Logger.Error("LuBanOrm UnitOfWork RollbackTransaction after commit failure failed.", rollbackEx);
+                }
+                throw;
+            }
         }
         else
         {

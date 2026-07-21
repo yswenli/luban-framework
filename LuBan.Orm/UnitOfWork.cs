@@ -30,18 +30,15 @@ namespace LuBan.Orm;
 /// </summary>
 public sealed class UnitOfWork : IUnitOfWork
 {
-    /// <summary>
-    /// SqlSugarScop 对象
-    /// </summary>
-    private readonly ISqlSugarClient _sqlSugarScop;
+    private readonly ISqlSugarClient _sqlSugarScope;
 
     /// <summary>
     /// 构造函数
     /// </summary>
-    /// <param name="sqlSugarScop"></param>
-    public UnitOfWork(ISqlSugarClient sqlSugarScop)
+    /// <param name="sqlSugarScope"></param>
+    public UnitOfWork(ISqlSugarClient sqlSugarScope)
     {
-        _sqlSugarScop = sqlSugarScop;
+        _sqlSugarScope = sqlSugarScope;
     }
 
     /// <summary>
@@ -49,10 +46,17 @@ public sealed class UnitOfWork : IUnitOfWork
     /// </summary>
     /// <param name="context"></param>
     /// <param name="unitOfWork"></param>
-    /// <exception cref="NotImplementedException"></exception>
     public void BeginTransaction(FilterContext context, UnitOfWorkAttribute unitOfWork)
     {
-        _sqlSugarScop.AsTenant().BeginTran();
+        try
+        {
+            _sqlSugarScope.AsTenant().BeginTran();
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("UnitOfWork BeginTransaction failed", ex);
+            throw;
+        }
     }
 
     /// <summary>
@@ -60,10 +64,17 @@ public sealed class UnitOfWork : IUnitOfWork
     /// </summary>
     /// <param name="resultContext"></param>
     /// <param name="unitOfWork"></param>
-    /// <exception cref="NotImplementedException"></exception>
     public void CommitTransaction(FilterContext resultContext, UnitOfWorkAttribute unitOfWork)
     {
-        _sqlSugarScop.AsTenant().CommitTran();
+        try
+        {
+            _sqlSugarScope.AsTenant().CommitTran();
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("UnitOfWork CommitTransaction failed", ex);
+            throw;
+        }
     }
 
     /// <summary>
@@ -71,10 +82,16 @@ public sealed class UnitOfWork : IUnitOfWork
     /// </summary>
     /// <param name="resultContext"></param>
     /// <param name="unitOfWork"></param>
-    /// <exception cref="NotImplementedException"></exception>
     public void RollbackTransaction(FilterContext resultContext, UnitOfWorkAttribute unitOfWork)
     {
-        _sqlSugarScop.AsTenant().RollbackTran();
+        try
+        {
+            _sqlSugarScope.AsTenant().RollbackTran();
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("UnitOfWork RollbackTransaction failed", ex);
+        }
     }
 
     /// <summary>
@@ -82,9 +99,7 @@ public sealed class UnitOfWork : IUnitOfWork
     /// </summary>
     /// <param name="context"></param>
     /// <param name="resultContext"></param>
-    /// <exception cref="NotImplementedException"></exception>
     public void OnCompleted(FilterContext context, FilterContext resultContext)
     {
-        _sqlSugarScop.Dispose();
     }
 }

@@ -35,7 +35,7 @@ public class BaseRepository<TEntity> : SimpleClient<TEntity> where TEntity : Ent
     /// <summary>
     /// _iTenant
     /// </summary>
-    protected ITenant _iTenant;
+    protected readonly ITenant _iTenant;
 
     /// <summary>
     /// db 连接配置

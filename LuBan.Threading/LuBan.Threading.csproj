@@ -7,7 +7,7 @@
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <PackageId>$(AssemblyName)</PackageId>
     <Title>$(AssemblyName)</Title>
-    <Version>2026.7.21.2</Version>
+    <Version>2026.7.22.1</Version>
     <Authors>yswenli</Authors>
     <Description>LuBan.framework中多线程解决方案、例如同步锁、异步锁、线程工作池、任务工作池、线程安全阻塞式队列等</Description>
     <Copyright>$(Authors)</Copyright>

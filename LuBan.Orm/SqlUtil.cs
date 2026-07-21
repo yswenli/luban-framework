@@ -28,16 +28,16 @@ namespace LuBan.Orm;
 /// </summary>
 public static class SqlUtil
 {
-    static ISqlSugarClient _sqlSugarClient;
-
-    /// <summary>
-    /// 数据库操作类
-    /// </summary>
-    static SqlUtil()
+    static readonly Lazy<ISqlSugarClient> _client = new(() =>
     {
         var tenant = ServiceProviderUtil.GetRequiredService<ISqlSugarClient>().AsTenant();
-        _sqlSugarClient = tenant.GetConnectionScope(LuBanOrmConst.MainConfigId);
-    }
+        return tenant.GetConnectionScope(LuBanOrmConst.MainConfigId);
+    }, LazyThreadSafetyMode.PublicationOnly);
+
+    /// <summary>
+    /// 获取SqlSugar客户端（延迟初始化，PublicationOnly模式初始化失败可重试，避免静态构造函数依赖DI容器导致类型永久损坏）
+    /// </summary>
+    static ISqlSugarClient GetClient() => _client.Value;
 
     /// <summary>
     /// 执行sql
@@ -49,14 +49,14 @@ public static class SqlUtil
     {
         if (parameters == null || parameters.Length == 0)
         {
-            return await _sqlSugarClient.Ado.ExecuteCommandAsync(sql);
+            return await GetClient().Ado.ExecuteCommandAsync(sql);
         }
         var sqlsugarParameters = new List<SugarParameter>();
         foreach (var item in parameters)
         {
             sqlsugarParameters.Add(item);
         }
-        return await _sqlSugarClient.Ado.ExecuteCommandAsync(sql, sqlsugarParameters);
+        return await GetClient().Ado.ExecuteCommandAsync(sql, sqlsugarParameters);
     }
     /// <summary>
     /// 执行sql
@@ -77,7 +77,7 @@ public static class SqlUtil
     /// <returns></returns>
     public static async Task<bool> InsertAsync<T>(T t) where T : EntityBase, new()
     {
-        return await _sqlSugarClient.Insertable(t).ExecuteCommandAsync() > 0;
+        return await GetClient().Insertable(t).ExecuteCommandAsync() > 0;
     }
 
     /// <summary>
@@ -88,7 +88,7 @@ public static class SqlUtil
     public static async Task<bool> UpdataAsync<T>(T t) where T : EntityBase, new()
     {
         if (t.Id < 1) throw FriendlyError.Ex("请输入参数id");
-        return await _sqlSugarClient.Updateable(t).IgnoreColumns(true).ExecuteCommandAsync() > 0;
+        return await GetClient().Updateable(t).IgnoreColumns(true).ExecuteCommandAsync() > 0;
     }
 
     /// <summary>
@@ -118,7 +118,7 @@ public static class SqlUtil
             {
                 sqlsugarParameters.Add(item);
             }
-        return await _sqlSugarClient.Ado.SqlQuerySingleAsync<T>(sql, sqlsugarParameters);
+        return await GetClient().Ado.SqlQuerySingleAsync<T>(sql, sqlsugarParameters);
     }
     /// <summary>
     /// 获取
@@ -146,7 +146,7 @@ public static class SqlUtil
             {
                 sqlsugarParameters.Add(item);
             }
-        return await _sqlSugarClient.Ado.SqlQueryAsync<T>(sql, sqlsugarParameters);
+        return await GetClient().Ado.SqlQueryAsync<T>(sql, sqlsugarParameters);
     }
     /// <summary>
     /// 获取列表
@@ -173,7 +173,7 @@ public static class SqlUtil
         if (value == null) return default;
         var sql = $"SELECT * FROM {tableName} WHERE {columnName}=@value";
         List<SugarParameter> parameters = [new SugarParameter("@value", value)];
-        return await _sqlSugarClient.Ado.SqlQuerySingleAsync<T>(sql, parameters);
+        return await GetClient().Ado.SqlQuerySingleAsync<T>(sql, parameters);
     }
 
     /// <summary>
@@ -189,7 +189,7 @@ public static class SqlUtil
         if (value == null) return default;
         var sql = $"SELECT * FROM {tableName} WHERE {columnName}=@value";
         List<SugarParameter> parameters = [new SugarParameter("@value", value)];
-        return await _sqlSugarClient.Ado.SqlQueryAsync<T>(sql, parameters);
+        return await GetClient().Ado.SqlQueryAsync<T>(sql, parameters);
     }
 
     /// <summary>
@@ -204,7 +204,7 @@ public static class SqlUtil
         if (value == null) return default;
         var sql = $"SELECT COUNT(*) FROM {tableName} WHERE {columnName}=@value";
         List<SugarParameter> parameters = [new SugarParameter("@value", value)];
-        return await _sqlSugarClient.Ado.GetLongAsync(sql, parameters) > 0;
+        return await GetClient().Ado.GetLongAsync(sql, parameters) > 0;
     }
 
     /// <summary>
@@ -219,7 +219,7 @@ public static class SqlUtil
         if (value == null) return default;
         var sql = $"SELECT COUNT(*) FROM {tableName} WHERE {columnName}=@value";
         List<SugarParameter> parameters = [new SugarParameter("@value", value)];
-        return _sqlSugarClient.Ado.GetLong(sql, parameters) > 0;
+        return GetClient().Ado.GetLong(sql, parameters) > 0;
     }
 
     /// <summary>
@@ -323,7 +323,7 @@ public static class SqlUtil
     /// <returns></returns>
     public static async Task<int> ExecuteStoredProcedureAsync(string procedureName, params SugarParameter[] parameters)
     {
-        return await _sqlSugarClient.Ado.UseStoredProcedure().ExecuteCommandAsync(procedureName, parameters);
+        return await GetClient().Ado.UseStoredProcedure().ExecuteCommandAsync(procedureName, parameters);
     }
 
     /// <summary>
@@ -335,7 +335,7 @@ public static class SqlUtil
     /// <returns></returns>
     public static async Task<List<T>> ExecuteStoredProcedureAsync<T>(string procedureName, params SugarParameter[] parameters)
     {
-        return await _sqlSugarClient.Ado.UseStoredProcedure().SqlQueryAsync<T>(procedureName, parameters);
+        return await GetClient().Ado.UseStoredProcedure().SqlQueryAsync<T>(procedureName, parameters);
     }
 
 

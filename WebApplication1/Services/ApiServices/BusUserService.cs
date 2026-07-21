@@ -95,7 +95,9 @@ public class BusUserService : BaseService<BusUserService>
             entity = await _busUserDbRes.FirstAsync(q => q.IsDelete == false);
             entity.RealName = "yswenli";
             await _busUserDbRes.UpdateAsync(entity);
-            return await _busUserDbRes.LogicDeleteAsync(q => q.Id == entity.Id);
+            var result = await _busUserDbRes.LogicDeleteAsync(q => q.Id == entity.Id);
+            tran.Commit();
+            return result;
         });
     }
     /// <summary>
