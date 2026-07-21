@@ -7,7 +7,7 @@
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <PackageId>$(AssemblyName)</PackageId>
     <Title>$(AssemblyName)</Title>
-    <Version>2026.7.21.1</Version>
+    <Version>2026.7.21.2</Version>
     <Authors>yswenli</Authors>
     <Description>LuBan Framework中服务处理相关，包括常规Service的集成处理和后台任务JobService的处理</Description>
     <Copyright>$(Authors)</Copyright>

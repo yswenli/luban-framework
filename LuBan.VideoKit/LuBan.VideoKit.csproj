@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <Title>$(AssemblyName)</Title>
-    <Version>2026.7.21.1</Version>
+    <Version>2026.7.21.2</Version>
     <Authors>yswenli</Authors>
     <Description>企服版视频处理工具元件</Description>
     <Copyright>$(Authors)</Copyright>
