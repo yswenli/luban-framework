@@ -363,3 +363,4 @@ FodyWeavers.xsd
 /.trae/documents
 .vscode/launch.json
 /docs
+*.db
