@@ -168,8 +168,8 @@ public class DbUser : EntityeDataScoreBase
     /// <summary>
     /// 最新登录地点
     /// </summary>
-    [SugarColumn(ColumnDescription = "最新登录地点", Length = 128)]
-    [MaxLength(128, ErrorMessage = "最新登录地点长度不能超过128")]
+    [SugarColumn(ColumnDescription = "最新登录地点", Length = 256)]
+    [MaxLength(256, ErrorMessage = "最新登录地点长度不能超过256")]
     public string? LastLoginAddress { get; set; }
 
     /// <summary>
@@ -181,8 +181,8 @@ public class DbUser : EntityeDataScoreBase
     /// <summary>
     /// 最新登录设备
     /// </summary>
-    [SugarColumn(ColumnDescription = "最新登录设备", Length = 128)]
-    [MaxLength(128, ErrorMessage = "最新登录设备长度不能超过128")]
+    [SugarColumn(ColumnDescription = "最新登录设备", Length = 2048)]
+    [MaxLength(2048, ErrorMessage = "最新登录设备长度不能超过2048")]
     public string? LastLoginDevice { get; set; }
 
     /// <summary>
