@@ -35,7 +35,7 @@ public class HunYuanChatModelProvider : OpenAICompatibleProviderBase
     /// 获取基础URL
     /// </summary>
     /// <returns>基础URL</returns>
-    public string GetBaseUrl()
+    protected override string GetBaseUrl()
     {
         return _options.BaseUrl ?? "https://hunyuan.tencentcloudapi.com/v1/";
     }

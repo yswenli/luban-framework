@@ -37,7 +37,7 @@ public class QwenChatModelProvider : OpenAICompatibleProviderBase
     /// 获取基础URL
     /// </summary>
     /// <returns>基础URL</returns>
-    public string GetBaseUrl()
+    protected override string GetBaseUrl()
     {
         return _options.BaseUrl ?? "https://dashscope.aliyuncs.com/compatible-mode/v1/";
     }
