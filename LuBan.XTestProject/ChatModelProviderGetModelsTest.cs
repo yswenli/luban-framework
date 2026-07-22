@@ -7,6 +7,7 @@ namespace LuBan.XTestProject;
 /// 模型提供者获取模型列表测试
 /// </summary>
 [TestClass]
+[TestCategory("Integration")]
 public class ChatModelProviderGetModelsTest
 {
     /// <summary>
@@ -41,7 +42,7 @@ public class ChatModelProviderGetModelsTest
     /// 测试 Claude 获取模型列表（不支持的 provider 抛异常）
     /// </summary>
     [TestMethod]
-    public void TestClaudeGetModelsAsync()
+    public async Task TestClaudeGetModelsAsync()
     {
         var provider = new LuBan.AIAgent.Providers.Claude.ClaudeChatModelProvider(
             new HttpClient(),
@@ -50,9 +51,9 @@ public class ChatModelProviderGetModelsTest
                 ApiKey = "test-key"
             }));
 
-        var exception = Assert.ThrowsException<NotSupportedException>(() =>
+        var exception = await Assert.ThrowsExceptionAsync<NotSupportedException>(async () =>
         {
-            provider.GetModelsAsync().GetAwaiter().GetResult();
+            await provider.GetModelsAsync();
         });
 
         Assert.IsTrue(exception.Message.Contains("Claude 不支持获取模型列表"));
