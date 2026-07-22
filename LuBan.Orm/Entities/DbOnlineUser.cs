@@ -66,6 +66,6 @@ public class DbOnlineUser : EntityTenant
     /// <summary>
     /// 登录设备
     /// </summary>
-    [SugarColumn(ColumnDescription = "登录设备", Length = 512)]
+    [SugarColumn(ColumnDescription = "登录设备", Length = 2048)]
     public string? Device { get; set; }
 }
