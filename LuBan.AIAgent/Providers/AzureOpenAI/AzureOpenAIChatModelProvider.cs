@@ -68,6 +68,17 @@ public class AzureOpenAIChatModelProvider : OpenAICompatibleProviderBase
         => EnsureTrailingSlash(_options.Endpoint);
 
     /// <summary>
+    /// 异步获取该提供者支持的模型列表
+    /// </summary>
+    /// <param name="cancellationToken">取消令牌</param>
+    /// <returns>模型信息列表</returns>
+    /// <exception cref="NotSupportedException">Azure OpenAI 不支持获取模型列表</exception>
+    public override Task<IReadOnlyList<ModelInfo>> GetModelsAsync(CancellationToken cancellationToken = default)
+    {
+        throw new NotSupportedException("Azure OpenAI 不支持获取模型列表");
+    }
+
+    /// <summary>
     /// 确保 URL 以斜杠结尾
     /// </summary>
     /// <param name="endpoint">端点 URL</param>
