@@ -355,6 +355,55 @@ public class GeminiChatModelProvider : IChatModelProvider
             }
         };
     }
+
+    /// <summary>
+    /// 异步获取该提供者支持的模型列表
+    /// </summary>
+    /// <param name="cancellationToken">取消令牌</param>
+    /// <returns>模型信息列表</returns>
+    public async Task<IReadOnlyList<ModelInfo>> GetModelsAsync(CancellationToken cancellationToken = default)
+    {
+        var baseUrl = GetBaseUrl();
+        var apiKey = _httpClient.DefaultRequestHeaders.GetValues("x-goog-api-key").First();
+        var absoluteUri = new Uri($"{baseUrl}models?key={apiKey}");
+
+        var response = await _httpClient.GetAsync(absoluteUri, cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
+            throw new InvalidOperationException($"获取模型列表失败: {response.StatusCode}: {errorContent}");
+        }
+
+        var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
+        var modelsResponse = JsonSerializer.Deserialize<GeminiModelsResponse>(responseJson, _jsonOptions);
+
+        if (modelsResponse?.Models == null)
+        {
+            throw new InvalidOperationException("无法解析 Gemini 的模型列表响应");
+        }
+
+        return modelsResponse.Models.Select(m =>
+        {
+            var id = m.Name?.Replace("models/", "") ?? string.Empty;
+            return new ModelInfo
+            {
+                Id = id,
+                Name = id,
+                OwnedBy = "google"
+            };
+        }).ToList();
+    }
+
+    private class GeminiModelsResponse
+    {
+        public List<GeminiModelItem>? Models { get; set; }
+    }
+
+    private class GeminiModelItem
+    {
+        public string? Name { get; set; }
+    }
 }
 
 /// <summary>
