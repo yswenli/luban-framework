@@ -60,13 +60,14 @@ OpenAI、Kimi、GLM、Qwen、Deepseek、Doubao、HunYuan、ERNIE、AzureOpenAI
 - 解析 OpenAI 格式响应
 - AzureOpenAI 需 override（Azure 格式不同）
 
-### 直接实现接口的 provider（3 个）
+### 直接实现接口的 provider（4 个）
 
 | Provider | 策略 |
 |----------|------|
 | Gemini | 调用 `https://generativelanguage.googleapis.com/v1beta/models?key=...` |
 | Claude | 抛 `NotSupportedException`（无公开端点） |
 | MiniMax | 抛 `NotSupportedException`（无公开端点） |
+| MiMo | 抛 `NotSupportedException`（无公开端点） |
 
 ### 需 override 基类实现的 provider（1 个）
 
@@ -134,6 +135,7 @@ OpenAI、Kimi、GLM、Qwen、Deepseek、Doubao、HunYuan、ERNIE、AzureOpenAI
 - `LuBan.AIAgent/Providers/Gemini/GeminiChatModelProvider.cs` — 实现 `GetModelsAsync`
 - `LuBan.AIAgent/Providers/Claude/ClaudeChatModelProvider.cs` — 抛 `NotSupportedException`
 - `LuBan.AIAgent/Providers/MiniMax/MiniMaxChatModelProvider.cs` — 抛 `NotSupportedException`
+- `LuBan.AIAgent/Providers/MiMo/MiMoChatModelProvider.cs` — 抛 `NotSupportedException`
 - `LuBan.AIAgent/Providers/AzureOpenAI/AzureOpenAIChatModelProvider.cs` — override 抛 `NotSupportedException`
 
 ## 测试
