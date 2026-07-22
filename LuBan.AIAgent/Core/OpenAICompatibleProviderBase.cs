@@ -400,6 +400,51 @@ public abstract class OpenAICompatibleProviderBase : IChatModelProvider
     /// </summary>
     /// <returns>无效响应消息</returns>
     protected abstract string GetInvalidResponseMessage();
+
+    /// <summary>
+    /// 异步获取该提供者支持的模型列表
+    /// </summary>
+    /// <param name="cancellationToken">取消令牌</param>
+    /// <returns>模型信息列表</returns>
+    public virtual async Task<IReadOnlyList<ModelInfo>> GetModelsAsync(CancellationToken cancellationToken = default)
+    {
+        var baseUrl = GetBaseUrl();
+        var absoluteUri = new Uri(new Uri(baseUrl), "models");
+
+        var httpRequest = new HttpRequestMessage(HttpMethod.Get, absoluteUri);
+        var response = await _httpClient.SendAsync(httpRequest, cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
+            throw new InvalidOperationException($"获取模型列表失败: {response.StatusCode}: {errorContent}");
+        }
+
+        var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
+        var modelsResponse = JsonSerializer.Deserialize<OpenAICompatibleModelsResponse>(responseJson, _responseJsonOptions);
+
+        if (modelsResponse?.Data == null)
+        {
+            throw new InvalidOperationException($"无法解析 {ProviderName} 的模型列表响应");
+        }
+
+        return modelsResponse.Data.Select(m => new ModelInfo
+        {
+            Id = m.Id,
+            OwnedBy = m.OwnedBy
+        }).ToList();
+    }
+
+    private class OpenAICompatibleModelsResponse
+    {
+        public List<OpenAICompatibleModelItem>? Data { get; set; }
+    }
+
+    private class OpenAICompatibleModelItem
+    {
+        public string Id { get; set; } = string.Empty;
+        public string? OwnedBy { get; set; }
+    }
 }
 
 /// <summary>
