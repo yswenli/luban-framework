@@ -20,10 +20,12 @@ public class GLMChatModelProviderTest
             services.AddGLMProvider(options =>
             {
                 options.ApiKey = "YOUR_API_KEY";
-                options.BaseUrl = "https://opencode.ai/zen/go/v1/";
+                options.BaseUrl = "https://ark.cn-beijing.volces.com/api/v3";//"https://opencode.ai/zen/go/v1/";
                 options.RequestTimeout = TimeSpan.FromMinutes(2);
             });
         });
+
+        var models = await chatModelProvider.GetModelsAsync();
 
         var request = new ChatRequest
         {

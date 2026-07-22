@@ -11,7 +11,7 @@ namespace LuBan.XTestProject;
 public class ChatModelProviderGetModelsTest
 {
     /// <summary>
-    /// 测试 GLM 获取模型列表（OpenAI 兼容 provider 正常返回）
+    /// 测试 GLM 获取模型列表（OpenAI 兼容 provider）
     /// </summary>
     [TestMethod]
     public async Task TestGLMGetModelsAsync()
@@ -29,8 +29,6 @@ public class ChatModelProviderGetModelsTest
         var models = await chatModelProvider.GetModelsAsync();
 
         Assert.IsNotNull(models);
-        Assert.IsTrue(models.Count > 0, "模型列表不应为空");
-
         Console.WriteLine($"GLM 返回 {models.Count} 个模型:");
         foreach (var model in models)
         {
@@ -39,7 +37,7 @@ public class ChatModelProviderGetModelsTest
     }
 
     /// <summary>
-    /// 测试 Claude 获取模型列表（不支持的 provider 抛异常）
+    /// 测试 Claude 获取模型列表（返回空列表）
     /// </summary>
     [TestMethod]
     public async Task TestClaudeGetModelsAsync()
@@ -51,11 +49,9 @@ public class ChatModelProviderGetModelsTest
                 ApiKey = "test-key"
             }));
 
-        var exception = await Assert.ThrowsExceptionAsync<NotSupportedException>(async () =>
-        {
-            await provider.GetModelsAsync();
-        });
+        var models = await provider.GetModelsAsync();
 
-        Assert.IsTrue(exception.Message.Contains("Claude 不支持获取模型列表"));
+        Assert.IsNotNull(models);
+        Assert.AreEqual(0, models.Count, "Claude 应返回空列表");
     }
 }

@@ -1,7 +1,9 @@
 ﻿using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
+
 using LuBan.AIAgent.Abstractions;
+
 using Microsoft.Extensions.Logging;
 
 namespace LuBan.AIAgent.Core;
@@ -66,20 +68,20 @@ public abstract class OpenAICompatibleProviderBase : IChatModelProvider
         {
             var providerRequest = CreateProviderRequest(request, stream: false);
             var json = JsonSerializer.Serialize(providerRequest, _requestJsonOptions);
-            
+
             // 构建绝对URI
             var baseUrl = GetBaseUrl();
             var relativeUrl = BuildRelativeUrl(request.ModelId);
             var absoluteUri = new Uri(new Uri(baseUrl), relativeUrl);
-            
+
             // 设置请求头
             var httpRequest = new HttpRequestMessage(HttpMethod.Post, absoluteUri)
             {
                 Content = new StringContent(json, Encoding.UTF8, "application/json")
             };
-            
+
             var response = await _httpClient.SendAsync(httpRequest, cancellationToken);
-            
+
             if (!response.IsSuccessStatusCode)
             {
                 // 尝试读取错误响应
@@ -118,12 +120,12 @@ public abstract class OpenAICompatibleProviderBase : IChatModelProvider
         {
             var providerRequest = CreateProviderRequest(request, stream: true);
             var json = JsonSerializer.Serialize(providerRequest, _requestJsonOptions);
-            
+
             // 构建绝对URI
             var baseUrl = GetBaseUrl();
             var relativeUrl = BuildRelativeUrl(request.ModelId);
             var absoluteUri = new Uri(new Uri(baseUrl), relativeUrl);
-            
+
             var httpRequest = new HttpRequestMessage(HttpMethod.Post, absoluteUri)
             {
                 Content = new StringContent(json, Encoding.UTF8, "application/json")
@@ -405,34 +407,43 @@ public abstract class OpenAICompatibleProviderBase : IChatModelProvider
     /// 异步获取该提供者支持的模型列表
     /// </summary>
     /// <param name="cancellationToken">取消令牌</param>
-    /// <returns>模型信息列表</returns>
+    /// <returns>模型信息列表，获取失败时返回空列表</returns>
     public virtual async Task<IReadOnlyList<ModelInfo>> GetModelsAsync(CancellationToken cancellationToken = default)
     {
-        var baseUrl = GetBaseUrl();
-        var absoluteUri = new Uri(new Uri(baseUrl), "models");
-
-        var httpRequest = new HttpRequestMessage(HttpMethod.Get, absoluteUri);
-        var response = await _httpClient.SendAsync(httpRequest, cancellationToken);
-
-        if (!response.IsSuccessStatusCode)
+        try
         {
-            var errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
-            throw new InvalidOperationException($"获取模型列表失败: {response.StatusCode}: {errorContent}");
+            var baseUrl = GetBaseUrl();
+            var absoluteUri = new Uri(new Uri(baseUrl), "models");
+
+            var httpRequest = new HttpRequestMessage(HttpMethod.Get, absoluteUri);
+            var response = await _httpClient.SendAsync(httpRequest, cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger?.LogWarning("获取 {ProviderName} 模型列表失败: {StatusCode}", ProviderName, response.StatusCode);
+                return Array.Empty<ModelInfo>();
+            }
+
+            var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
+            var modelsResponse = JsonSerializer.Deserialize<OpenAICompatibleModelsResponse>(responseJson, _responseJsonOptions);
+
+            if (modelsResponse?.Data == null)
+            {
+                _logger?.LogWarning("无法解析 {ProviderName} 的模型列表响应", ProviderName);
+                return Array.Empty<ModelInfo>();
+            }
+
+            return modelsResponse.Data.Select(m => new ModelInfo
+            {
+                Id = m.Id,
+                OwnedBy = m.OwnedBy
+            }).ToList();
         }
-
-        var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
-        var modelsResponse = JsonSerializer.Deserialize<OpenAICompatibleModelsResponse>(responseJson, _responseJsonOptions);
-
-        if (modelsResponse?.Data == null)
+        catch (Exception ex)
         {
-            throw new InvalidOperationException($"无法解析 {ProviderName} 的模型列表响应");
+            _logger?.LogWarning(ex, "获取 {ProviderName} 模型列表时发生异常", ProviderName);
+            return Array.Empty<ModelInfo>();
         }
-
-        return modelsResponse.Data.Select(m => new ModelInfo
-        {
-            Id = m.Id,
-            OwnedBy = m.OwnedBy
-        }).ToList();
     }
 
     private class OpenAICompatibleModelsResponse

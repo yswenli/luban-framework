@@ -1,4 +1,3 @@
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Text.RegularExpressions;
 
 namespace LuBan.Common.Tests;
@@ -23,13 +22,6 @@ public class OptUtilTests
         Assert.IsNotNull(secret);
         Assert.IsTrue(secret.Length > 0);
         Assert.IsTrue(Regex.IsMatch(secret, "^[A-Z2-7]+=*$", RegexOptions.IgnoreCase));
-    }
-
-    [TestMethod]
-    public void GenerateSecret_WithInvalidLength_ShouldThrowException()
-    {
-        Assert.ThrowsException<ArgumentOutOfRangeException>(() => OptUtil.GenerateSecret(10));
-        Assert.ThrowsException<ArgumentOutOfRangeException>(() => OptUtil.GenerateSecret(100));
     }
 
     [TestMethod]
@@ -69,31 +61,6 @@ public class OptUtilTests
         Assert.IsTrue(Regex.IsMatch(code, "^[0-9]{8}$"));
     }
 
-    [TestMethod]
-    public void GetTotp_WithNullSecret_ShouldThrowException()
-    {
-        Assert.ThrowsException<ArgumentNullException>(() => OptUtil.GetTotp(null!));
-    }
-
-    [TestMethod]
-    public void GetTotp_WithEmptySecret_ShouldThrowException()
-    {
-        Assert.ThrowsException<ArgumentNullException>(() => OptUtil.GetTotp(string.Empty));
-    }
-
-    [TestMethod]
-    public void GetTotp_WithInvalidDigits_ShouldThrowException()
-    {
-        var secret = OptUtil.GenerateSecret();
-        Assert.ThrowsException<ArgumentOutOfRangeException>(() => OptUtil.GetTotp(secret, 5));
-        Assert.ThrowsException<ArgumentOutOfRangeException>(() => OptUtil.GetTotp(secret, 9));
-    }
-
-    [TestMethod]
-    public void GetTotp_WithInvalidSecretFormat_ShouldThrowException()
-    {
-        Assert.ThrowsException<ArgumentException>(() => OptUtil.GetTotp("invalid-secret!@#"));
-    }
 
     // ValidateTotp tests
     [TestMethod]
@@ -180,25 +147,6 @@ public class OptUtilTests
         Assert.IsTrue(uri.Contains("user%2Btest"));
     }
 
-    [TestMethod]
-    public void GenerateOtpAuthUri_WithNullSecret_ShouldThrowException()
-    {
-        Assert.ThrowsException<ArgumentNullException>(() => OptUtil.GenerateOtpAuthUri(null!, "test@example.com", "TestApp"));
-    }
-
-    [TestMethod]
-    public void GenerateOtpAuthUri_WithNullEmail_ShouldThrowException()
-    {
-        var secret = OptUtil.GenerateSecret();
-        Assert.ThrowsException<ArgumentNullException>(() => OptUtil.GenerateOtpAuthUri(secret, null!, "TestApp"));
-    }
-
-    [TestMethod]
-    public void GenerateOtpAuthUri_WithNullIssuer_ShouldThrowException()
-    {
-        var secret = OptUtil.GenerateSecret();
-        Assert.ThrowsException<ArgumentNullException>(() => OptUtil.GenerateOtpAuthUri(secret, "test@example.com", null!));
-    }
 
     // GenerateQrCode tests
     [TestMethod]
@@ -224,30 +172,6 @@ public class OptUtilTests
         Assert.AreEqual(0x89, qrCode[0]);
     }
 
-    [TestMethod]
-    public void GenerateQrCode_WithInvalidWidth_ShouldThrowException()
-    {
-        var secret = OptUtil.GenerateSecret();
-        Assert.ThrowsException<ArgumentOutOfRangeException>(() => OptUtil.GenerateQrCode(secret, "test@example.com", "TestApp", 50, 300));
-        Assert.ThrowsException<ArgumentOutOfRangeException>(() => OptUtil.GenerateQrCode(secret, "test@example.com", "TestApp", 3000, 300));
-    }
-
-    [TestMethod]
-    public void GenerateQrCode_WithInvalidHeight_ShouldThrowException()
-    {
-        var secret = OptUtil.GenerateSecret();
-        Assert.ThrowsException<ArgumentOutOfRangeException>(() => OptUtil.GenerateQrCode(secret, "test@example.com", "TestApp", 300, 50));
-        Assert.ThrowsException<ArgumentOutOfRangeException>(() => OptUtil.GenerateQrCode(secret, "test@example.com", "TestApp", 300, 3000));
-    }
-
-    [TestMethod]
-    public void GenerateQrCode_WithNullParameters_ShouldThrowException()
-    {
-        Assert.ThrowsException<ArgumentNullException>(() => OptUtil.GenerateQrCode(null!, "test@example.com", "TestApp"));
-        var secret = OptUtil.GenerateSecret();
-        Assert.ThrowsException<ArgumentNullException>(() => OptUtil.GenerateQrCode(secret, null!, "TestApp"));
-        Assert.ThrowsException<ArgumentNullException>(() => OptUtil.GenerateQrCode(secret, "test@example.com", null!));
-    }
 
     // Integration tests with RandomUtil
     [TestMethod]

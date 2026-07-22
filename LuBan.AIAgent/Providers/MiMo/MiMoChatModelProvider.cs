@@ -403,10 +403,9 @@ public class MiMoChatModelProvider : IChatModelProvider
     /// </summary>
     /// <param name="cancellationToken">取消令牌</param>
     /// <returns>模型信息列表</returns>
-    /// <exception cref="NotSupportedException">MiMo 不支持获取模型列表</exception>
     public Task<IReadOnlyList<ModelInfo>> GetModelsAsync(CancellationToken cancellationToken = default)
     {
-        throw new NotSupportedException("MiMo 不支持获取模型列表");
+        return Task.FromResult<IReadOnlyList<ModelInfo>>(Array.Empty<ModelInfo>());
     }
 }
 
