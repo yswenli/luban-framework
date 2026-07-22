@@ -395,6 +395,17 @@ public class ClaudeChatModelProvider : IChatModelProvider
             BinaryPart binary => $"[binary: {binary.MediaType}, {binary.Data.Length} bytes]",
             _ => "[unsupported content part]"
         };
+
+    /// <summary>
+    /// 异步获取该提供者支持的模型列表
+    /// </summary>
+    /// <param name="cancellationToken">取消令牌</param>
+    /// <returns>模型信息列表</returns>
+    /// <exception cref="NotSupportedException">Claude 不支持获取模型列表</exception>
+    public Task<IReadOnlyList<ModelInfo>> GetModelsAsync(CancellationToken cancellationToken = default)
+    {
+        throw new NotSupportedException("Claude 不支持获取模型列表");
+    }
 }
 
 /// <summary>
