@@ -21,6 +21,11 @@ public static class ServiceCollectionExtensions
         services.Configure(configureOptions);
         
         services.AddHttpClient<GLMChatModelProvider>()
+            .ConfigureHttpClient((sp, client) =>
+            {
+                var options = sp.GetRequiredService<IOptions<GLMOptions>>().Value;
+                client.Timeout = options.RequestTimeout;
+            })
             .AddHttpMessageHandler(sp =>
             {
                 var options = sp.GetRequiredService<IOptions<GLMOptions>>().Value;
