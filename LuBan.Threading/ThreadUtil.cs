@@ -65,8 +65,10 @@ public static class ThreadUtil
 
         ThreadRun(() =>
         {
-            while (!cancellationToken.IsCancellationRequested)
+            while (true)
             {
+                if (cancellationToken.IsCancellationRequested)
+                    break;
                 action?.Invoke();
                 Sleep(safeMilliseconds, cancellationToken);
             }
@@ -84,8 +86,10 @@ public static class ThreadUtil
 
         ThreadRun(() =>
         {
-            while (!cancellationToken.IsCancellationRequested)
+            while (true)
             {
+                if (cancellationToken.IsCancellationRequested)
+                    break;
                 var result = fun?.Invoke() ?? false;
                 if (result) break;
                 Sleep(safeMilliseconds, cancellationToken);

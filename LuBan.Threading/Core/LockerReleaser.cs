@@ -29,18 +29,14 @@ namespace LuBan.Threading.Core;
 public sealed class LockerReleaser : IDisposable
 {
     private readonly SemaphoreSlim _semaphore;
-    private readonly string _lockName;
-    private readonly LockerBuilder _builder;
     private bool _isDisposed = false;
 
     /// <summary>
     /// 构造释放器
     /// </summary>
-    public LockerReleaser(SemaphoreSlim semaphore, string lockName, LockerBuilder builder)
+    public LockerReleaser(SemaphoreSlim semaphore)
     {
         _semaphore = semaphore ?? throw new ArgumentNullException(nameof(semaphore));
-        _lockName = lockName ?? throw new ArgumentNullException(nameof(lockName));
-        _builder = builder ?? throw new ArgumentNullException(nameof(builder));
     }
 
     /// <summary>

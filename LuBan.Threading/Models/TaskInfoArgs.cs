@@ -31,7 +31,7 @@ public class TaskInfoArgs
     /// <summary>
     /// 标题
     /// </summary>
-    public string Title { get; set; }
+    public string Title { get; set; } = string.Empty;
     /// <summary>
     /// 队列数量
     /// </summary>

@@ -3,7 +3,7 @@
 *CLR版本： .net8.0
 *机器名称：WALLE
 *Author：yswenli
-*命名空间：LuBan.CloudStorage.Aliyun
+*命名空间：LuBan.CloudStorage.MsAzure
 *文件名： AzureStorageClient
 *版本号： V1.0.0.0
 *唯一标识：e7a85595-28e0-4352-a764-c67a90d90330
@@ -59,14 +59,14 @@ public class AzureStorageClient : ICloudStorageClient
     /// <summary>
     /// 上传文件
     /// </summary>
-    /// <param name="cloundFileName"></param>
+    /// <param name="cloudFileName"></param>
     /// <param name="localFilePath"></param>
     /// <returns></returns>
-    public bool Upload(string cloundFileName, string localFilePath)
+    public bool Upload(string cloudFileName, string localFilePath)
     {
         try
         {
-            BlobClient blobClient = _blobContainerClient.GetBlobClient(cloundFileName);
+            BlobClient blobClient = _blobContainerClient.GetBlobClient(cloudFileName);
             if (!blobClient.Exists())
             {
                 var retUpload = blobClient.Upload(localFilePath);
@@ -79,7 +79,7 @@ public class AzureStorageClient : ICloudStorageClient
         }
         catch (Exception ex)
         {
-            Logger.Error("Azure上传文件失败", ex, cloundFileName, localFilePath);
+            Logger.Error("Azure上传文件失败", ex, cloudFileName, localFilePath);
         }
         return false;
     }
@@ -87,16 +87,16 @@ public class AzureStorageClient : ICloudStorageClient
     /// <summary>
     /// 上传文件
     /// </summary>
-    /// <param name="cloundFileName"></param>
+    /// <param name="cloudFileName"></param>
     /// <param name="localFilePath"></param>
     /// <param name="ct"></param>
     /// <returns></returns>
-    public async Task<bool> UploadAsync(string cloundFileName, string localFilePath, CancellationToken ct = default)
+    public async Task<bool> UploadAsync(string cloudFileName, string localFilePath, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         try
         {
-            BlobClient blobClient = _blobContainerClient.GetBlobClient(cloundFileName);
+            BlobClient blobClient = _blobContainerClient.GetBlobClient(cloudFileName);
             if (!await blobClient.ExistsAsync(ct))
             {
                 var retUpload = await blobClient.UploadAsync(localFilePath, ct);
@@ -109,7 +109,7 @@ public class AzureStorageClient : ICloudStorageClient
         }
         catch (Exception ex)
         {
-            Logger.Error("Azure上传文件失败", ex, cloundFileName, localFilePath);
+            Logger.Error("Azure上传文件失败", ex, cloudFileName, localFilePath);
         }
         return false;
     }
@@ -117,14 +117,14 @@ public class AzureStorageClient : ICloudStorageClient
     /// <summary>
     /// 上传文件流
     /// </summary>
-    /// <param name="cloundFileName"></param>
+    /// <param name="cloudFileName"></param>
     /// <param name="stream"></param>
     /// <returns></returns>
-    public bool Upload(string cloundFileName, Stream stream)
+    public bool Upload(string cloudFileName, Stream stream)
     {
         try
         {
-            BlobClient blobClient = _blobContainerClient.GetBlobClient(cloundFileName);
+            BlobClient blobClient = _blobContainerClient.GetBlobClient(cloudFileName);
             if (!blobClient.Exists())
             {
                 var retUpload = blobClient.Upload(stream);
@@ -137,7 +137,7 @@ public class AzureStorageClient : ICloudStorageClient
         }
         catch (Exception ex)
         {
-            Logger.Error("Azure上传文件流失败", ex, cloundFileName);
+            Logger.Error("Azure上传文件流失败", ex, cloudFileName);
         }
         return false;
     }
@@ -146,16 +146,16 @@ public class AzureStorageClient : ICloudStorageClient
     /// <summary>
     /// 上传文件流
     /// </summary>
-    /// <param name="cloundFileName"></param>
+    /// <param name="cloudFileName"></param>
     /// <param name="stream"></param>
     /// <param name="ct"></param>
     /// <returns></returns>
-    public async Task<bool> UploadAsync(string cloundFileName, Stream stream, CancellationToken ct = default)
+    public async Task<bool> UploadAsync(string cloudFileName, Stream stream, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         try
         {
-            BlobClient blobClient = _blobContainerClient.GetBlobClient(cloundFileName);
+            BlobClient blobClient = _blobContainerClient.GetBlobClient(cloudFileName);
             if (!await blobClient.ExistsAsync(ct))
             {
                 var retUpload = await blobClient.UploadAsync(stream, ct);
@@ -168,7 +168,7 @@ public class AzureStorageClient : ICloudStorageClient
         }
         catch (Exception ex)
         {
-            Logger.Error("Azure上传文件流失败", ex, cloundFileName);
+            Logger.Error("Azure上传文件流失败", ex, cloudFileName);
         }
         return false;
     }
@@ -176,15 +176,15 @@ public class AzureStorageClient : ICloudStorageClient
     /// <summary>
     /// 下载文件流
     /// </summary>
-    /// <param name="cloundFileName"></param>
+    /// <param name="cloudFileName"></param>
     /// <param name="ct"></param>
     /// <returns></returns>
-    public async Task<Stream?> DownloadAsync(string cloundFileName, CancellationToken ct = default)
+    public async Task<Stream?> DownloadAsync(string cloudFileName, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         try
         {
-            BlobClient blobClient = _blobContainerClient.GetBlobClient(cloundFileName);
+            BlobClient blobClient = _blobContainerClient.GetBlobClient(cloudFileName);
 
             if (await blobClient.ExistsAsync(ct))
             {
@@ -198,7 +198,7 @@ public class AzureStorageClient : ICloudStorageClient
         }
         catch (Exception ex)
         {
-            Logger.Error("Azure下载文件流失败", ex, cloundFileName);
+            Logger.Error("Azure下载文件流失败", ex, cloudFileName);
         }
 
         return null;
@@ -207,15 +207,15 @@ public class AzureStorageClient : ICloudStorageClient
     /// <summary>
     /// 下载文件内容
     /// </summary>
-    /// <param name="cloundFileName"></param>
+    /// <param name="cloudFileName"></param>
     /// <param name="ct"></param>
     /// <returns></returns>
-    public async Task<byte[]?> DownloadContentAsync(string cloundFileName, CancellationToken ct = default)
+    public async Task<byte[]?> DownloadContentAsync(string cloudFileName, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         try
         {
-            BlobClient blobClient = _blobContainerClient.GetBlobClient(cloundFileName);
+            BlobClient blobClient = _blobContainerClient.GetBlobClient(cloudFileName);
 
             if (await blobClient.ExistsAsync(ct))
             {
@@ -229,7 +229,7 @@ public class AzureStorageClient : ICloudStorageClient
         }
         catch (Exception ex)
         {
-            Logger.Error("Azure下载文件内容", ex, cloundFileName);
+            Logger.Error("Azure下载文件内容", ex, cloudFileName);
         }
 
         return null;
@@ -238,13 +238,13 @@ public class AzureStorageClient : ICloudStorageClient
     /// <summary>
     /// 获取文件SAS URI
     /// </summary>
-    /// <param name="cloundFileName"></param>
+    /// <param name="cloudFileName"></param>
     /// <param name="dateTimeOffset"></param>
     /// <returns></returns>
-    public async Task<string> GetSasUri(string cloundFileName, DateTimeOffset dateTimeOffset)
+    public async Task<string> GetSasUri(string cloudFileName, DateTimeOffset dateTimeOffset)
     {
-        BlobClient blobClient = _blobContainerClient.GetBlobClient(cloundFileName);
-        var builder = new BlobSasBuilder { BlobName = cloundFileName, ExpiresOn = dateTimeOffset };
+        BlobClient blobClient = _blobContainerClient.GetBlobClient(cloudFileName);
+        var builder = new BlobSasBuilder { BlobName = cloudFileName, ExpiresOn = dateTimeOffset };
         builder.SetPermissions(BlobSasPermissions.Read);
         var blobSasUri = await Task.FromResult(blobClient.GenerateSasUri(builder));
         return blobSasUri.AbsoluteUri;
@@ -253,15 +253,15 @@ public class AzureStorageClient : ICloudStorageClient
     /// <summary>
     /// 删除文件
     /// </summary>
-    /// <param name="cloundFileName"></param>
+    /// <param name="cloudFileName"></param>
     /// <param name="ct"></param>
     /// <returns></returns>
-    public async Task<bool> DeleteAsync(string cloundFileName, CancellationToken ct = default)
+    public async Task<bool> DeleteAsync(string cloudFileName, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         try
         {
-            BlobClient blobClient = _blobContainerClient.GetBlobClient(cloundFileName);
+            BlobClient blobClient = _blobContainerClient.GetBlobClient(cloudFileName);
 
             if (await blobClient.ExistsAsync(ct))
             {
@@ -274,7 +274,7 @@ public class AzureStorageClient : ICloudStorageClient
         }
         catch (Exception ex)
         {
-            Logger.Error("Azure删除文件失败", ex, cloundFileName);
+            Logger.Error("Azure删除文件失败", ex, cloudFileName);
         }
         return false;
     }
@@ -282,21 +282,21 @@ public class AzureStorageClient : ICloudStorageClient
     /// <summary>
     /// Azure中是否存在文件
     /// </summary>
-    /// <param name="cloundFileName"></param>
+    /// <param name="cloudFileName"></param>
     /// <param name="ct"></param>
     /// <returns></returns>
-    public async Task<bool> ExistAsync(string cloundFileName, CancellationToken ct = default)
+    public async Task<bool> ExistAsync(string cloudFileName, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         try
         {
-            BlobClient blobClient = _blobContainerClient.GetBlobClient(cloundFileName);
+            BlobClient blobClient = _blobContainerClient.GetBlobClient(cloudFileName);
 
             return await blobClient.ExistsAsync(ct);
         }
         catch (Exception ex)
         {
-            Logger.Error("检查Azure文件是否存在失败", ex, cloundFileName);
+            Logger.Error("检查Azure文件是否存在失败", ex, cloudFileName);
         }
         return false;
     }

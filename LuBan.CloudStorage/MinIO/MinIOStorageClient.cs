@@ -60,15 +60,15 @@ public class MinIOStorageClient : ICloudStorageClient
     /// <summary>
     /// 删除
     /// </summary>
-    /// <param name="cloundFileName"></param>
+    /// <param name="cloudFileName"></param>
     /// <param name="ct"></param>
     /// <returns></returns>
-    public async Task<bool> DeleteAsync(string cloundFileName, CancellationToken ct = default)
+    public async Task<bool> DeleteAsync(string cloudFileName, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         var args = new RemoveObjectArgs()
         .WithBucket(_option.ContainerName)
-        .WithObject(cloundFileName);
+        .WithObject(cloudFileName);
         await _minioClient.RemoveObjectAsync(args);
         return true;
     }
@@ -76,33 +76,32 @@ public class MinIOStorageClient : ICloudStorageClient
     /// <summary>
     /// 下载文件流
     /// </summary>
-    /// <param name="cloundFileName"></param>
+    /// <param name="cloudFileName"></param>
     /// <param name="ct"></param>
     /// <returns></returns>
-    public async Task<Stream?> DownloadAsync(string cloundFileName, CancellationToken ct = default)
+    public async Task<Stream?> DownloadAsync(string cloudFileName, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        var pipe = new Pipe();
+        var ms = new MemoryStream();
         var args = new GetObjectArgs()
             .WithBucket(_option.ContainerName)
-            .WithObject(cloundFileName)
+            .WithObject(cloudFileName)
             .WithCallbackStream(async (stream, cancellationToken) =>
             {
-                await stream.CopyToAsync(pipe.Writer.AsStream(), cancellationToken);
-                pipe.Writer.Complete();
+                await stream.CopyToAsync(ms, cancellationToken);
             });
 
         await _minioClient.GetObjectAsync(args);
-        pipe.Reader.TryRead(out var result);
-        return pipe.Reader.AsStream();
+        ms.Position = 0;
+        return ms;
     }
     /// <summary>
     /// 下载文件内容，适合较小文件
     /// </summary>
-    /// <param name="cloundFileName"></param>
+    /// <param name="cloudFileName"></param>
     /// <param name="ct"></param>
     /// <returns></returns>
-    public async Task<byte[]?> DownloadContentAsync(string cloundFileName, CancellationToken ct = default)
+    public async Task<byte[]?> DownloadContentAsync(string cloudFileName, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         try
@@ -110,7 +109,7 @@ public class MinIOStorageClient : ICloudStorageClient
             using var memoryStream = new MemoryStream();
             var args = new GetObjectArgs()
                 .WithBucket(_option.ContainerName)
-                .WithObject(cloundFileName)
+                .WithObject(cloudFileName)
                 .WithCallbackStream(async (stream, cancellationToken) =>
                 {
                     await stream.CopyToAsync(memoryStream, cancellationToken);
@@ -128,15 +127,15 @@ public class MinIOStorageClient : ICloudStorageClient
     /// <summary>
     /// 是否存在
     /// </summary>
-    /// <param name="cloundFileName"></param>
+    /// <param name="cloudFileName"></param>
     /// <param name="ct"></param>
     /// <returns></returns>
-    public async Task<bool> ExistAsync(string cloundFileName, CancellationToken ct = default)
+    public async Task<bool> ExistAsync(string cloudFileName, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         var statObjectArgs = new StatObjectArgs()
         .WithBucket(_option.ContainerName)
-        .WithObject(cloundFileName);
+        .WithObject(cloudFileName);
         var result = await _minioClient.StatObjectAsync(statObjectArgs);
         return result != null && result.ObjectName.IsNotNullOrEmpty();
     }
@@ -144,72 +143,49 @@ public class MinIOStorageClient : ICloudStorageClient
     /// <summary>
     /// 获取签名地址
     /// </summary>
-    /// <param name="cloundFileName"></param>
+    /// <param name="cloudFileName"></param>
     /// <param name="dateTimeOffset"></param>
     /// <returns></returns>
-    public async Task<string> GetSasUri(string cloundFileName, DateTimeOffset dateTimeOffset)
+    public async Task<string> GetSasUri(string cloudFileName, DateTimeOffset dateTimeOffset)
     {
+        var expiry = (int)(dateTimeOffset - DateTimeOffset.UtcNow).TotalSeconds;
         var args = new PresignedGetObjectArgs()
-                                      .WithBucket("mybucket")
-                                      .WithObject("myobject")
-                                      .WithExpiry((int)dateTimeOffset.Offset.TotalSeconds);
+                                      .WithBucket(_option.ContainerName)
+                                      .WithObject(cloudFileName)
+                                      .WithExpiry(Math.Max(expiry, 1));
         return await _minioClient.PresignedGetObjectAsync(args);
     }
 
     /// <summary>
     /// 上传
     /// </summary>
-    /// <param name="cloundFileName"></param>
+    /// <param name="cloudFileName"></param>
     /// <param name="localFilePath"></param>
     /// <returns></returns>
-    public bool Upload(string cloundFileName, string localFilePath)
+    public bool Upload(string cloudFileName, string localFilePath)
     {
-        var aesEncryption = Aes.Create();
-        aesEncryption.KeySize = 256;
-        aesEncryption.GenerateKey();
-        var ssec = new SSEC(aesEncryption.Key);
-
-        var args = new PutObjectArgs()
-        .WithBucket(_option.ContainerName)
-        .WithObject(cloundFileName)
-        .WithFileName(localFilePath)
-        .WithContentType("application/octet-stream")
-        .WithServerSideEncryption(ssec);
-        var result = _minioClient.PutObjectAsync(args).GetAwaiter().GetResult();
-        return result != null && result.ObjectName.IsNotNullOrEmpty();
+        return Task.Run(async () => await UploadAsync(cloudFileName, localFilePath)).GetAwaiter().GetResult();
     }
 
     /// <summary>
     /// 上传
     /// </summary>
-    /// <param name="cloundFileName"></param>
+    /// <param name="cloudFileName"></param>
     /// <param name="stream"></param>
     /// <returns></returns>
-    public bool Upload(string cloundFileName, Stream stream)
+    public bool Upload(string cloudFileName, Stream stream)
     {
-        var aesEncryption = Aes.Create();
-        aesEncryption.KeySize = 256;
-        aesEncryption.GenerateKey();
-        var ssec = new SSEC(aesEncryption.Key);
-
-        var args = new PutObjectArgs()
-        .WithBucket(_option.ContainerName)
-        .WithObject(cloundFileName)
-        .WithStreamData(stream)
-        .WithContentType("application/octet-stream")
-        .WithServerSideEncryption(ssec);
-        var result = _minioClient.PutObjectAsync(args).GetAwaiter().GetResult();
-        return result != null && result.ObjectName.IsNotNullOrEmpty();
+        return Task.Run(async () => await UploadAsync(cloudFileName, stream)).GetAwaiter().GetResult();
     }
 
     /// <summary>
     /// 上传
     /// </summary>
-    /// <param name="cloundFileName"></param>
+    /// <param name="cloudFileName"></param>
     /// <param name="localFilePath"></param>
     /// <param name="ct"></param>
     /// <returns></returns>
-    public async Task<bool> UploadAsync(string cloundFileName, string localFilePath, CancellationToken ct = default)
+    public async Task<bool> UploadAsync(string cloudFileName, string localFilePath, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         var aesEncryption = Aes.Create();
@@ -219,7 +195,7 @@ public class MinIOStorageClient : ICloudStorageClient
 
         var args = new PutObjectArgs()
         .WithBucket(_option.ContainerName)
-        .WithObject(cloundFileName)
+        .WithObject(cloudFileName)
         .WithFileName(localFilePath)
         .WithContentType("application/octet-stream")
         .WithServerSideEncryption(ssec);
@@ -230,11 +206,11 @@ public class MinIOStorageClient : ICloudStorageClient
     /// <summary>
     /// 上传
     /// </summary>
-    /// <param name="cloundFileName"></param>
+    /// <param name="cloudFileName"></param>
     /// <param name="stream"></param>
     /// <param name="ct"></param>
     /// <returns></returns>
-    public async Task<bool> UploadAsync(string cloundFileName, Stream stream, CancellationToken ct = default)
+    public async Task<bool> UploadAsync(string cloudFileName, Stream stream, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         var aesEncryption = Aes.Create();
@@ -244,7 +220,7 @@ public class MinIOStorageClient : ICloudStorageClient
 
         var args = new PutObjectArgs()
         .WithBucket(_option.ContainerName)
-        .WithObject(cloundFileName)
+        .WithObject(cloudFileName)
         .WithStreamData(stream)
         .WithContentType("application/octet-stream")
         .WithServerSideEncryption(ssec);

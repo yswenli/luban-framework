@@ -112,15 +112,15 @@ public class AliyunStorageClient : ICloudStorageClient
     /// <summary>
     /// 下载文件流
     /// </summary>
-    /// <param name="cloundFileName"></param>
+    /// <param name="cloudFileName"></param>
     /// <param name="ct"></param>
     /// <returns></returns>
-    public async Task<Stream?> DownloadAsync(string cloundFileName, CancellationToken ct = default)
+    public async Task<Stream?> DownloadAsync(string cloudFileName, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         try
         {
-            var result = await Task.FromResult(_ossClient.GetObject(_option.ContainerName, cloundFileName));
+            var result = await Task.Run(() => _ossClient.GetObject(_option.ContainerName, cloudFileName));
             if (result != null && result.HttpStatusCode == System.Net.HttpStatusCode.OK)
             {
                 return result.Content;
@@ -128,7 +128,7 @@ public class AliyunStorageClient : ICloudStorageClient
         }
         catch (Exception ex)
         {
-            Logger.Error(new Exception("找不到此文件：" + cloundFileName, ex));
+            Logger.Error(new Exception("找不到此文件：" + cloudFileName, ex));
         }
         return null;
     }
@@ -136,15 +136,15 @@ public class AliyunStorageClient : ICloudStorageClient
     /// <summary>
     /// 下载文件内容
     /// </summary>
-    /// <param name="cloundFileName"></param>
+    /// <param name="cloudFileName"></param>
     /// <param name="ct"></param>
     /// <returns></returns>
-    public async Task<byte[]?> DownloadContentAsync(string cloundFileName, CancellationToken ct = default)
+    public async Task<byte[]?> DownloadContentAsync(string cloudFileName, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         try
         {
-            var result = await Task.FromResult(_ossClient.GetObject(_option.ContainerName, cloundFileName));
+            var result = await Task.Run(() => _ossClient.GetObject(_option.ContainerName, cloudFileName));
             if (result != null && result.HttpStatusCode == System.Net.HttpStatusCode.OK)
             {
                 var stream = result.Content;
@@ -153,7 +153,7 @@ public class AliyunStorageClient : ICloudStorageClient
         }
         catch (Exception ex)
         {
-            Logger.Error(new Exception("找不到此文件：" + cloundFileName, ex));
+            Logger.Error(new Exception("找不到此文件：" + cloudFileName, ex));
         }
         return null;
     }
@@ -161,20 +161,20 @@ public class AliyunStorageClient : ICloudStorageClient
     /// <summary>
     /// 生成临时访问链接
     /// </summary>
-    /// <param name="cloundFileName"></param>
+    /// <param name="cloudFileName"></param>
     /// <param name="dateTimeOffset"></param>
     /// <returns></returns>
     /// <exception cref="NotImplementedException"></exception>
-    public async Task<string> GetSasUri(string cloundFileName, DateTimeOffset dateTimeOffset)
+    public async Task<string> GetSasUri(string cloudFileName, DateTimeOffset dateTimeOffset)
     {
         try
         {
-            var result = await Task.FromResult(_ossClient.GeneratePresignedUri(_option.ContainerName, cloundFileName, dateTimeOffset.UtcDateTime));
+            var result = await Task.Run(() => _ossClient.GeneratePresignedUri(_option.ContainerName, cloudFileName, dateTimeOffset.UtcDateTime));
             return result?.ToString() ?? string.Empty;
         }
         catch (Exception ex)
         {
-            Logger.Error(new Exception("生成临时访问链接失败：" + cloundFileName, ex));
+            Logger.Error(new Exception("生成临时访问链接失败：" + cloudFileName, ex));
         }
         return string.Empty;
     }
@@ -182,14 +182,14 @@ public class AliyunStorageClient : ICloudStorageClient
     /// <summary>
     /// 上传文件
     /// </summary>
-    /// <param name="cloundFileName"></param>
+    /// <param name="cloudFileName"></param>
     /// <param name="localFilePath"></param>
     /// <returns></returns>
-    public bool Upload(string cloundFileName, string localFilePath)
+    public bool Upload(string cloudFileName, string localFilePath)
     {
         try
         {
-            var result = _ossClient.PutObject(_option.ContainerName, cloundFileName, localFilePath);
+            var result = _ossClient.PutObject(_option.ContainerName, cloudFileName, localFilePath);
             if (result != null && result.HttpStatusCode == System.Net.HttpStatusCode.OK)
             {
                 return true;
@@ -197,7 +197,7 @@ public class AliyunStorageClient : ICloudStorageClient
         }
         catch (Exception ex)
         {
-            Logger.Error("上传文件到OSS失败", ex, cloundFileName, localFilePath);
+            Logger.Error("上传文件到OSS失败", ex, cloudFileName, localFilePath);
         }
         return false;
     }
@@ -205,16 +205,16 @@ public class AliyunStorageClient : ICloudStorageClient
     /// <summary>
     /// 上传文件
     /// </summary>
-    /// <param name="cloundFileName"></param>
+    /// <param name="cloudFileName"></param>
     /// <param name="localFilePath"></param>
     /// <param name="ct"></param>
     /// <returns></returns>
-    public async Task<bool> UploadAsync(string cloundFileName, string localFilePath, CancellationToken ct = default)
+    public async Task<bool> UploadAsync(string cloudFileName, string localFilePath, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         try
         {
-            var result = await Task.FromResult(_ossClient.PutObject(_option.ContainerName, cloundFileName, localFilePath));
+            var result = await Task.Run(() => _ossClient.PutObject(_option.ContainerName, cloudFileName, localFilePath));
             if (result != null && result.HttpStatusCode == System.Net.HttpStatusCode.OK)
             {
                 return true;
@@ -222,7 +222,7 @@ public class AliyunStorageClient : ICloudStorageClient
         }
         catch (Exception ex)
         {
-            Logger.Error("上传文件到OSS失败", ex, cloundFileName, localFilePath);
+            Logger.Error("上传文件到OSS失败", ex, cloudFileName, localFilePath);
         }
         return false;
     }
@@ -230,16 +230,16 @@ public class AliyunStorageClient : ICloudStorageClient
     /// <summary>
     /// 上传文件
     /// </summary>
-    /// <param name="cloundFileName"></param>
+    /// <param name="cloudFileName"></param>
     /// <param name="stream"></param>
     /// <returns></returns>
-    public bool Upload(string cloundFileName, Stream stream)
+    public bool Upload(string cloudFileName, Stream stream)
     {
         try
         {
-            if (!_ossClient.DoesObjectExist(_option.ContainerName, cloundFileName))
+            if (!_ossClient.DoesObjectExist(_option.ContainerName, cloudFileName))
             {
-                var result = _ossClient.PutObject(_option.ContainerName, cloundFileName, stream);
+                var result = _ossClient.PutObject(_option.ContainerName, cloudFileName, stream);
                 if (result != null && result.HttpStatusCode == System.Net.HttpStatusCode.OK)
                 {
                     return true;
@@ -248,7 +248,7 @@ public class AliyunStorageClient : ICloudStorageClient
         }
         catch (Exception ex)
         {
-            Logger.Error("上传文件到OSS失败", ex, cloundFileName);
+            Logger.Error("上传文件到OSS失败", ex, cloudFileName);
         }
         return false;
     }
@@ -256,18 +256,18 @@ public class AliyunStorageClient : ICloudStorageClient
     /// <summary>
     /// 上传文件
     /// </summary>
-    /// <param name="cloundFileName"></param>
+    /// <param name="cloudFileName"></param>
     /// <param name="stream"></param>
     /// <param name="ct"></param>
     /// <returns></returns>
-    public async Task<bool> UploadAsync(string cloundFileName, Stream stream, CancellationToken ct = default)
+    public async Task<bool> UploadAsync(string cloudFileName, Stream stream, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         try
         {
-            if (!_ossClient.DoesObjectExist(_option.ContainerName, cloundFileName))
+            if (!_ossClient.DoesObjectExist(_option.ContainerName, cloudFileName))
             {
-                var result = await Task.FromResult(_ossClient.PutObject(_option.ContainerName, cloundFileName, stream));
+                var result = await Task.Run(() => _ossClient.PutObject(_option.ContainerName, cloudFileName, stream));
                 if (result != null && result.HttpStatusCode == System.Net.HttpStatusCode.OK)
                 {
                     return true;
@@ -276,7 +276,7 @@ public class AliyunStorageClient : ICloudStorageClient
         }
         catch (Exception ex)
         {
-            Logger.Error("上传文件到OSS失败", ex, cloundFileName);
+            Logger.Error("上传文件到OSS失败", ex, cloudFileName);
         }
         return false;
     }
@@ -285,15 +285,15 @@ public class AliyunStorageClient : ICloudStorageClient
     /// <summary>
     /// 删除文件
     /// </summary>
-    /// <param name="cloundFileName"></param>
+    /// <param name="cloudFileName"></param>
     /// <param name="ct"></param>
     /// <returns></returns>
-    public async Task<bool> DeleteAsync(string cloundFileName, CancellationToken ct = default)
+    public async Task<bool> DeleteAsync(string cloudFileName, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         try
         {
-            var result = _ossClient.DeleteObject(_option.ContainerName, cloundFileName);
+            var result = _ossClient.DeleteObject(_option.ContainerName, cloudFileName);
             if (result != null && result.HttpStatusCode == System.Net.HttpStatusCode.OK)
             {
                 return true;
@@ -301,7 +301,7 @@ public class AliyunStorageClient : ICloudStorageClient
         }
         catch (Exception ex)
         {
-            Logger.Error("从OSS删除文件失败", ex, cloundFileName);
+            Logger.Error("从OSS删除文件失败", ex, cloudFileName);
         }
         return await Task.FromResult(false);
     }
@@ -309,19 +309,19 @@ public class AliyunStorageClient : ICloudStorageClient
     /// <summary>
     /// OSS文件是否存在
     /// </summary>
-    /// <param name="cloundFileName"></param>
+    /// <param name="cloudFileName"></param>
     /// <param name="ct"></param>
     /// <returns></returns>
-    public async Task<bool> ExistAsync(string cloundFileName, CancellationToken ct = default)
+    public async Task<bool> ExistAsync(string cloudFileName, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         try
         {
-            return _ossClient.DoesObjectExist(_option.ContainerName, cloundFileName);
+            return _ossClient.DoesObjectExist(_option.ContainerName, cloudFileName);
         }
         catch (Exception ex)
         {
-            Logger.Error("检查OSS文件是否存在失败", ex, cloundFileName);
+            Logger.Error("检查OSS文件是否存在失败", ex, cloudFileName);
         }
         return await Task.FromResult(false);
     }

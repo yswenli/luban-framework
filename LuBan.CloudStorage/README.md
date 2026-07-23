@@ -25,10 +25,10 @@
 
 ```csharp
 // 从配置创建（自动读取 Nacos 中的 UploadOptions）
-var client = CloundStorageClientFactory.Create();
+var client = CloudStorageClientFactory.Create();
 
 // 或手动指定配置
-var client = CloundStorageClientFactory.Create(new CloudStorageOptions
+var client = CloudStorageClientFactory.Create(new CloudStorageOptions
 {
     SupplierType = EnumSupplierType.Aliyun,
     Id = "your-access-key-id",
@@ -63,7 +63,7 @@ dotnet add package LuBan.CloudStorage
 | 功能模块 | 核心类 | 说明 |
 |---------|--------|------|
 | 统一接口 | `ICloudStorageClient` | Upload/Download/Delete/GetSasUri/Exist |
-| 工厂 | `CloundStorageClientFactory` | 带缓存的实例创建，支持自动读取配置 |
+| 工厂 | `CloudStorageClientFactory` | 带缓存的实例创建，支持自动读取配置 |
 | 云存储实现 | `AliyunStorageClient` | 云存储 适配 |
 | Azure 实现 | `AzureStorageClient` | 云存储 Storage 适配 |
 | 对象存储 实现 | `对象存储StorageClient` | 对象存储适配 |
@@ -156,7 +156,7 @@ await UrlUpdateHelper.UpdateUrlsAsync(courseDto);
 
 ## 使用提示
 
-- `CloundStorageClientFactory` 内部使用 `ConcurrentDictionary` 缓存实例，相同供应商类型不会重复创建
+- `CloudStorageClientFactory` 内部使用 `ConcurrentDictionary` 缓存实例，相同供应商类型不会重复创建
 - 启用 `EnableUploadCache` 会先写入本地再上传，适合网络不稳定的环境
 - 启用 `EnableDownloadCache` 会将远程文件缓存到本地，后续请求直接读取本地文件
 - `FileHandler` 内置 MD5 去重机制，相同文件不会重复上传

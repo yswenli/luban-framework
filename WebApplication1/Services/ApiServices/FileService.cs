@@ -212,7 +212,7 @@ public partial class FileService : BaseService<FileService>
             if (file.BucketName != "Local")
             {
                 var cloudFileName = file.FilePath + "/" + finalName;
-                await CloundStorageClientFactory.Create().DeleteAsync(cloudFileName);
+                await CloudStorageClientFactory.Create().DeleteAsync(cloudFileName);
             }
             return await _sysFileRep.DeleteAsync(file); ;
         }

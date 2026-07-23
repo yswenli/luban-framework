@@ -25,10 +25,10 @@ Your project needs cloud storage integration, but the provider keeps changing: d
 
 ```csharp
 // Create from configuration (automatically reads UploadOptions from Nacos)
-var client = CloundStorageClientFactory.Create();
+var client = CloudStorageClientFactory.Create();
 
 // Or specify configuration manually
-var client = CloundStorageClientFactory.Create(new CloudStorageOptions
+var client = CloudStorageClientFactory.Create(new CloudStorageOptions
 {
     SupplierType = EnumSupplierType.Aliyun,
     Id = "your-access-key-id",
@@ -63,7 +63,7 @@ dotnet add package LuBan.CloudStorage
 | Module | Core Class | Description |
 |--------|------------|-------------|
 | Unified Interface | `ICloudStorageClient` | Upload/Download/Delete/GetSasUri/Exist |
-| Factory | `CloundStorageClientFactory` | Cached instance creation, supports auto-reading configuration |
+| Factory | `CloudStorageClientFactory` | Cached instance creation, supports auto-reading configuration |
 | cloud provider | `AliyunStorageClient` | cloud provider OSS adapter |
 | Azure | `AzureStorageClient` | 云存储 Storage adapter |
 | 对象存储 | `对象存储StorageClient` | object storage adapter |
@@ -156,7 +156,7 @@ await UrlUpdateHelper.UpdateUrlsAsync(courseDto);
 
 ## Tips
 
-- `CloundStorageClientFactory` uses `ConcurrentDictionary` internally to cache instances — identical provider types won't create duplicates
+- `CloudStorageClientFactory` uses `ConcurrentDictionary` internally to cache instances — identical provider types won't create duplicates
 - Enabling `EnableUploadCache` writes to local storage first before uploading, suitable for unstable network environments
 - Enabling `EnableDownloadCache` caches remote files locally — subsequent requests read from local files directly
 - `FileHandler` has built-in MD5 deduplication — identical files won't be uploaded repeatedly

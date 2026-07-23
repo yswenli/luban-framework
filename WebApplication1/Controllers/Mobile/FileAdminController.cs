@@ -157,7 +157,7 @@ public class FileAdminController : BaseMobileController
             var path = "upload";
             var fileName = file.FileName;
             var cloundFileName = $"{path}/{fileName}";
-            var cloudClient = CloundStorageClientFactory.Create();
+            var cloudClient = CloudStorageClientFactory.Create();
             using (var ms = await file.SaveAsStreamAsync())
             {
                 if (await cloudClient.UploadAsync(cloundFileName, ms))
@@ -178,7 +178,7 @@ public class FileAdminController : BaseMobileController
     [HttpGet, NoWebLoginAuth, AllowAnonymous]
     public async Task<IActionResult> DownloadFileFromClound([Required] string cloundFileName)
     {
-        var cloudClient = CloundStorageClientFactory.Create();
+        var cloudClient = CloudStorageClientFactory.Create();
         var stream = await cloudClient.DownloadAsync(cloundFileName);
         if (stream != null)
             return await DownloadAsync(cloundFileName, stream);

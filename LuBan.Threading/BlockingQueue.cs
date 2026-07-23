@@ -144,6 +144,7 @@ public class BlockingQueue<T> : IDisposable
     /// <param name="match"></param>
     public bool RemoveFirst(Predicate<T> match)
     {
+        if (_isDisposed) throw new ObjectDisposedException(nameof(BlockingQueue<T>));
         if (match == null) throw new ArgumentNullException(nameof(match));
 
         lock (_lock)
@@ -165,6 +166,8 @@ public class BlockingQueue<T> : IDisposable
     /// <returns></returns>
     public T RemoveFirst()
     {
+        if (_isDisposed) throw new ObjectDisposedException(nameof(BlockingQueue<T>));
+        
         lock (_lock)
         {
             if (_items.Count == 0)

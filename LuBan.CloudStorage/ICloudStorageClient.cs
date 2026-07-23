@@ -32,79 +32,79 @@ public interface ICloudStorageClient
     /// <summary>
     /// 上传文件
     /// </summary>
-    /// <param name="cloundFileName"></param>
+    /// <param name="cloudFileName"></param>
     /// <param name="localFilePath"></param>
     /// <param name="ct"></param>
     /// <returns></returns>
-    bool Upload(string cloundFileName, string localFilePath);
+    bool Upload(string cloudFileName, string localFilePath);
     /// <summary>
     /// 上传文件
     /// </summary>
-    /// <param name="cloundFileName"></param>
+    /// <param name="cloudFileName"></param>
     /// <param name="localFilePath"></param>
     /// <param name="ct"></param>
     /// <returns></returns>
-    Task<bool> UploadAsync(string cloundFileName, string localFilePath, CancellationToken ct = default);
+    Task<bool> UploadAsync(string cloudFileName, string localFilePath, CancellationToken ct = default);
 
 
     /// <summary>
     /// 上传文件
     /// </summary>
-    /// <param name="cloundFileName"></param>
+    /// <param name="cloudFileName"></param>
     /// <param name="stream"></param>
     /// <returns></returns>
-    bool Upload(string cloundFileName, Stream stream);
+    bool Upload(string cloudFileName, Stream stream);
 
     /// <summary>
     /// 上传文件
     /// </summary>
-    /// <param name="cloundFileName"></param>
+    /// <param name="cloudFileName"></param>
     /// <param name="stream"></param>
     /// <param name="ct"></param>
     /// <returns></returns>
-    Task<bool> UploadAsync(string cloundFileName, Stream stream, CancellationToken ct = default);
+    Task<bool> UploadAsync(string cloudFileName, Stream stream, CancellationToken ct = default);
 
 
     /// <summary>
     /// 下载文件流，适合较大文件
     /// </summary>
-    /// <param name="cloundFileName"></param>
+    /// <param name="cloudFileName"></param>
     /// <param name="ct"></param>
     /// <returns></returns>
-    Task<Stream?> DownloadAsync(string cloundFileName, CancellationToken ct = default);
+    Task<Stream?> DownloadAsync(string cloudFileName, CancellationToken ct = default);
 
 
     /// <summary>
     /// 下载文件内容，适合较小文件
     /// </summary>
-    /// <param name="cloundFileName"></param>
+    /// <param name="cloudFileName"></param>
     /// <param name="ct"></param>
     /// <returns></returns>
-    Task<byte[]?> DownloadContentAsync(string cloundFileName, CancellationToken ct = default);
+    Task<byte[]?> DownloadContentAsync(string cloudFileName, CancellationToken ct = default);
 
 
 
     /// <summary>
     /// 删除文件
     /// </summary>
-    /// <param name="cloundFileName"></param>
+    /// <param name="cloudFileName"></param>
     /// <param name="ct"></param>
     /// <returns></returns>
-    Task<bool> DeleteAsync(string cloundFileName, CancellationToken ct = default);
+    Task<bool> DeleteAsync(string cloudFileName, CancellationToken ct = default);
 
     /// <summary>
     /// 获取文件SAS URI
     /// </summary>
-    /// <param name="cloundFileName"></param>
+    /// <param name="cloudFileName"></param>
     /// <param name="dateTimeOffset"></param>
     /// <returns></returns>
-    Task<string> GetSasUri(string cloundFileName, DateTimeOffset dateTimeOffset);
+    Task<string> GetSasUri(string cloudFileName, DateTimeOffset dateTimeOffset);
 
     /// <summary>
     /// 判断文件是否存在
     /// </summary>
-    /// <param name="cloundFileName"></param>
+    /// <param name="cloudFileName"></param>
     /// <param name="ct"></param>
     /// <returns></returns>
-    Task<bool> ExistAsync(string cloundFileName, CancellationToken ct = default);
+    Task<bool> ExistAsync(string cloudFileName, CancellationToken ct = default);
 }

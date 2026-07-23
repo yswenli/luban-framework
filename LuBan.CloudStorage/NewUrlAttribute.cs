@@ -30,9 +30,9 @@ namespace LuBan.CloudStorage;
 public class NewUrlAttribute : Attribute
 {
     /// <summary>
-    /// 获取或设置过期时间（秒），默认一天
+    /// 获取或设置过期时间（分钟），默认一天
     /// </summary>
-    public int ExpireMinutes { get; set; }
+    public int ExpireMinutes { get; set; } = 60 * 24;
 
     /// <summary>
     /// 初始化NewUrlAttribute实例
@@ -44,8 +44,8 @@ public class NewUrlAttribute : Attribute
     /// <summary>
     /// 使用指定的过期时间初始化NewUrlAttribute实例
     /// </summary>
-    /// <param name="expireMinutes">过期时间（秒），默认一天</param>
-    public NewUrlAttribute(int expireMinutes = 60 * 60 * 24)
+    /// <param name="expireMinutes">过期时间（分钟），默认一天</param>
+    public NewUrlAttribute(int expireMinutes)
     {
         ExpireMinutes = expireMinutes;
     }

@@ -4,7 +4,7 @@
 *机器名称：WALLE
 *Author：yswenli
 *命名空间：LuBan.CloudStorage
-*文件名： GloabUsing
+*文件名： GlobalUsing
 *版本号： V1.0.0.0
 *唯一标识：af627f18-3e46-44d4-9da6-6eb1b5bf4a05
 *当前的用户域：WALLE

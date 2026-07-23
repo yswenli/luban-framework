@@ -47,7 +47,7 @@ public partial class FileHandler : IScoped
             throw new Exception("在配置文件中找不到UploadOptions");
         }
         _uploadOptions = options;
-        _cloudStorageClient = CloundStorageClientFactory.Create();
+        _cloudStorageClient = CloudStorageClientFactory.Create();
         _sysFileRep = new BaseRepository<DbFile>();
     }
 
@@ -83,6 +83,9 @@ public partial class FileHandler : IScoped
             }
             else
             {
+                var dir = Path.GetDirectoryName(localFilePath);
+                if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                    Directory.CreateDirectory(dir);
                 using var fs = new FileStream(localFilePath, FileMode.Create, FileAccess.Write);
                 stream.CopyTo(fs);
                 return true;
@@ -127,6 +130,9 @@ public partial class FileHandler : IScoped
             }
             else
             {
+                var dir = Path.GetDirectoryName(localFilePath);
+                if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                    Directory.CreateDirectory(dir);
                 using var fs = new FileStream(localFilePath, FileMode.Create, FileAccess.Write);
                 await stream.CopyToAsync(fs);
                 return true;
@@ -170,6 +176,9 @@ public partial class FileHandler : IScoped
             }
             else
             {
+                var dir = Path.GetDirectoryName(localFilePath);
+                if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                    Directory.CreateDirectory(dir);
                 using var fs = new FileStream(localFilePath, FileMode.Create, FileAccess.Write);
                 using var ts = tempFile.Open();
                 await ts.CopyToAsync(fs);
@@ -328,12 +337,34 @@ public partial class FileHandler : IScoped
     /// <returns></returns>
     [GeneratedRegex(@"(\{.+?})")]
     private static partial Regex GetRegex();
-    /// <summary>
-    /// 获取正则表达式
-    /// </summary>
-    /// <param name="txt"></param>
-    /// <returns></returns>
     private static MatchCollection GetRegexImpl(string txt) => GetRegex().Matches(txt);
+
+    static string ResolvePathTemplate(string path)
+    {
+        var match = GetRegexImpl(path);
+        foreach (Match a in match)
+        {
+            var str = DateTime.Now.ToString(a.Value.Substring(1, a.Length - 2));
+            path = path.Replace(a.Value, str);
+        }
+        return path;
+    }
+
+    static DbFile CreateDbFile(UploadOptions uploadOptions, string fileName, string suffix, long sizeKb, string savePath, string fileMd5, bool isPrivate)
+    {
+        return new DbFile
+        {
+            Id = YitIdHelper.NextId(),
+            BucketName = uploadOptions.EnableCloudStorage ? uploadOptions.CloudStorageOptions?.ContainerName ?? "" : "Local",
+            FileName = fileName,
+            Suffix = suffix,
+            SizeKb = sizeKb.ToString(),
+            FilePath = savePath,
+            FileMd5 = fileMd5,
+            Provider = "",
+            IsPrivate = isPrivate
+        };
+    }
 
 
     /// <summary>
@@ -355,18 +386,11 @@ public partial class FileHandler : IScoped
         {
             savePath = savePath.Replace("..", "").Replace("\\", "/");
         }
-        else
-        {
-            savePath = _uploadOptions.Path;
-            var match = GetRegexImpl(savePath);
-            match.ToList().ForEach(a =>
+            else
             {
-                var str = DateTime.Now.ToString(a.ToString().Substring(1, a.Length - 2)); // 每天一个目录
-                savePath = savePath.Replace(a.ToString(), str);
-            });
-        }
+                savePath = ResolvePathTemplate(_uploadOptions.Path);
+            }
 
-        // 判断是否重复上传的文件
         var fileMd5 = BitConverter.ToString(bytes.GetMD5()).Replace("-", "");
 
         using var locker = await LockerBuilder.Default.CreateAsync($"FileUpload_{fileMd5}");
@@ -375,18 +399,7 @@ public partial class FileHandler : IScoped
         {
             return oldFile;
         }
-        var newFile = new DbFile
-        {
-            Id = YitIdHelper.NextId(),
-            BucketName = _uploadOptions.EnableCloudStorage ? _uploadOptions?.CloudStorageOptions?.ContainerName ?? "" : "Local",
-            FileName = fileName,
-            Suffix = suffix,
-            SizeKb = sizeKb.ToString(),
-            FilePath = savePath,
-            FileMd5 = fileMd5,
-            Provider = "",
-            IsPrivate = isPrivate
-        };
+        var newFile = CreateDbFile(_uploadOptions, fileName, suffix, sizeKb, savePath, fileMd5, isPrivate);
         var finalName = newFile.Id + newFile.Suffix;
         var filePath = Path.Combine(rootPath, savePath);
         if (!Directory.Exists(filePath))
@@ -423,16 +436,10 @@ public partial class FileHandler : IScoped
         {
             savePath = savePath.Replace("..", "").Replace("\\", "/");
         }
-        else
-        {
-            savePath = _uploadOptions.Path;
-            var match = GetRegexImpl(savePath);
-            match.ToList().ForEach(a =>
+            else
             {
-                var str = DateTime.Now.ToString(a.ToString().Substring(1, a.Length - 2)); // 每天一个目录
-                savePath = savePath.Replace(a.ToString(), str);
-            });
-        }
+                savePath = ResolvePathTemplate(_uploadOptions.Path);
+            }
 
         // 流式计算MD5，避免将整个流加载到内存
         using (stream)
@@ -446,18 +453,7 @@ public partial class FileHandler : IScoped
             {
                 return oldFile;
             }
-            var newFile = new DbFile
-            {
-                Id = YitIdHelper.NextId(),
-                BucketName = _uploadOptions.EnableCloudStorage ? _uploadOptions?.CloudStorageOptions?.ContainerName ?? "" : "Local",
-                FileName = fileName,
-                Suffix = suffix,
-                SizeKb = sizeKb.ToString(),
-                FilePath = savePath,
-                FileMd5 = fileMd5,
-                Provider = "",
-                IsPrivate = isPrivate
-            };
+            var newFile = CreateDbFile(_uploadOptions, fileName, suffix, sizeKb, savePath, fileMd5, isPrivate);
             var finalName = newFile.Id + newFile.Suffix;
             var filePath = Path.Combine(rootPath, savePath);
             if (!Directory.Exists(filePath))
@@ -503,13 +499,7 @@ public partial class FileHandler : IScoped
         }
         else
         {
-            savePath = _uploadOptions.Path;
-            var match = GetRegexImpl(savePath);
-            match.ToList().ForEach(a =>
-            {
-                var str = DateTime.Now.ToString(a.ToString().Substring(1, a.Length - 2));
-                savePath = savePath.Replace(a.ToString(), str);
-            });
+            savePath = ResolvePathTemplate(_uploadOptions.Path);
         }
 
         var fileMd5 = await ComputeMd5StreamAsync(videoContentStream);

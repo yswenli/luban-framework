@@ -71,6 +71,12 @@ namespace LuBan.CloudStorage
                 }
             }
 
+            var uploadOptions = NacosConfigUtil.Read<UploadOptions>();
+            if (uploadOptions == null || !uploadOptions.EnableCloudStorage)
+                return;
+
+            ICloudStorageClient? cloudStorageClient = null;
+
             var members = type.GetMembers(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
                 .Where(m => m.MemberType == MemberTypes.Property || m.MemberType == MemberTypes.Field);
 
@@ -104,30 +110,20 @@ namespace LuBan.CloudStorage
 
                 try
                 {
-                    // 仅处理带过期标识的URL
                     if (!IsExpiringUrl(currentUrl))
                         continue;
 
-                    // 从NacosConfigUtil中读取当前配置
-                    var uploadOptions = NacosConfigUtil.Read<UploadOptions>();
-                    if (uploadOptions == null || !uploadOptions.EnableCloudStorage)
-                        continue;
+                    cloudStorageClient ??= CloudStorageClientFactory.Create(uploadOptions.CloudStorageOptions);
 
-                    // 创建云存储客户端
-                    var cloudStorageClient = CloundStorageClientFactory.Create(uploadOptions.CloudStorageOptions);
-
-                    // 提取完整的objectKey（包含路径）
                     string fileName = ExtractObjectKey(currentUrl);
                     if (fileName.IsNullOrEmpty())
                         continue;
 
-                    // 生成新的临时URL
                     var expireTime = DateTimeOffset.Now.AddMinutes(attribute.ExpireMinutes);
                     var newUrl = await cloudStorageClient.GetSasUri(fileName, expireTime);
 
                     if (newUrl.IsNotNullOrEmpty())
                     {
-                        // 更新对象中的值
                         if (member.MemberType == MemberTypes.Property)
                         {
                             ((PropertyInfo)member).SetValue(obj, newUrl);
@@ -188,7 +184,7 @@ namespace LuBan.CloudStorage
             try
             {
                 var uri = new Uri(url);
-                return uri.LocalPath;
+                return uri.LocalPath.TrimStart('/');
             }
             catch
             {

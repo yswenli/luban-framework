@@ -219,8 +219,9 @@ public static class TaskUtil
                 {
                     throw;
                 }
-                catch
+                catch (Exception ex)
                 {
+                    System.Diagnostics.Debug.WriteLine($"Until循环异常: {ex.Message}");
                 }
                 ThreadUtil.Sleep(safeMilliseconds, cancellationToken);
             }
@@ -377,7 +378,23 @@ public static class TaskUtil
                     }
                     else
                     {
-                        list.Add(await task);
+                        try
+                        {
+                            var completedTask = await Task.WhenAny(task, Task.Delay(timeOut, cts.Token));
+                            if (completedTask == task)
+                            {
+                                list.Add(await task);
+                            }
+                            else
+                            {
+                                list.Add(null);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"WaitForTasks异常: {ex.Message}");
+                            list.Add(null);
+                        }
                     }
                 }
             }

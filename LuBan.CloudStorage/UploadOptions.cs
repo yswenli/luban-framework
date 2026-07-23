@@ -46,7 +46,12 @@ public sealed class UploadOptions
     /// <summary>
     /// 上传文件扩展名限制
     /// </summary>
-    public List<string> ExtensionNames { get; set; }
+    public List<string> ExtensionNames { get; set; } = new()
+    {
+        ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".pdf",
+        ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+        ".txt", ".zip", ".rar", ".7z", ".mp4", ".avi", ".mp3"
+    };
 
     /// <summary>
     /// 启用文件MD5验证

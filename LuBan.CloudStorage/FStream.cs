@@ -28,11 +28,11 @@ namespace LuBan.CloudStorage;
 /// </summary>
 public class FStream
 {
-    public string FileName { get; set; }
+    public string FileName { get; set; } = string.Empty;
 
-    public string ContentType { get; set; }
+    public string ContentType { get; set; } = string.Empty;
 
-    public Stream Stream { get; set; }
+    public Stream Stream { get; set; } = Stream.Null;
 
 
     public FStream()

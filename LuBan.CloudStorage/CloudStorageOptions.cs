@@ -32,12 +32,12 @@ public class CloudStorageOptions
     /// id
     /// </summary>
     [Required]
-    public string Id { get; set; }
+    public string Id { get; set; } = string.Empty;
     /// <summary>
     /// key
     /// </summary>
     [Required]
-    public string Key { get; set; }
+    public string Key { get; set; } = string.Empty;
 
 
     /// <summary>
@@ -50,12 +50,12 @@ public class CloudStorageOptions
     /// The name of the blob container in the storage account to reference.
     /// </summary>
     [Required]
-    public string ContainerName { get; set; }
+    public string ContainerName { get; set; } = string.Empty;
     /// <summary>
     /// The name of the blob container in the storage account to reference.
     /// </summary>
     [Required]
-    public string Endpoint { get; set; }
+    public string Endpoint { get; set; } = string.Empty;
 
     /// <summary>
     /// 超时时间

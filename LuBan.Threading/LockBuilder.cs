@@ -62,7 +62,7 @@ public class LockerBuilder : IDisposable
             throw new TimeoutException($"获取锁「{lockName}」超时（超时时间：{timeout.Value.TotalSeconds} 秒）");
         }
 
-        return new LockerReleaser(targetSemaphore, lockName, this);
+        return new LockerReleaser(targetSemaphore);
     }
 
     /// <summary>
@@ -117,7 +117,7 @@ public class LockerBuilder : IDisposable
             throw new TimeoutException($"获取锁「{lockName}」超时（超时时间：{timeout.Value.TotalSeconds} 秒）");
         }
 
-        return new LockerReleaser(targetSemaphore, lockName, this);
+        return new LockerReleaser(targetSemaphore);
     }
 
     /// <summary>
@@ -147,11 +147,58 @@ public class LockerBuilder : IDisposable
     {
         if (_isDisposed) return;
         _isDisposed = true;
-        foreach (var (_, semaphore) in _lockPool)
+        var semaphores = _lockPool.Values.ToList();
+        _lockPool.Clear();
+        foreach (var semaphore in semaphores)
         {
             semaphore.Dispose();
         }
-        _lockPool.Clear();
+    }
+
+/// <summary>
+/// 移除指定的命名锁（仅当锁未被持有时才释放）
+/// </summary>
+/// <param name="lockName">锁名称</param>
+/// <returns>是否成功移除</returns>
+public bool RemoveLock(string lockName)
+{
+    if (string.IsNullOrWhiteSpace(lockName))
+        throw new ArgumentNullException(nameof(lockName));
+    if (_isDisposed) return false;
+
+    if (_lockPool.TryRemove(lockName, out var semaphore))
+    {
+        if (semaphore.CurrentCount == 1)
+        {
+            semaphore.Dispose();
+        }
+        else
+        {
+            _lockPool[lockName] = semaphore;
+        }
+        return true;
+    }
+    return false;
+}
+
+    /// <summary>
+    /// 清理所有当前未被持有的命名锁
+    /// </summary>
+    public void CleanupUnusedLocks()
+    {
+        if (_isDisposed) return;
+
+        var locksToCheck = _lockPool.ToList();
+        foreach (var (lockName, semaphore) in locksToCheck)
+        {
+            if (semaphore.CurrentCount == 1)
+            {
+                if (_lockPool.TryRemove(lockName, out var removedSemaphore) && removedSemaphore.CurrentCount == 1)
+                {
+                    removedSemaphore.Dispose();
+                }
+            }
+        }
     }
 
     /// <summary>

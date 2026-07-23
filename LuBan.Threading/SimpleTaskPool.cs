@@ -22,21 +22,19 @@
 *
 *****************************************************************************/
 
-using System.Threading.Channels;
-
 namespace LuBan.Threading;
 
 /// <summary>
 /// 简单的Task池，适用于大部分耗时小的任务
 /// </summary>
-public class SimpleTaskPool : ISimplePool, IDisposable
+public class SimpleTaskPool : ISimplePool
 {
-    private readonly Channel<PoolTaskInfo2> _channel;
     private readonly ConcurrentDictionary<Guid, PoolTaskInfo2> _taskStatusDict = new();
     private readonly SemaphoreSlim _semaphore;
     private readonly CancellationTokenSource _cts = new();
-    private readonly int _maxDegreeOfParallelism;
-    private volatile bool _isRunning;
+    private volatile int _pendingCount = 0;
+    private volatile bool _isRunning = true;
+    private volatile bool _isDisposed = false;
     private Thread? _monitorThread;
 
     /// <summary>
@@ -56,9 +54,7 @@ public class SimpleTaskPool : ISimplePool, IDisposable
     /// <param name="maxDegreeOfParallelism"></param>
     public SimpleTaskPool(string name, int maxDegreeOfParallelism)
     {
-        _maxDegreeOfParallelism = maxDegreeOfParallelism;
         _semaphore = new SemaphoreSlim(maxDegreeOfParallelism, maxDegreeOfParallelism);
-        _channel = Channel.CreateUnbounded<PoolTaskInfo2>();
         Name = name;
 
         _isRunning = true;
@@ -84,20 +80,27 @@ public class SimpleTaskPool : ISimplePool, IDisposable
         if (!_isRunning) return Guid.Empty;
         var poolTask = new PoolTaskInfo2(task);
         _taskStatusDict[poolTask.Id] = poolTask;
-        _channel.Writer.TryWrite(poolTask);
+        Interlocked.Increment(ref _pendingCount);
         _ = ProcessTaskAsync(poolTask);
         return poolTask.Id;
     }
 
     private async Task ProcessTaskAsync(PoolTaskInfo2 poolTask)
     {
-        await _semaphore.WaitAsync(_cts.Token).ConfigureAwait(false);
+        bool acquired = false;
         try
         {
+            await _semaphore.WaitAsync(_cts.Token).ConfigureAwait(false);
+            acquired = true;
             poolTask.Status = PoolTaskStatus.Running;
             poolTask.StartTime = DateTime.Now;
             await poolTask.Func().ConfigureAwait(false);
             poolTask.Status = PoolTaskStatus.Success;
+        }
+        catch (OperationCanceledException) when (_cts.IsCancellationRequested)
+        {
+            poolTask.Status = PoolTaskStatus.Failed;
+            poolTask.Exception = new TaskCanceledException("任务池已关闭");
         }
         catch (Exception ex)
         {
@@ -107,7 +110,12 @@ public class SimpleTaskPool : ISimplePool, IDisposable
         finally
         {
             poolTask.EndTime = DateTime.Now;
-            _semaphore.Release();
+            Interlocked.Decrement(ref _pendingCount);
+            if (acquired)
+            {
+                try { _semaphore.Release(); }
+                catch (SemaphoreFullException) { }
+            }
         }
     }
 
@@ -118,13 +126,14 @@ public class SimpleTaskPool : ISimplePool, IDisposable
             try
             {
                 Thread.Sleep(5000);
-                CleanupCompletedTasks();
 
                 int pending = _taskStatusDict.Values.Count(t => t.Status == PoolTaskStatus.Pending);
                 int running = _taskStatusDict.Values.Count(t => t.Status == PoolTaskStatus.Running);
                 int success = _taskStatusDict.Values.Count(t => t.Status == PoolTaskStatus.Success);
                 int failed = _taskStatusDict.Values.Count(t => t.Status == PoolTaskStatus.Failed);
-                int queueCount = _channel.Reader.Count;
+                int queueCount = _pendingCount;
+
+                CleanupCompletedTasks();
 
                 OnRunning?.Invoke(this, new TaskInfoArgs
                 {
@@ -136,7 +145,10 @@ public class SimpleTaskPool : ISimplePool, IDisposable
                     FailCount = failed
                 });
             }
-            catch { }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"MonitorStatus异常: {ex.Message}");
+            }
         }
     }
 
@@ -177,9 +189,10 @@ public class SimpleTaskPool : ISimplePool, IDisposable
     /// </summary>
     public void Dispose()
     {
+        if (_isDisposed) return;
+        _isDisposed = true;
         _isRunning = false;
         _cts.Cancel();
-        _channel.Writer.TryComplete();
         _monitorThread?.Join();
         _semaphore.Dispose();
         _cts.Dispose();

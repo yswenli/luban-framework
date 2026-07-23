@@ -29,14 +29,14 @@ using System.Collections.Concurrent;
 /// <summary>
 /// 云存储工厂
 /// </summary>
-public static class CloundStorageClientFactory
+public static class CloudStorageClientFactory
 {
     static ConcurrentDictionary<EnumSupplierType, ICloudStorageClient> _cache;
 
     /// <summary>
     /// 云存储工厂
     /// </summary>
-    static CloundStorageClientFactory()
+    static CloudStorageClientFactory()
     {
         _cache = new ConcurrentDictionary<EnumSupplierType, ICloudStorageClient>();
     }
@@ -48,7 +48,7 @@ public static class CloundStorageClientFactory
     /// <returns></returns>
     public static ICloudStorageClient Create(CloudStorageOptions? config)
     {
-        if (config == null) throw new ArgumentNullException("CloundStorageConfig初始化不能为空");
+        if (config == null) throw new ArgumentNullException("CloudStorageConfig初始化不能为空");
         
         return _cache.GetOrAdd(config.SupplierType, type =>
         {

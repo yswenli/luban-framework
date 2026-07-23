@@ -27,7 +27,7 @@ namespace LuBan.Threading;
 /// <summary>
 /// 复用后台线程的线程池，适用于对资源使用上限敏感的任务
 /// </summary>
-public class SimpleThreadPool : ISimplePool, IDisposable
+public class SimpleThreadPool : ISimplePool
 {
     private readonly BlockingCollection<PoolTaskInfo2> _taskQueue;
     private readonly Thread[] _workers;
@@ -132,13 +132,14 @@ public class SimpleThreadPool : ISimplePool, IDisposable
             try
             {
                 Thread.Sleep(5000);
-                CleanupCompletedTasks();
 
                 int pending = _taskStatusDict.Values.Count(t => t.Status == PoolTaskStatus.Pending);
                 int running = _taskStatusDict.Values.Count(t => t.Status == PoolTaskStatus.Running);
                 int success = _taskStatusDict.Values.Count(t => t.Status == PoolTaskStatus.Success);
                 int failed = _taskStatusDict.Values.Count(t => t.Status == PoolTaskStatus.Failed);
                 int queueCount = _taskQueue.Count;
+
+                CleanupCompletedTasks();
 
                 OnRunning?.Invoke(this, new TaskInfoArgs
                 {
@@ -150,7 +151,10 @@ public class SimpleThreadPool : ISimplePool, IDisposable
                     FailCount = failed
                 });
             }
-            catch { }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"MonitorStatus异常: {ex.Message}");
+            }
         }
     }
 
