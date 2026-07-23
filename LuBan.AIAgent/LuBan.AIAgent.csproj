@@ -7,7 +7,7 @@
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <PackageId>$(AssemblyName)</PackageId>
     <Title>$(AssemblyName)</Title>
-    <Version>2026.7.22.1</Version>
+    <Version>2026.7.23.1</Version>
     <Authors>yswenli</Authors>
     <Description>LuBan.AIAgent 是一个 AI 代理框架，提供了与各种 AI 模型交互的能力，支持技能系统、工具调用和会话管理。</Description>
     <Copyright>$(Authors)</Copyright>
