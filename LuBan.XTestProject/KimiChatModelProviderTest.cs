@@ -19,7 +19,7 @@ public class KimiChatModelProviderTest
         {
             services.AddKimiProvider(options =>
             {
-                options.ApiKey = "LuBan";
+                options.ApiKey = "YOUR_API_KEY";
                 options.BaseUrl = "https://api.moonshot.cn/v1";
                 options.RequestTimeout = TimeSpan.FromMinutes(2); // 增加超时时间到2分钟
             });
@@ -71,7 +71,7 @@ public class KimiChatModelProviderTest
         {
             services.AddKimiProvider(options =>
             {
-                options.ApiKey = "LuBanFramework";
+                options.ApiKey = "YOUR_API_KEY";
                 options.BaseUrl = "https://api.moonshot.cn/v1/";
                 options.RequestTimeout = TimeSpan.FromMinutes(2); // 增加超时时间到2分钟
             });

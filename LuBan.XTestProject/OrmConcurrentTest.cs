@@ -139,7 +139,7 @@ public class OrmConcurrentTest
                     var user = new DbUser
                     {
                         Account = $"concurrent_test_{index}_{Guid.NewGuid():N}",
-                        Password = "test123",
+                        Password = "YOUR_PASSWORD",
                         RealName = $"Test User {index}",
                         OrgId = 1,
                         PosId = 1
@@ -335,7 +335,7 @@ public class OrmConcurrentTest
                 repo.Insert(new DbUser
                 {
                     Account = marker,
-                    Password = "test",
+                    Password = "YOUR_PASSWORD",
                     RealName = "Rollback Test",
                     OrgId = 1,
                     PosId = 1
@@ -454,7 +454,7 @@ public class OrmConcurrentTest
                         var user = new DbUser
                         {
                             Account = $"stress_{index}_{j}_{Guid.NewGuid():N}",
-                            Password = "test",
+                            Password = "YOUR_PASSWORD",
                             RealName = $"Stress User {index}",
                             OrgId = 1,
                             PosId = 1

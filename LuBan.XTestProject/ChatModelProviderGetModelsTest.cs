@@ -20,7 +20,7 @@ public class ChatModelProviderGetModelsTest
         {
             services.AddGLMProvider(options =>
             {
-                options.ApiKey = "LuBan";
+                options.ApiKey = "YOUR_API_KEY";
                 options.BaseUrl = "https://opencode.ai/zen/go/v1/";
                 options.RequestTimeout = TimeSpan.FromMinutes(2);
             });
@@ -46,7 +46,7 @@ public class ChatModelProviderGetModelsTest
             new HttpClient(),
             Microsoft.Extensions.Options.Options.Create(new LuBan.AIAgent.Providers.Claude.ClaudeOptions
             {
-                ApiKey = "test-key"
+                ApiKey = "YOUR_API_KEY"
             }));
 
         var models = await provider.GetModelsAsync();

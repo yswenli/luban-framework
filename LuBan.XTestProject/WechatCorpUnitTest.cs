@@ -59,7 +59,7 @@ namespace LuBan.TestProject1
                 msg_signature = "3a149508b3d286594704c539cf7488d43554be6b",
                 timestamp = "1731053744",
                 nonce = "5w3neo8n12",
-                echostr = "ZU6ph8INCDylcH1NVw5AEX5yx6WFaceBh+7jTFQjpvKzDhSEoZDTyZ9VRrnjhzfiMUaucGyd5uNTSs8JlcOohA=="
+                echostr = "YOUR_ECHOSTR"
             }) ?? "";
 
             Assert.IsNotNull(result);
@@ -72,7 +72,7 @@ namespace LuBan.TestProject1
         [TestMethod]
         public void TestReceive()
         {
-            var xml = "<xml><ToUserName><![CDATA[wwa44b7b4a6582f4b0]]></ToUserName><Encrypt><![CDATA[ug7q5HfC0+fAY8vaOHuyWkI8QRgXFInj7tIvvhFHpIH62PVIRiHNTi6NQqCGpklCV3DafH+lO/BltVr9edTBJ3+dHV792bplcMznXZJbWFkZBezZdFuMG6O9YRIhKNqatfeF8joBzqliapCfeuaLh8Mvs5n8WyChTIdQWMbp2y1dVHJ5+CJhqXDR9+QYQH7qPpc7jrXha1+gke6nUdQubl7u7XuCrMagV87F0ErivVZ86Wdl3KauR3OvA+6hW+THJ3iHRJJ1/1KAfxHshjlluziR6fpRumiziDKTTG8g3bJBHxEKgSw5uSJoYxrbhRA3MDbRROaQXevJuY+PFlPYkkIO6QnQOywmm2YTOnx6+RfAwokAPeH2vikYE5176aXJvrvppzoI2T/TBTJIOifqHrGTylpfxY9z+4KHu+IHCbyPpi0N1BdNucntXKUSG59PJI7+ZqmyemWFvfhJRqZNEQ==]]></Encrypt><AgentID><![CDATA[1000005]]></AgentID></xml>";
+            var xml = "<xml><ToUserName><![CDATA[YOUR_CORP_ID]]></ToUserName><Encrypt><![CDATA[YOUR_ENCRYPTED_MESSAGE]]></Encrypt><AgentID><![CDATA[1000005]]></AgentID></xml>";
 
             var stream = new MemoryStream(Encoding.UTF8.GetBytes(xml));
 

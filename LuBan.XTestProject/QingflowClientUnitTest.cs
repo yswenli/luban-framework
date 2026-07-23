@@ -63,8 +63,8 @@ public class QingflowClientUnitTest
 
                 var patients = await OpenApiClient.Instance.GetModelByIdCardAsync<BusQPatient>(new GetAppDataByIdCardInput()
                 {
-                    AppId = "LuBanFramework",
-                    PatientIdCard = "332623196304014798"
+                    AppId = "YOUR_APP_ID",
+                    PatientIdCard = "000000000000000000"
                 });
 
                 var patient = patients.FirstOrDefault();
@@ -133,8 +133,8 @@ public class QingflowClientUnitTest
 
             var input = new Qingflow.Models.GetPatientRegistInfoInput()
             {
-                AppId = "LuBanFramework",//注册登记
-                Applicant = "14c5e70acb0f"//"A"
+                AppId = "YOUR_APP_ID",//注册登记
+                Applicant = "YOUR_APPLICANT_ID"//"A"
             };
 
             var result = OpenApiClient.Instance.GetPatientRegistInfosAsync(input).Result;
@@ -167,8 +167,8 @@ public class QingflowClientUnitTest
 
             var input = new Qingflow.Models.GetPatientRegistInfoInput()
             {
-                AppId = "LuBanFramework",//注册登记
-                Applicant = "79f3ae7d2490"//轻流帐号id
+                AppId = "YOUR_APP_ID",//注册登记
+                Applicant = "YOUR_APPLICANT_ID"//轻流帐号id
             };
 
             var result = OpenApiClient.Instance.GetPatientRegistInfosAsync(input).Result;
@@ -192,8 +192,8 @@ public class QingflowClientUnitTest
         {
             var input = new Qingflow.Models.GetAppDataByIdCardInput()
             {
-                AppId = "LuBanFramework",//患者管理名单
-                PatientIdCard = "210302196404220612"
+                AppId = "YOUR_APP_ID",//患者管理名单
+                PatientIdCard = "000000000000000000"
             };
 
             var result = OpenApiClient.Instance.GetAppDataByIdCardAsync(input).Result;
@@ -216,8 +216,8 @@ public class QingflowClientUnitTest
         {
             var input = new Qingflow.Models.GetAppDataByIdCardInput()
             {
-                AppId = "LuBanFramework",//患者管理名单
-                PatientIdCard = "370181196304236886"
+                AppId = "YOUR_APP_ID",//患者管理名单
+                PatientIdCard = "000000000000000000"
             };
 
             var result = OpenApiClient.Instance.GetAppDataByIdCardAsync(input).Result;
@@ -250,7 +250,7 @@ public class QingflowClientUnitTest
         {
             var latestAppData = OpenApiClient.Instance.GetLastestModelAsync<PatientFlow>(new GetLastestAppDataInput()
             {
-                AppId = "LuBanFramework",//患者管理名单,
+                AppId = "YOUR_APP_ID",//患者管理名单,
                 PageIndex = 1,
                 PageSize = 200,
                 FromDateTime = DateTime.Parse("2024-12-20"),
@@ -278,7 +278,7 @@ public class QingflowClientUnitTest
         {
             var latestAppData = OpenApiClient.Instance.GetLastestAppDataAsync(new GetLastestAppDataInput()
             {
-                AppId = "LuBanFramework",//注册登录,
+                AppId = "YOUR_APP_ID",//注册登录,
                 PageIndex = 1,
                 PageSize = 200,
                 FromDateTime = DateTime.Parse("2024-12-30 18:00:00"),
@@ -351,7 +351,7 @@ public class QingflowClientUnitTest
         {
             var input = new DeleteAppDataInput()
             {
-                AppId = "LuBanFramework",
+                AppId = "YOUR_APP_ID",
                 AppDataId = 186704860
             };
 
@@ -375,7 +375,7 @@ public class QingflowClientUnitTest
     {
         try
         {
-            var userId = "1617662";
+            var userId = "YOUR_USER_ID";
 
             var result = OpenApiClient.Instance.GetUserAsync(userId).Result;
 
@@ -404,9 +404,9 @@ public class QingflowClientUnitTest
             var openApiClient = new OpenApiClient(options);
             var result = await OpenApiClient.Instance.GetModelByIdCardAsync<PatientFlow>(new GetAppDataByIdCardInput()
             {
-                AppId = "LuBanFramework",
+                AppId = "YOUR_APP_ID",
                 IdCardQueId = 103011938,
-                PatientIdCard = "440321195610171214"
+                PatientIdCard = "000000000000000000"
             });
 
             var ss = sp.ElapsedMilliseconds;
@@ -437,7 +437,7 @@ public class QingflowClientUnitTest
 
             var latestAppData = openApiClient.GetAppDataListAsync(new GetAppDataListInput()
             {
-                AppId = "LuBanFramework",
+                AppId = "YOUR_APP_ID",
                 IsAll = true,
                 PageIndex = 1,
                 PageSize = 5
@@ -467,7 +467,7 @@ public class QingflowClientUnitTest
             //领药总明细
             var result = openApiClient.GetChartDataAsync(new GetChartDataListInput()
             {
-                ChartKey = "d1e8cdd1",
+                ChartKey = "YOUR_CHART_KEY",
                 Filter = new ChartDataListInputFilter()
                 {
                     PageNum = 1,
@@ -506,7 +506,7 @@ public class QingflowClientUnitTest
             //领药总明细
             var result = openApiClient.GetChartDataByDatetimeAsync(new ChartDataByDatetimeInput()
             {
-                ChartKey = "73297e64",
+                ChartKey = "YOUR_CHART_KEY",
                 PageNum = 1,
                 PageSize = 2,
                 IsAll = true,
@@ -617,7 +617,7 @@ public class QingflowClientUnitTest
             //领药总明细
             var result = openApiClient.GetChartDataByDatetimeAsync(new ChartDataByDatetimeInput()
             {
-                ChartKey = "73297e64",
+                ChartKey = "YOUR_CHART_KEY",
                 PageNum = 1,
                 PageSize = 2,
                 IsAll = true,
@@ -650,7 +650,7 @@ public class QingflowClientUnitTest
             //获取表格数据
             var input = new GetTableDataListInput()
             {
-                AppId = "LuBanFramework",
+                AppId = "YOUR_APP_ID",
                 PageIndex = 1,
                 PageSize = 100,
                 QueryKey = "郑州",
@@ -696,7 +696,7 @@ public class QingflowClientUnitTest
 
             var input = new GetTableDataListInput()
             {
-                AppId = "LuBanFramework",
+                AppId = "YOUR_APP_ID",
                 PageIndex = 1,
                 PageSize = 100,
                 QueryKey = "郑州",

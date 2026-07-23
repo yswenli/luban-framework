@@ -111,7 +111,7 @@ namespace LuBan.XTestProject
                         var user = new DbUser
                         {
                             Account = $"concurrent_test_{index}_{Guid.NewGuid():N}",
-                            Password = "test123",
+                            Password = "YOUR_PASSWORD",
                             RealName = $"Test User {index}",
                             OrgId = 1,
                             PosId = 1

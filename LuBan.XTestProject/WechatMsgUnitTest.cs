@@ -38,12 +38,12 @@ namespace LuBan.XTestProject
         {
             try
             {
-                var xml = "<xml><ToUserName><![CDATA[dk6cd05557b1565f8f]]></ToUserName><Encrypt><![CDATA[acfA9gNOLu04IMwzg/njdXh2PtCYOO15GB4eoXGkOnCdYUs0hRo02ByB1tMlnIiDnz6zSYBOip08m7DwHOa9FyJVrjWXD5yahQYKThasRpI8Es7O3FGIkg+BoBxir+qgWixnYHHQjAmhhlKQuPwqi7qQOKDMOOsx+MMVaICWmcTvWOIMc63IgTPldtSq2DTFiKOYN+fkVhRi8eYKvZx/9r1rDb8B2O+qCvqVrdqdj7Ey69n8dNjUcyFhJFhCCJx6waeAzWasolD9YAZOuCocAq5+tXKyYXMvkTnFZNIZMmXu7390oWIJNbVKQf5xJuwk9qn2lUUIelhF2rbmi1YEftfvv1TH7BR55Jmu3XovaHaY92rhaO9g4oUFgiAOTpP7]]></Encrypt><AgentID><![CDATA[]]></AgentID></xml>";
+                var xml = "<xml><ToUserName><![CDATA[YOUR_TO_USER_NAME]]></ToUserName><Encrypt><![CDATA[YOUR_ENCRYPTED_MESSAGE]]></Encrypt><AgentID><![CDATA[]]></AgentID></xml>";
 
                 TryParseXml(xml, out var encryptedMsg, out var toUserName, out var agentId);
 
-                var cpid = "wwa44b7b4a6582f4b0";
-                var key = "LuBan";
+                var cpid = "YOUR_CORP_ID";
+                var key = "YOUR_ENCRYPTION_KEY";
 
                 var text = CryptographyUtil.AES_decrypt(encryptedMsg, key, ref cpid);
 

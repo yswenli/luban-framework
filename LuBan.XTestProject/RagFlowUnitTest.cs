@@ -43,8 +43,8 @@ namespace LuBan.UnitTestProject
             var builder = new AIClientBuilder(new AIOptions()
             {
                 AIType = EnumAIType.RagFlow,
-                ApiKey = "LuBanFramework",
-                BaseUrl = "LuBanFramework"
+                ApiKey = "YOUR_API_KEY",
+                BaseUrl = "YOUR_BASE_URL"
             });
 
             var client = builder.Build() as RagFlowAIClient;

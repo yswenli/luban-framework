@@ -41,16 +41,16 @@ public class LuBanLiveUnitTest
         {
             var zvLiveClient = LiveFactory.Create(EnumLive.VZan, new LiveOption()
             {
-                AppId = "LuBanFramework",
-                AppSecret = "LuBanFramework",
+                AppId = "YOUR_APP_ID",
+                AppSecret = "YOUR_APP_SECRET",
                 AuthorizeUrl = "",
-                AuthSecret = "LuBanFramework",
+                AuthSecret = "YOUR_AUTH_SECRET",
                 Salt = "",
                 Url = "https://wx.vzan.com",
                 UserName = "",
                 Password = ""
             });
-            var liveUrl = zvLiveClient.GetLiveUrl("LuBanFramework", "LuBanFramework", "testuser", "yswenli", string.Empty);
+            var liveUrl = zvLiveClient.GetLiveUrl("YOUR_APP_ID", "YOUR_APP_SECRET", "testuser", "YOUR_USER_NAME", string.Empty);
 
             Assert.IsNotNull(liveUrl);
 
