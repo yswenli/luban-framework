@@ -41,8 +41,8 @@ internal class ElementTypeHandler
         Type sourceType = source.GetType();
         if (sourceType.IsGenericType)
         {
-            Type genericCollectionType = typeof(IReadOnlyCollection<>).MakeGenericType(elementType);
-            if (genericCollectionType.IsAssignableFrom(sourceType))
+            Type setInterfaceType = typeof(ISet<>).MakeGenericType(elementType);
+            if (setInterfaceType.IsAssignableFrom(sourceType))
             {
                 MethodInfo? containsMethod = sourceType.GetMethod(
                     nameof(HashSet<int>.Contains),

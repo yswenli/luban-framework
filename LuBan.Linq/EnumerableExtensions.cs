@@ -59,14 +59,13 @@ public static class EnumerableExtensions
         }
         else
         {
-            // 获取val的实际类型（排除dynamic包装）
             Type valType = val!.GetType();
-            // 若类型不匹配，尝试显式转换（如int→long、string→object）
             if (valType != elementType && !valType.IsAssignableTo(elementType))
             {
                 try
                 {
-                    val = Convert.ChangeType(val, elementType); // 转换后覆盖原val，确保类型匹配
+                    Type targetType = Nullable.GetUnderlyingType(elementType) ?? elementType;
+                    val = Convert.ChangeType(val, targetType);
                 }
                 catch (Exception ex)
                 {

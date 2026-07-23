@@ -48,15 +48,22 @@ internal static class ImplicitlyConvert
     /// </summary>
     public static bool HasImplicitConversionOperatorTo(this Type sourceType, Type targetType)
     {
-        // 获取sourceType中所有静态方法，筛选“隐式转换运算符”
-        var conversionMethods = sourceType.GetMethods(BindingFlags.Public | BindingFlags.Static)
-            .Where(m => m.Name == "op_Implicit" // 隐式转换运算符的方法名
-                        && m.ReturnType == targetType // 返回类型是目标类型
-                        && m.GetParameters().Length == 1 // 只有一个参数
-                        && m.GetParameters()[0].ParameterType == sourceType); // 参数类型是源类型
+        var sourceConversionMethods = sourceType.GetMethods(BindingFlags.Public | BindingFlags.Static)
+            .Where(m => m.Name == "op_Implicit"
+                        && m.ReturnType == targetType
+                        && m.GetParameters().Length == 1
+                        && m.GetParameters()[0].ParameterType == sourceType);
 
-        // 若存在匹配的转换方法 → 支持用户定义的隐式转换
-        return conversionMethods.Any();
+        if (sourceConversionMethods.Any())
+            return true;
+
+        var targetConversionMethods = targetType.GetMethods(BindingFlags.Public | BindingFlags.Static)
+            .Where(m => m.Name == "op_Implicit"
+                        && m.ReturnType == targetType
+                        && m.GetParameters().Length == 1
+                        && m.GetParameters()[0].ParameterType == sourceType);
+
+        return targetConversionMethods.Any();
     }
 
 
@@ -92,21 +99,6 @@ internal static class ImplicitlyConvert
     /// <returns></returns>
     public static Type? GetIQueryableElementType(this IQueryable queryable)
     {
-        Type sourceType = queryable.GetType();
-        
-        if (sourceType.IsGenericType && sourceType.GetGenericTypeDefinition() == typeof(IQueryable<>))
-        {
-            return sourceType.GetGenericArguments()[0];
-        }
-        
-        foreach (Type interfaceType in sourceType.GetInterfaces())
-        {
-            if (interfaceType.IsGenericType && interfaceType.GetGenericTypeDefinition() == typeof(IQueryable<>))
-            {
-                return interfaceType.GetGenericArguments()[0];
-            }
-        }
-        
-        return null;
+        return queryable.ElementType;
     }
 }

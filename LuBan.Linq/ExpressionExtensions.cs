@@ -107,15 +107,11 @@ public static class ExpressionExtensions
 
                 Expression temp = Expression.Property(parameter, property);
 
-                // 如果属性是可为空的类型，则转换为其基础类型
                 var propertyType = property.PropertyType;
-                if (propertyType != null)
+                var np = Nullable.GetUnderlyingType(propertyType);
+                if (np != null)
                 {
-                    var np = Nullable.GetUnderlyingType(propertyType);
-                    if (np != null)
-                    {
-                        temp = Expression.Convert(temp, np);
-                    }
+                    temp = Expression.Convert(temp, np);
                 }
                 Expression left = Expression.Equal(temp, Expression.Constant(owner));
                 right = Expression.OrElse(left, right);
@@ -294,13 +290,11 @@ public static class ExpressionExtensions
         if (dic == null || dic.Count < 1) throw new Exception("泛型类中不存在任何属性");
         if (expression.Body is MemberExpression me)
         {
-            var member = GetValue(me, dic);
-            return new { member };
+            return GetValue(me, dic);
         }
         else if (expression.Body is NewExpression ne)
         {
-            var members = GetValues(ne, dic);
-            return new { members };
+            return GetValues(ne, dic);
         }
         else
         {

@@ -59,7 +59,7 @@ public static class TreeListExtensions
             {
                 if (!childrenByParentId.ContainsKey(parentId))
                 {
-                    childrenByParentId[parentId] = [];
+                    childrenByParentId[parentId] = new List<TreeNode>();
                 }
                 childrenByParentId[parentId].Add(item);
             }
@@ -72,8 +72,16 @@ public static class TreeListExtensions
         }
         else
         {
-            childrenByParentId.TryGetValue(rootValue, out nodes);
-            nodes ??= [];
+            object rootKey = (object)rootValue!;
+            List<TreeNode>? foundNodes;
+            if (childrenByParentId.TryGetValue(rootKey, out foundNodes) && foundNodes != null)
+            {
+                nodes = foundNodes;
+            }
+            else
+            {
+                nodes = new List<TreeNode>();
+            }
         }
         
         if (nodes.Count > 0)
@@ -103,11 +111,15 @@ public static class TreeListExtensions
         if (id == null) return;
         
         var childList = node.GetPropertyValue(childListName) as List<TreeNode>;
-        childList ??= [];
+        childList ??= new List<TreeNode>();
         
-        if (childrenByParentId.TryGetValue(id, out var children))
+        List<TreeNode>? children;
+        if (childrenByParentId.TryGetValue(id!, out children))
         {
-            childList.AddRange(children);
+            if (children != null)
+            {
+                childList.AddRange(children);
+            }
         }
         
         if (childList.Count > 0)
