@@ -36,7 +36,7 @@ internal class ProxyAssembly
 
     private readonly List<MethodBase> _methodsByToken = new();
     private readonly HashSet<string> _ignoresAccessAssemblyNames = new();
-    private ConstructorInfo _ignoresAccessChecksToAttributeConstructor;
+    private ConstructorInfo _ignoresAccessChecksToAttributeConstructor = null!;
 
     /// <summary>
     /// 代理组件集

@@ -3,7 +3,7 @@
 *CLR版本： .net8.0
 *机器名称：WALLE
 *Author：yswenli
-*命名空间：LuBan.Common.Errors
+*命名空间：LuBan.DI.Models
 *文件名： ExceptionScope
 *版本号： V1.0.0.0
 *唯一标识：e48dee5e-2a6e-4e64-be8d-14f00ea2c603

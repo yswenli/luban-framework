@@ -7,7 +7,6 @@ global using LuBan.DI.Models;
 
 global using Microsoft.Extensions.DependencyInjection;
 global using Microsoft.Extensions.DependencyInjection.Extensions;
-global using Microsoft.Extensions.Logging;
 
 global using System.ComponentModel;
 global using System.Diagnostics.CodeAnalysis;

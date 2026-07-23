@@ -3,7 +3,7 @@
 *CLR版本： .net8.0
 *机器名称：WALLE
 *公司名称：Walle
-*命名空间：LuBan.Common.DI
+*命名空间：LuBan.DI.Attrs
 *文件名： InjectionAttribute
 *版本号： V1.0.0.0
 *唯一标识：3c308517-ca06-4e8a-a6ff-729cbc52f357
@@ -66,7 +66,7 @@ public class InjectionAttribute : Attribute
     /// 注册别名
     /// </summary>
     /// <remarks>多服务时使用</remarks>
-    public string Named { get; set; }
+    public string? Named { get; set; }
 
     /// <summary>
     /// 排序，排序越大，则在后面注册
@@ -79,9 +79,9 @@ public class InjectionAttribute : Attribute
     public Type[] ExceptInterfaces { get; set; }
 
     /// <summary>
-    /// 代理类型，必须继承 DispatchProxy、IDispatchProxy
+    /// 代理类型，必须继承 AspectDispatchProxy，为 null 时不注册代理
     /// </summary>
-    public Type Proxy { get; set; }
+    public Type? Proxy { get; set; }
 }
 
 

@@ -3,7 +3,7 @@
 *CLR版本： .net8.0
 *机器名称：WALLE
 *公司名称：Walle
-*命名空间：LuBan.Common.DI
+*命名空间：LuBan.DI.Core
 *文件名： AspectDispatchProxy
 *版本号： V1.0.0.0
 *唯一标识：df9d8dc2-94fe-4244-acd6-327569da362b
@@ -27,8 +27,18 @@ namespace LuBan.DI.Core;
 /// <summary>
 /// 异步代理分发类
 /// </summary>
-public abstract class AspectDispatchProxy
+public abstract class AspectDispatchProxy : IDispatchProxy
 {
+    /// <summary>
+    /// 实例
+    /// </summary>
+    public object Target { get; set; } = null!;
+
+    /// <summary>
+    /// 服务提供器
+    /// </summary>
+    public IServiceProvider Services { get; set; } = null!;
+
     /// <summary>
     /// 创建代理
     /// </summary>

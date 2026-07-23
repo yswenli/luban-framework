@@ -29,6 +29,9 @@ namespace LuBan.DI;
 /// </summary>
 public static class ServiceDescriptorUtil
 {
+    private static readonly MethodInfo s_createMethod = typeof(AspectDispatchProxy).GetMethod(nameof(AspectDispatchProxy.Create))
+        ?? throw new InvalidOperationException("Create method not found.");
+
     /// <summary>
     /// 根据依赖接口类型解析 ServiceLifetime 对象
     /// </summary>
@@ -64,7 +67,7 @@ public static class ServiceDescriptorUtil
     /// <param name="proxyType">代理类型</param>
     /// <param name="inter">代理接口</param>
     /// <param name="hasTarget">是否有实现类</param>
-    public static void AddDispatchProxy(IServiceCollection services, Type dependencyType, Type type, Type proxyType, Type inter, bool hasTarget = true)
+    public static void AddDispatchProxy(IServiceCollection services, Type dependencyType, Type type, Type? proxyType, Type inter, bool hasTarget = true)
     {
         if (proxyType == null || type == null || type.IsDefined(typeof(SuppressProxyAttribute), true)) return;
 
@@ -73,15 +76,12 @@ public static class ServiceDescriptorUtil
 
         var lifetime = TryGetServiceLifetime(dependencyType);
 
-        // 注册代理类型
-        services.Add(ServiceDescriptor.Describe(typeof(AspectDispatchProxy), proxyType, lifetime));
+        if (!services.Any(d => d.ServiceType == typeof(AspectDispatchProxy) && d.ImplementationType == proxyType))
+            services.Add(ServiceDescriptor.Describe(typeof(AspectDispatchProxy), proxyType, lifetime));
 
-        // 注册服务
         services.Add(ServiceDescriptor.Describe(inter, provider =>
         {
-            var createMethod = typeof(AspectDispatchProxy).GetMethod(nameof(AspectDispatchProxy.Create))
-                ?? throw new InvalidOperationException("Create method not found.");
-            var proxy = createMethod.MakeGenericMethod(inter, proxyType).Invoke(null, null)
+            var proxy = s_createMethod.MakeGenericMethod(inter, proxyType).Invoke(null, null)
                 ?? throw new InvalidOperationException("Create proxy returned null.");
             if (proxy is IDispatchProxy dispatchProxy)
             {

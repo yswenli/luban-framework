@@ -3,7 +3,7 @@
 *CLR版本： .net8.0
 *机器名称：WALLE
 *公司名称：Walle
-*命名空间：LuBan.Common.DI
+*命名空间：LuBan.DI
 *文件名： ISingleton
 *版本号： V1.0.0.0
 *唯一标识：8882da8f-9bf2-46ac-8b41-51d65793a5a0

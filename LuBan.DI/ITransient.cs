@@ -3,7 +3,7 @@
 *CLR版本： .net8.0
 *机器名称：WALLE
 *公司名称：Walle
-*命名空间：LuBan.Common.DI
+*命名空间：LuBan.DI
 *文件名： ITransient
 *版本号： V1.0.0.0
 *唯一标识：4a5d4bd8-4ade-4035-810b-317a02cb804f

@@ -3,7 +3,7 @@
 *CLR版本： .net8.0
 *机器名称：WALLE
 *公司名称：Walle
-*命名空间：LuBan.Common.DI
+*命名空间：LuBan.DI.Attrs
 *文件名： SuppressProxyAttribute
 *版本号： V1.0.0.0
 *唯一标识：dd4fe7df-fb5d-4483-afb1-9c09aff48e57

@@ -3,7 +3,7 @@
 *CLR版本： .net8.0
 *机器名称：WALLE
 *公司名称：Walle
-*命名空间：LuBan.Common.DI
+*命名空间：LuBan.DI
 *文件名： ServiceProvider
 *版本号： V1.0.0.0
 *唯一标识：f1e96015-a10d-48d3-a33e-7938c16b8e2a
@@ -48,7 +48,10 @@ public static class ServiceProviderUtil
         }
         get
         {
-            return _services;
+            lock (_lock)
+            {
+                return _services;
+            }
         }
     }
 
@@ -67,7 +70,10 @@ public static class ServiceProviderUtil
     /// <typeparam name="TService"></typeparam>
     public static void AddTransient<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TService>() where TService : class
     {
-        _services.AddTransient<TService>();
+        lock (_lock)
+        {
+            _services.AddTransient<TService>();
+        }
     }
 
     /// <summary>
@@ -76,7 +82,10 @@ public static class ServiceProviderUtil
     /// <typeparam name="TService"></typeparam>
     public static void AddScoped<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TService>() where TService : class
     {
-        _services.AddScoped<TService>();
+        lock (_lock)
+        {
+            _services.AddScoped<TService>();
+        }
     }
 
     /// <summary>
@@ -85,7 +94,10 @@ public static class ServiceProviderUtil
     /// <typeparam name="TService"></typeparam>
     public static void AddSingleton<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TService>() where TService : class
     {
-        _services.AddSingleton<TService>();
+        lock (_lock)
+        {
+            _services.AddSingleton<TService>();
+        }
     }
 
     /// <summary>

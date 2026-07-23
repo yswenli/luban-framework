@@ -239,20 +239,16 @@ internal class ProxyBuilder
         packedArr.EndSet(typeof(AspectDispatchProxy));
 
         // packed[PackedArgs.DeclaringTypePosition] = typeof(iface);
-        var Type_GetTypeFromHandle = typeof(Type).GetRuntimeMethod("GetTypeFromHandle", new Type[] { typeof(RuntimeTypeHandle) });
-        if (Type_GetTypeFromHandle != null)
-        {
+        var Type_GetTypeFromHandle = typeof(Type).GetRuntimeMethod("GetTypeFromHandle", new Type[] { typeof(RuntimeTypeHandle) })!;
 
-            _assembly.GetTokenForMethod(mi, out var declaringType, out var methodToken);
-            packedArr.BeginSet(PackedArgs.DeclaringTypePosition);
-            il.Emit(OpCodes.Ldtoken, declaringType);
-            il.Emit(OpCodes.Call, Type_GetTypeFromHandle);
-            packedArr.EndSet(typeof(object));
-            // packed[PackedArgs.MethodTokenPosition] = iface method token;
-            packedArr.BeginSet(PackedArgs.MethodTokenPosition);
-            il.Emit(OpCodes.Ldc_I4, methodToken);
-            packedArr.EndSet(typeof(int));
-        }
+        _assembly.GetTokenForMethod(mi, out var declaringType, out var methodToken);
+        packedArr.BeginSet(PackedArgs.DeclaringTypePosition);
+        il.Emit(OpCodes.Ldtoken, declaringType);
+        il.Emit(OpCodes.Call, Type_GetTypeFromHandle);
+        packedArr.EndSet(typeof(object));
+        packedArr.BeginSet(PackedArgs.MethodTokenPosition);
+        il.Emit(OpCodes.Ldc_I4, methodToken);
+        packedArr.EndSet(typeof(int));
 
 
         // packed[PackedArgs.ArgsPosition] = args;
@@ -270,8 +266,7 @@ internal class ProxyBuilder
             {
                 typeArr.BeginSet(i);
                 il.Emit(OpCodes.Ldtoken, genericTypes[i]);
-                if (Type_GetTypeFromHandle != null)
-                    il.Emit(OpCodes.Call, Type_GetTypeFromHandle);
+                il.Emit(OpCodes.Call, Type_GetTypeFromHandle);
                 typeArr.EndSet(typeof(Type));
             }
             typeArr.Load();
@@ -341,57 +336,12 @@ internal class ProxyBuilder
     private static int GetTypeCode(Type type)
     {
         if (type == null)
-            return 0;   // TypeCode.Empty;
-
-        if (type == typeof(bool))
-            return 3;   // TypeCode.Boolean;
-
-        if (type == typeof(char))
-            return 4;   // TypeCode.Char;
-
-        if (type == typeof(sbyte))
-            return 5;   // TypeCode.SByte;
-
-        if (type == typeof(byte))
-            return 6;   // TypeCode.Byte;
-
-        if (type == typeof(short))
-            return 7;   // TypeCode.Int16;
-
-        if (type == typeof(ushort))
-            return 8;   // TypeCode.UInt16;
-
-        if (type == typeof(int))
-            return 9;   // TypeCode.Int32;
-
-        if (type == typeof(uint))
-            return 10;  // TypeCode.UInt32;
-
-        if (type == typeof(long))
-            return 11;  // TypeCode.Int64;
-
-        if (type == typeof(ulong))
-            return 12;  // TypeCode.UInt64;
-
-        if (type == typeof(float))
-            return 13;  // TypeCode.Single;
-
-        if (type == typeof(double))
-            return 14;  // TypeCode.Double;
-
-        if (type == typeof(decimal))
-            return 15;  // TypeCode.Decimal;
-
-        if (type == typeof(DateTime))
-            return 16;  // TypeCode.DateTime;
-
-        if (type == typeof(string))
-            return 18;  // TypeCode.String;
+            return 0;
 
         if (IntrospectionExtensions.GetTypeInfo(type).IsEnum)
             return GetTypeCode(Enum.GetUnderlyingType(type));
 
-        return 1;   // TypeCode.Object;
+        return (int)Type.GetTypeCode(type);
     }
 
     private static readonly OpCode[] s_convOpCodes = new OpCode[] {

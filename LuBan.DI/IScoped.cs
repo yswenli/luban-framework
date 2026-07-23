@@ -3,7 +3,7 @@
 *CLR版本： .net8.0
 *机器名称：WALLE
 *公司名称：Walle
-*命名空间：LuBan.Common.DI
+*命名空间：LuBan.DI
 *文件名： IScoped
 *版本号： V1.0.0.0
 *唯一标识：c3f71e81-c383-41a4-ad79-1b9e363a99e7
