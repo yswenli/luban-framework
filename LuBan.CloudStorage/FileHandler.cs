@@ -36,21 +36,19 @@ public partial class FileHandler : IScoped
     ICloudStorageClient _cloudStorageClient;
     readonly BaseRepository<DbFile> _sysFileRep;
 
-    static UploadOptions? _cachedUploadOptions;
-    static ICloudStorageClient? _cachedClient;
-
     /// <summary>
     /// 文件处理
     /// </summary>
     /// <exception cref="Exception"></exception>
     public FileHandler()
     {
-        _uploadOptions = _cachedUploadOptions ??= NacosConfigUtil.Read<UploadOptions>();
-        if (_uploadOptions == null)
+        var options = NacosConfigUtil.Read<UploadOptions>();
+        if (options == null)
         {
             throw new Exception("在配置文件中找不到UploadOptions");
         }
-        _cloudStorageClient = _cachedClient ??= CloudStorageClientFactory.Create();
+        _uploadOptions = options;
+        _cloudStorageClient = CloudStorageClientFactory.Create();
         _sysFileRep = new BaseRepository<DbFile>();
     }
 

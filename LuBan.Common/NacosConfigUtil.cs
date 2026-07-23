@@ -90,6 +90,9 @@ public static class NacosConfigUtil
 {
     static MemoryCache _cache;
 
+    static ConcurrentDictionary<string, object> _configCache;
+    static DateTime _configCacheLastClean;
+
     //namaspace用于环境，在运行中一般不变
     static string _nameSpace;
 
@@ -105,6 +108,8 @@ public static class NacosConfigUtil
     static NacosConfigUtil()
     {
         _cache = MemoryCache.Instance;
+        _configCache = new ConcurrentDictionary<string, object>();
+        _configCacheLastClean = DateTime.UtcNow;
     }
 
     /// <summary>
@@ -143,6 +148,7 @@ public static class NacosConfigUtil
                 keyValuePairs[groupName] = value;
             }
             value[dataId] = content;
+            _configCache.Clear();
             Enable = true;
         }
     }
@@ -161,7 +167,6 @@ public static class NacosConfigUtil
         {
             throw new ArgumentException("dataId不能为空");
         }
-        using var locker = LockerBuilder.Default.Create("NacosConfigUtil.GetContent");
         if (!_cache.ContainsKey(_nameSpace))
         {
             throw new NotImplementedException("当前配置还未初始化");
@@ -171,7 +176,7 @@ public static class NacosConfigUtil
         {
             return string.Empty;
         }
-        return value[dataId];
+        return value.TryGetValue(dataId, out var content) ? content : string.Empty;
     }
 
     /// <summary>
@@ -183,7 +188,6 @@ public static class NacosConfigUtil
     /// <exception cref="Exception"></exception>
     public static List<string> GetContents(string groupName = "DEFAULT_GROUP")
     {
-        using var locker = LockerBuilder.Default.Create("NacosConfigUtil.GetContents");
         if (!_cache.ContainsKey(_nameSpace))
         {
             throw new NotImplementedException("当前配置还未初始化");
@@ -198,13 +202,9 @@ public static class NacosConfigUtil
         if (localNacosConfig == null) return result;
         foreach (var item in localNacosConfig.Listeners)
         {
-            if (keyValuePairs[groupName].ContainsKey(item.DataId))
+            if (keyValuePairs[groupName].TryGetValue(item.DataId, out var content) && content.IsNotNullOrEmpty())
             {
-                var content = keyValuePairs[groupName][item.DataId];
-                if (content.IsNotNullOrEmpty())
-                {
-                    result.Add(content);
-                }
+                result.Add(content);
             }
         }
         return result;
@@ -223,24 +223,50 @@ public static class NacosConfigUtil
     public static T? GetConfig<T>(string groupName, string dataId, string sectionName)
     {
         if (sectionName.IsNullOrEmpty()) return default;
+
+        var cacheKey = $"{groupName}:{dataId}:{sectionName}:{typeof(T).FullName}";
+
+        if (_configCache.TryGetValue(cacheKey, out var cached))
+        {
+            return (T?)cached;
+        }
+
+        T? result;
         if (dataId.IsNotNullOrEmpty())
         {
             var content = GetContent(groupName, dataId);
-            return GetRoot(content).GetSection(sectionName).Get<T>();
+            result = GetRoot(content).GetSection(sectionName).Get<T>();
         }
         else
         {
             var contents = GetContents(groupName);
             if (contents == null || contents.Count < 1) return default;
+            result = default;
             foreach (var content in contents)
             {
                 if (content.IsNullOrEmpty() || content.IndexOf($"\"{sectionName}\"") == -1) continue;
                 var val = GetRoot(content).GetSection(sectionName).Get<T?>();
                 if (val == null) continue;
-                return val;
+                result = val;
+                break;
             }
         }
-        return default(T?);
+
+        if (result != null)
+        {
+            _configCache[cacheKey] = result!;
+        }
+
+        if (DateTime.UtcNow - _configCacheLastClean > TimeSpan.FromMinutes(5))
+        {
+            _configCacheLastClean = DateTime.UtcNow;
+            if (_configCache.Count > 200)
+            {
+                _configCache.Clear();
+            }
+        }
+
+        return result;
     }
 
     /// <summary>
