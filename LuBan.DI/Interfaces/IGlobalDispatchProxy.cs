@@ -21,7 +21,7 @@
 *描述：
 *
 *****************************************************************************/
-namespace LuBan.Common.DI;
+namespace LuBan.DI.Interfaces;
 
 /// <summary>
 /// 全局代理拦截接口

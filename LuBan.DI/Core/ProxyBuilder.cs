@@ -32,13 +32,13 @@ internal class ProxyBuilder
 
     private static readonly MethodInfo s_delegateInvoke;
     private static readonly MethodInfo s_delegateInvokeAsync;
-    private static readonly MethodInfo s_delegateinvokeAsyncT;
+    private static readonly MethodInfo s_delegateInvokeAsyncT;
 
     static ProxyBuilder()
     {
         s_delegateInvoke = typeof(DispatchProxyHandler)!.GetMethod("InvokeHandle")!;
         s_delegateInvokeAsync = typeof(DispatchProxyHandler)!.GetMethod("InvokeAsyncHandle")!;
-        s_delegateinvokeAsyncT = typeof(DispatchProxyHandler)!.GetMethod("InvokeAsyncHandleT")!;
+        s_delegateInvokeAsyncT = typeof(DispatchProxyHandler)!.GetMethod("InvokeAsyncHandleT")!;
     }
 
     private readonly ProxyAssembly _assembly;
@@ -296,7 +296,7 @@ internal class ProxyBuilder
         if (IsGenericTask(mi.ReturnType))
         {
             var returnTypes = mi.ReturnType.GetGenericArguments();
-            invokeMethod = s_delegateinvokeAsyncT.MakeGenericMethod(returnTypes);
+            invokeMethod = s_delegateInvokeAsyncT.MakeGenericMethod(returnTypes);
         }
 
         // Call AsyncDispatchProxyGenerator.Invoke(object[]), InvokeAsync or InvokeAsyncT

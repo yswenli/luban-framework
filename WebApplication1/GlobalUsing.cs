@@ -4,6 +4,7 @@ global using LuBan.Common.Consts;
 global using LuBan.Common.Data;
 global using LuBan.Common.IO;
 global using LuBan.Common.Models;
+global using LuBan.DI;
 global using LuBan.DI.Attrs;
 global using LuBan.DI.Models;
 global using LuBan.Orm;

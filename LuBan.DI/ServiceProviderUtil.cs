@@ -23,24 +23,16 @@
 *****************************************************************************/
 
 
-namespace System;
+namespace LuBan.DI;
 
 /// <summary>
 /// DI工具类
 /// </summary>
 public static class ServiceProviderUtil
 {
-    static IServiceCollection _services;
-    static IServiceProvider _serviceProvider;
-
-    /// <summary>
-    /// DI工具类
-    /// </summary>
-    static ServiceProviderUtil()
-    {
-        _services = new ServiceCollection();
-        _services.AddLogging(builder => builder.AddConsole());
-    }
+    static readonly object _lock = new();
+    static IServiceCollection _services = new ServiceCollection();
+    static IServiceProvider? _serviceProvider;
 
     /// <summary>
     /// 服务提供器
@@ -49,7 +41,10 @@ public static class ServiceProviderUtil
     {
         set
         {
-            _services = value;
+            lock (_lock)
+            {
+                _services = value;
+            }
         }
         get
         {
@@ -70,7 +65,6 @@ public static class ServiceProviderUtil
     /// 注入瞬态周期的服务
     /// </summary>
     /// <typeparam name="TService"></typeparam>
-    /// <param name="services"></param>
     public static void AddTransient<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TService>() where TService : class
     {
         _services.AddTransient<TService>();
@@ -80,7 +74,6 @@ public static class ServiceProviderUtil
     /// 注入请求生存周期的服务
     /// </summary>
     /// <typeparam name="TService"></typeparam>
-    /// <param name="services"></param>
     public static void AddScoped<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TService>() where TService : class
     {
         _services.AddScoped<TService>();
@@ -90,7 +83,6 @@ public static class ServiceProviderUtil
     /// 注入单例周期的服务
     /// </summary>
     /// <typeparam name="TService"></typeparam>
-    /// <param name="services"></param>
     public static void AddSingleton<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TService>() where TService : class
     {
         _services.AddSingleton<TService>();
@@ -103,17 +95,24 @@ public static class ServiceProviderUtil
     public static void BuildProvider(this IServiceCollection services)
     {
         ConsoleUtil.WriteLineWithCount("完成DI注入容器", color: ConsoleColor.Green);
-        _serviceProvider = _services.BuildServiceProvider();
+        lock (_lock)
+        {
+            (_serviceProvider as IDisposable)?.Dispose();
+            _serviceProvider = _services.BuildServiceProvider();
+        }
     }
 
     /// <summary>
     /// 完成DI注入容器，一般放在最后一步
     /// </summary>
-    /// <returns></returns>
     public static void BuildProvider()
     {
         ConsoleUtil.WriteLineWithCount("创建DI容器", color: ConsoleColor.Green);
-        _serviceProvider = _services.BuildServiceProvider();
+        lock (_lock)
+        {
+            (_serviceProvider as IDisposable)?.Dispose();
+            _serviceProvider = _services.BuildServiceProvider();
+        }
     }
 
     /// <summary>
@@ -121,9 +120,9 @@ public static class ServiceProviderUtil
     /// </summary>
     /// <param name="type"></param>
     /// <returns></returns>
-    public static dynamic GetService(this Type type)
+    public static object? GetService(this Type type)
     {
-        return _serviceProvider.GetServices(type);
+        return _serviceProvider?.GetService(type);
     }
 
     /// <summary>
@@ -133,31 +132,28 @@ public static class ServiceProviderUtil
     /// <returns></returns>
     public static TService? GetService<TService>()
     {
-        return _serviceProvider.GetService<TService>();
+        return _serviceProvider != null ? _serviceProvider.GetService<TService>() : default;
     }
-
 
     /// <summary>
     /// 获取请求生存周期的服务
     /// </summary>
     /// <typeparam name="TService"></typeparam>
-    /// <param name="serviceProvider"></param>
     /// <returns></returns>
     public static TService GetRequiredService<TService>()
         where TService : notnull
     {
-        return _serviceProvider.GetRequiredService<TService>();
+        return (_serviceProvider ?? throw new InvalidOperationException("ServiceProvider has not been built. Call BuildProvider first.")).GetRequiredService<TService>();
     }
 
     /// <summary>
     /// 获取请求生存周期的服务
     /// </summary>
     /// <param name="type"></param>
-    /// <param name="serviceProvider"></param>
     /// <returns></returns>
     public static object GetRequiredService(this Type type)
     {
-        return _serviceProvider.GetRequiredService(type);
+        return (_serviceProvider ?? throw new InvalidOperationException("ServiceProvider has not been built. Call BuildProvider first.")).GetRequiredService(type);
     }
 
     /// <summary>
@@ -177,9 +173,13 @@ public static class ServiceProviderUtil
     /// <returns></returns>
     public static T GetRequiredServiceForOnce<T>(Action<IServiceCollection> addServiceProvider) where T : notnull
     {
-        addServiceProvider?.Invoke(_services);
-        _serviceProvider = _services.BuildServiceProvider();
-        return GetRequiredService<T>();
+        lock (_lock)
+        {
+            addServiceProvider?.Invoke(_services);
+            (_serviceProvider as IDisposable)?.Dispose();
+            _serviceProvider = _services.BuildServiceProvider();
+            return GetRequiredService<T>();
+        }
     }
 
     /// <summary>
@@ -191,6 +191,4 @@ public static class ServiceProviderUtil
         ConsoleUtil.WriteLineWithCount("正在自动注入全局中符合框架的InjectionAttribute的IScoped，ISingleton，ITransient的对象到DI容器", color: ConsoleColor.Green);
         return ServiceDescriptorUtil.AutoInjectAllCustomerServices(services);
     }
-
-
 }

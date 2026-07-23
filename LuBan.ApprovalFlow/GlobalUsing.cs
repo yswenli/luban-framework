@@ -29,6 +29,7 @@ global using LuBan.ApprovalFlow.Libs;
 global using LuBan.ApprovalFlow.Models;
 global using LuBan.Common;
 global using LuBan.Common.EventBus;
+global using LuBan.DI;
 global using LuBan.EventBus;
 global using LuBan.EventBus.Core;
 global using LuBan.EventBus.Models;

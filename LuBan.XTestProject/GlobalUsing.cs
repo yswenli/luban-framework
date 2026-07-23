@@ -24,6 +24,7 @@
 global using LuBan.Common;
 global using LuBan.Common.IO;
 global using LuBan.Common.Data;
+global using LuBan.DI;
 global using LuBan.Office.Ppt;
 
 global using System.Linq.Dynamic;

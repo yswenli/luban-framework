@@ -26,6 +26,7 @@ global using LuBan.Common.Consts;
 global using LuBan.Common.Data;
 global using LuBan.Common.IO;
 global using LuBan.Common.Models;
+global using LuBan.DI;
 global using LuBan.Orm.Attributes;
 global using LuBan.Orm.Entities;
 global using LuBan.Orm.Enums;

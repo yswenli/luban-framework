@@ -68,6 +68,9 @@ public static class ServiceDescriptorUtil
     {
         if (proxyType == null || type == null || type.IsDefined(typeof(SuppressProxyAttribute), true)) return;
 
+        if (!typeof(AspectDispatchProxy).IsAssignableFrom(proxyType))
+            throw new ArgumentException($"Proxy type '{proxyType.FullName}' must inherit from AspectDispatchProxy.", nameof(proxyType));
+
         var lifetime = TryGetServiceLifetime(dependencyType);
 
         // 注册代理类型
@@ -76,14 +79,19 @@ public static class ServiceDescriptorUtil
         // 注册服务
         services.Add(ServiceDescriptor.Describe(inter, provider =>
         {
-            dynamic proxy = typeof(AspectDispatchProxy).GetMethod(nameof(AspectDispatchProxy.Create))?.MakeGenericMethod(inter, proxyType).Invoke(null, null) ?? throw new Exception("Create proxy failed.");
-            proxy.Services = provider;
-            if (hasTarget)
+            var createMethod = typeof(AspectDispatchProxy).GetMethod(nameof(AspectDispatchProxy.Create))
+                ?? throw new InvalidOperationException("Create method not found.");
+            var proxy = createMethod.MakeGenericMethod(inter, proxyType).Invoke(null, null)
+                ?? throw new InvalidOperationException("Create proxy returned null.");
+            if (proxy is IDispatchProxy dispatchProxy)
             {
-                proxy.Target = provider.GetService(type);
+                dispatchProxy.Services = provider;
+                if (hasTarget)
+                {
+                    dispatchProxy.Target = provider.GetService(type)!;
+                }
             }
             return proxy;
-
         }, lifetime));
     }
 
@@ -101,8 +109,7 @@ public static class ServiceDescriptorUtil
         var fixedType = ReflectionUtil.FixedGenericType(type);
         var fixedInter = inter == null ? null : ReflectionUtil.FixedGenericType(inter);
         var lifetime = TryGetServiceLifetime(dependencyType);
-        //排除已注入的
-        if (services.Where(q => q.ServiceType.FullName == fixedType.FullName).FirstOrDefault() != null) return;
+        if (services.Any(q => q.ServiceType == fixedType || (fixedInter != null && q.ServiceType == fixedInter))) return;
         switch (injectionAttribute.Action)
         {
             case EnumInjectionActions.Add:
@@ -116,7 +123,11 @@ public static class ServiceDescriptorUtil
 
             case EnumInjectionActions.TryAdd:
                 if (fixedInter == null) services.TryAdd(ServiceDescriptor.Describe(fixedType, fixedType, lifetime));
-                else services.Add(ServiceDescriptor.Describe(fixedInter, fixedType, lifetime));
+                else
+                {
+                    services.TryAdd(ServiceDescriptor.Describe(fixedInter, fixedType, lifetime));
+                    AddDispatchProxy(services, dependencyType, fixedType, injectionAttribute.Proxy, fixedInter, true);
+                }
                 break;
 
             default: break;
@@ -170,16 +181,14 @@ public static class ServiceDescriptorUtil
         foreach (var type in injectTypes)
         {
             // 获取注册方式
-            var injectionAttribute = !type.IsDefined(typeof(InjectionAttribute)) ? new InjectionAttribute() : type.GetCustomAttribute<InjectionAttribute>();
+            var injectionAttribute = !type.IsDefined(typeof(InjectionAttribute)) ? new InjectionAttribute() : type.GetCustomAttribute<InjectionAttribute>() ?? new InjectionAttribute();
 
             var interfaces = type.GetInterfaces();
 
-            // 获取生存周期类型
-            var dependencyType = interfaces.Last(u => lifetimeInterfaces.Contains(u));
+            var dependencyType = interfaces.LastOrDefault(u => lifetimeInterfaces.Contains(u));
+            if (dependencyType == null) continue;
 
-            // 注册服务
-            if (injectionAttribute != null)
-                RegisterService(services, dependencyType, type, injectionAttribute);
+            RegisterService(services, dependencyType, type, injectionAttribute);
         }
 
         return services;

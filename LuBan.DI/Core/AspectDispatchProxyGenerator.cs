@@ -135,7 +135,7 @@ internal static class AspectDispatchProxyGenerator
     private static ProxyMethodResolverContext Resolve(object[] args)
     {
         var packed = new PackedArgs(args);
-        var method = s_proxyAssembly.ResolveMethodToken(packed.DeclaringType, packed.MethodToken);
+        var method = s_proxyAssembly.ResolveMethodToken(packed.MethodToken);
         if (method.IsGenericMethodDefinition)
             method = ((MethodInfo)method).MakeGenericMethod(packed.GenericTypes);
 
@@ -161,8 +161,7 @@ internal static class AspectDispatchProxyGenerator
         }
         catch (TargetInvocationException tie)
         {
-            // 这里处理内部异常
-            ExceptionDispatchInfo.Capture(tie.InnerException?.InnerException ?? tie.InnerException!).Throw();
+            ExceptionDispatchInfo.Capture(tie.InnerException!).Throw();
         }
 
         return returnValue;
@@ -183,8 +182,7 @@ internal static class AspectDispatchProxyGenerator
         }
         catch (TargetInvocationException tie)
         {
-            //这里处理内部异常
-            ExceptionDispatchInfo.Capture(tie.InnerException?.InnerException ?? tie.InnerException!).Throw();
+            ExceptionDispatchInfo.Capture(tie.InnerException!).Throw();
         }
     }
 
@@ -208,7 +206,7 @@ internal static class AspectDispatchProxyGenerator
         }
         catch (TargetInvocationException tie)
         {
-            ExceptionDispatchInfo.Capture(tie.InnerException?.InnerException ?? tie.InnerException!).Throw();
+            ExceptionDispatchInfo.Capture(tie.InnerException!).Throw();
         }
         return returnValue;
     }

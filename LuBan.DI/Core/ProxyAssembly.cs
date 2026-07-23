@@ -28,7 +28,7 @@ namespace LuBan.DI.Core;
 /// </summary>
 internal class ProxyAssembly
 {
-    public AssemblyBuilder _ab;
+    internal AssemblyBuilder _ab;
     private readonly ModuleBuilder _mb;
     private int _typeId = 0;
 
@@ -49,7 +49,7 @@ internal class ProxyAssembly
             Version = new Version(1, 0, 0)
         };
         _ab = AssemblyBuilder.DefineDynamicAssembly(assemblyName, access);
-        _mb = _ab.DefineDynamicModule("testmod");
+        _mb = _ab.DefineDynamicModule("LuBanProxyModule");
     }
 
     /// <summary>
@@ -215,9 +215,8 @@ internal class ProxyAssembly
         }
     }
 
-    internal MethodBase ResolveMethodToken(Type type, int token)
+    internal MethodBase ResolveMethodToken(int token)
     {
-        _ = type;
         return _methodsByToken[token];
     }
 }

@@ -21,16 +21,15 @@
 *描述：作用域共享的异常信息
 *
 *****************************************************************************/
-namespace LuBan.DI.Models
+namespace LuBan.DI.Models;
+
+/// <summary>
+/// 作用域共享的异常信息
+/// </summary>
+public class ExceptionScope : IScoped
 {
     /// <summary>
-    /// 作用域共享的异常信息
+    /// 异常
     /// </summary>
-    public class ExceptionScope : IScoped
-    {
-        /// <summary>
-        /// 异常
-        /// </summary>
-        public Exception? Exception { get; set; } = null;
-    }
+    public Exception? Exception { get; set; }
 }

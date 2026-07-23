@@ -21,12 +21,11 @@
 *描述：di中单例服务注册依赖
 *
 *****************************************************************************/
-namespace System;
+namespace LuBan.DI;
 
 /// <summary>
 /// di中单例服务注册依赖
 /// </summary>
 public interface ISingleton : IDependency
 {
-
 }

@@ -23,6 +23,7 @@
 *****************************************************************************/
 global using LuBan.Common;
 global using LuBan.Common.Data;
+global using LuBan.DI;
 global using LuBan.Orm;
 global using LuBan.Orm.Entities;
 global using LuBan.Orm.Enums;
