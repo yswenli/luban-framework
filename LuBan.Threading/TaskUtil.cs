@@ -22,7 +22,7 @@
 *
 *****************************************************************************/
 
-namespace System;
+namespace LuBan.Threading;
 
 /// <summary>
 /// Task 工具类
@@ -49,11 +49,12 @@ public static class TaskUtil
     {
         try
         {
-            await task.ConfigureAwait(true);
+            await task.ConfigureAwait(false);
         }
         catch (Exception ex)
         {
             action.Invoke(ex);
+            throw;
         }
     }
     /// <summary>
@@ -67,7 +68,7 @@ public static class TaskUtil
     {
         try
         {
-            return await task.ConfigureAwait(true);
+            return await task.ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -89,24 +90,23 @@ public static class TaskUtil
     /// 单独线程循环执行
     /// </summary>
     /// <param name="action"></param>
-    /// <param name="priod"></param>
+    /// <param name="period"></param>
+    /// <param name="cancellationToken"></param>
     /// <returns></returns>
-    public static Task WhileAsync(this Action action, int priod = 0)
+    public static Task WhileAsync(this Action action, int period = 0, CancellationToken cancellationToken = default)
     {
-        // 确保最小睡眠时间，防止忙等待
-        const int minSleepTime = 100; // 最小睡眠时间100毫秒
+        const int minSleepTime = 100;
 
         return LongRunning(() =>
         {
-            var priodTime = priod > 0 ? DateTime.Now.AddMilliseconds(priod) : DateTime.Now;
-            while (true)
+            var nextRunTime = Environment.TickCount64;
+            while (!cancellationToken.IsCancellationRequested)
             {
-                if (priod > 0)
+                if (period > 0)
                 {
-                    // 使用更大的睡眠时间间隔，减少CPU占用
-                    ThreadUtil.Sleep(minSleepTime);
-                    if (DateTime.Now < priodTime) continue;
-                    priodTime = DateTime.Now.AddMilliseconds(priod);
+                    ThreadUtil.Sleep(minSleepTime, cancellationToken);
+                    if (Environment.TickCount64 < nextRunTime) continue;
+                    nextRunTime = Environment.TickCount64 + period;
                 }
                 action?.Invoke();
             }
@@ -118,24 +118,23 @@ public static class TaskUtil
     /// 单独线程循环执行
     /// </summary>
     /// <param name="fun">根据返回值决定是否继续，true表示继续</param>
-    /// <param name="priod">0表示不间隔</param>
+    /// <param name="period">0表示不间隔</param>
+    /// <param name="cancellationToken"></param>
     /// <returns></returns>
-    public static Task WhileAsync(this Func<bool> fun, int priod)
+    public static Task WhileAsync(this Func<bool> fun, int period, CancellationToken cancellationToken = default)
     {
-        // 确保最小睡眠时间，防止忙等待
-        const int minSleepTime = 100; // 最小睡眠时间100毫秒
+        const int minSleepTime = 100;
 
         return LongRunning(() =>
         {
-            var priodTime = priod > 0 ? DateTime.Now.AddMilliseconds(priod) : DateTime.Now;
-            while (true)
+            var nextRunTime = Environment.TickCount64;
+            while (!cancellationToken.IsCancellationRequested)
             {
-                if (priod > 0)
+                if (period > 0)
                 {
-                    // 使用更大的睡眠时间间隔，减少CPU占用
-                    ThreadUtil.Sleep(minSleepTime);
-                    if (DateTime.Now < priodTime) continue;
-                    priodTime = DateTime.Now.AddMilliseconds(priod);
+                    ThreadUtil.Sleep(minSleepTime, cancellationToken);
+                    if (Environment.TickCount64 < nextRunTime) continue;
+                    nextRunTime = Environment.TickCount64 + period;
                 }
                 var result = fun?.Invoke();
                 if (result != true) return;
@@ -147,33 +146,33 @@ public static class TaskUtil
     /// 指定时间内重复执行操作
     /// </summary>
     /// <param name="action"></param>
-    /// <param name="priod"></param>
+    /// <param name="period"></param>
     /// <param name="expired"></param>
-    public static void While(this Action action, int priod = 1000, int expired = 60 * 1000)
+    public static void While(this Action action, int period = 1000, int expired = 60 * 1000)
     {
-        var ep = DateTime.Now.AddMilliseconds(expired);
-        while (ep > DateTime.Now)
+        var endTime = Environment.TickCount64 + expired;
+        while (Environment.TickCount64 < endTime)
         {
             action?.Invoke();
-            ThreadUtil.Sleep(priod);
+            ThreadUtil.Sleep(period);
         }
     }
     /// <summary>
     /// 指定时间内达到指定条件重复执行操作
     /// </summary>
     /// <param name="func"></param>
-    /// <param name="priod"></param>
+    /// <param name="period"></param>
     /// <param name="expired"></param>
-    public static void While(this Func<bool> func, int priod = 1000, int expired = 60 * 1000)
+    public static void While(this Func<bool> func, int period = 1000, int expired = 60 * 1000)
     {
-        var ep = DateTime.Now.AddMilliseconds(expired);
-        while (ep > DateTime.Now)
+        var endTime = Environment.TickCount64 + expired;
+        while (Environment.TickCount64 < endTime)
         {
             if (func?.Invoke() != true)
             {
                 break;
             }
-            ThreadUtil.Sleep(priod);
+            ThreadUtil.Sleep(period);
         }
     }
 
@@ -183,17 +182,16 @@ public static class TaskUtil
     /// <param name="action"></param>
     /// <param name="milliseconds"></param>
     /// <param name="once"></param>
-    public static Task Until(this Action action, int milliseconds = 100, bool once = false)
+    public static Task Until(this Action action, int milliseconds = 100, bool once = false, CancellationToken cancellationToken = default)
     {
-        // 确保最小睡眠时间，防止忙等待
         var safeMilliseconds = milliseconds < 10 ? 10 : milliseconds;
 
         return LongRunning(() =>
         {
-            while (true)
+            while (!cancellationToken.IsCancellationRequested)
             {
                 action?.Invoke();
-                ThreadUtil.Sleep(safeMilliseconds);
+                ThreadUtil.Sleep(safeMilliseconds, cancellationToken);
                 if (once) break;
             }
         });
@@ -204,26 +202,27 @@ public static class TaskUtil
     /// </summary>
     /// <param name="fun"></param>
     /// <param name="milliseconds"></param>
-    public static Task Until(this Func<bool> fun, int milliseconds = 100)
+    public static Task Until(this Func<bool> fun, int milliseconds = 100, CancellationToken cancellationToken = default)
     {
-        // 确保最小睡眠时间，防止忙等待
         var safeMilliseconds = milliseconds < 10 ? 10 : milliseconds;
 
         return LongRunning(() =>
         {
-            while (true)
+            while (!cancellationToken.IsCancellationRequested)
             {
                 try
                 {
                     var isOver = fun?.Invoke() ?? false;
-                    ThreadUtil.Sleep(safeMilliseconds);
                     if (isOver) break;
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
                 }
                 catch
                 {
-                    // 捕获异常但不处理，避免程序崩溃
-                    ThreadUtil.Sleep(safeMilliseconds);
                 }
+                ThreadUtil.Sleep(safeMilliseconds, cancellationToken);
             }
         });
     }
@@ -299,7 +298,7 @@ public static class TaskUtil
     /// <returns></returns>
     public static async Task TimeoutAfterAsync(Func<CancellationToken, Task> action, TimeSpan timeout, CancellationToken cancellationToken)
     {
-        if (action == null) throw new ArgumentNullException(nameof(action));
+        ArgumentNullException.ThrowIfNull(action);
 
         using var timeoutCts = new CancellationTokenSource(timeout);
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(timeoutCts.Token, cancellationToken);
@@ -410,7 +409,7 @@ public static class TaskUtil
 
         foreach (var item in list)
         {
-            tasks.Add(Task.FromResult(() => action?.Invoke(item)));
+            tasks.Add(Task.Run(() => action?.Invoke(item)));
         }
 
         if (timeOut > 0)

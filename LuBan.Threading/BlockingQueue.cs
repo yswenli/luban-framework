@@ -11,29 +11,28 @@
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2023/9/14 15:21:27
-*描述：阻塞试队列
+*描述：阻塞式队列
 *
 *=================================================
 *修改标记
 *修改时间：2023/9/14 15:21:27
 *修改人： yswenli
 *版本号： V1.0.0.0
-*描述：阻塞试队列
+*描述：阻塞式队列
 *
 *****************************************************************************/
 namespace LuBan.Threading;
 
 /// <summary>
-/// 阻塞试队列
+/// 阻塞式队列
 /// </summary>
 /// <typeparam name="T"></typeparam>
 public class BlockingQueue<T> : IDisposable
 {
     private readonly LinkedList<T> _items = new();
-    private readonly ManualResetEvent _gate = new(true);
-
-
-    int _readTime = 0;
+    private readonly object _lock = new();
+    private readonly ManualResetEvent _gate = new(false);
+    private volatile bool _isDisposed = false;
 
     /// <summary>
     /// 长度
@@ -42,8 +41,10 @@ public class BlockingQueue<T> : IDisposable
     {
         get
         {
-            using var locker = LockerBuilder.Default.Create("BlockingQueue");
-            return _items.Count;
+            lock (_lock)
+            {
+                return _items.Count;
+            }
         }
     }
 
@@ -61,15 +62,12 @@ public class BlockingQueue<T> : IDisposable
     /// <param name="item"></param>
     public void Enqueue(T item)
     {
+        if (_isDisposed) throw new ObjectDisposedException(nameof(BlockingQueue<T>));
         if (item == null) throw new ArgumentNullException(nameof(item));
 
-        using (var locker = LockerBuilder.Default.Create("BlockingQueue"))
+        lock (_lock)
         {
             _items.AddLast(item);
-        }
-
-        if (Interlocked.Exchange(ref _readTime, 1) == 0)
-        {
             _gate.Set();
         }
     }
@@ -83,23 +81,23 @@ public class BlockingQueue<T> : IDisposable
     {
         while (true)
         {
+            lock (_lock)
+            {
+                if (_items.Count > 0)
+                {
+                    var item = _items.First!.Value;
+                    _items.RemoveFirst();
+                    if (_items.Count == 0)
+                        _gate.Reset();
+                    return item;
+                }
+                if (_isDisposed)
+                    return default;
+            }
+
             if (!_gate.WaitOne(maxTimeout))
             {
-                _gate.Set();
                 return default;
-            }
-            using var locker = LockerBuilder.Default.Create("BlockingQueue");
-            if (_items != null && _items.Count > 0)
-            {
-                var item = _items.First();
-                _items.RemoveFirst();
-                _gate.Set();
-                return item;
-            }
-            else
-            {
-                _gate.Reset();
-                Interlocked.Exchange(ref _readTime, 0);
             }
         }
     }
@@ -123,20 +121,19 @@ public class BlockingQueue<T> : IDisposable
     {
         while (true)
         {
+            lock (_lock)
+            {
+                if (_items.Count > 0)
+                {
+                    return _items.First!.Value;
+                }
+                if (_isDisposed)
+                    return default;
+            }
+
             if (!_gate.WaitOne(maxTimeout))
             {
-                return default(T);
-            }
-            using var locker = LockerBuilder.Default.Create("BlockingQueue");
-            if (_items.Count > 0)
-            {
-                _gate.Set();
-                return _items.First();
-            }
-            else
-            {
-                _gate.Reset();
-                Interlocked.Exchange(ref _readTime, 0);
+                return default;
             }
         }
     }
@@ -145,14 +142,20 @@ public class BlockingQueue<T> : IDisposable
     /// 移除首元素
     /// </summary>
     /// <param name="match"></param>
-    public void RemoveFirst(Predicate<T> match)
+    public bool RemoveFirst(Predicate<T> match)
     {
         if (match == null) throw new ArgumentNullException(nameof(match));
 
-        using var locker = LockerBuilder.Default.Create("BlockingQueue");
-        if (_items.Count > 0 && match(_items.First()))
+        lock (_lock)
         {
-            _items.RemoveFirst();
+            if (_items.Count > 0 && match(_items.First!.Value))
+            {
+                _items.RemoveFirst();
+                if (_items.Count == 0)
+                    _gate.Reset();
+                return true;
+            }
+            return false;
         }
     }
 
@@ -162,14 +165,20 @@ public class BlockingQueue<T> : IDisposable
     /// <returns></returns>
     public T RemoveFirst()
     {
-        using var locker = LockerBuilder.Default.Create("BlockingQueue");
-        var item = _items.First();
-        _items.RemoveFirst();
-        return item;
+        lock (_lock)
+        {
+            if (_items.Count == 0)
+                throw new InvalidOperationException("队列为空，无法移除元素");
+            var item = _items.First!.Value;
+            _items.RemoveFirst();
+            if (_items.Count == 0)
+                _gate.Reset();
+            return item;
+        }
     }
 
     /// <summary>
-    /// 查找无素
+    /// 查找元素
     /// </summary>
     /// <param name="match"></param>
     /// <returns></returns>
@@ -178,8 +187,10 @@ public class BlockingQueue<T> : IDisposable
     {
         if (match == null) throw new ArgumentNullException(nameof(match));
 
-        using var locker = LockerBuilder.Default.Create("BlockingQueue");
-        return _items.FirstOrDefault(x => match(x));
+        lock (_lock)
+        {
+            return _items.FirstOrDefault(x => match(x));
+        }
     }
 
     /// <summary>
@@ -187,9 +198,11 @@ public class BlockingQueue<T> : IDisposable
     /// </summary>
     public void Clear()
     {
-        using var locker = LockerBuilder.Default.Create("BlockingQueue");
-        _items.Clear();
-        _gate.Set();
+        lock (_lock)
+        {
+            _items.Clear();
+            _gate.Reset();
+        }
     }
 
     /// <summary>
@@ -197,6 +210,9 @@ public class BlockingQueue<T> : IDisposable
     /// </summary>
     public void Dispose()
     {
+        if (_isDisposed) return;
+        _isDisposed = true;
         Clear();
+        _gate.Dispose();
     }
 }

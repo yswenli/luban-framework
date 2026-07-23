@@ -30,8 +30,6 @@ namespace LuBan.Threading;
 public class LockerBuilder : IDisposable
 {
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _lockPool = new();
-    private readonly ConcurrentDictionary<string, int> _lockReferenceCount = new();
-    private readonly SemaphoreSlim _poolSyncSemaphore = new(1, 1);
     private volatile bool _isDisposed = false;
     const string DefaultLockName = "default";
 
@@ -56,22 +54,11 @@ public class LockerBuilder : IDisposable
             throw new ObjectDisposedException(nameof(LockerBuilder), "锁构建器已释放");
 
         timeout ??= TimeSpan.FromSeconds(10);
-        SemaphoreSlim targetSemaphore;
-        await _poolSyncSemaphore.WaitAsync(cancellationToken);
-        try
-        {
-            targetSemaphore = _lockPool.GetOrAdd(lockName, name => new SemaphoreSlim(initialCount: 1, maxCount: 1));
-            _lockReferenceCount.AddOrUpdate(lockName, 1, (name, count) => Interlocked.Increment(ref count));
-        }
-        finally
-        {
-            _poolSyncSemaphore.Release();
-        }
+        var targetSemaphore = _lockPool.GetOrAdd(lockName, name => new SemaphoreSlim(initialCount: 1, maxCount: 1));
 
         bool isAcquired = await targetSemaphore.WaitAsync(timeout.Value, cancellationToken);
         if (!isAcquired)
         {
-            ReleaseLockReference(lockName);
             throw new TimeoutException($"获取锁「{lockName}」超时（超时时间：{timeout.Value.TotalSeconds} 秒）");
         }
 
@@ -122,33 +109,14 @@ public class LockerBuilder : IDisposable
             throw new ObjectDisposedException(nameof(LockerBuilder), "锁构建器已释放");
 
         timeout ??= TimeSpan.FromSeconds(10);
-        SemaphoreSlim targetSemaphore;
+        var targetSemaphore = _lockPool.GetOrAdd(lockName, name => new SemaphoreSlim(initialCount: 1, maxCount: 1));
 
-        // 1. 同步操作锁池：确保同一名称只创建一个 SemaphoreSlim
-        _poolSyncSemaphore.Wait(cancellationToken);
-        try
-        {
-            // 1.1 从池获取锁：若不存在则创建（初始 1 个资源，确保独占）
-            targetSemaphore = _lockPool.GetOrAdd(lockName, name => new SemaphoreSlim(initialCount: 1, maxCount: 1));
-            // 1.2 引用计数 +1（标记当前锁被一个线程持有）
-            _lockReferenceCount.AddOrUpdate(lockName, 1, (name, count) => count + 1);
-        }
-        finally
-        {
-            // 1.3 释放池同步锁（允许其他线程操作锁池）
-            _poolSyncSemaphore.Release();
-        }
-
-        // 2. 异步等待获取目标锁（带超时）
         bool isAcquired = targetSemaphore.Wait(timeout.Value, cancellationToken);
         if (!isAcquired)
         {
-            // 2.1 若未获取到锁：引用计数回退，避免计数泄漏
-            ReleaseLockReference(lockName);
             throw new TimeoutException($"获取锁「{lockName}」超时（超时时间：{timeout.Value.TotalSeconds} 秒）");
         }
 
-        // 3. 返回释放器：using 块结束时自动释放锁
         return new LockerReleaser(targetSemaphore, lockName, this);
     }
 
@@ -173,60 +141,17 @@ public class LockerBuilder : IDisposable
     public LockerReleaser Create() => Create(DefaultLockName);
 
     /// <summary>
-    /// 释放锁引用（由释放器调用）：引用计数 -1，无引用时从池移除锁
-    /// </summary>
-    internal void ReleaseLockReference(string lockName)
-    {
-        if (string.IsNullOrWhiteSpace(lockName))
-            throw new ArgumentNullException(nameof(lockName));
-        if (_isDisposed)
-            return;
-
-        if (_lockReferenceCount.TryGetValue(lockName, out int currentCount))
-        {
-            var newCount = currentCount - 1;
-            if (!_lockReferenceCount.TryUpdate(lockName, newCount, currentCount))
-                return;
-            else
-            {
-                if (newCount <= 0)
-                {
-                    _poolSyncSemaphore.Wait();
-                    try
-                    {
-                        if (_lockReferenceCount.TryGetValue(lockName, out int currentCount2) && currentCount2 <= 0)
-                        {
-                            _lockReferenceCount.TryRemove(lockName, out _);
-                            if (_lockPool.TryRemove(lockName, out SemaphoreSlim? semaphore) && semaphore != null)
-                            {
-                                semaphore.Dispose();
-                            }
-                        }
-                    }
-                    finally
-                    {
-                        _poolSyncSemaphore.Release();
-                    }
-                }
-            }
-        }
-        return;
-    }
-
-    /// <summary>
     /// 释放锁构建器资源（如程序退出时）
     /// </summary>
     public void Dispose()
     {
         if (_isDisposed) return;
         _isDisposed = true;
-        _poolSyncSemaphore.Dispose();
         foreach (var (_, semaphore) in _lockPool)
         {
             semaphore.Dispose();
         }
         _lockPool.Clear();
-        _lockReferenceCount.Clear();
     }
 
     /// <summary>

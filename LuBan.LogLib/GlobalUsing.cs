@@ -28,6 +28,7 @@ global using LuBan.LogLib.Models;
 global using LuBan.Orm;
 global using LuBan.Orm.Attributes;
 global using LuBan.Orm.Models;
+global using LuBan.Threading;
 
 global using SqlSugar;
 

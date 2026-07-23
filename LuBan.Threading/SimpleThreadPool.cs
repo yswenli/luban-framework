@@ -29,10 +29,10 @@ namespace LuBan.Threading;
 /// </summary>
 public class SimpleThreadPool : ISimplePool, IDisposable
 {
-    private readonly BlockingCollection<PoolTaskInfo> _taskQueue;
+    private readonly BlockingCollection<PoolTaskInfo2> _taskQueue;
     private readonly Thread[] _workers;
     private volatile bool _isDisposed = false;
-    private readonly ConcurrentDictionary<Guid, PoolTaskInfo> _taskStatusDict = [];
+    private readonly ConcurrentDictionary<Guid, PoolTaskInfo2> _taskStatusDict = [];
     private readonly object _disposeLocker = new();
     private readonly string _name;
     private readonly Thread _monitorThread;
@@ -45,7 +45,7 @@ public class SimpleThreadPool : ISimplePool, IDisposable
     /// <summary>
     /// 运行时事件
     /// </summary>
-    public event EventHandler<TaskInfoArgs> OnRunning;
+    public event EventHandler<TaskInfoArgs>? OnRunning;
 
     /// <summary>
     /// 复用后台线程的线程池，适用于对资源使用上限敏感的任务
@@ -56,7 +56,7 @@ public class SimpleThreadPool : ISimplePool, IDisposable
     {
         _name = name ?? "ThreadPool";
         if (threadCount < 1) threadCount = 1;
-        _taskQueue = new BlockingCollection<PoolTaskInfo>();
+        _taskQueue = new BlockingCollection<PoolTaskInfo2>();
         _workers = new Thread[threadCount];
         for (int i = 0; i < threadCount; i++)
         {
@@ -68,7 +68,6 @@ public class SimpleThreadPool : ISimplePool, IDisposable
             _workers[i].Start();
         }
 
-        // 启动监控线程
         _monitorThread = new Thread(MonitorStatus)
         {
             IsBackground = true,
@@ -78,18 +77,28 @@ public class SimpleThreadPool : ISimplePool, IDisposable
     }
 
     /// <summary>
-    /// 提交任务，返回任务ID
+    /// 提交同步任务，返回任务ID
     /// </summary>
     public Guid Enqueue(Action action)
     {
-        if (_isDisposed) return Guid.Empty;
         if (action == null) throw new ArgumentNullException(nameof(action));
+        return Enqueue(() => { action(); return Task.CompletedTask; });
+    }
+
+    /// <summary>
+    /// 提交异步任务，返回任务ID
+    /// </summary>
+    public Guid Enqueue(Func<Task> task)
+    {
+        if (_isDisposed) return Guid.Empty;
+        if (task == null) throw new ArgumentNullException(nameof(task));
         lock (_disposeLocker)
         {
-            var task = new PoolTaskInfo(action);
-            _taskStatusDict[task.Id] = task;
-            _taskQueue.Add(task);
-            return task.Id;
+            if (_isDisposed) return Guid.Empty;
+            var taskInfo = new PoolTaskInfo2(task);
+            _taskStatusDict[taskInfo.Id] = taskInfo;
+            _taskQueue.Add(taskInfo);
+            return taskInfo.Id;
         }
     }
 
@@ -101,14 +110,13 @@ public class SimpleThreadPool : ISimplePool, IDisposable
             task.StartTime = DateTime.Now;
             try
             {
-                task.Action?.Invoke();
+                task.Func().GetAwaiter().GetResult();
                 task.Status = PoolTaskStatus.Success;
             }
             catch (Exception ex)
             {
                 task.Status = PoolTaskStatus.Failed;
                 task.Exception = ex;
-                Console.WriteLine($"[ThreadPool] 任务执行异常: {ex}");
             }
             finally
             {
@@ -124,6 +132,8 @@ public class SimpleThreadPool : ISimplePool, IDisposable
             try
             {
                 Thread.Sleep(5000);
+                CleanupCompletedTasks();
+
                 int pending = _taskStatusDict.Values.Count(t => t.Status == PoolTaskStatus.Pending);
                 int running = _taskStatusDict.Values.Count(t => t.Status == PoolTaskStatus.Running);
                 int success = _taskStatusDict.Values.Count(t => t.Status == PoolTaskStatus.Success);
@@ -133,7 +143,7 @@ public class SimpleThreadPool : ISimplePool, IDisposable
                 OnRunning?.Invoke(this, new TaskInfoArgs
                 {
                     Title = _name,
-                    QueeueCount = queueCount,
+                    QueueCount = queueCount,
                     PendingCount = pending,
                     RunningCount = running,
                     SuccessCount = success,
@@ -141,6 +151,19 @@ public class SimpleThreadPool : ISimplePool, IDisposable
                 });
             }
             catch { }
+        }
+    }
+
+    private void CleanupCompletedTasks()
+    {
+        var completedIds = _taskStatusDict
+            .Where(kvp => kvp.Value.Status == PoolTaskStatus.Success || kvp.Value.Status == PoolTaskStatus.Failed)
+            .Select(kvp => kvp.Key)
+            .ToList();
+
+        foreach (var id in completedIds)
+        {
+            _taskStatusDict.TryRemove(id, out _);
         }
     }
 
@@ -157,7 +180,7 @@ public class SimpleThreadPool : ISimplePool, IDisposable
     /// <summary>
     /// 查询任务详细信息
     /// </summary>
-    public PoolTaskInfo? GetTaskInfo(Guid taskId)
+    public PoolTaskInfo2? GetTaskInfo(Guid taskId)
     {
         _taskStatusDict.TryGetValue(taskId, out var task);
         return task;
@@ -178,34 +201,12 @@ public class SimpleThreadPool : ISimplePool, IDisposable
                 {
                     thread.Join();
                 }
-                _taskQueue.Dispose();
-                // 等待监控线程退出
-                if (_monitorThread != null && _monitorThread.IsAlive)
+                if (_monitorThread.IsAlive)
                 {
                     _monitorThread.Join();
                 }
+                _taskQueue.Dispose();
             }
         }
-    }
-
-    /// <summary>
-    /// NotImplementedException
-    /// </summary>
-    /// <param name="task"></param>
-    /// <returns></returns>
-    /// <exception cref="NotImplementedException"></exception>
-    public Guid Enqueue(Func<Task> task)
-    {
-        throw new NotImplementedException();
-    }
-    /// <summary>
-    /// NotImplementedException
-    /// </summary>
-    /// <param name="taskId"></param>
-    /// <returns></returns>
-    /// <exception cref="NotImplementedException"></exception>
-    PoolTaskInfo2? ISimplePool.GetTaskInfo(Guid taskId)
-    {
-        throw new NotImplementedException();
     }
 }

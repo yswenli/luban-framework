@@ -52,7 +52,7 @@ using (await LockerBuilder.Default.GetLockerAsync("user:1001"))
 
 // 线程池：固定 4 线程，提交任务并监控
 using var pool = new SimpleThreadPool("OrderPool", threadCount: 4);
-pool.OnRunning += (s, e) => Console.WriteLine($"[队列:{e.QueeueCount} 运行:{e.RunningCount} 成功:{e.SuccessCount}]");
+pool.OnRunning += (s, e) => Console.WriteLine($"[队列:{e.QueueCount} 运行:{e.RunningCount} 成功:{e.SuccessCount}]");
 var taskId = pool.Enqueue(() => Console.WriteLine("处理订单中..."));
 
 // Task 超时控制
@@ -218,7 +218,7 @@ using var pool = new SimpleThreadPool("NotifyPool", threadCount: 2);
 
 pool.OnRunning += (sender, args) =>
 {
-    Console.WriteLine($"[{args.Title}] 队列:{args.QueeueCount} 运行:{args.RunningCount} 成功:{args.SuccessCount} 失败:{args.FailCount}");
+    Console.WriteLine($"[{args.Title}] 队列:{args.QueueCount} 运行:{args.RunningCount} 成功:{args.SuccessCount} 失败:{args.FailCount}");
 };
 
 var id1 = pool.Enqueue(() => SendNotification("用户A"));

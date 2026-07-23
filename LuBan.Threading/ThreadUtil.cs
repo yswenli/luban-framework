@@ -21,7 +21,7 @@
 *描述：线程工具类
 *
 *****************************************************************************/
-namespace System;
+namespace LuBan.Threading;
 
 /// <summary>
 /// 线程工具类
@@ -59,17 +59,16 @@ public static class ThreadUtil
     /// </summary>
     /// <param name="action"></param>
     /// <param name="milliseconds"></param>
-    public static void ThreadWhile(Action action, int milliseconds = -1)
+    public static void ThreadWhile(Action action, int milliseconds = -1, CancellationToken cancellationToken = default)
     {
-        // 确保最小睡眠时间，防止忙等待
         var safeMilliseconds = EnsureMinimumSleep(milliseconds);
 
         ThreadRun(() =>
         {
-            while (true)
+            while (!cancellationToken.IsCancellationRequested)
             {
                 action?.Invoke();
-                Sleep(safeMilliseconds);
+                Sleep(safeMilliseconds, cancellationToken);
             }
         });
     }
@@ -79,19 +78,17 @@ public static class ThreadUtil
     /// </summary>
     /// <param name="fun"></param>
     /// <param name="milliseconds"></param>
-    public static void ThreadWhile(this Func<bool> fun, int milliseconds = -1)
+    public static void ThreadWhile(this Func<bool> fun, int milliseconds = -1, CancellationToken cancellationToken = default)
     {
-        // 确保最小睡眠时间，防止忙等待
         var safeMilliseconds = EnsureMinimumSleep(milliseconds);
 
         ThreadRun(() =>
         {
-            var isOnce = false;
-            while (!isOnce)
+            while (!cancellationToken.IsCancellationRequested)
             {
-                isOnce = fun?.Invoke() ?? false;
-                Sleep(safeMilliseconds);
-                if (isOnce) break;
+                var result = fun?.Invoke() ?? false;
+                if (result) break;
+                Sleep(safeMilliseconds, cancellationToken);
             }
         });
     }
@@ -103,8 +100,7 @@ public static class ThreadUtil
     /// <returns>安全的睡眠时间</returns>
     private static int EnsureMinimumSleep(int milliseconds)
     {
-        // 当睡眠时间为0或负数时，设置一个合理的最小值
-        if (milliseconds == 0) return 10; // 至少睡眠10毫秒
+        if (milliseconds <= 0 && milliseconds != -1) return 10;
         return milliseconds;
     }
 
@@ -119,28 +115,26 @@ public static class ThreadUtil
     {
         if (milliseconds < 1)
         {
-            // 若未传入取消令牌，直接调用原生无限睡眠；否则等待取消信号
             if (cancellationToken == default)
             {
                 Thread.Sleep(Timeout.Infinite);
             }
             else
             {
-                cancellationToken.WaitHandle.WaitOne(); // 等待取消信号，可被中断
-                cancellationToken.ThrowIfCancellationRequested(); // 抛出取消异常，通知调用方
+                cancellationToken.WaitHandle.WaitOne();
+                cancellationToken.ThrowIfCancellationRequested();
             }
             return;
         }
 
-        // 对于较短时间的睡眠，直接使用Thread.Sleep
-        if (milliseconds <= 5000) // 增加直接睡眠的阈值到5秒
+        if (milliseconds <= 5000)
         {
             Thread.Sleep(milliseconds);
-            cancellationToken.ThrowIfCancellationRequested(); // 睡眠后校验取消
+            cancellationToken.ThrowIfCancellationRequested();
             return;
         }
 
-        // 对于长时间睡眠，使用WaitHandle.WaitOne替代Task.Delay.Wait，避免同步上下文死锁
         cancellationToken.WaitHandle.WaitOne(milliseconds);
+        cancellationToken.ThrowIfCancellationRequested();
     }
 }

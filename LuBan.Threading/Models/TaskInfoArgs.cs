@@ -35,7 +35,7 @@ public class TaskInfoArgs
     /// <summary>
     /// 队列数量
     /// </summary>
-    public int QueeueCount { get; set; }
+    public int QueueCount { get; set; }
     /// <summary>
     /// 排队数量
     /// </summary>

@@ -43,7 +43,7 @@ public class PoolTaskInfo
     /// <summary>
     /// 异常信息
     /// </summary>
-    public Exception Exception { get; internal set; }
+    public Exception? Exception { get; internal set; }
     /// <summary>
     /// 任务开始时间
     /// </summary>

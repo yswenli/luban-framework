@@ -52,7 +52,7 @@ using (await LockerBuilder.Default.GetLockerAsync("user:1001"))
 
 // Thread pool: fixed 4 threads, submit tasks and monitor
 using var pool = new SimpleThreadPool("OrderPool", threadCount: 4);
-pool.OnRunning += (s, e) => Console.WriteLine($"[Queue:{e.QueeueCount} Running:{e.RunningCount} Success:{e.SuccessCount}]");
+pool.OnRunning += (s, e) => Console.WriteLine($"[Queue:{e.QueueCount} Running:{e.RunningCount} Success:{e.SuccessCount}]");
 var taskId = pool.Enqueue(() => Console.WriteLine("Processing order..."));
 
 // Task timeout control
@@ -218,7 +218,7 @@ using var pool = new SimpleThreadPool("NotifyPool", threadCount: 2);
 
 pool.OnRunning += (sender, args) =>
 {
-    Console.WriteLine($"[{args.Title}] Queue:{args.QueeueCount} Running:{args.RunningCount} Success:{args.SuccessCount} Failed:{args.FailCount}");
+    Console.WriteLine($"[{args.Title}] Queue:{args.QueueCount} Running:{args.RunningCount} Success:{args.SuccessCount} Failed:{args.FailCount}");
 };
 
 var id1 = pool.Enqueue(() => SendNotification("UserA"));

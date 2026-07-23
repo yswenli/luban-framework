@@ -28,10 +28,10 @@ namespace LuBan.Threading.Core;
 /// </summary>
 public sealed class LockerReleaser : IDisposable
 {
-    private readonly SemaphoreSlim _semaphore; // 对应的 SemaphoreSlim 锁实例
-    private readonly string _lockName; // 锁名称
-    private readonly LockerBuilder _builder; // 关联的锁构建器（用于释放后清理锁池）
-    private bool _isDisposed = false; // 是否已释放
+    private readonly SemaphoreSlim _semaphore;
+    private readonly string _lockName;
+    private readonly LockerBuilder _builder;
+    private bool _isDisposed = false;
 
     /// <summary>
     /// 构造释放器
@@ -50,7 +50,6 @@ public sealed class LockerReleaser : IDisposable
     {
         if (_isDisposed) return;
         _semaphore.Release();
-        _builder.ReleaseLockReference(_lockName);
         _isDisposed = true;
     }
 }

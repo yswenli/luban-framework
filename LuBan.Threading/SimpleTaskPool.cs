@@ -4,51 +4,53 @@
 *机器名称：WALLE
 *Author：yswenli
 *命名空间：LuBan.Common
-*文件名： SimpleThreadPool
+*文件名： SimpleTaskPool
 *版本号： V1.0.0.0
 *唯一标识：112050a9-3609-4e2a-9b07-97c10c8f7b96
 *当前的用户域：WALLE
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2025/5/21 10:22:56
-*描述：简单的Task池，实用于大部分耗时小的任务
+*描述：简单的Task池，适用于大部分耗时小的任务
 *
 *=================================================
 *修改标记
 *修改时间：2025/5/21 10:22:56
 *修改人： yswenli
 *版本号： V1.0.0.0
-*描述：简单的Task池，实用于大部分耗时小的任务
+*描述：简单的Task池，适用于大部分耗时小的任务
 *
 *****************************************************************************/
+
+using System.Threading.Channels;
 
 namespace LuBan.Threading;
 
 /// <summary>
-/// 简单的Task池，实用于大部分耗时小的任务
+/// 简单的Task池，适用于大部分耗时小的任务
 /// </summary>
 public class SimpleTaskPool : ISimplePool, IDisposable
 {
-    private readonly ConcurrentQueue<PoolTaskInfo2> _taskQueue = new();
+    private readonly Channel<PoolTaskInfo2> _channel;
     private readonly ConcurrentDictionary<Guid, PoolTaskInfo2> _taskStatusDict = new();
     private readonly SemaphoreSlim _semaphore;
     private readonly CancellationTokenSource _cts = new();
     private readonly int _maxDegreeOfParallelism;
-    private bool _isRunning;
+    private volatile bool _isRunning;
     private Thread? _monitorThread;
+
     /// <summary>
     /// 名称
     /// </summary>
     public string Name { get; }
 
-
     /// <summary>
     /// 运行时事件
     /// </summary>
-    public event EventHandler<TaskInfoArgs> OnRunning;
+    public event EventHandler<TaskInfoArgs>? OnRunning;
 
     /// <summary>
-    /// 简单的Task池，实用于大部分耗时小的任务
+    /// 简单的Task池，适用于大部分耗时小的任务
     /// </summary>
     /// <param name="name"></param>
     /// <param name="maxDegreeOfParallelism"></param>
@@ -56,66 +58,56 @@ public class SimpleTaskPool : ISimplePool, IDisposable
     {
         _maxDegreeOfParallelism = maxDegreeOfParallelism;
         _semaphore = new SemaphoreSlim(maxDegreeOfParallelism, maxDegreeOfParallelism);
+        _channel = Channel.CreateUnbounded<PoolTaskInfo2>();
         Name = name;
 
         _isRunning = true;
-        for (int i = 0; i < _maxDegreeOfParallelism; i++)
-        {
-            _ = ProcessQueueAsync();
-        }
         _monitorThread = new Thread(MonitorStatus) { IsBackground = true };
         _monitorThread.Start();
     }
 
     /// <summary>
-    /// 入队
+    /// 入队同步任务
+    /// </summary>
+    public Guid Enqueue(Action task)
+    {
+        if (task == null) throw new ArgumentNullException(nameof(task));
+        return Enqueue(() => { task(); return Task.CompletedTask; });
+    }
+
+    /// <summary>
+    /// 入队异步任务
     /// </summary>
     public Guid Enqueue(Func<Task> task)
     {
         if (task == null) throw new ArgumentNullException(nameof(task));
-        if (_isRunning == false) return Guid.Empty;
+        if (!_isRunning) return Guid.Empty;
         var poolTask = new PoolTaskInfo2(task);
-        _taskQueue.Enqueue(poolTask);
         _taskStatusDict[poolTask.Id] = poolTask;
-        if (_isRunning)
-        {
-            _ = ProcessQueueAsync();
-        }
+        _channel.Writer.TryWrite(poolTask);
+        _ = ProcessTaskAsync(poolTask);
         return poolTask.Id;
     }
 
-    private async Task ProcessQueueAsync()
+    private async Task ProcessTaskAsync(PoolTaskInfo2 poolTask)
     {
-        while (_isRunning && !_cts.IsCancellationRequested)
+        await _semaphore.WaitAsync(_cts.Token).ConfigureAwait(false);
+        try
         {
-            if (_taskQueue.TryDequeue(out var poolTask))
-            {
-                await _semaphore.WaitAsync(_cts.Token);
-                poolTask.Status = PoolTaskStatus.Running;
-                poolTask.StartTime = DateTime.Now;
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        await poolTask.Func();
-                        poolTask.Status = PoolTaskStatus.Success;
-                    }
-                    catch (Exception ex)
-                    {
-                        poolTask.Status = PoolTaskStatus.Failed;
-                        poolTask.Exception = ex;
-                    }
-                    finally
-                    {
-                        poolTask.EndTime = DateTime.Now;
-                        _semaphore.Release();
-                    }
-                }, _cts.Token);
-            }
-            else
-            {
-                await TaskUtil.Delay(50, _cts.Token);
-            }
+            poolTask.Status = PoolTaskStatus.Running;
+            poolTask.StartTime = DateTime.Now;
+            await poolTask.Func().ConfigureAwait(false);
+            poolTask.Status = PoolTaskStatus.Success;
+        }
+        catch (Exception ex)
+        {
+            poolTask.Status = PoolTaskStatus.Failed;
+            poolTask.Exception = ex;
+        }
+        finally
+        {
+            poolTask.EndTime = DateTime.Now;
+            _semaphore.Release();
         }
     }
 
@@ -126,16 +118,18 @@ public class SimpleTaskPool : ISimplePool, IDisposable
             try
             {
                 Thread.Sleep(5000);
+                CleanupCompletedTasks();
+
                 int pending = _taskStatusDict.Values.Count(t => t.Status == PoolTaskStatus.Pending);
                 int running = _taskStatusDict.Values.Count(t => t.Status == PoolTaskStatus.Running);
                 int success = _taskStatusDict.Values.Count(t => t.Status == PoolTaskStatus.Success);
                 int failed = _taskStatusDict.Values.Count(t => t.Status == PoolTaskStatus.Failed);
-                int queueCount = _taskQueue.Count;
+                int queueCount = _channel.Reader.Count;
 
                 OnRunning?.Invoke(this, new TaskInfoArgs
                 {
                     Title = Name,
-                    QueeueCount = queueCount,
+                    QueueCount = queueCount,
                     PendingCount = pending,
                     RunningCount = running,
                     SuccessCount = success,
@@ -143,6 +137,19 @@ public class SimpleTaskPool : ISimplePool, IDisposable
                 });
             }
             catch { }
+        }
+    }
+
+    private void CleanupCompletedTasks()
+    {
+        var completedIds = _taskStatusDict
+            .Where(kvp => kvp.Value.Status == PoolTaskStatus.Success || kvp.Value.Status == PoolTaskStatus.Failed)
+            .Select(kvp => kvp.Key)
+            .ToList();
+
+        foreach (var id in completedIds)
+        {
+            _taskStatusDict.TryRemove(id, out _);
         }
     }
 
@@ -172,19 +179,9 @@ public class SimpleTaskPool : ISimplePool, IDisposable
     {
         _isRunning = false;
         _cts.Cancel();
+        _channel.Writer.TryComplete();
         _monitorThread?.Join();
         _semaphore.Dispose();
         _cts.Dispose();
-    }
-
-    /// <summary>
-    /// NotImplementedException
-    /// </summary>
-    /// <param name="task"></param>
-    /// <returns></returns>
-    /// <exception cref="NotImplementedException"></exception>
-    public Guid Enqueue(Action task)
-    {
-        throw new NotImplementedException();
     }
 }

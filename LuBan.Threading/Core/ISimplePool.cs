@@ -3,17 +3,12 @@
 /// <summary>
 /// 简单任务池接口，定义任务池的基本操作方法
 /// </summary>
-public interface ISimplePool
+public interface ISimplePool : IDisposable
 {
     /// <summary>
     /// 任务池名称
     /// </summary>
     string Name { get; }
-
-    /// <summary>
-    /// 释放任务池资源
-    /// </summary>
-    void Dispose();
 
     /// <summary>
     /// 入队一个同步任务
