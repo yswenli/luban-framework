@@ -92,19 +92,19 @@ dotnet add package LuBan.Threading
 
 ### Thread Utilities — `ThreadUtil`
 
-> Namespace: `System`
+> Namespace: `LuBan.Threading`
 
 | Method | Description |
 |---|---|
 | `ThreadRun(Action)` | Execute synchronous delegate via thread pool |
 | `ThreadRun(Func<Task?>)` | Execute async delegate via Task.Run |
 | `ThreadWhile(Action, int)` | Background thread infinite loop with configurable interval |
-| `ThreadWhile(Func<bool>, int)` | Background loop until returning true |
+| `ThreadWhile(Func<bool>, int)` | Background loop, returns true to continue, false or null to exit |
 | `Sleep(int, CancellationToken)` | Cancellable thread sleep, auto-segmented for long sleeps |
 
 ### Task Extensions — `TaskUtil`
 
-> Namespace: `System`
+> Namespace: `LuBan.Threading`
 
 | Method | Description |
 |---|---|
@@ -132,9 +132,11 @@ dotnet add package LuBan.Threading
 | `GetLocker(string, TimeSpan?, CancellationToken)` | Sync acquire named lock |
 | `Create(string)` / `Create()` | Quick lock acquisition (sync) |
 | `CreateAsync(string)` / `CreateAsync()` | Quick lock acquisition (async) |
+| `RemoveLock(string)` | Remove specified named lock (only when not held) |
+| `CleanupUnusedLocks()` | Clean up all unused named locks |
 | `Default` | Static global singleton, use directly |
 
-> `LockerReleaser` implements `IDisposable`, auto-releases locks with `using`, and cleans up the lock pool when reference count reaches zero.
+> `LockerReleaser` implements `IDisposable`, auto-releases locks with `using`.
 
 ### Thread Pool — `SimpleThreadPool`
 
@@ -153,7 +155,7 @@ Fixed-size background thread pool based on `BlockingCollection` + `Thread[]`, su
 
 > Namespace: `LuBan.Threading`
 
-Async task pool based on `ConcurrentQueue` + `SemaphoreSlim`, suitable for most short-duration async tasks.
+Async task pool based on `ConcurrentDictionary` + `SemaphoreSlim`, suitable for most short-duration async tasks.
 
 | Method | Description |
 |---|---|
@@ -286,7 +288,7 @@ using System;
 await TaskUtil.WhileAsync(() =>
 {
     CheckNewMessages();
-}, priod: 1000);
+}, period: 1000);
 
 // Poll until condition is met
 await ((Func<bool>)(() =>
@@ -317,7 +319,7 @@ if (item != null)
 
 ## Usage Tips
 
-1. **Don't mix up namespaces**: `ThreadUtil` and `TaskUtil` are in the `System` namespace; `LockerBuilder`, `SimpleThreadPool`, `SimpleTaskPool`, `BlockingQueue<T>` are in `LuBan.Threading`; `LockerReleaser` is in `LuBan.Threading.Core`.
+1. **Don't mix up namespaces**: `ThreadUtil`, `TaskUtil`, `LockerBuilder`, `SimpleThreadPool`, `SimpleTaskPool`, `BlockingQueue<T>` are all in the `LuBan.Threading` namespace; `LockerReleaser`, `PoolTaskInfo2`, `ISimplePool` are in `LuBan.Threading.Core`.
 2. **Prefer `LockerBuilder.Default`**: Global singleton, avoid creating duplicate lock pools.
 3. **Release locks with `using`**: `LockerReleaser` implements `IDisposable`, always wrap with `using`, otherwise locks won't be released.
 4. **Thread pool selection**: Use `SimpleThreadPool` for sync time-consuming tasks, `SimpleTaskPool` for async lightweight tasks.

@@ -3,7 +3,7 @@
 *CLR版本： .net8.0
 *机器名称：YSWENLI
 *公司名称：yswenli
-*命名空间：LuBan.Common
+*命名空间：LuBan.Threading
 *文件名： TaskUtil
 *版本号： V1.0.0.0
 *唯一标识：3b303699-75e3-40b5-a980-2e38966e9c7d
@@ -238,11 +238,18 @@ public static class TaskUtil
     public static async Task<T> RunAsync<T>(this Func<CancellationToken, Task<T>> func, int timeOut = 3 * 1000)
     {
         using CancellationTokenSource cts = new(timeOut);
-        return await Task.Run(async () =>
+        var token = cts.Token;
+        try
         {
-            return await func.Invoke(cts.Token);
-
-        }, cts.Token);
+            return await Task.Run(async () =>
+            {
+                return await func.Invoke(token);
+            }, token);
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        {
+            throw new TimeoutException($"操作超时（{timeOut}ms）");
+        }
     }
 
     /// <summary>

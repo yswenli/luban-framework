@@ -22,6 +22,7 @@
 *
 *****************************************************************************/
 
+using System.Buffers;
 using LuBan.VideoKit;
 
 namespace LuBan.CloudStorage;
@@ -35,19 +36,21 @@ public partial class FileHandler : IScoped
     ICloudStorageClient _cloudStorageClient;
     readonly BaseRepository<DbFile> _sysFileRep;
 
+    static UploadOptions? _cachedUploadOptions;
+    static ICloudStorageClient? _cachedClient;
+
     /// <summary>
     /// 文件处理
     /// </summary>
     /// <exception cref="Exception"></exception>
     public FileHandler()
     {
-        var options = NacosConfigUtil.Read<UploadOptions>();
-        if (options == null)
+        _uploadOptions = _cachedUploadOptions ??= NacosConfigUtil.Read<UploadOptions>();
+        if (_uploadOptions == null)
         {
             throw new Exception("在配置文件中找不到UploadOptions");
         }
-        _uploadOptions = options;
-        _cloudStorageClient = CloudStorageClientFactory.Create();
+        _cloudStorageClient = _cachedClient ??= CloudStorageClientFactory.Create();
         _sysFileRep = new BaseRepository<DbFile>();
     }
 
@@ -201,8 +204,7 @@ public partial class FileHandler : IScoped
     /// <param name="localFilePath"></param>
     public bool SaveSmallFile(string folderName, string fileName, byte[] fileBytes, string localFilePath)
     {
-        using var ms = new MemoryStream(fileBytes);
-        ms.Seek(0, SeekOrigin.Begin);
+        using var ms = new MemoryStream(fileBytes, 0, fileBytes.Length, writable: false, publiclyVisible: true);
         return SaveFile(folderName, fileName, ms, localFilePath);
     }
 
@@ -215,8 +217,7 @@ public partial class FileHandler : IScoped
     /// <param name="localFilePath"></param>
     public async Task<bool> SaveSmallFileAsync(string folderName, string fileName, byte[] fileBytes, string localFilePath)
     {
-        using var ms = new MemoryStream(fileBytes);
-        ms.Seek(0, SeekOrigin.Begin);
+        using var ms = new MemoryStream(fileBytes, 0, fileBytes.Length, writable: false, publiclyVisible: true);
         return await SaveFileAsync(folderName, fileName, ms, localFilePath);
     }
 
@@ -386,12 +387,13 @@ public partial class FileHandler : IScoped
         {
             savePath = savePath.Replace("..", "").Replace("\\", "/");
         }
-            else
-            {
-                savePath = ResolvePathTemplate(_uploadOptions.Path);
-            }
+        else
+        {
+            savePath = ResolvePathTemplate(_uploadOptions.Path);
+        }
 
-        var fileMd5 = BitConverter.ToString(bytes.GetMD5()).Replace("-", "");
+        using var md5Stream = new MemoryStream(bytes, 0, bytes.Length, writable: false, publiclyVisible: true);
+        var fileMd5 = await ComputeMd5StreamAsync(md5Stream);
 
         using var locker = await LockerBuilder.Default.CreateAsync($"FileUpload_{fileMd5}");
         var oldFile = await _sysFileRep.FirstAsync(q => q.FileMd5 == fileMd5);
@@ -412,7 +414,7 @@ public partial class FileHandler : IScoped
         {
             return null;
         }
-        newFile.Url = $"{domain}/api/File/Download/{newFile.Id}";
+        newFile.Url = $"{domain}/api/File/DownloadByName/{newFile.FileName}";
         await _sysFileRep.InsertAsync(newFile);
         return newFile;
     }
@@ -436,17 +438,18 @@ public partial class FileHandler : IScoped
         {
             savePath = savePath.Replace("..", "").Replace("\\", "/");
         }
-            else
-            {
-                savePath = ResolvePathTemplate(_uploadOptions.Path);
-            }
+        else
+        {
+            savePath = ResolvePathTemplate(_uploadOptions.Path);
+        }
 
         // 流式计算MD5，避免将整个流加载到内存
         using (stream)
         {
             var fileMd5 = await ComputeMd5StreamAsync(stream, ct);
-            stream.Position = 0;
-            
+            if (stream.CanSeek)
+                stream.Position = 0;
+
             using var locker = await LockerBuilder.Default.CreateAsync($"FileUpload_{fileMd5}");
             var oldFile = await _sysFileRep.FirstAsync(q => q.FileMd5 == fileMd5);
             if (oldFile != null && oldFile.Id > 0)
@@ -460,7 +463,8 @@ public partial class FileHandler : IScoped
                 Directory.CreateDirectory(filePath);
 
             var realFile = Path.Combine(filePath, finalName);
-            stream.Position = 0;
+            if (stream.CanSeek)
+                stream.Position = 0;
             var result = await SaveFileAsync(savePath, finalName, stream, realFile);
             if (!result)
             {
@@ -512,24 +516,15 @@ public partial class FileHandler : IScoped
         {
             return oldFile;
         }
-        var newFile = new DbFile
-        {
-            Id = YitIdHelper.NextId(),
-            BucketName = _uploadOptions.EnableCloudStorage ? _uploadOptions?.CloudStorageOptions?.ContainerName ?? "" : "Local",
-            FileName = fileName,
-            Suffix = suffix,
-            SizeKb = sizeKb.ToString(),
-            FilePath = savePath,
-            FileMd5 = fileMd5,
-            Provider = "",
-            IsPrivate = isPrivate
-        };
+        var newFile = CreateDbFile(_uploadOptions, fileName, suffix, sizeKb, savePath, fileMd5, isPrivate);
         var finalName = newFile.Id + newFile.Suffix;
         var filePath = Path.Combine(rootPath, savePath);
         if (!Directory.Exists(filePath))
             Directory.CreateDirectory(filePath);
 
         var realFile = Path.Combine(filePath, finalName);
+        if (videoContentStream.CanSeek)
+            videoContentStream.Position = 0;
         var result = await SaveFileAsync(savePath, finalName, videoContentStream, realFile);
         if (!result)
         {
@@ -577,16 +572,22 @@ public partial class FileHandler : IScoped
     public static async Task<string> ComputeMd5StreamAsync(Stream stream, CancellationToken ct = default)
     {
         using var md5 = MD5.Create();
-        var buffer = new byte[81920]; // 80KB buffer
+        var buffer = ArrayPool<byte>.Shared.Rent(81920); // 80KB buffer
         int bytesRead;
-        
-        while ((bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length, ct)) > 0)
+
+        try
         {
-            md5.TransformBlock(buffer, 0, bytesRead, null, 0);
-            ct.ThrowIfCancellationRequested();
+            while ((bytesRead = await stream.ReadAsync(buffer, 0, 81920, ct)) > 0)
+            {
+                md5.TransformBlock(buffer, 0, bytesRead, null, 0);
+            }
+
+            md5.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
         }
-        
-        md5.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
+        }
         return BitConverter.ToString(md5.Hash!).Replace("-", "").ToLower();
     }
 }

@@ -92,19 +92,19 @@ dotnet add package LuBan.Threading
 
 ### 线程工具 — `ThreadUtil`
 
-> 命名空间：`System`
+> 命名空间：`LuBan.Threading`
 
 | 方法 | 说明 |
 |---|---|
 | `ThreadRun(Action)` | 线程池执行同步委托 |
 | `ThreadRun(Func<Task?>)` | Task.Run 执行异步委托 |
 | `ThreadWhile(Action, int)` | 后台线程无限循环执行，可设间隔 |
-| `ThreadWhile(Func<bool>, int)` | 后台循环直到返回 true 时退出 |
+| `ThreadWhile(Func<bool>, int)` | 后台循环执行，返回 true 继续循环，返回 false 或 null 退出 |
 | `Sleep(int, CancellationToken)` | 支持取消的线程睡眠，长睡眠自动分段唤醒 |
 
 ### Task 扩展 — `TaskUtil`
 
-> 命名空间：`System`
+> 命名空间：`LuBan.Threading`
 
 | 方法 | 说明 |
 |---|---|
@@ -132,9 +132,11 @@ dotnet add package LuBan.Threading
 | `GetLocker(string, TimeSpan?, CancellationToken)` | 同步获取命名锁 |
 | `Create(string)` / `Create()` | 快捷获取锁（同步） |
 | `CreateAsync(string)` / `CreateAsync()` | 快捷获取锁（异步） |
+| `RemoveLock(string)` | 移除指定命名锁（仅当未被持有时） |
+| `CleanupUnusedLocks()` | 清理所有未被持有的命名锁 |
 | `Default` | 静态全局单例，直接用 |
 
-> `LockerReleaser` 实现 `IDisposable`，配合 `using` 自动释放锁，引用计数归零时自动清理锁池。
+> `LockerReleaser` 实现 `IDisposable`，配合 `using` 自动释放锁。
 
 ### 线程池 — `SimpleThreadPool`
 
@@ -153,7 +155,7 @@ dotnet add package LuBan.Threading
 
 > 命名空间：`LuBan.Threading`
 
-基于 `ConcurrentQueue` + `SemaphoreSlim` 的异步任务池，适用于大部分耗时小的异步任务。
+基于 `ConcurrentDictionary` + `SemaphoreSlim` 的异步任务池，适用于大部分耗时小的异步任务。
 
 | 方法 | 说明 |
 |---|---|
@@ -286,7 +288,7 @@ using System;
 await TaskUtil.WhileAsync(() =>
 {
     CheckNewMessages();
-}, priod: 1000);
+}, period: 1000);
 
 // 轮询直到条件满足
 await ((Func<bool>)(() =>
@@ -317,7 +319,7 @@ if (item != null)
 
 ## 使用小贴士
 
-1. **命名空间别搞错**：`ThreadUtil` 和 `TaskUtil` 在 `System` 命名空间；`LockerBuilder`、`SimpleThreadPool`、`SimpleTaskPool`、`BlockingQueue<T>` 在 `LuBan.Threading`；`LockerReleaser` 在 `LuBan.Threading.Core`。
+1. **命名空间别搞错**：`ThreadUtil`、`TaskUtil`、`LockerBuilder`、`SimpleThreadPool`、`SimpleTaskPool`、`BlockingQueue<T>` 都在 `LuBan.Threading` 命名空间；`LockerReleaser`、`PoolTaskInfo2`、`ISimplePool` 在 `LuBan.Threading.Core`。
 2. **优先用 `LockerBuilder.Default`**：全局单例，避免重复创建锁池。
 3. **`using` 释放锁**：`LockerReleaser` 实现了 `IDisposable`，务必用 `using` 包裹，否则锁不会释放。
 4. **线程池选型**：同步耗时任务用 `SimpleThreadPool`，异步轻量任务用 `SimpleTaskPool`。

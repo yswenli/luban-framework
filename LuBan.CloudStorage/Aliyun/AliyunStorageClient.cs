@@ -120,7 +120,7 @@ public class AliyunStorageClient : ICloudStorageClient
         ct.ThrowIfCancellationRequested();
         try
         {
-            var result = await Task.Run(() => _ossClient.GetObject(_option.ContainerName, cloudFileName));
+            var result = await Task.Run(() => _ossClient.GetObject(_option.ContainerName, cloudFileName), ct);
             if (result != null && result.HttpStatusCode == System.Net.HttpStatusCode.OK)
             {
                 return result.Content;
@@ -144,11 +144,10 @@ public class AliyunStorageClient : ICloudStorageClient
         ct.ThrowIfCancellationRequested();
         try
         {
-            var result = await Task.Run(() => _ossClient.GetObject(_option.ContainerName, cloudFileName));
+            using var result = await Task.Run(() => _ossClient.GetObject(_option.ContainerName, cloudFileName), ct);
             if (result != null && result.HttpStatusCode == System.Net.HttpStatusCode.OK)
             {
-                var stream = result.Content;
-                return await stream.ToBytesAsync();
+                return await result.Content.ToBytesAsync();
             }
         }
         catch (Exception ex)
@@ -214,7 +213,7 @@ public class AliyunStorageClient : ICloudStorageClient
         ct.ThrowIfCancellationRequested();
         try
         {
-            var result = await Task.Run(() => _ossClient.PutObject(_option.ContainerName, cloudFileName, localFilePath));
+            var result = await Task.Run(() => _ossClient.PutObject(_option.ContainerName, cloudFileName, localFilePath), ct);
             if (result != null && result.HttpStatusCode == System.Net.HttpStatusCode.OK)
             {
                 return true;
@@ -237,13 +236,10 @@ public class AliyunStorageClient : ICloudStorageClient
     {
         try
         {
-            if (!_ossClient.DoesObjectExist(_option.ContainerName, cloudFileName))
+            var result = _ossClient.PutObject(_option.ContainerName, cloudFileName, stream);
+            if (result != null && result.HttpStatusCode == System.Net.HttpStatusCode.OK)
             {
-                var result = _ossClient.PutObject(_option.ContainerName, cloudFileName, stream);
-                if (result != null && result.HttpStatusCode == System.Net.HttpStatusCode.OK)
-                {
-                    return true;
-                }
+                return true;
             }
         }
         catch (Exception ex)
@@ -265,13 +261,10 @@ public class AliyunStorageClient : ICloudStorageClient
         ct.ThrowIfCancellationRequested();
         try
         {
-            if (!_ossClient.DoesObjectExist(_option.ContainerName, cloudFileName))
+            var result = await Task.Run(() => _ossClient.PutObject(_option.ContainerName, cloudFileName, stream), ct);
+            if (result != null && result.HttpStatusCode == System.Net.HttpStatusCode.OK)
             {
-                var result = await Task.Run(() => _ossClient.PutObject(_option.ContainerName, cloudFileName, stream));
-                if (result != null && result.HttpStatusCode == System.Net.HttpStatusCode.OK)
-                {
-                    return true;
-                }
+                return true;
             }
         }
         catch (Exception ex)
@@ -293,7 +286,7 @@ public class AliyunStorageClient : ICloudStorageClient
         ct.ThrowIfCancellationRequested();
         try
         {
-            var result = _ossClient.DeleteObject(_option.ContainerName, cloudFileName);
+            var result = await Task.Run(() => _ossClient.DeleteObject(_option.ContainerName, cloudFileName), ct);
             if (result != null && result.HttpStatusCode == System.Net.HttpStatusCode.OK)
             {
                 return true;
@@ -303,7 +296,7 @@ public class AliyunStorageClient : ICloudStorageClient
         {
             Logger.Error("从OSS删除文件失败", ex, cloudFileName);
         }
-        return await Task.FromResult(false);
+        return false;
     }
 
     /// <summary>
@@ -317,12 +310,12 @@ public class AliyunStorageClient : ICloudStorageClient
         ct.ThrowIfCancellationRequested();
         try
         {
-            return _ossClient.DoesObjectExist(_option.ContainerName, cloudFileName);
+            return await Task.Run(() => _ossClient.DoesObjectExist(_option.ContainerName, cloudFileName), ct);
         }
         catch (Exception ex)
         {
             Logger.Error("检查OSS文件是否存在失败", ex, cloudFileName);
         }
-        return await Task.FromResult(false);
+        return false;
     }
 }

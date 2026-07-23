@@ -34,17 +34,19 @@ namespace LuBan.UnitTestProject
         [TestMethod]
         public void Test1()
         {
-            var pool = new SimpleThreadPool("test", 100);
+            using var pool = new SimpleThreadPool("test", 4);
 
-            ThreadUtil.ThreadWhile(() =>
+            var ids = new List<Guid>();
+            for (int i = 0; i < 10; i++)
             {
-                pool.Enqueue(() =>
-                {
-                    Thread.Sleep(100);
-                });
-            }, 10);
+                var id = pool.Enqueue(() => Thread.Sleep(100));
+                ids.Add(id);
+            }
 
-            Assert.IsTrue(true);
+            Thread.Sleep(3000);
+
+            var successCount = ids.Count(id => pool.GetTaskStatus(id) == PoolTaskStatus.Success);
+            Assert.IsTrue(successCount == 10, $"Expected 10 success, got {successCount}");
         }
     }
 }

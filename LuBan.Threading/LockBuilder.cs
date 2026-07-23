@@ -157,6 +157,7 @@ public class LockerBuilder : IDisposable
 
 /// <summary>
 /// 移除指定的命名锁（仅当锁未被持有时才释放）
+/// 注意：如果有线程正在等待此锁，可能导致等待线程收到 ObjectDisposedException
 /// </summary>
 /// <param name="lockName">锁名称</param>
 /// <returns>是否成功移除</returns>

@@ -3,7 +3,7 @@
 *CLR版本： .net8.0
 *机器名称：WALLE
 *Author：yswenli
-*命名空间：LuBan.Common
+*命名空间：LuBan.Threading
 *文件名： SimpleThreadPool
 *版本号： V1.0.0.0
 *唯一标识：112050a9-3609-4e2a-9b07-97c10c8f7b96

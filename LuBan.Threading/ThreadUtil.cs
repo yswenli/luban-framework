@@ -3,7 +3,7 @@
 *CLR版本： .net8.0
 *机器名称：WALLE
 *Author：yswenli
-*命名空间：LuBan.Common
+*命名空间：LuBan.Threading
 *文件名： ThreadUtil
 *版本号： V1.0.0.0
 *唯一标识：508fdc9d-4eb2-4f18-b120-37a1e41718fd
@@ -78,7 +78,7 @@ public static class ThreadUtil
     /// <summary>
     /// 线程中循环处理
     /// </summary>
-    /// <param name="fun"></param>
+    /// <param name="fun">返回 true 继续循环，返回 false 或 null 退出循环</param>
     /// <param name="milliseconds"></param>
     public static void ThreadWhile(this Func<bool> fun, int milliseconds = -1, CancellationToken cancellationToken = default)
     {
@@ -91,7 +91,7 @@ public static class ThreadUtil
                 if (cancellationToken.IsCancellationRequested)
                     break;
                 var result = fun?.Invoke() ?? false;
-                if (result) break;
+                if (!result) break;
                 Sleep(safeMilliseconds, cancellationToken);
             }
         });

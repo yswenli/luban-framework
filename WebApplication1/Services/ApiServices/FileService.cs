@@ -245,7 +245,7 @@ public partial class FileService : BaseService<FileService>
         using var fileStream = file.OpenReadStream();
         if (fileStream == null) throw FriendlyError.Ex(EnumErrorCode.D8000);
         var fileName = file.FileName;
-        return await new FileHandler().HandleUploadFileAsync(HostingOptions.Default.Domain, WebApp.WebHostEnvironment?.ContentRootPath ?? "", fileStream.ToBytes() ?? [], fileName, (int)fileStream.Length, GetSavePath(savePath), isPrivate);
+        return await new FileHandler().HandleUploadFileAsync(HostingOptions.Default.Domain, WebApp.WebHostEnvironment?.ContentRootPath ?? "", fileStream, fileName, file.Length, GetSavePath(savePath), isPrivate);
     }
 
 

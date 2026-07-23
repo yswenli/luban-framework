@@ -26,7 +26,6 @@ using Minio;
 using Minio.DataModel.Args;
 using Minio.DataModel.Encryption;
 
-using System.IO.Pipelines;
 
 namespace LuBan.CloudStorage.MinIO;
 
@@ -82,18 +81,21 @@ public class MinIOStorageClient : ICloudStorageClient
     public async Task<Stream?> DownloadAsync(string cloudFileName, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        var ms = new MemoryStream();
-        var args = new GetObjectArgs()
-            .WithBucket(_option.ContainerName)
-            .WithObject(cloudFileName)
-            .WithCallbackStream(async (stream, cancellationToken) =>
-            {
-                await stream.CopyToAsync(ms, cancellationToken);
-            });
+        var tempPath = Path.Combine(Path.GetTempPath(), $"minio_dl_{Guid.NewGuid():N}");
+        await using (var fs = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, FileOptions.Asynchronous))
+        {
+            var args = new GetObjectArgs()
+                .WithBucket(_option.ContainerName)
+                .WithObject(cloudFileName)
+                .WithCallbackStream(async (stream, cancellationToken) =>
+                {
+                    await stream.CopyToAsync(fs, cancellationToken);
+                });
 
-        await _minioClient.GetObjectAsync(args);
-        ms.Position = 0;
-        return ms;
+            await _minioClient.GetObjectAsync(args);
+        }
+
+        return new FileStream(tempPath, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, FileOptions.Asynchronous | FileOptions.DeleteOnClose);
     }
     /// <summary>
     /// 下载文件内容，适合较小文件
@@ -106,13 +108,13 @@ public class MinIOStorageClient : ICloudStorageClient
         ct.ThrowIfCancellationRequested();
         try
         {
-            using var memoryStream = new MemoryStream();
+            using var memoryStream = new MemoryStream(81920);
             var args = new GetObjectArgs()
                 .WithBucket(_option.ContainerName)
                 .WithObject(cloudFileName)
                 .WithCallbackStream(async (stream, cancellationToken) =>
                 {
-                    await stream.CopyToAsync(memoryStream, cancellationToken);
+                    await stream.CopyToAsync(memoryStream, 81920, cancellationToken);
                 });
 
             await _minioClient.GetObjectAsync(args);
@@ -188,7 +190,7 @@ public class MinIOStorageClient : ICloudStorageClient
     public async Task<bool> UploadAsync(string cloudFileName, string localFilePath, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        var aesEncryption = Aes.Create();
+        using var aesEncryption = Aes.Create();
         aesEncryption.KeySize = 256;
         aesEncryption.GenerateKey();
         var ssec = new SSEC(aesEncryption.Key);
@@ -213,7 +215,7 @@ public class MinIOStorageClient : ICloudStorageClient
     public async Task<bool> UploadAsync(string cloudFileName, Stream stream, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        var aesEncryption = Aes.Create();
+        using var aesEncryption = Aes.Create();
         aesEncryption.KeySize = 256;
         aesEncryption.GenerateKey();
         var ssec = new SSEC(aesEncryption.Key);

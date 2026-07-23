@@ -4,7 +4,7 @@
 *机器名称：WALLE
 *Author：yswenli
 *命名空间：LuBan.CloudStorage
-*文件名： CloundStorageFactory
+*文件名： CloudStorageClientFactory
 *版本号： V1.0.0.0
 *唯一标识：fb295f29-a54e-4ac5-b705-0a232b207db9
 *当前的用户域：WALLE

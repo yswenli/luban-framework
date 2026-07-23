@@ -21,6 +21,7 @@
 *描述：微软云
 *
 *****************************************************************************/
+using Azure;
 using Azure.Core.Pipeline;
 using Azure.Storage.Blobs;
 using Azure.Storage.Sas;
@@ -67,14 +68,11 @@ public class AzureStorageClient : ICloudStorageClient
         try
         {
             BlobClient blobClient = _blobContainerClient.GetBlobClient(cloudFileName);
-            if (!blobClient.Exists())
+            var retUpload = blobClient.Upload(localFilePath, overwrite: true);
+            var blobClientUploadResponse = retUpload.GetRawResponse();
+            if (!blobClientUploadResponse.IsError)
             {
-                var retUpload = blobClient.Upload(localFilePath);
-                var blobClientUploadResponse = retUpload.GetRawResponse();
-                if (!blobClientUploadResponse.IsError)
-                {
-                    return true;
-                }
+                return true;
             }
         }
         catch (Exception ex)
@@ -97,14 +95,11 @@ public class AzureStorageClient : ICloudStorageClient
         try
         {
             BlobClient blobClient = _blobContainerClient.GetBlobClient(cloudFileName);
-            if (!await blobClient.ExistsAsync(ct))
+            var retUpload = await blobClient.UploadAsync(localFilePath, overwrite: true, cancellationToken: ct);
+            var blobClientUploadResponse = retUpload.GetRawResponse();
+            if (!blobClientUploadResponse.IsError)
             {
-                var retUpload = await blobClient.UploadAsync(localFilePath, ct);
-                var blobClientUploadResponse = retUpload.GetRawResponse();
-                if (!blobClientUploadResponse.IsError)
-                {
-                    return true;
-                }
+                return true;
             }
         }
         catch (Exception ex)
@@ -125,14 +120,11 @@ public class AzureStorageClient : ICloudStorageClient
         try
         {
             BlobClient blobClient = _blobContainerClient.GetBlobClient(cloudFileName);
-            if (!blobClient.Exists())
+            var retUpload = blobClient.Upload(stream, overwrite: true);
+            var blobClientUploadResponse = retUpload.GetRawResponse();
+            if (!blobClientUploadResponse.IsError)
             {
-                var retUpload = blobClient.Upload(stream);
-                var blobClientUploadResponse = retUpload.GetRawResponse();
-                if (!blobClientUploadResponse.IsError)
-                {
-                    return true;
-                }
+                return true;
             }
         }
         catch (Exception ex)
@@ -156,14 +148,11 @@ public class AzureStorageClient : ICloudStorageClient
         try
         {
             BlobClient blobClient = _blobContainerClient.GetBlobClient(cloudFileName);
-            if (!await blobClient.ExistsAsync(ct))
+            var retUpload = await blobClient.UploadAsync(stream, overwrite: true, cancellationToken: ct);
+            var blobClientUploadResponse = retUpload.GetRawResponse();
+            if (!blobClientUploadResponse.IsError)
             {
-                var retUpload = await blobClient.UploadAsync(stream, ct);
-                var blobClientUploadResponse = retUpload.GetRawResponse();
-                if (!blobClientUploadResponse.IsError)
-                {
-                    return true;
-                }
+                return true;
             }
         }
         catch (Exception ex)
@@ -185,16 +174,11 @@ public class AzureStorageClient : ICloudStorageClient
         try
         {
             BlobClient blobClient = _blobContainerClient.GetBlobClient(cloudFileName);
-
-            if (await blobClient.ExistsAsync(ct))
-            {
-                var retDownload = await blobClient.DownloadAsync(ct);
-                var blobClientDownloadResponse = retDownload.GetRawResponse();
-                if (!blobClientDownloadResponse.IsError)
-                {
-                    return retDownload.Value.Content;
-                }
-            }
+            var retDownload = await blobClient.DownloadAsync(ct);
+            return retDownload.Value.Content;
+        }
+        catch (RequestFailedException ex) when (ex.Status == 404)
+        {
         }
         catch (Exception ex)
         {
@@ -216,16 +200,11 @@ public class AzureStorageClient : ICloudStorageClient
         try
         {
             BlobClient blobClient = _blobContainerClient.GetBlobClient(cloudFileName);
-
-            if (await blobClient.ExistsAsync(ct))
-            {
-                var retDownload = await blobClient.DownloadAsync(ct);
-                var blobClientDownloadResponse = retDownload.GetRawResponse();
-                if (!blobClientDownloadResponse.IsError)
-                {
-                    return await retDownload.Value.Content.ToBytesAsync();
-                }
-            }
+            var retDownload = await blobClient.DownloadAsync(ct);
+            return await retDownload.Value.Content.ToBytesAsync();
+        }
+        catch (RequestFailedException ex) when (ex.Status == 404)
+        {
         }
         catch (Exception ex)
         {
@@ -262,15 +241,12 @@ public class AzureStorageClient : ICloudStorageClient
         try
         {
             BlobClient blobClient = _blobContainerClient.GetBlobClient(cloudFileName);
-
-            if (await blobClient.ExistsAsync(ct))
-            {
-                var response = await blobClient.DeleteAsync(cancellationToken: ct);
-                if (!response.IsError)
-                {
-                    return true;
-                }
-            }
+            var response = await blobClient.DeleteAsync(cancellationToken: ct);
+            return !response.IsError;
+        }
+        catch (RequestFailedException ex) when (ex.Status == 404)
+        {
+            return true;
         }
         catch (Exception ex)
         {

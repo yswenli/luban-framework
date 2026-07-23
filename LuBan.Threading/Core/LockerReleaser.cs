@@ -45,7 +45,13 @@ public sealed class LockerReleaser : IDisposable
     public void Dispose()
     {
         if (_isDisposed) return;
-        _semaphore.Release();
+        try
+        {
+            _semaphore.Release();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
         _isDisposed = true;
     }
 }
