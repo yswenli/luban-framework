@@ -222,12 +222,11 @@ public static class DataScopePermissionFilter
         // 若数据范围是全部，则获取所有机构Id集合
         if (dataScope == (int)EnumDataScope.All)
         {
-            orgIdList = new BaseRepository<DbRole>().AsQueryable().Select(u => u.Id).ToList();
+            orgIdList = new BaseRepository<DbOrg>().AsQueryable().Select(u => u.Id).ToList();
         }
-        // 若数据范围是本部门及以下，则获取本节点和子节点集合
         else if (dataScope == (int)EnumDataScope.DeptChild)
         {
-            orgIdList = (new BaseRepository<DbRole>().AsQueryable().ToChildList(u => u.Pid, orgId, true)).Select(u => u.Id).ToList();
+            orgIdList = (new BaseRepository<DbOrg>().AsQueryable().ToChildList(u => u.Pid, orgId, true)).Select(u => u.Id).ToList();
         }
         // 若数据范围是本部门不含子节点，则直接返回本部门
         else if (dataScope == (int)EnumDataScope.Dept)
@@ -249,12 +248,11 @@ public static class DataScopePermissionFilter
         // 若数据范围是全部，则获取所有机构Id集合
         if (dataScope == (int)EnumDataScope.All)
         {
-            orgIdList = await new BaseRepository<DbRole>().AsQueryable().Select(u => u.Id).ToListAsync();
+            orgIdList = await new BaseRepository<DbOrg>().AsQueryable().Select(u => u.Id).ToListAsync();
         }
-        // 若数据范围是本部门及以下，则获取本节点和子节点集合
         else if (dataScope == (int)EnumDataScope.DeptChild)
         {
-            orgIdList = (await new BaseRepository<DbRole>().AsQueryable().ToChildListAsync(u => u.Pid, orgId, true)).Select(u => u.Id).ToList();
+            orgIdList = (await new BaseRepository<DbOrg>().AsQueryable().ToChildListAsync(u => u.Pid, orgId, true)).Select(u => u.Id).ToList();
         }
         // 若数据范围是本部门不含子节点，则直接返回本部门
         else if (dataScope == (int)EnumDataScope.Dept)
@@ -301,7 +299,7 @@ public static class DataScopePermissionFilter
         {
             // 获取业务实体数据表
             var entityTypes = WebApp.Types!.Where(u => !u.IsInterface && !u.IsAbstract && u.IsClass
-                && u.IsSubclassOf(typeof(EntityeDataScoreBase)));
+                && u.IsSubclassOf(typeof(EntityDataScoreBase)));
             if (!entityTypes.Any()) return maxDataScope;
 
             dataScopeFilterDic = new ConcurrentDictionary<Type, LambdaExpression>();
@@ -339,7 +337,7 @@ public static class DataScopePermissionFilter
         // 删除最大数据权限缓存
         _cache.Delete($"{CacheConst.KeyRoleMaxDataScope}{userId}");
         // 删除用户机构（数据范围）缓存——过滤器
-        _cache.Delete($"db:{tanentId}:orgList:{userId}");
+        _cache.Delete($"{CacheConst.KeySystem}db:{tanentId}:orgList:{userId}");
         return true;
     }
 
@@ -390,7 +388,7 @@ public static class DataScopePermissionFilter
 
             // 获取业务实体数据表
             var entityTypes = WebApp.Types!.Where(u => !u.IsInterface && !u.IsAbstract && u.IsClass
-                && u.IsSubclassOf(typeof(EntityeDataScoreBase)));
+                && u.IsSubclassOf(typeof(EntityDataScoreBase)));
             if (!entityTypes.Any()) return;
 
             orgFilter = new ConcurrentDictionary<Type, LambdaExpression>();

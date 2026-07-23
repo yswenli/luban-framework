@@ -1,7 +1,7 @@
 ﻿namespace LuBan.ApprovalFlow.Entities;
 
 [SugarTable("db_approval_delegation", "审批委托配置")]
-public class DbApprovalDelegation : EntityeDataScoreBase
+public class DbApprovalDelegation : EntityDataScoreBase
 {
     /// <summary>
     /// 委托人ID

@@ -1,7 +1,7 @@
 ﻿namespace LuBan.ApprovalFlow.Entities;
 
 [SugarTable("db_approval_node_record", "审批节点记录")]
-public class DbApprovalNodeRecord : EntityeDataScoreBase
+public class DbApprovalNodeRecord : EntityDataScoreBase
 {
     /// <summary>
     /// 流程记录ID

@@ -30,7 +30,8 @@ namespace LuBan.Orm;
 /// https://www.donet5.com/home/doc?masterId=1&amp;typeId=1228
 /// </summary>
 /// <typeparam name="TEntity"></typeparam>
-public class BaseRepository<TEntity> : SimpleClient<TEntity> where TEntity : EntityBase, IDeletedFilter, new()
+public class BaseRepository<TEntity> : SimpleClient<TEntity>
+    where TEntity : EntityBase, IDeletedFilter, new()
 {
     /// <summary>
     /// _iTenant
@@ -71,6 +72,28 @@ public class BaseRepository<TEntity> : SimpleClient<TEntity> where TEntity : Ent
     {
 
     }
+
+
+    /// <summary>
+    /// 获取复制一个新的仓储对象，使用新的上下文
+    /// </summary>
+    /// <returns></returns>
+    public BaseRepository<TEntity> GetNewRepository()
+    {
+        var tenantIdStr = Context.CurrentConnectionConfig?.ConfigId?.ToString() ?? LuBanOrmConst.MainConfigId;
+        return new BaseRepository<TEntity>(tenantIdStr);
+    }
+
+
+    /// <summary>
+    /// 清除过滤条件
+    /// </summary>
+    /// <returns></returns>
+    public ISugarQueryable<TEntity> ClearFilter()
+    {
+        return AsQueryable().ClearFilter();
+    }
+
 
     /// <summary>
     /// 创建单库事务
@@ -150,7 +173,7 @@ public class BaseRepository<TEntity> : SimpleClient<TEntity> where TEntity : Ent
     {
         if (list == null || list.Count == 0) return 0;
         return AsInsertable(list).ExecuteCommand();
-    }
+    }    
 
 
     /// <summary>
@@ -869,4 +892,25 @@ public class BaseRepository<TEntity> : SimpleClient<TEntity> where TEntity : Ent
     {
         return AsQueryable().FullJoin(joinExpression);
     }
+
+    /// <summary>
+    /// 全连接
+    /// </summary>
+    /// <param name="queryables"></param>
+    /// <returns></returns>
+    public ISugarQueryable<TEntity> Union(params ISugarQueryable<TEntity>[] queryables)
+    {
+        return Context.Union(queryables);
+    }
+
+    /// <summary>
+    /// 全连接
+    /// </summary>
+    /// <param name="queryables"></param>
+    /// <returns></returns>
+    public ISugarQueryable<TEntity> UnionAll(params ISugarQueryable<TEntity>[] queryables)
+    {
+        return Context.UnionAll(queryables);
+    }
+
 }

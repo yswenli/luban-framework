@@ -39,12 +39,7 @@ public class EventBusOptions
     public bool EnablePersistence { get; set; } = true;
 
     /// <summary>
-    /// 轮询间隔（毫秒，默认 100）
+    /// Channel 满时的降级策略：0=Wait（默认），1=DropNewest，2=DropOldest
     /// </summary>
-    public int Sensitivities { get; set; } = 100;
-
-    /// <summary>
-    /// 最大并发处理数（默认 4）
-    /// </summary>
-    public int MaxDegreeOfParallelism { get; set; } = 4;
+    public int FullMode { get; set; } = 0;
 }

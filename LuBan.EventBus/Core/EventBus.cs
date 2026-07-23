@@ -36,7 +36,6 @@ public class EventBus : IEventBus, IDisposable
     private readonly EventPersistence _persistence;
 
     private readonly ConcurrentDictionary<Type, IEventChannel> _channels = new();
-    private readonly ConcurrentDictionary<Type, SubscriptionInfo> _subscriptions = new();
 
     /// <summary>
     /// 构造函数
@@ -66,21 +65,19 @@ public class EventBus : IEventBus, IDisposable
     /// <returns>任务</returns>
     public async Task PublishAsync<TEvent>(TEvent eventData) where TEvent : IEventData
     {
-        var channel = GetOrCreateChannel<TEvent>();
-        await channel.Writer.WriteAsync(eventData);
-
-        Logger.Debug($"EventBus: 发布事件 {typeof(TEvent).Name} 已写入Channel");
-
         if (_options.EnablePersistence)
         {
             await _persistence.SaveAsync(eventData);
         }
 
+        var channel = GetOrCreateChannel<TEvent>();
+        await channel.Writer.WriteAsync(eventData);
+
         Logger.Debug($"EventBus: 发布事件 {typeof(TEvent).Name} 完成");
     }
 
     /// <summary>
-    /// 订阅事件（永久订阅）
+    /// 订阅事件（Handler 通过 DI 容器自动发现，此方法仅确保 Channel 已创建）
     /// </summary>
     /// <typeparam name="TEvent">事件类型</typeparam>
     /// <typeparam name="THandler">处理器类型</typeparam>
@@ -88,15 +85,12 @@ public class EventBus : IEventBus, IDisposable
         where TEvent : IEventData
         where THandler : IEventHandler<TEvent>
     {
-        var eventType = typeof(TEvent);
-        _subscriptions[eventType] = new SubscriptionInfo(typeof(THandler), false);
         GetOrCreateChannel<TEvent>();
-
         Logger.Debug($"EventBus: 订阅事件 {typeof(TEvent).Name} -> {typeof(THandler).Name}");
     }
 
     /// <summary>
-    /// 订阅事件（一次性订阅）
+    /// 订阅事件（Handler 通过 DI 容器自动发现，此方法仅确保 Channel 已创建）
     /// </summary>
     /// <typeparam name="TEvent">事件类型</typeparam>
     /// <typeparam name="THandler">处理器类型</typeparam>
@@ -104,21 +98,17 @@ public class EventBus : IEventBus, IDisposable
         where TEvent : IEventData
         where THandler : IEventHandler<TEvent>
     {
-        var eventType = typeof(TEvent);
-        _subscriptions[eventType] = new SubscriptionInfo(typeof(THandler), true);
         GetOrCreateChannel<TEvent>();
-
         Logger.Debug($"EventBus: 一次性订阅事件 {typeof(TEvent).Name} -> {typeof(THandler).Name}");
     }
 
     /// <summary>
-    /// 取消订阅
+    /// 取消订阅并释放对应 Channel
     /// </summary>
     /// <typeparam name="TEvent">事件类型</typeparam>
     public void Unsubscribe<TEvent>()
     {
         var eventType = typeof(TEvent);
-        _subscriptions.TryRemove(eventType, out _);
 
         if (_channels.TryRemove(eventType, out var channel))
         {
@@ -129,13 +119,13 @@ public class EventBus : IEventBus, IDisposable
     }
 
     /// <summary>
-    /// 获取订阅数量
+    /// 获取已注册的 Channel 数量
     /// </summary>
     /// <typeparam name="TEvent">事件类型</typeparam>
-    /// <returns>订阅数量</returns>
+    /// <returns>Channel 数量</returns>
     public int GetSubscriberCount<TEvent>()
     {
-        return _subscriptions.Count(s => s.Key == typeof(TEvent));
+        return _channels.ContainsKey(typeof(TEvent)) ? 1 : 0;
     }
 
     /// <summary>
@@ -158,7 +148,6 @@ public class EventBus : IEventBus, IDisposable
             channel.Dispose();
         }
         _channels.Clear();
-        _subscriptions.Clear();
 
         Logger.Debug("EventBus: 已释放所有资源");
     }

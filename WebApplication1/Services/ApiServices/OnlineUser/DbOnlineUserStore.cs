@@ -1,8 +1,4 @@
-﻿using LuBan.Web.Core.OnlineUser;
-
-using WebApplication1.Models.Entities;
-
-using Yitter.IdGenerator;
+﻿using Yitter.IdGenerator;
 
 namespace WebApplication1.Services.ApiServices.OnlineUser;
 

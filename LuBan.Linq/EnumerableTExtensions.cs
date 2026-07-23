@@ -106,13 +106,6 @@ public static class EnumerableTExtensions
     /// <returns></returns>
     public static PagedList<TSource> ToPagedList<TSource>(this IEnumerable<TSource> source, int page, int pageSize)
     {
-        var count = source.Count();
-        var items = source.Skip((page - 1) * pageSize).Take(pageSize).ToList();
-        var pagedList = new PagedList<TSource>();
-        pagedList.Items = items;
-        pagedList.Total = count;
-        pagedList.Page = page;
-        pagedList.PageSize = pageSize;
-        return pagedList;
+        return source.AsQueryable().ToPagedList(page, pageSize);
     }
 }

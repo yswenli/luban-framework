@@ -91,7 +91,8 @@ public class ExistsAttribute : ValidationAttribute
         }
         catch (Exception ex)
         {
-            return new ValidationResult($"{ex}");
+            Logger.Error($"ExistsAttribute validation failed for {className}.{propertyName}", ex);
+            return new ValidationResult("数据校验时发生异常，请稍后重试。");
         }
         return ValidationResult.Success;
     }

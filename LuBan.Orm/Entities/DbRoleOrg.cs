@@ -29,7 +29,7 @@ namespace LuBan.Orm.Entities;
 /// </summary>
 [SugarTable("db_role_org", "系统角色机构表")]
 [SysTable]
-public class DbRoleOrg : EntityeDataScoreBase, IDeletedFilter
+public class DbRoleOrg : EntityDataScoreBase, IDeletedFilter
 {
     /// <summary>
     /// 角色Id

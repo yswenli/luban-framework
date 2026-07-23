@@ -52,7 +52,7 @@ public static class EnumerableExtensions
         Type elementType = ElementTypeHandler.GetElementType(source, collection);
         if (isValNull)
         {
-            if (elementType.IsValueType && Nullable.GetUnderlyingType(elementType) != null)
+            if (elementType.IsValueType && Nullable.GetUnderlyingType(elementType) == null)
                 throw new ArgumentException(
                     $"集合元素类型 {elementType.FullName} 是不可为null的值类型，无法添加null元素",
                     nameof(val));
@@ -108,7 +108,7 @@ public static class EnumerableExtensions
 
         Type elementType = ElementTypeHandler.GetElementType(source, collection);
 
-        if (isValNull && elementType.IsValueType && Nullable.GetUnderlyingType(elementType) != null)
+        if (isValNull && elementType.IsValueType && Nullable.GetUnderlyingType(elementType) == null)
             throw new ArgumentException(
                 $"元素类型 {elementType.FullName} 是不可为null的值类型，无法删除null值",
                 nameof(val));
@@ -201,8 +201,7 @@ public static class EnumerableExtensions
     }
 
     /// <summary>
-    /// /// <summary>
-    /// 动态判断IEnumerable中是否存在满足“指定字段 != 值”的元素
+    /// 动态判断IEnumerable中是否存在满足"指定字段 != 值"的元素
     /// </summary>
     /// <param name="source">源IEnumerable（非泛型，元素类型运行时确定）</param>
     /// <param name="filterField">筛选字段名（必须是源元素类型的公共实例属性）</param>
@@ -211,7 +210,6 @@ public static class EnumerableExtensions
     /// <exception cref="ArgumentNullException">source、filterField为null</exception>
     /// <exception cref="ArgumentException">filterField无效，或字段类型与val类型不兼容</exception>
     /// <exception cref="InvalidOperationException">无法调用Queryable.Any方法</exception>
-    /// </summary>
     public static bool NotAny(this IEnumerable source, string filterField, object val)
     {
         return source.AsQueryable().NotAny(filterField, val);

@@ -37,7 +37,7 @@ public interface IEventBus
     Task PublishAsync<TEvent>(TEvent eventData) where TEvent : IEventData;
 
     /// <summary>
-    /// 订阅事件（永久订阅）
+    /// 订阅事件（保留用于接口兼容，Handler 通过 DI 容器自动发现）
     /// </summary>
     /// <typeparam name="TEvent">事件类型</typeparam>
     /// <typeparam name="THandler">处理器类型</typeparam>
@@ -46,7 +46,7 @@ public interface IEventBus
         where THandler : IEventHandler<TEvent>;
 
     /// <summary>
-    /// 订阅事件（一次性订阅，处理后自动取消）
+    /// 订阅事件（保留用于接口兼容，Handler 通过 DI 容器自动发现）
     /// </summary>
     /// <typeparam name="TEvent">事件类型</typeparam>
     /// <typeparam name="THandler">处理器类型</typeparam>
@@ -55,15 +55,15 @@ public interface IEventBus
         where THandler : IEventHandler<TEvent>;
 
     /// <summary>
-    /// 取消订阅
+    /// 取消订阅（保留用于接口兼容）
     /// </summary>
     /// <typeparam name="TEvent">事件类型</typeparam>
     void Unsubscribe<TEvent>();
 
     /// <summary>
-    /// 获取订阅数量（用于监控）
+    /// 获取已注册的处理器数量（用于监控）
     /// </summary>
     /// <typeparam name="TEvent">事件类型</typeparam>
-    /// <returns>订阅数量</returns>
+    /// <returns>处理器数量</returns>
     int GetSubscriberCount<TEvent>();
 }

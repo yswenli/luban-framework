@@ -165,7 +165,7 @@ public class OrgService : BaseService<OrgService>
             if (orgIdList.Count < 1 || !orgIdList.Contains(input.Id))
                 throw FriendlyError.Ex(EnumErrorCode.D2003);
         }
-        await _sysOrgRep.AsUpdateable(input.Adapt<DbOrg>()).IgnoreColumns(true).ExecuteCommandAsync();
+        await _sysOrgRep.UpdateAsync(input.Adapt<DbOrg>());
         return true;
     }
 

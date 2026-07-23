@@ -57,9 +57,24 @@ public class WebLoginAuthAttribute : BaseFilterAttribute
             return;
         }
 
-        var cuid = context.HttpContext.Request.Cookies["UserID"];
+        var userIdKey = "UserID".GetMD5Str();
+        var cuid = context.HttpContext.Request.Cookies[userIdKey];
         if (cuid.IsNullOrEmpty())
         {
+            var relativePath = context.HttpContext.Request.Path;
+            var query = relativePath + context.HttpContext.Request.QueryString;
+            var redirectUrl = _redirect + "?redirect=" + query.UrlEncode();
+            if (!redirectUrl.StartsWith("/") || redirectUrl.Contains("://"))
+            {
+                redirectUrl = "/management/account/login";
+            }
+            context.Result = new RedirectResult(redirectUrl);
+            return;
+        }
+
+        if (!long.TryParse(AESUtil.Decrypt(cuid.UrlDecode(), KeyIvExtensions.DEFAULTKEY), out _))
+        {
+            context.HttpContext.Response.Cookies.Delete(userIdKey);
             var relativePath = context.HttpContext.Request.Path;
             var query = relativePath + context.HttpContext.Request.QueryString;
             context.Result = new RedirectResult(_redirect + "?redirect=" + query.UrlEncode());

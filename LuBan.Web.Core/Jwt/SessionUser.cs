@@ -40,7 +40,7 @@ public static class SessionUser
         {
             if (WebApp.HttpContext == null) return 0;
             var value = WebApp.User.FindFirst(ClaimConst.UserId)?.Value;
-            return value.IsNullOrEmpty() ? 0 : long.Parse(value);
+            return value.IsNullOrEmpty() ? 0 : (long.TryParse(value, out var id) ? id : 0);
         }
     }
 
@@ -78,7 +78,7 @@ public static class SessionUser
         {
             if (WebApp.HttpContext == null) return _tenantId;
             var tId = WebApp.User.FindFirst(ClaimConst.TenantId)?.Value;
-            return tId.IsNullOrWhiteSpace() ? _tenantId : long.Parse(tId);
+            return tId.IsNullOrWhiteSpace() ? _tenantId : (long.TryParse(tId, out var id) ? id : _tenantId);
         }
     }
 

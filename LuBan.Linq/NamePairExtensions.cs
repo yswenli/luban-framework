@@ -50,7 +50,7 @@ public static class NamePairExtensions
         {
             foreach (var namePair in namePairs)
             {
-                var property = properties.FirstOrDefault(x => x.Name.Equals(namePair.SourceName, true));
+                var property = properties.FirstOrDefault(x => x.Name.Equals(namePair.SourceName, StringComparison.OrdinalIgnoreCase));
                 if (property != null)
                 {
                     result.Add(new NamePair(property.Name, namePair.TargetName));
@@ -87,16 +87,4 @@ public static class NamePairExtensions
         if (namePairs == null || namePairs.Length == 0) return t.GetNamePairsByArr();
         return t.GetNamePairsByArr(namePairs.Select(x => new NamePair(x.Item1.GetMemberName(), x.Item2)).ToArray());
     }
-
-    /// <summary>
-    /// 测试方法
-    /// </summary>
-    //public static void Test()
-    //{
-    //    var sysApiLog = new SysApiLog();
-
-    //    sysApiLog.GetNamePairs(("Id", "编号"), ("Url", "地址"));
-
-    //    sysApiLog.GetNamePairs((q => q.Id, "编号"), (q => q.Url, "地址"));
-    //}
 }

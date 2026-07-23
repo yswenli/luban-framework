@@ -1,7 +1,7 @@
 ﻿namespace LuBan.ApprovalFlow.Entities;
 
 [SugarTable("db_approval_statistics", "审批统计")]
-public class DbApprovalStatistics : EntityeDataScoreBase
+public class DbApprovalStatistics : EntityDataScoreBase
 {
     /// <summary>
     /// 用户ID

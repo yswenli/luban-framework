@@ -10,7 +10,7 @@
     <Version>2026.7.22.1</Version>
     <Authors>yswenli</Authors>
     <Description>LuBan框架中的事件总线，让业务模块之间像发微信一样简单沟通，告别"你找我、我找它"的混乱局面</Description>
-    <PackageProjectUrl>$(Authors)</PackageProjectUrl>
+    <PackageProjectUrl>https://github.com/yswenli/luban-framework</PackageProjectUrl>
     <PackageIcon>favicon.png</PackageIcon>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>$(AssemblyName);eventbus;web;api;aspnet;aspnetcore;LuBan;yswenli</PackageTags>

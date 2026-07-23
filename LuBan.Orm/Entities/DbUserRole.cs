@@ -32,7 +32,7 @@ namespace LuBan.Orm.Entities;
 /// </summary>
 [SugarTable("db_user_role", "系统用户角色表")]
 [SysTable]
-public class DbUserRole : EntityeDataScoreBase
+public class DbUserRole : EntityDataScoreBase
 {
     /// <summary>
     /// 用户Id

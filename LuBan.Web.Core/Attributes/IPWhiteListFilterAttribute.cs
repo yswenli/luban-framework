@@ -21,6 +21,8 @@
 *描述：ip白名单限制器
 *
 *****************************************************************************/
+using System.Net;
+
 namespace LuBan.Web.Core.Attributes;
 
 /// <summary>
@@ -72,14 +74,26 @@ public class IPWhiteListFilterAttribute : BaseFilterAttribute
             context.Result = new JsonResult(new Fail<string>(new Exception("无法获取ip")));
             return;
         }
-        //白名单除外
-        if (_ipWhiteList.Exists(q => remoteIps[0].IndexOf(q) > -1))
+
+        var remoteIp = remoteIps[0].Trim();
+        if (!IPAddress.TryParse(remoteIp, out var remoteAddress))
+        {
+            context.Result = new JsonResult(new Fail<string>(new Exception("无法解析ip:" + remoteIp)));
+            return;
+        }
+
+        if (_ipWhiteList.Exists(q =>
+        {
+            if (IPAddress.TryParse(q.Trim(), out var allowedAddress))
+                return remoteAddress.Equals(allowedAddress);
+            return false;
+        }))
         {
             await next.Invoke();
             return;
         }
-        //本机除外
-        if (remoteIps[0].IndexOf("127.0.0.1") > -1)
+
+        if (IPAddress.TryParse("127.0.0.1", out var loopback) && remoteAddress.Equals(loopback))
         {
             await next.Invoke();
         }

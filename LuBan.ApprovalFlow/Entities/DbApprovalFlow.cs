@@ -27,7 +27,7 @@ namespace LuBan.ApprovalFlow.Entities;
 /// 审批流程信息表
 /// </summary>
 [SugarTable("db_approval_flow", "审批流程信息表")]
-public class DbApprovalFlow : EntityeDataScoreBase
+public class DbApprovalFlow : EntityDataScoreBase
 {
     /// <summary>
     /// 编号

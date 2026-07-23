@@ -31,8 +31,8 @@ namespace LuBan.Web.Core.Attributes;
 [AttributeUsage(AttributeTargets.Method)]
 public class DistributedLockAttribute : BaseFilterAttribute
 {
-    private IDistributedLock _distributedLock;
-    private DistributedLockToken? _token;
+    static readonly AsyncLocal<IDistributedLock> _lockLocal = new();
+    static readonly AsyncLocal<DistributedLockToken?> _tokenLocal = new();
 
     int _dbIndex = 0;
 
@@ -113,19 +113,19 @@ public class DistributedLockAttribute : BaseFilterAttribute
                 lockKey = $"{LockName}_{SessionUser.UserId}";
                 break;
         }
-        _distributedLock = LuBanRedis.Instance.GetDistributedLock(lockKey, Timeout, _dbIndex, "1");
+        _lockLocal.Value = LuBanRedis.Instance.GetDistributedLock(lockKey, Timeout, _dbIndex, "1");
 
         if (Timeout > 0 && MaxRetries > 0)
         {
             var retryTime = Timeout / MaxRetries;
             if (retryTime < 50) retryTime = 50;
-            _token = await _distributedLock.AcquireAsync(TimeSpan.FromMilliseconds(Timeout), TimeSpan.FromMilliseconds(Timeout / MaxRetries));
+            _tokenLocal.Value = await _lockLocal.Value.AcquireAsync(TimeSpan.FromMilliseconds(Timeout), TimeSpan.FromMilliseconds(retryTime));
         }
         else
         {
-            _token = await _distributedLock.AcquireAsync();
+            _tokenLocal.Value = await _lockLocal.Value.AcquireAsync();
         }
-        if (_token == null)
+        if (_tokenLocal.Value == null)
         {
             context.Result = new ConflictResult();
             return;
@@ -148,9 +148,9 @@ public class DistributedLockAttribute : BaseFilterAttribute
         }
         finally
         {
-            if (_token != null)
+            if (_tokenLocal.Value != null)
             {
-                await _token.DisposeAsync();
+                await _tokenLocal.Value.DisposeAsync();
             }
         }
     }

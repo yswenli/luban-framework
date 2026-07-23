@@ -21,8 +21,6 @@
 *描述：EventBus DI 扩展方法
 *
 *****************************************************************************/
-using Microsoft.AspNetCore.Components;
-
 using System.Reflection;
 
 namespace LuBan.EventBus.Extensions;

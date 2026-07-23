@@ -28,7 +28,8 @@ namespace LuBan.Web.Core;
 /// LuBan.Web.Core 多租户db 实体仓储
 /// </summary>
 /// <typeparam name="TEntity"></typeparam>
-public class DbRepository<TEntity> : BaseRepository<TEntity> where TEntity : EntityBase, IDeletedFilter, new()
+public class DbRepository<TEntity> : BaseRepository<TEntity>
+    where TEntity : EntityBase, IDeletedFilter, new()
 {
     /// <summary>
     ///  LuBan.Web.Core 多租户db 实体仓储

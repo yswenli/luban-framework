@@ -4,7 +4,7 @@
 *机器名称：WALLE
 *公司名称：Walle
 *命名空间：LuBan.Orm
-*文件名： RepositoryExtention
+*文件名： RepositoryExtension
 *版本号： V1.0.0.0
 *唯一标识：b709182b-bbc9-4692-85a0-a9f1fe36d0ac
 *当前的用户域：WALLE
@@ -21,12 +21,12 @@
 *描述：数据仓储扩展类
 *
 *****************************************************************************/
-namespace System;
+namespace LuBan.Orm;
 
 /// <summary>
 /// 数据仓储扩展类
 /// </summary>
-public static class RepositoryExtention
+public static class RepositoryExtension
 {
     /// <summary>
     /// 将字典转换为SugarParameter列表
@@ -458,6 +458,7 @@ public static class RepositoryExtention
         return res.EnableTableFilter();
     }
 
+
     #endregion
 
     #region 额外增加条件
@@ -468,10 +469,10 @@ public static class RepositoryExtention
     /// <typeparam name="T"></typeparam>
     /// <param name="where"></param>
     /// <returns></returns>
-    public static async Task<Expression<Func<T, bool>>?> GetExpressionAsync<T>(Expression<Func<T, bool>> where)
+    public static Task<Expression<Func<T, bool>>?> GetExpressionAsync<T>(Expression<Func<T, bool>> where)
          where T : class, new()
     {
-        return await Task.FromResult(Expressionable.Create<T>().And(where).ToExpression());
+        return Task.FromResult<Expression<Func<T, bool>>?>(Expressionable.Create<T>().And(where).ToExpression());
     }
 
     /// <summary>

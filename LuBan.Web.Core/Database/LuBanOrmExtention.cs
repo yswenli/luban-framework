@@ -140,13 +140,13 @@ internal static class LuBanOrmExtention
                     var safeUserId = GetSafeSessionValue(() => SessionUser.UserId, 0L);
                     if (safeUserId > 0)
                     {
-                        if (entityInfo.PropertyName == nameof(EntityeDataScoreBase.CreateOrgId))
+                        if (entityInfo.PropertyName == nameof(EntityDataScoreBase.CreateOrgId))
                         {
                             var createOrgId = entityInfo.EntityColumnInfo.PropertyInfo.GetValue(entityInfo.EntityValue);
                             if (createOrgId == null || (long)createOrgId == 0)
                                 entityInfo.SetValue(GetSafeSessionValue(() => SessionUser.OrgId, 0L));
                         }
-                        if (entityInfo.PropertyName == nameof(EntityeDataScoreBase.CreateOrgName))
+                        if (entityInfo.PropertyName == nameof(EntityDataScoreBase.CreateOrgName))
                         {
                             var createOrgName = entityInfo.EntityColumnInfo.PropertyInfo.GetValue(entityInfo.EntityValue) as string;
                             if (string.IsNullOrEmpty(createOrgName))

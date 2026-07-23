@@ -26,7 +26,7 @@ namespace System.Linq.Dynamic;
 /// <summary>
 /// 树列表拓展
 /// </summary>
-public static class TreeListExtentions
+public static class TreeListExtensions
 {
     /// <summary>
     /// 将列表转换为树形列表
@@ -48,22 +48,39 @@ public static class TreeListExtentions
         where TreeNode : class, new()
     {
         if (source == null) return null;
-        var type = typeof(TreeNode);
-        List<TreeNode> nodes = [];
-        foreach (var item in source)
+        
+        var sourceList = source.ToList();
+        var childrenByParentId = new Dictionary<object, List<TreeNode>>();
+        
+        foreach (var item in sourceList)
         {
             var parentId = item.GetPropertyValue(parentIdName);
-            if (parentId == rootValue)
+            if (parentId != null)
             {
-                nodes.Add(item);
+                if (!childrenByParentId.ContainsKey(parentId))
+                {
+                    childrenByParentId[parentId] = [];
+                }
+                childrenByParentId[parentId].Add(item);
             }
         }
+        
+        List<TreeNode> nodes;
+        if (rootValue == null)
+        {
+            nodes = sourceList.Where(item => item.GetPropertyValue(parentIdName) == null).ToList();
+        }
+        else
+        {
+            childrenByParentId.TryGetValue(rootValue, out nodes);
+            nodes ??= [];
+        }
+        
         if (nodes.Count > 0)
         {
-            int level = 1;
             foreach (var node in nodes)
             {
-                SetChildNote(node, source, idName, childListName, parentIdName, level, maxLevel);
+                SetChildNote(node, sourceList, idName, childListName, parentIdName, childrenByParentId, 1, maxLevel);
             }
         }
         return nodes;
@@ -80,26 +97,27 @@ public static class TreeListExtentions
     /// <param name="parentIdName"></param>
     /// <param name="level"></param>
     /// <param name="maxLevel"></param>
-    static void SetChildNote<TreeNode>(TreeNode node, IEnumerable<TreeNode> source, string idName, string childListName, string parentIdName, int level, int maxLevel = 3) where TreeNode : class, new()
+    static void SetChildNote<TreeNode>(TreeNode node, List<TreeNode> source, string idName, string childListName, string parentIdName, Dictionary<object, List<TreeNode>> childrenByParentId, int level, int maxLevel = 3) where TreeNode : class, new()
     {
         var id = node.GetPropertyValue(idName);
+        if (id == null) return;
+        
         var childList = node.GetPropertyValue(childListName) as List<TreeNode>;
         childList ??= [];
-        foreach (var item in source)
+        
+        if (childrenByParentId.TryGetValue(id, out var children))
         {
-            if (item.GetPropertyValue(parentIdName) == id)
-            {
-                childList.Add(item);
-            }
+            childList.AddRange(children);
         }
+        
         if (childList.Count > 0)
         {
-            level++;
-            if (level <= maxLevel)
+            int nextLevel = level + 1;
+            if (nextLevel <= maxLevel)
             {
                 foreach (var child in childList)
                 {
-                    SetChildNote(child, source, idName, childListName, parentIdName, level, maxLevel);
+                    SetChildNote(child, source, idName, childListName, parentIdName, childrenByParentId, nextLevel, maxLevel);
                 }
             }
             node.SetPropertyValue(childListName, childList);
@@ -156,12 +174,11 @@ public static class TreeListExtentions
         where TreeNode : class, new()
     {
         if (source == null) return null;
-        var idName = "id";
+        const string DefaultIdName = "Id";
         var childListName = childListExpression.Body.GetMemberName();
         var parentIdName = parentIdExpression.Body.GetMemberName();
-        if (idName.IsNullOrEmpty()) throw new ArgumentException("idExpression is null or empty");
         if (childListName.IsNullOrEmpty()) throw new ArgumentException("childListExpression is null or empty");
         if (parentIdName.IsNullOrEmpty()) throw new ArgumentException("parentIdExpression is null or empty");
-        return ToTreeList(source, idName, childListName, parentIdName, rootValue, maxLevel);
+        return ToTreeList(source, DefaultIdName, childListName, parentIdName, rootValue, maxLevel);
     }
 }

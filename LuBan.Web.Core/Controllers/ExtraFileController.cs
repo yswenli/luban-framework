@@ -177,6 +177,8 @@ public sealed class ExtraFileController : BaseApiController
         
         var fullPath = Path.GetFullPath(path);
         var basePath = Path.GetFullPath(WebApp.GetPhysicalFilePath(""));
+        if (!basePath.EndsWith(Path.DirectorySeparatorChar))
+            basePath += Path.DirectorySeparatorChar;
         
         return fullPath.StartsWith(basePath, StringComparison.OrdinalIgnoreCase);
     }

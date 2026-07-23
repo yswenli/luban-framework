@@ -44,7 +44,7 @@ public static class QueryableExtensions
         if (string.IsNullOrWhiteSpace(filterField))
             throw new ArgumentException("筛选字段名不能为 null 或空字符串", nameof(filterField));
 
-        Type? elementType = ImplicitlyConvert.GetIQueryableElementType(queryable);
+        Type? elementType = queryable.ElementType;
         if (elementType == null)
             throw new InvalidOperationException("无法解析 IQueryable 的元素类型（非泛型 IQueryable 不支持）");
         PropertyInfo? property = elementType.GetProperty(
@@ -60,7 +60,7 @@ public static class QueryableExtensions
         {
             filterValue = ImplicitlyConvert.ConvertValueToPropertyType(filterValue, property);
         }
-        Expression<Func<object, bool>> filterExpr = ExpressionExtensions.BuildFilterExpression(elementType, property, filterValue!);
+        LambdaExpression filterExpr = ExpressionExtensions.BuildFilterExpression(elementType, property, filterValue!);
 
         MethodInfo whereMethod = typeof(Queryable)
             .GetMethods(BindingFlags.Public | BindingFlags.Static)
@@ -212,7 +212,7 @@ public static class QueryableExtensions
                 .Single() // 确保只匹配一个重载（排除带predicate的重载）
                 .MakeGenericMethod(elementType); // 填充泛型参数TSource=元素类型（如User）
 
-            object result = anyMethod.Invoke(null, new object[] { source })!;
+            object result = anyMethod.Invoke(null, [source])!;
             return (bool)result;
         }
         catch (TargetInvocationException ex)
@@ -271,13 +271,15 @@ public static class QueryableExtensions
                 try
                 {
                     Type? underlyingType = Nullable.GetUnderlyingType(fieldType);
-                    if (underlyingType != null)
+                    Type targetType = underlyingType ?? fieldType;
+                    
+                    if (targetType.IsEnum)
                     {
-                        convertedVal = Convert.ChangeType(val, underlyingType);
+                        convertedVal = Enum.Parse(targetType, val.ToString() ?? string.Empty);
                     }
                     else
                     {
-                        convertedVal = Convert.ChangeType(val, fieldType);
+                        convertedVal = Convert.ChangeType(val, targetType);
                     }
                 }
                 catch (Exception ex)
@@ -372,7 +374,7 @@ public static class QueryableExtensions
                 .Single() // 排除带predicate的重载（如First<TSource>(source, predicate)）
                 .MakeGenericMethod(elementType); // 填充泛型参数TSource=元素类型（如User）
 
-            object firstElement = firstMethod.Invoke(null, new object[] { source })!;
+            object firstElement = firstMethod.Invoke(null, [source])!;
 
             return firstElement;
         }
@@ -424,7 +426,7 @@ public static class QueryableExtensions
                 .MakeGenericMethod(elementType); // 填充泛型参数TSource=元素类型（如int、User）
 
             // 原生行为：非空集合返回第一个元素，空集合返回null（值类型会自动装箱为可空类型，如int→int?）
-            object? result = firstOrDefaultMethod.Invoke(null, new object[] { source });
+            object? result = firstOrDefaultMethod.Invoke(null, [source]);
             return result;
         }
         catch (TargetInvocationException ex)

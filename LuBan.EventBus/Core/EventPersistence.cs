@@ -21,6 +21,8 @@
 *描述：事件持久化服务
 *
 *****************************************************************************/
+using System.Text.Json;
+
 namespace LuBan.EventBus.Core;
 
 /// <summary>
@@ -28,16 +30,9 @@ namespace LuBan.EventBus.Core;
 /// </summary>
 public class EventPersistence
 {
-    private readonly EventBusOptions _options;
-
-    /// <summary>
-    /// 构造函数
-    /// </summary>
-    /// <param name="options">配置选项</param>
-    public EventPersistence(IOptions<EventBusOptions> options)
-    {
-        _options = options.Value;
-    }
+    private const string KEY_LIST_PREFIX = "eventbus:keys:";
+    private const int MAX_LOAD_COUNT = 1000;
+    private static readonly object _lock = new();
 
     /// <summary>
     /// 保存事件数据
@@ -49,8 +44,22 @@ public class EventPersistence
     {
         await Task.Run(() =>
         {
-            var key = $"eventbus:{typeof(TEvent).Name}:{eventData.EventTime:yyyyMMddHHmmss}";
-            LocalCacheUtil.Set(key, eventData, TimeSpan.FromHours(24));
+            var eventKey = $"eventbus:{typeof(TEvent).Name}:{Guid.NewGuid():N}";
+            LocalCacheUtil.Set(eventKey, eventData, TimeSpan.FromHours(24));
+
+            var keyListKey = KEY_LIST_PREFIX + typeof(TEvent).Name;
+
+            lock (_lock)
+            {
+                var keysJson = LocalCacheUtil.Get<string>(keyListKey);
+                var keys = string.IsNullOrEmpty(keysJson)
+                    ? new List<string>()
+                    : JsonSerializer.Deserialize<List<string>>(keysJson) ?? new List<string>();
+
+                keys.Add(eventKey);
+                LocalCacheUtil.Set(keyListKey, JsonSerializer.Serialize(keys), TimeSpan.FromHours(24));
+            }
+
             Logger.Debug($"EventPersistence: 保存事件 {typeof(TEvent).Name}");
         });
     }
@@ -64,8 +73,23 @@ public class EventPersistence
     {
         return await Task.Run(() =>
         {
-            // 由于 LocalCacheUtil 不支持按前缀查询，返回空列表
-            return new List<TEvent>();
+            var keyListKey = KEY_LIST_PREFIX + typeof(TEvent).Name;
+            var keysJson = LocalCacheUtil.Get<string>(keyListKey);
+            if (string.IsNullOrEmpty(keysJson))
+                return new List<TEvent>();
+
+            var keys = JsonSerializer.Deserialize<List<string>>(keysJson) ?? new List<string>();
+            var events = new List<TEvent>();
+
+            foreach (var key in keys.Take(MAX_LOAD_COUNT))
+            {
+                var eventData = LocalCacheUtil.Get<TEvent>(key);
+                if (eventData != null)
+                    events.Add(eventData);
+            }
+
+            Logger.Debug($"EventPersistence: 加载事件 {typeof(TEvent).Name} 共 {events.Count} 条");
+            return events;
         });
     }
 }

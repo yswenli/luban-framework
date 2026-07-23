@@ -79,14 +79,15 @@ public abstract class BaseWebController : BaseController
             }
             else
             {
-                return 0;
+                return null;
             }
         }
         set
         {
+            if (value == null) { DelSession(); return; }
             var userId = value;
             var option = new CookieOptions();
-            option.Expires = DateTime.Now.AddHours(6);
+            option.Expires = DateTime.Now.AddSeconds(HostingOptions.Default.AppOptions.JwtAuthConfig.AccessExpiration);
             HttpContext.Response.Cookies.Append(_userIdKey, AESUtil.Encrypt(userId.ToString(), KeyIvExtensions.DEFAULTKEY).UrlEncode(), option);
         }
     }

@@ -42,16 +42,14 @@ internal class LuBanOrmMiddleware(RequestDelegate next)
     {
         try
         {
-            //如果当前控制器或方法标记了IgnoreDataScopePermissionAttribute的，则不进行数据范围权限过滤
-            if (context.GetEndpoint()?.Metadata.GetMetadata<IgnoreDataScopePermissionAttribute>() != null)
+            if (context.GetEndpoint()?.Metadata.GetMetadata<IgnoreDataScopePermissionAttribute>() == null)
             {
-                return;
+                if (ServiceProviderUtil.GetRequiredService<ISqlSugarClient>() is not SqlSugarScope client)
+                    throw new Exception("LuBanOrm初始化失败，未配置LuBanORM");
+                client.CurrentConnectionConfig.IsAutoCloseConnection = true;
+                var provider = client.GetConnectionScope(client.CurrentConnectionConfig.ConfigId);
+                DataScopePermissionFilter.SetOrgDataScopeFilter(provider!);
             }
-            if (ServiceProviderUtil.GetRequiredService<ISqlSugarClient>() is not SqlSugarScope client)
-                throw new Exception("LuBanOrm初始化失败，未配置LuBanORM");
-            client.CurrentConnectionConfig.IsAutoCloseConnection = true;
-            var provider = client.GetConnectionScope(client.CurrentConnectionConfig.ConfigId);
-            DataScopePermissionFilter.SetOrgDataScopeFilter(provider!);
         }
         catch (Exception ex)
         {

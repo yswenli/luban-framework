@@ -112,7 +112,11 @@ public sealed class UnitOfWorkAttribute : Attribute, IAsyncActionFilter, IOrdere
         // 获取动作方法描述器
         var actionDescriptor = context.ActionDescriptor as ControllerActionDescriptor;
         var method = actionDescriptor?.MethodInfo;
-        if (method == null) return;
+        if (method == null)
+        {
+            await next();
+            return;
+        }
         var methodFullName = $"{method.ReflectedType?.FullName ?? ""}.{method.Name}";
 
         // 创建分布式环境事务
@@ -208,10 +212,9 @@ public sealed class UnitOfWorkAttribute : Attribute, IAsyncActionFilter, IOrdere
     /// <param name="resultContext"></param>
     private static void CommitTransaction(FilterContext context, IUnitOfWork _unitOfWork, UnitOfWorkAttribute unitOfWorkAttribute, FilterContext resultContext)
     {
-        // 获取动态结果上下文
-        dynamic dynamicResultContext = resultContext;
+        var actionExecutedContext = resultContext as ActionExecutedContext;
 
-        if (dynamicResultContext.Exception == null)
+        if (actionExecutedContext?.Exception == null)
         {
             try
             {

@@ -29,7 +29,7 @@ namespace LuBan.Orm.Entities
     /// </summary>
     [SugarTable("db_org", "系统机构表")]
     [SysTable]
-    public class DbOrg : EntityeDataScoreBase
+    public class DbOrg : EntityDataScoreBase
     {
         /// <summary>
         /// 父Id

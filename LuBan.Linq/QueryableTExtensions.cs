@@ -165,7 +165,7 @@ public static class QueryableTExtensions
     {
         var parameter = Expression.Parameter(typeof(TSource), "x");
         var property = Expression.Property(parameter, filterField);
-        var constant = Expression.Constant(filterValue);
+        var constant = Expression.Constant(filterValue, property.Type);
         var body = Expression.Equal(property, constant);
         var lambda = Expression.Lambda<Func<TSource, bool>>(body, parameter);
         return source.Where(lambda);
@@ -261,9 +261,9 @@ public static class QueryableTExtensions
             throw new ArgumentException("投影字段名不能为空或空白", nameof(filterField));
 
 
-        PropertyInfo propertyInfo = typeof(TSource).GetProperty(
+        PropertyInfo? propertyInfo = typeof(TSource).GetProperty(
             name: filterField,
-            bindingAttr: BindingFlags.Public | BindingFlags.Instance)!;
+            bindingAttr: BindingFlags.Public | BindingFlags.Instance);
 
         if (propertyInfo == null)
         {
@@ -308,9 +308,9 @@ public static class QueryableTExtensions
         if (string.IsNullOrWhiteSpace(filterField))
             throw new ArgumentException("筛选字段名不能为空或空白", nameof(filterField));
 
-        PropertyInfo propertyInfo = typeof(TSource).GetProperty(
+        PropertyInfo? propertyInfo = typeof(TSource).GetProperty(
             name: filterField,
-            bindingAttr: BindingFlags.Public | BindingFlags.Instance)!;
+            bindingAttr: BindingFlags.Public | BindingFlags.Instance);
 
         if (propertyInfo == null)
         {
@@ -353,7 +353,7 @@ public static class QueryableTExtensions
         }
         else
         {
-            if (fieldType.IsValueType && Nullable.GetUnderlyingType(fieldType) != null)
+            if (fieldType.IsValueType && Nullable.GetUnderlyingType(fieldType) == null)
             {
                 throw new ArgumentException(
                     message: $"字段 {filterField} 的类型 {fieldType.FullName} 是不可为null的值类型，无法用null值筛选",

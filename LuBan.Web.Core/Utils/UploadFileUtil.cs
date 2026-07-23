@@ -82,7 +82,7 @@ public static class UploadFileUtil
         {
             file.ValidateFile();
 
-            string uniqueFileName = $"{DateTime.Now:yyyyMMddHHmmssfff}_{file.FileName}";
+            string uniqueFileName = $"{DateTime.Now:yyyyMMddHHmmssfff}_{Path.GetFileName(file.FileName)}";
 
             var upload = PathUtil.GetSpecialPath(EnumFolderType.Upload);
 
@@ -115,7 +115,7 @@ public static class UploadFileUtil
         {
             file.ValidateFile();
 
-            string uniqueFileName = $"{DateTime.Now:yyyyMMddHHmmssfff}_{file.FileName}";
+            string uniqueFileName = $"{DateTime.Now:yyyyMMddHHmmssfff}_{Path.GetFileName(file.FileName)}";
 
             var upload = PathUtil.GetSpecialPath(EnumFolderType.Upload);
 

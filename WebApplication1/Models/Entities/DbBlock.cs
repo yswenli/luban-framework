@@ -3,7 +3,7 @@
 namespace WebApplication1.Models.Entities;
 
 [SugarTable("db_block", "栏目表")]
-public class DbBlock : EntityeDataScoreBase
+public class DbBlock : EntityDataScoreBase
 {
     /// <summary>
     /// 上级ID

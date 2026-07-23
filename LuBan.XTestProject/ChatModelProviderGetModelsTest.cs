@@ -20,7 +20,7 @@ public class ChatModelProviderGetModelsTest
         {
             services.AddGLMProvider(options =>
             {
-                options.ApiKey = "YOUR_API_KEY";
+                options.ApiKey = "LuBan";
                 options.BaseUrl = "https://opencode.ai/zen/go/v1/";
                 options.RequestTimeout = TimeSpan.FromMinutes(2);
             });
@@ -32,7 +32,7 @@ public class ChatModelProviderGetModelsTest
         Console.WriteLine($"GLM 返回 {models.Count} 个模型:");
         foreach (var model in models)
         {
-            Console.WriteLine($"  - {model.Id} (owned_by: {model.OwnedBy ?? "unknown"})");
+            Console.WriteLine($"  - {model.Id} | name: {model.Name} | status: {model.Status} | domain: {model.Domain} | context: {model.TokenLimits?.ContextWindow}");
         }
     }
 

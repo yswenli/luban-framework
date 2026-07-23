@@ -26,7 +26,6 @@ namespace LuBan.EventBus.Models;
 /// <summary>
 /// 事件数据基类
 /// </summary>
-[Serializable]
 public class BaseEventData : IEventData
 {
     /// <summary>

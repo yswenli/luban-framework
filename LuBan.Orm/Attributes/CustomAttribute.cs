@@ -31,6 +31,7 @@ public class CustomAttribute<T> : ValidationAttribute where T : class, new()
 {
     string _errorMsg, _methodName;
 
+    static readonly T _instance = new();
     static ConcurrentDictionary<string, MethodInfo?> _cache = new ConcurrentDictionary<string, MethodInfo?>();
 
     /// <summary>
@@ -59,7 +60,7 @@ public class CustomAttribute<T> : ValidationAttribute where T : class, new()
         if (method == null) throw new Exception($"Must implement the specified custom validation logic method '{_methodName}'");
         try
         {
-            var result = method.Invoke(new T(), [value]);
+            var result = method.Invoke(_instance, [value]);
             if (result != null && result is bool r)
             {
                 if (!r)

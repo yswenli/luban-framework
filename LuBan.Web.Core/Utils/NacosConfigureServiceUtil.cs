@@ -63,34 +63,9 @@ public static class NacosConfigureServiceUtil
             n.ListenInterval = 5000;
             n.Namespace = nacosConfig.Namespace;
         });
-        var serviceProvider = services.BuildServiceProvider();
-        var configSvc = serviceProvider.GetService<INacosConfigService>();
-        if (configSvc == null) throw new NotImplementedException($"nacos config center 连接初始化失败:" + nacosConfig.ToJson());
 
-        if (nacosConfig.Listeners != null && nacosConfig.Listeners.Count > 0)
-        {
-            foreach (var item in nacosConfig.Listeners)
-            {
-                //初始化数据
-                var content = configSvc.GetConfig(item.DataId, item.Group, 10 * 1000).GetAwaiter().GetResult();
-                if (content.IsNotNullOrEmpty())
-                    NacosConfigUtil.Set(nacosConfig.Namespace, item.Group, item.DataId, content);
-                else
-                    throw new NotImplementedException("从nacos config center中读取配置失败:" + nacosConfig.ToJson());
-
-
-                if (hostingOptions.AppOptions.EnableNacosListener)
-                {
-                    //初始化配置变化监听
-                    configSvc.AddListener(item.DataId, item.Group, new NacosConfigListener(nacosConfig.Namespace, item.DataId, item.Group));
-
-                }
-            }
-        }
-        else
-        {
-            throw new NotImplementedException("读取nacos服务器中的配置失败:" + nacosConfig.ToJson());
-        }
+        services.AddHostedService<NacosConfigInitializerService>(sp =>
+            new NacosConfigInitializerService(sp, nacosConfig, hostingOptions));
     }
 
 
@@ -116,24 +91,60 @@ public class NacosConfigListener : IListener
 {
     string _nameSpace, _dataId, _group;
 
-    /// <summary>
-    /// 配置变化监听
-    /// </summary>
-    /// <param name="nameSpace"></param>
-    /// <param name="group"></param>
-    /// <param name="dataId"></param>
     public NacosConfigListener(string nameSpace, string group, string dataId)
     {
         _nameSpace = nameSpace;
         _dataId = dataId;
         _group = group;
     }
-    /// <summary>
-    /// 接收配置方法
-    /// </summary>
-    /// <param name="configInfo"></param>
+
     public void ReceiveConfigInfo(string configInfo)
     {
         NacosConfigUtil.Set(_nameSpace, _dataId, _group, configInfo);
     }
+}
+
+/// <summary>
+/// Nacos配置初始化后台服务
+/// </summary>
+internal class NacosConfigInitializerService : IHostedService
+{
+    readonly IServiceProvider _serviceProvider;
+    readonly NacosConfig _nacosConfig;
+    readonly HostingOptions _hostingOptions;
+
+    public NacosConfigInitializerService(IServiceProvider serviceProvider, NacosConfig nacosConfig, HostingOptions hostingOptions)
+    {
+        _serviceProvider = serviceProvider;
+        _nacosConfig = nacosConfig;
+        _hostingOptions = hostingOptions;
+    }
+
+    public async Task StartAsync(CancellationToken cancellationToken)
+    {
+        var configSvc = _serviceProvider.GetRequiredService<INacosConfigService>();
+
+        if (_nacosConfig.Listeners != null && _nacosConfig.Listeners.Count > 0)
+        {
+            foreach (var item in _nacosConfig.Listeners)
+            {
+                var content = await configSvc.GetConfig(item.DataId, item.Group, 10 * 1000);
+                if (content.IsNotNullOrEmpty())
+                    NacosConfigUtil.Set(_nacosConfig.Namespace, item.Group, item.DataId, content);
+                else
+                    throw new InvalidOperationException("从nacos config center中读取配置失败:" + _nacosConfig.ToJson());
+
+                if (_hostingOptions.AppOptions.EnableNacosListener)
+                {
+                    await configSvc.AddListener(item.DataId, item.Group, new NacosConfigListener(_nacosConfig.Namespace, item.DataId, item.Group));
+                }
+            }
+        }
+        else
+        {
+            throw new InvalidOperationException("读取nacos服务器中的配置失败:" + _nacosConfig.ToJson());
+        }
+    }
+
+    public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 }

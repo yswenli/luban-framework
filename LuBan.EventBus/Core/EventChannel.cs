@@ -43,16 +43,23 @@ public class EventChannel<TEvent> : IEventChannel<TEvent> where TEvent : IEventD
     /// <param name="options">配置选项</param>
     public EventChannel(IServiceProvider serviceProvider, EventBusOptions options)
     {
+        var fullMode = options.FullMode switch
+        {
+            1 => BoundedChannelFullMode.DropNewest,
+            2 => BoundedChannelFullMode.DropOldest,
+            _ => BoundedChannelFullMode.Wait
+        };
+
         var channelOptions = new BoundedChannelOptions(options.MaxQueueCapacity)
         {
-            FullMode = BoundedChannelFullMode.Wait,
-            SingleReader = false,
+            FullMode = fullMode,
+            SingleReader = true,
             SingleWriter = false
         };
         _channel = Channel.CreateBounded<TEvent>(channelOptions);
 
         _processingTask = Task.Run(() => ProcessEventsAsync(
-            serviceProvider, options, _cts.Token));
+            serviceProvider, _cts.Token));
 
         Logger.Debug($"EventChannel: 创建 {typeof(TEvent).Name} 的 Channel");
     }
@@ -67,7 +74,6 @@ public class EventChannel<TEvent> : IEventChannel<TEvent> where TEvent : IEventD
     /// </summary>
     private async Task ProcessEventsAsync(
         IServiceProvider serviceProvider,
-        EventBusOptions options,
         CancellationToken cancellationToken)
     {
         Logger.Debug($"EventChannel: {typeof(TEvent).Name} 后台处理任务已启动");
@@ -76,47 +82,49 @@ public class EventChannel<TEvent> : IEventChannel<TEvent> where TEvent : IEventD
         {
             await foreach (var eventData in _channel.Reader.ReadAllAsync(cancellationToken))
             {
+                List<IEventHandler<TEvent>> handlers;
                 try
                 {
                     using var scope = serviceProvider.CreateScope();
-                    var handlers = scope.ServiceProvider
-                        .GetServices<IEventHandler<TEvent>>();
-
-                    var handlerList = handlers.ToList();
-                    if (handlerList.Count == 0)
-                    {
-                        Logger.Error($"EventChannel: {typeof(TEvent).Name} 未找到任何事件处理器，事件将被丢弃");
-                        continue;
-                    }
-
-                    Logger.Debug($"EventChannel: {typeof(TEvent).Name} 找到 {handlerList.Count} 个处理器，开始处理");
-
-                    foreach (var handler in handlerList)
-                    {
-                        await handler.HandleAsync(eventData);
-                    }
-
-                    Logger.Debug($"EventChannel: 处理事件 {typeof(TEvent).Name} 完成");
+                    handlers = scope.ServiceProvider
+                        .GetServices<IEventHandler<TEvent>>()
+                        .ToList();
                 }
                 catch (Exception ex)
                 {
-                    Logger.Error($"EventChannel: 处理事件 {typeof(TEvent).Name} 失败", ex);
+                    Logger.Error($"EventChannel: {typeof(TEvent).Name} 解析事件处理器失败", ex);
+                    continue;
+                }
 
+                if (handlers.Count == 0)
+                {
+                    Logger.Error($"EventChannel: {typeof(TEvent).Name} 未找到任何事件处理器，事件将被丢弃");
+                    continue;
+                }
+
+                Logger.Debug($"EventChannel: {typeof(TEvent).Name} 找到 {handlers.Count} 个处理器，开始处理");
+
+                foreach (var handler in handlers)
+                {
                     try
                     {
-                        using var scope = serviceProvider.CreateScope();
-                        var handlers = scope.ServiceProvider
-                            .GetServices<IEventHandler<TEvent>>();
-
-                        foreach (var handler in handlers)
+                        await handler.HandleAsync(eventData);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"EventChannel: 处理事件 {typeof(TEvent).Name} 失败", ex);
+                        try
                         {
                             await handler.OnErrorAsync(ex);
                         }
-                    }
-                    catch
-                    {
+                        catch (Exception onErrorEx)
+                        {
+                            Logger.Error($"EventChannel: {typeof(TEvent).Name} OnErrorAsync 执行失败", onErrorEx);
+                        }
                     }
                 }
+
+                Logger.Debug($"EventChannel: 处理事件 {typeof(TEvent).Name} 完成");
             }
         }
         catch (OperationCanceledException)
@@ -128,7 +136,7 @@ public class EventChannel<TEvent> : IEventChannel<TEvent> where TEvent : IEventD
             Logger.Error($"EventChannel: {typeof(TEvent).Name} 后台处理任务异常退出", ex);
         }
 
-        Logger.Error($"EventChannel: {typeof(TEvent).Name} 后台处理任务已终止，事件将不再被处理！");
+        Logger.Debug($"EventChannel: {typeof(TEvent).Name} 后台处理任务已终止");
     }
 
     /// <summary>
@@ -136,8 +144,17 @@ public class EventChannel<TEvent> : IEventChannel<TEvent> where TEvent : IEventD
     /// </summary>
     public void Dispose()
     {
-        _channel.Writer.Complete();
         _cts.Cancel();
+        _channel.Writer.Complete();
+
+        try
+        {
+            _processingTask.Wait(TimeSpan.FromSeconds(5));
+        }
+        catch (AggregateException)
+        {
+        }
+
         _cts.Dispose();
         Logger.Debug($"EventChannel: 释放 {typeof(TEvent).Name} 的 Channel");
     }

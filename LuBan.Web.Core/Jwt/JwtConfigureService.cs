@@ -36,53 +36,54 @@ public static class JwtConfigureService
     /// <param name="hostingOptions"></param>
     public static void AddJwt(this IServiceCollection services, IConfiguration configuration, HostingOptions hostingOptions)
     {
-        try
-        {
-            ConsoleUtil.WriteLineWithCount("正在初始化jwt校验", color: ConsoleColor.Green);
-            //读取本地配置
-            var jwtConfig = hostingOptions.AppOptions.JwtAuthConfig;
+        ConsoleUtil.WriteLineWithCount("正在初始化jwt校验", color: ConsoleColor.Green);
+        var jwtConfig = hostingOptions.AppOptions.JwtAuthConfig;
 
-            services.AddAuthentication(options =>
-            {
-                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-                options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
-                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-            })
-            .AddJwtBearer(x =>
-            {
-                x.RequireHttpsMetadata = true;
-                x.SaveToken = true;
-                x.TokenValidationParameters = new TokenValidationParameters
-                {
-                    ValidateIssuerSigningKey = true,
-                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtConfig.Secret)),
-                    ValidateIssuer = true,
-                    ValidIssuer = jwtConfig.Issuer,
-                    ValidateAudience = true,
-                    ValidAudience = jwtConfig.Audience,
-                    ValidateLifetime = true,
-                    ClockSkew = TimeSpan.FromSeconds(30)
-                };
-                x.Events = new JwtBearerEvents
-                {
-                    OnAuthenticationFailed = context =>
-                    {
-                        Logger.Warn("JWT 验证失败", context.Exception, context.Request.GetJwtToken());
-                        return Task.CompletedTask;
-                    },
-                    OnMessageReceived = context =>
-                    {
-                        context.Token = context.Request.GetJwtToken();
-                        return Task.CompletedTask;
-                    }
-                };
-            });
+        if (string.IsNullOrWhiteSpace(jwtConfig.Secret))
+            throw new InvalidOperationException("JWT Secret 未配置，请在 appsettings.json 中设置 tokenManagement.Secret");
 
-            services.AddSingleton<IAuthorizationMiddlewareResultHandler, AuthorizationMiddlewareResultHandler>();
-        }
-        catch (Exception ex)
+        byte[] keyBytes;
+        var secret = jwtConfig.Secret;
+        if (secret.StartsWith("base64:", StringComparison.OrdinalIgnoreCase))
+            secret = secret["base64:".Length..];
+        keyBytes = Encoding.UTF8.GetBytes(secret);
+
+        services.AddAuthentication(options =>
         {
-            Logger.Error("JWTConfigureService.AddJwt", ex);
-        }
+            options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+            options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+            options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+        })
+        .AddJwtBearer(x =>
+        {
+            x.RequireHttpsMetadata = true;
+            x.SaveToken = false;
+            x.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new SymmetricSecurityKey(keyBytes),
+                ValidateIssuer = true,
+                ValidIssuer = jwtConfig.Issuer,
+                ValidateAudience = true,
+                ValidAudience = jwtConfig.Audience,
+                ValidateLifetime = true,
+                ClockSkew = TimeSpan.FromSeconds(30)
+            };
+            x.Events = new JwtBearerEvents
+            {
+                OnAuthenticationFailed = context =>
+                {
+                    Logger.Warn("JWT 验证失败", context.Exception, context.Request.GetJwtToken());
+                    return Task.CompletedTask;
+                },
+                OnMessageReceived = context =>
+                {
+                    context.Token = context.Request.GetJwtToken();
+                    return Task.CompletedTask;
+                }
+            };
+        });
+
+        services.AddSingleton<IAuthorizationMiddlewareResultHandler, AuthorizationMiddlewareResultHandler>();
     }
 }

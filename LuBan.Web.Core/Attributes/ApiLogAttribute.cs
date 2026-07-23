@@ -29,39 +29,28 @@ namespace LuBan.Web.Core.Attributes;
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, AllowMultiple = false, Inherited = true)]
 public class ApiLogAttribute : BaseFilterAttribute, IAsyncActionFilter, IAsyncResultFilter, IOrderedFilter
 {
-    Stopwatch _stopwacth = Stopwatch.StartNew();
+    static readonly AsyncLocal<Stopwatch> _stopwatchLocal = new();
+    static readonly AsyncLocal<string> _inputLocal = new();
+    static readonly AsyncLocal<bool> _noLogLocal = new();
 
-    string _input = string.Empty;
-
-    bool _noLog = false;
-
-    /// <summary>
-    /// 执行顺序
-    /// </summary>
     public new int Order => 99999;
 
-    /// <summary>
-    /// 当方法执行时
-    /// </summary>
-    /// <param name="context"></param>
-    /// <param name="next"></param>
-    /// <returns></returns>
     public override async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
     {
-        //检查无需记录日志的接口
+        var stopwatch = Stopwatch.StartNew();
+        _stopwatchLocal.Value = stopwatch;
+        _inputLocal.Value = string.Empty;
+        _noLogLocal.Value = false;
+
         if (context.HasAttribute<NoApiLogAttribute>())
         {
-            _noLog = true;
+            _noLogLocal.Value = true;
         }
         else
         {
-            _noLog = false;
             try
             {
-                _stopwacth.Restart();
-                ServiceProviderUtil.GetExceptionScope().Exception = null;
-
-                //记录IFile上传文件的参数
+                var input = string.Empty;
                 bool isFile = false;
                 if (context.HttpContext.Request.HasFormContentType)
                 {
@@ -69,15 +58,10 @@ public class ApiLogAttribute : BaseFilterAttribute, IAsyncActionFilter, IAsyncRe
                     if (files != null && files.Count > 0)
                     {
                         isFile = true;
-                        _input = files.Select(q => new { q.Name, q.FileName, q.ContentType, q.Length }).ToJson() ?? "文件";
-                    }
-                    else
-                    {
-                        isFile = false;
+                        input = files.Select(q => new { q.Name, q.FileName, q.ContentType, q.Length }).ToJson() ?? "文件";
                     }
                 }
 
-                //base64上传文件另外处理
                 var args = context.ActionArguments;
                 if (args! != null && args.Count > 0)
                     foreach (var arg in args)
@@ -87,7 +71,7 @@ public class ApiLogAttribute : BaseFilterAttribute, IAsyncActionFilter, IAsyncRe
                             if (!string.IsNullOrEmpty(arg.Key) && arg.Key.IndexOf("base64") > -1)
                             {
                                 isFile = true;
-                                _input = "base64 文件";
+                                input = "base64 文件";
                                 break;
                             }
                         }
@@ -97,15 +81,13 @@ public class ApiLogAttribute : BaseFilterAttribute, IAsyncActionFilter, IAsyncRe
                         }
                     }
 
-                //记录请求参数
                 if (!isFile)
                 {
                     if (args != null && args.Count > 0)
                     {
-                        //排除不绑定模型的上传文件接口
                         if (context.HttpContext.Request.Path.Value.IndexOf("/api/ExtraFile/Upload", true) < 0)
                         {
-                            _input = SerializeUtil.Serialize(args);
+                            input = SerializeUtil.Serialize(args);
                         }
                     }
                     else
@@ -113,10 +95,11 @@ public class ApiLogAttribute : BaseFilterAttribute, IAsyncActionFilter, IAsyncRe
                         var body = await context.HttpContext.GetRequestBodyTextAsync();
                         if (body.IsNotNullOrEmpty())
                         {
-                            _input = $"{_input},body={body}";
+                            input = $"{input},body={body}";
                         }
                     }
                 }
+                _inputLocal.Value = input;
             }
             catch (Exception ex)
             {
@@ -124,23 +107,9 @@ public class ApiLogAttribute : BaseFilterAttribute, IAsyncActionFilter, IAsyncRe
             }
         }
 
-        try
-        {
-            await next.Invoke();
-        }
-        catch (Exception ex)
-        {
-            ServiceProviderUtil.GetExceptionScope().Exception = ex;
-        }
+        await next.Invoke();
     }
 
-    /// <summary>
-    /// 当方法执行后,
-    /// 若有异常则不进处后续处理
-    /// </summary>
-    /// <param name="context"></param>
-    /// <param name="next"></param>
-    /// <returns></returns>
     public override async Task OnResultExecutionAsync(ResultExecutingContext context, ResultExecutionDelegate next)
     {
         Exception? exception = null;
@@ -152,12 +121,11 @@ public class ApiLogAttribute : BaseFilterAttribute, IAsyncActionFilter, IAsyncRe
         {
             exception = ex;
         }
-        _stopwacth.Stop();
+        _stopwatchLocal.Value?.Stop();
 
         try
         {
-            //叵不需要记录日志
-            if (_noLog) return;
+            if (_noLogLocal.Value) return;
 
             var result = string.Empty;
 
@@ -181,12 +149,12 @@ public class ApiLogAttribute : BaseFilterAttribute, IAsyncActionFilter, IAsyncRe
 
             if (host.EndsWith(":80"))
             {
-                host = host.Replace(":80", "");
+                host = host[..^3];
             }
 
             if (host.EndsWith(":443"))
             {
-                host = host.Replace(":443", "");
+                host = host[..^4];
             }
 
             if (context.HttpContext.Request.Headers.TryGetValue("X-Forwarded-Prefix", out StringValues values) && values.Count > 0)
@@ -198,14 +166,15 @@ public class ApiLogAttribute : BaseFilterAttribute, IAsyncActionFilter, IAsyncRe
                 }
             }
 
-            var url = $"https://{host}{context.HttpContext.Request.Path}{(context.HttpContext.Request.QueryString.HasValue ? context.HttpContext.Request.QueryString.Value : "")}";
+            var url = $"{context.HttpContext.Request.Scheme}://{host}{context.HttpContext.Request.Path}{(context.HttpContext.Request.QueryString.HasValue ? context.HttpContext.Request.QueryString.Value : "")}";
 
             if (exception == null)
                 exception = ServiceProviderUtil.GetExceptionScope()?.Exception ?? null;
 
-            if (_input.IsNotNullOrEmpty() && _input.Length > 10240)
+            var input = _inputLocal.Value ?? string.Empty;
+            if (input.IsNotNullOrEmpty() && input.Length > 10240)
             {
-                _input = _input.Substring(0, 10240);
+                input = input.Substring(0, 10240);
             }
 
             Logger.ApiCallLog(context.HttpContext.TraceIdentifier,
@@ -213,8 +182,8 @@ public class ApiLogAttribute : BaseFilterAttribute, IAsyncActionFilter, IAsyncRe
                 url,
                 context.HttpContext.Request.Method,
                 SerializeUtil.Serialize(context.HttpContext.Request.Headers),
-                _input,
-                _stopwacth.ElapsedMilliseconds,
+                input,
+                _stopwatchLocal.Value?.ElapsedMilliseconds ?? 0,
                 context.HttpContext.Response.StatusCode,
                 result ?? "",
                 userId.ToString(),

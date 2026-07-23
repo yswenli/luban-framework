@@ -66,7 +66,10 @@ public class JwtEncryption
         {
             et = Convert.ToInt32(expiredTime.Value);
         }
-        var jwtPackage = new JWTPackage<JwtUserInfo>(jwtUserInfo, et, jwtSettings.Secret);
+        var secret = jwtSettings.Secret;
+        if (secret.StartsWith("base64:", StringComparison.OrdinalIgnoreCase))
+            secret = secret["base64:".Length..];
+        var jwtPackage = new JWTPackage<JwtUserInfo>(jwtUserInfo, et, secret);
         jwtPackage.Payload["aud"] = jwtSettings.Audience;
         jwtPackage.Payload["iss"] = jwtSettings.Issuer;
         return jwtPackage.GetToken();

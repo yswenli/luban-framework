@@ -77,7 +77,7 @@ public static class ExpressionExtensions
         var mn = me.Member.Name;
         if (dataDic.TryGetValue(mn, out var value))
         {
-            return new { value };
+            return value;
         }
         return null;
     }
@@ -315,14 +315,13 @@ public static class ExpressionExtensions
     /// <param name="property"></param>
     /// <param name="filterValue"></param>
     /// <returns></returns>
-    public static Expression<Func<object, bool>> BuildFilterExpression(this Type elementType, PropertyInfo property, object filterValue)
+    public static LambdaExpression BuildFilterExpression(this Type elementType, PropertyInfo property, object filterValue)
     {
         ParameterExpression paramExpr = Expression.Parameter(elementType, "element");
         MemberExpression propertyExpr = Expression.Property(paramExpr, property);
         ConstantExpression constantExpr = Expression.Constant(filterValue, property.PropertyType);
         BinaryExpression equalExpr = Expression.Equal(propertyExpr, constantExpr);
-        LambdaExpression lambdaExpr = Expression.Lambda(equalExpr, paramExpr);
-        return (Expression<Func<object, bool>>)lambdaExpr;
+        return Expression.Lambda(equalExpr, paramExpr);
     }
 
     /// <summary>

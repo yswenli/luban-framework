@@ -3,7 +3,7 @@
 namespace WebApplication1.Models.Entities;
 
 [SugarTable("db_banner", "banner表")]
-public class DbBanner : EntityeDataScoreBase
+public class DbBanner : EntityDataScoreBase
 {
 
     /// <summary>

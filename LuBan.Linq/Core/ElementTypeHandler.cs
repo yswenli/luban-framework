@@ -39,22 +39,19 @@ internal class ElementTypeHandler
     public static bool IsDuplicateNotAllowed(IEnumerable source, Type elementType, dynamic val)
     {
         Type sourceType = source.GetType();
-        if (sourceType == null) return false;
         if (sourceType.IsGenericType)
         {
             Type genericCollectionType = typeof(IReadOnlyCollection<>).MakeGenericType(elementType);
             if (genericCollectionType.IsAssignableFrom(sourceType))
             {
-                // 获取泛型Contains方法（如bool Contains<T>(T item)）
                 MethodInfo? containsMethod = sourceType.GetMethod(
                     nameof(HashSet<int>.Contains),
-                    [elementType]);
+                    new Type[] { elementType });
                 if (containsMethod != null)
                 {
-                    // 调用Contains判断元素是否已存在（val已确保类型匹配）
-                    bool isExists = (bool)(containsMethod.Invoke(source, [val]) ?? false);
+                    bool isExists = (bool)(containsMethod.Invoke(source, new object[] { val }) ?? false);
                     if (isExists)
-                        return true; // 元素已存在，不允许重复添加
+                        return true;
                 }
             }
         }

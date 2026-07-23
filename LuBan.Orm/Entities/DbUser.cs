@@ -30,7 +30,7 @@ namespace LuBan.Orm.Entities;
 /// </summary>
 [SugarTable("db_user", "系统用户表")]
 [SysTable]
-public class DbUser : EntityeDataScoreBase
+public class DbUser : EntityDataScoreBase
 {
     /// <summary>
     /// 账号

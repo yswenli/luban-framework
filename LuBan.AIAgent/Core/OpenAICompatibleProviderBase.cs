@@ -72,7 +72,7 @@ public abstract class OpenAICompatibleProviderBase : IChatModelProvider
             // 构建绝对URI
             var baseUrl = GetBaseUrl();
             var relativeUrl = BuildRelativeUrl(request.ModelId);
-            var absoluteUri = new Uri(new Uri(baseUrl), relativeUrl);
+            var absoluteUri = new Uri(baseUrl + "/" + relativeUrl);
 
             // 设置请求头
             var httpRequest = new HttpRequestMessage(HttpMethod.Post, absoluteUri)
@@ -124,7 +124,7 @@ public abstract class OpenAICompatibleProviderBase : IChatModelProvider
             // 构建绝对URI
             var baseUrl = GetBaseUrl();
             var relativeUrl = BuildRelativeUrl(request.ModelId);
-            var absoluteUri = new Uri(new Uri(baseUrl), relativeUrl);
+            var absoluteUri = new Uri(baseUrl + "/" + relativeUrl);
 
             var httpRequest = new HttpRequestMessage(HttpMethod.Post, absoluteUri)
             {
@@ -413,7 +413,7 @@ public abstract class OpenAICompatibleProviderBase : IChatModelProvider
         try
         {
             var baseUrl = GetBaseUrl();
-            var absoluteUri = new Uri(new Uri(baseUrl), "models");
+            var absoluteUri = new Uri(baseUrl + "/models");
 
             var httpRequest = new HttpRequestMessage(HttpMethod.Get, absoluteUri);
             var response = await _httpClient.SendAsync(httpRequest, cancellationToken);
@@ -433,11 +433,22 @@ public abstract class OpenAICompatibleProviderBase : IChatModelProvider
                 return Array.Empty<ModelInfo>();
             }
 
-            return modelsResponse.Data.Select(m => new ModelInfo
+            var data = modelsResponse.Data.Select(m => new ModelInfo
             {
                 Id = m.Id,
-                OwnedBy = m.OwnedBy
+                Name = m.Name,
+                OwnedBy = m.OwnedBy,
+                Object = m.Object,
+                Created = m.Created,
+                Version = m.Version,
+                Status = m.Status,
+                Domain = m.Domain,
+                TaskType = m.TaskType,
+                Features = m.Features,
+                TokenLimits = m.TokenLimits,
+                Modalities = m.Modalities
             }).ToList();
+            return data.Where(q => q.Status != "Shutdown" && q.Status != "Retiring").ToList();
         }
         catch (Exception ex)
         {
@@ -454,7 +465,17 @@ public abstract class OpenAICompatibleProviderBase : IChatModelProvider
     private class OpenAICompatibleModelItem
     {
         public string Id { get; set; } = string.Empty;
+        public string? Name { get; set; }
         public string? OwnedBy { get; set; }
+        public string? Object { get; set; }
+        public long? Created { get; set; }
+        public string? Version { get; set; }
+        public string? Status { get; set; }
+        public string? Domain { get; set; }
+        public List<string>? TaskType { get; set; }
+        public ModelFeatures? Features { get; set; }
+        public TokenLimits? TokenLimits { get; set; }
+        public ModelModalities? Modalities { get; set; }
     }
 }
 

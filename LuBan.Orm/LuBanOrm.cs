@@ -34,7 +34,7 @@ public static class LuBanOrm
     /// <summary>
     /// ORM数据库操作主体类
     /// </summary>
-    public static SqlSugarScope SqlSugarScope { get; set; }
+    public static SqlSugarScope SqlSugarScope { get; internal set; }
     /// <summary>
     /// 缓存全局查询过滤器（内存缓存）
     /// </summary>
@@ -137,42 +137,7 @@ public static class LuBanOrm
     /// <param name="config"></param>
     static DbConnectionConfig SetSqlSugarConfig(DbConnectionConfig config)
     {
-        var configureExternalServices = new ConfigureExternalServices
-        {
-            EntityNameService = (type, entity) => // 处理表
-            {
-                entity.IsDisabledDelete = true; // 禁止删除非 sqlsugar 创建的列
-                                                // 只处理贴了特性[SugarTable]表
-                if (!type.GetCustomAttributes<SugarTable>().Any())
-                    return;
-                if (config.DbSettings.EnableUnderLine && !entity.DbTableName.Contains('_'))
-                    entity.DbTableName = UtilMethods.ToUnderLine(entity.DbTableName); // 驼峰转下划线
-            },
-            EntityService = (property, column) => // 处理列
-            {
-                // 只处理贴了特性[SugarColumn]列
-                if (property == null) return;
-                if (column.IsIgnore) return;
-
-                var attrs = property.GetCustomAttributes<SugarColumn>();
-                if (attrs == null || attrs.Count < 1) return;
-
-                if (new NullabilityInfoContext().Create(property).WriteState is NullabilityState.Nullable) column.IsNullable = true;
-
-                // 驼峰转下划线
-                if (config.DbSettings.EnableUnderLine && !column.DbColumnName.Contains('_')) column.DbColumnName = UtilMethods.ToUnderLine(column.DbColumnName);
-            }
-        };
-        config.ConfigureExternalServices = configureExternalServices;
-        config.InitKeyType = InitKeyType.Attribute;
-        config.IsAutoCloseConnection = true;
-        config.MoreSettings = new ConnMoreSettings
-        {
-            IsAutoRemoveDataCache = true,
-            IsAutoDeleteQueryFilter = true, // 启用删除查询过滤器，启用后，需要new DBRepository<T>()，否则会报错
-            IsAutoUpdateQueryFilter = true, // 启用更新查询过滤器
-            SqlServerCodeFirstNvarchar = true // 采用Nvarchar
-        };
+        SetDbConfig(config);
         return config;
     }
 
@@ -218,25 +183,21 @@ public static class LuBanOrm
         }
         // 差异日志
         if (!config.DbSettings.EnableDiffLog) return dbProvider;
-        dbProvider.Aop.OnDiffLogEvent = async u =>
+        dbProvider.Aop.OnDiffLogEvent = u =>
         {
             try
             {
                 var logDiff = new DbLogDiff
                 {
-                    // 操作后记录（字段描述、列名、值、表名、表描述）
                     AfterData = u.AfterData.ToJson(),
-                    // 操作前记录（字段描述、列名、值、表名、表描述）
                     BeforeData = u.BeforeData.ToJson(),
-                    // 传进来的对象
                     BusinessData = u.BusinessData.ToJson(),
-                    // 枚举（insert、update、delete）
                     DiffType = u.DiffType.ToString(),
                     Sql = UtilMethods.GetSqlString(config.DbType, u.Sql, u.Parameters),
                     Parameters = u.Parameters.ToJson(),
                     Elapsed = u.Time == null ? 0 : (long)u.Time.Value.TotalMilliseconds
                 };
-                await dbProvider.Insertable(logDiff).ExecuteCommandAsync();
+                dbProvider.Insertable(logDiff).ExecuteCommand();
                 ConsoleUtil.WriteLine(DateTime.Now + $"\r\n*****LuBan.Orm 差异日志开始*****\r\n{Environment.NewLine}{logDiff.ToJson()}{Environment.NewLine}*****LuBan.Orm 差异日志结束*****\r\n", color: ConsoleColor.DarkYellow);
                 Logger.Info(logDiff.ToJson() ?? "");
             }
@@ -309,9 +270,9 @@ public static class LuBanOrm
                                 var entityType = tableFilterItem.GetType().GetProperty("type", BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(tableFilterItem, null) as Type;
                                 if (entityType != null)
                                 {
-                                    var tAtt = entityType.GetCustomAttribute<TenantAttribute>();
-                                    if (tAtt != null && dbProvider.CurrentConnectionConfig.ConfigId.ToString() != tAtt.configId.ToString() ||
-                                        tAtt == null && dbProvider.CurrentConnectionConfig.ConfigId.ToString() != LuBanOrmConst.MainConfigId)
+                                    var tenatAttr = entityType.GetCustomAttribute<TenantAttribute>();
+                                    if ((tenatAttr != null && dbProvider.CurrentConnectionConfig.ConfigId.ToString() != tenatAttr.configId.ToString()) ||
+                                        (tenatAttr == null && dbProvider.CurrentConnectionConfig.ConfigId.ToString() != LuBanOrmConst.MainConfigId))
                                         continue;
                                 }
                                 tableFilterItems.Add(tableFilterItem);
@@ -426,7 +387,7 @@ public static class LuBanOrm
             if (dbConfig.DbType == DbType.Oracle || dbConfig.DbType == DbType.Dm || dbConfig.DbType == DbType.SqlServer) throw new Exception("Oracle、sqlserver、达梦不支持建库，需要手动建库");
             if (dbConfig.DbType == DbType.MySql)
             {
-                StaticConfig.CodeFirst_MySqlCollate = "utf8mb4_general_ci";
+                StaticConfig.CodeFirst_MySqlCollate = "utf8mb4_general_ci"; // utf8mb4_unicode_ci
             }
             dbProvider.DbMaintenance.CreateDatabase();
         }
@@ -446,7 +407,7 @@ public static class LuBanOrm
             var entityTypes = GetTableEntityTypes(dbConfig.TableSettings.EnableIncreTable);
 
             if (configId == LuBanOrmConst.MainConfigId) // 默认库（有系统表特性、没有日志表和租户表特性）
-                entityTypes = entityTypes.Where(u => u.GetCustomAttributes<SysTableAttribute>().Any() || !u.GetCustomAttributes<LogTableAttribute>().Any() && !u.GetCustomAttributes<TenantAttribute>().Any()).ToList();
+                entityTypes = entityTypes.Where(u => u.GetCustomAttributes<SysTableAttribute>().Any() || (!u.GetCustomAttributes<LogTableAttribute>().Any() && !u.GetCustomAttributes<TenantAttribute>().Any())).ToList();
             else if (configId == LuBanOrmConst.LogConfigId) // 日志库
                 entityTypes = entityTypes.Where(u => u.GetCustomAttributes<LogTableAttribute>().Any()).ToList();
             else
@@ -564,10 +525,7 @@ public static class LuBanOrm
     /// <summary>
     /// 是否初始化表和数据完成
     /// </summary>
-    public static bool IsInitTableAndDataComplete
-    {
-        get; set;
-    } = false;
+    public static volatile bool IsInitTableAndDataComplete = false;
 
     /// <summary>
     /// 初始化默认值
@@ -585,25 +543,25 @@ public static class LuBanOrm
                     if (id == null || (long)id == 0)
                         entityInfo.SetValue(YitIdHelper.NextId());
                 }
-                if (entityInfo.PropertyName == nameof(EntityTenantId.TenantId))
+                if (entityInfo.PropertyName == nameof(ITenantIdFilter.TenantId)
+                    && entityInfo.EntityValue is ITenantIdFilter tenantFilter)
                 {
-                    var tenantId = ((dynamic)entityInfo.EntityValue).TenantId;
-                    if (tenantId == null || tenantId == 0)
+                    if (tenantFilter.TenantId == null || tenantFilter.TenantId == 0)
                         entityInfo.SetValue(LuBanOrmConst.MainConfigId);
                 }
-                if (entityInfo.PropertyName == nameof(EntityBase.CreateUserId))
+                if (entityInfo.PropertyName == nameof(EntityBase.CreateUserId)
+                    && entityInfo.EntityValue is EntityBase entityBase)
                 {
-                    var createUserId = ((dynamic)entityInfo.EntityValue).CreateUserId;
-                    if (createUserId == 0 || createUserId == null)
+                    if (entityBase.CreateUserId == 0 || entityBase.CreateUserId == null)
                         entityInfo.SetValue(LuBanOrmConst.DefaultSeedId);
                 }
-                if (entityInfo.PropertyName == nameof(EntityBase.CreateUserName))
+                if (entityInfo.PropertyName == nameof(EntityBase.CreateUserName)
+                    && entityInfo.EntityValue is EntityBase nameEntity)
                 {
-                    var createUserName = ((dynamic)entityInfo.EntityValue).CreateUserName;
-                    if (string.IsNullOrEmpty(createUserName))
+                    if (string.IsNullOrEmpty(nameEntity.CreateUserName))
                         entityInfo.SetValue("系统");
                 }
-                if (entityInfo.PropertyName == nameof(EntityeDataScoreBase.CreateTime))
+                if (entityInfo.PropertyName == nameof(EntityBase.CreateTime))
                 {
                     entityInfo.SetValue(DateTime.Now);
                 }
@@ -823,4 +781,95 @@ public static class LuBanOrm
                 db.CodeFirst.SplitTables().InitTables(entityType);
         }
     }
+
+
+    #region 执行sql
+
+    /// <summary>
+    /// 执行sql语句
+    /// </summary>
+    /// <param name="sql"></param>
+    /// <returns></returns>
+    public static int ExecuteSql(string sql)
+    {
+        return SqlSugarScope.Ado.ExecuteCommand(sql);
+    }
+    /// <summary>
+    /// 执行sql语句
+    /// </summary>
+    /// <param name="sql"></param>
+    /// <returns></returns>
+    public static async Task<int> ExecuteSqlAsync(string sql)
+    {
+        return await SqlSugarScope.Ado.ExecuteCommandAsync(sql);
+    }
+
+    /// <summary>
+    /// 执行sql语句
+    /// </summary>
+    /// <param name="sql"></param>
+    /// <param name="args"></param>
+    /// <returns></returns>
+    public static int ExecuteSql(string sql, params SugarParameter[] args)
+    {
+        return SqlSugarScope.Ado.ExecuteCommand(sql, args);
+    }
+
+    /// <summary>
+    /// 执行sql语句
+    /// </summary>
+    /// <param name="sql"></param>
+    /// <param name="args"></param>
+    /// <returns></returns>
+    public static async Task<int> ExecuteSqlAsync(string sql, params SugarParameter[] args)
+    {
+        return await SqlSugarScope.Ado.ExecuteCommandAsync(sql, args);
+    }
+
+    /// <summary>
+    /// 执行sql查询语句
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    /// <param name="sql"></param>
+    /// <returns></returns>
+    public static List<T> QuerySql<T>(string sql)
+    {
+        return SqlSugarScope.Ado.SqlQuery<T>(sql);
+    }
+    /// <summary>
+    /// 执行sql查询语句
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    /// <param name="sql"></param>
+    /// <returns></returns>
+    public static async Task<List<T>> QuerySqlAsync<T>(string sql)
+    {
+        return await SqlSugarScope.Ado.SqlQueryAsync<T>(sql);
+    }
+
+    /// <summary>
+    /// 执行sql查询语句
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    /// <param name="sql"></param>
+    /// <param name="args"></param>
+    /// <returns></returns>
+    public static List<T> QuerySql<T>(string sql, params SugarParameter[] args)
+    {
+        return SqlSugarScope.Ado.SqlQuery<T>(sql, args);
+    }
+
+    /// <summary>
+    /// 执行sql查询语句
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    /// <param name="sql"></param>
+    /// <param name="args"></param>
+    /// <returns></returns>
+    public static async Task<List<T>> QuerySqlAsync<T>(string sql, params SugarParameter[] args)
+    {
+        return await SqlSugarScope.Ado.SqlQueryAsync<T>(sql, args);
+    }
+
+    #endregion
 }

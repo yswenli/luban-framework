@@ -29,7 +29,7 @@ namespace LuBan.Orm.Entities;
 /// </summary>
 [SugarTable("db_print", "系统打印模板表")]
 [SysTable]
-public class DbPrint : EntityeDataScoreBase
+public class DbPrint : EntityDataScoreBase
 {
     /// <summary>
     /// 名称

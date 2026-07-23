@@ -29,23 +29,15 @@ namespace LuBan.Web.Core.Attributes;
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, AllowMultiple = false, Inherited = true)]
 public class InterceptorAttribute : BaseFilterAttribute
 {
-    IInterceptorService _interceptorService;
-
+    Type _serviceType;
     string[] _parameters;
 
-    /// <summary>
-    /// 业务拦截过滤器
-    /// </summary>
-    /// <param name="type"></param>
-    /// <param name="serviceFilterType"></param>
-    /// <param name="parameters"></param>
     public InterceptorAttribute(Type type, params string[] parameters)
     {
+        _serviceType = type;
         _parameters = parameters;
-        //_interceptorService = CreateOnGenericType<T>();
         var intService = type.Create() as IInterceptorService;
         if (intService == null) throw new Exception("InterceptorService is null");
-        _interceptorService = intService;
     }
 
     /// <summary>
@@ -56,12 +48,15 @@ public class InterceptorAttribute : BaseFilterAttribute
     /// <returns></returns>
     public override async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
     {
-        //检查无需校验标签
         if (context.HasAttribute<NoInterceptorAttribute>())
         {
             await next.Invoke();
             return;
         }
+
+        var interceptorService = _serviceType.Create() as IInterceptorService;
+        if (interceptorService == null) throw new Exception("InterceptorService is null");
+
         var request = context.HttpContext.Request;
         var url = context.GetRequestUrl(false);
 
@@ -75,7 +70,7 @@ public class InterceptorAttribute : BaseFilterAttribute
 
             if (request.Headers.ContainsKey("Authorization"))
             {
-                _interceptorService.JwtTokenString = request.Headers["Authorization"].ToString();
+                interceptorService.JwtTokenString = request.Headers["Authorization"].ToString();
             }
         }
 
@@ -95,7 +90,6 @@ public class InterceptorAttribute : BaseFilterAttribute
             }
         }
 
-        //获取请求的控制器和方法名
         var controllerName = "";
         var actionName = "";
         if (context.RouteData != null && context.RouteData.Values != null && context.RouteData.Values.Count > 0)
@@ -109,8 +103,8 @@ public class InterceptorAttribute : BaseFilterAttribute
                 actionName = context.RouteData.Values["action"]?.ToString() ?? "";
             }
         }
-        //
-        var result = _interceptorService.Valide(new InterceptorInfo()
+
+        var result = interceptorService.Valide(new InterceptorInfo()
         {
             ControllerName = controllerName,
             ActionName = actionName,

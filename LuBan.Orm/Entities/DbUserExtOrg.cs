@@ -29,7 +29,7 @@ namespace LuBan.Orm.Entities;
 /// </summary>
 [SugarTable("db_user_ext_org", "系统用户扩展机构表")]
 [SysTable]
-public class DbUserExtOrg : EntityeDataScoreBase, IDeletedFilter
+public class DbUserExtOrg : EntityDataScoreBase, IDeletedFilter
 {
     /// <summary>
     /// 用户Id

@@ -70,7 +70,11 @@ internal static class ImplicitlyConvert
 
         try
         {
-            // 转换值类型（支持基础类型转换，如 string → int、int → long）
+            if (underlyingType.IsEnum)
+            {
+                return Enum.Parse(underlyingType, filterValue.ToString() ?? string.Empty);
+            }
+            
             return Convert.ChangeType(filterValue, underlyingType);
         }
         catch (Exception ex)
@@ -88,17 +92,21 @@ internal static class ImplicitlyConvert
     /// <returns></returns>
     public static Type? GetIQueryableElementType(this IQueryable queryable)
     {
-        // 遍历类型层级，找到泛型 IQueryable<T> 接口
-        Type? currentType = queryable.GetType();
-        while (currentType != null)
+        Type sourceType = queryable.GetType();
+        
+        if (sourceType.IsGenericType && sourceType.GetGenericTypeDefinition() == typeof(IQueryable<>))
         {
-            // 检查是否实现了 IQueryable<T>
-            if (currentType.IsGenericType && currentType.GetGenericTypeDefinition() == typeof(IQueryable<>))
-            {
-                return currentType.GetGenericArguments()[0]; // 返回泛型参数（元素类型）
-            }
-            currentType = currentType?.BaseType ?? null;
+            return sourceType.GetGenericArguments()[0];
         }
+        
+        foreach (Type interfaceType in sourceType.GetInterfaces())
+        {
+            if (interfaceType.IsGenericType && interfaceType.GetGenericTypeDefinition() == typeof(IQueryable<>))
+            {
+                return interfaceType.GetGenericArguments()[0];
+            }
+        }
+        
         return null;
     }
 }

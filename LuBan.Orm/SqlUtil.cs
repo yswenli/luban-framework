@@ -39,6 +39,14 @@ public static class SqlUtil
     /// </summary>
     static ISqlSugarClient GetClient() => _client.Value;
 
+    static readonly Regex _safeNameRegex = new(@"^[a-zA-Z0-9_]+$", RegexOptions.Compiled);
+
+    static void ValidateSqlIdentifier(string name, string paramName)
+    {
+        if (string.IsNullOrWhiteSpace(name) || !_safeNameRegex.IsMatch(name))
+            throw new ArgumentException($"Invalid {paramName}: '{name}'");
+    }
+
     /// <summary>
     /// 执行sql
     /// </summary>
@@ -51,12 +59,7 @@ public static class SqlUtil
         {
             return await GetClient().Ado.ExecuteCommandAsync(sql);
         }
-        var sqlsugarParameters = new List<SugarParameter>();
-        foreach (var item in parameters)
-        {
-            sqlsugarParameters.Add(item);
-        }
-        return await GetClient().Ado.ExecuteCommandAsync(sql, sqlsugarParameters);
+        return await GetClient().Ado.ExecuteCommandAsync(sql, parameters);
     }
     /// <summary>
     /// 执行sql
@@ -85,7 +88,7 @@ public static class SqlUtil
     /// </summary>
     /// <param name="t"></param>
     /// <returns></returns>
-    public static async Task<bool> UpdataAsync<T>(T t) where T : EntityBase, new()
+    public static async Task<bool> UpdateAsync<T>(T t) where T : EntityBase, new()
     {
         if (t.Id < 1) throw FriendlyError.Ex("请输入参数id");
         return await GetClient().Updateable(t).IgnoreColumns(true).ExecuteCommandAsync() > 0;
@@ -100,7 +103,7 @@ public static class SqlUtil
     public static async Task<bool> DeleteAsync<T>(T t) where T : EntityBase, new()
     {
         t.IsDelete = true;
-        return await UpdataAsync(t);
+        return await UpdateAsync(t);
     }
 
     /// <summary>
@@ -112,13 +115,7 @@ public static class SqlUtil
     /// <returns></returns>
     public static async Task<T> GetAsync<T>(string sql, params SugarParameter[] parameters) where T : class, new()
     {
-        var sqlsugarParameters = new List<SugarParameter>();
-        if (parameters != null && parameters.Length > 0)
-            foreach (var item in parameters)
-            {
-                sqlsugarParameters.Add(item);
-            }
-        return await GetClient().Ado.SqlQuerySingleAsync<T>(sql, sqlsugarParameters);
+        return await GetClient().Ado.SqlQuerySingleAsync<T>(sql, parameters);
     }
     /// <summary>
     /// 获取
@@ -140,13 +137,7 @@ public static class SqlUtil
     /// <returns></returns>
     public static async Task<List<T>> GetListAsync<T>(string sql, params SugarParameter[] parameters) where T : class, new()
     {
-        var sqlsugarParameters = new List<SugarParameter>();
-        if (parameters != null && parameters.Length > 0)
-            foreach (var item in parameters)
-            {
-                sqlsugarParameters.Add(item);
-            }
-        return await GetClient().Ado.SqlQueryAsync<T>(sql, sqlsugarParameters);
+        return await GetClient().Ado.SqlQueryAsync<T>(sql, parameters);
     }
     /// <summary>
     /// 获取列表
@@ -171,6 +162,8 @@ public static class SqlUtil
     public static async Task<T?> GetAsync<T>(string tableName, string columnName, dynamic value) where T : class, new()
     {
         if (value == null) return default;
+        ValidateSqlIdentifier(tableName, nameof(tableName));
+        ValidateSqlIdentifier(columnName, nameof(columnName));
         var sql = $"SELECT * FROM {tableName} WHERE {columnName}=@value";
         List<SugarParameter> parameters = [new SugarParameter("@value", value)];
         return await GetClient().Ado.SqlQuerySingleAsync<T>(sql, parameters);
@@ -187,6 +180,8 @@ public static class SqlUtil
     public static async Task<List<T>?> GetListAsync<T>(string tableName, string columnName, dynamic value) where T : class, new()
     {
         if (value == null) return default;
+        ValidateSqlIdentifier(tableName, nameof(tableName));
+        ValidateSqlIdentifier(columnName, nameof(columnName));
         var sql = $"SELECT * FROM {tableName} WHERE {columnName}=@value";
         List<SugarParameter> parameters = [new SugarParameter("@value", value)];
         return await GetClient().Ado.SqlQueryAsync<T>(sql, parameters);
@@ -202,6 +197,8 @@ public static class SqlUtil
     public static async Task<bool> ExistsAsync(string tableName, string columnName, dynamic value)
     {
         if (value == null) return default;
+        ValidateSqlIdentifier(tableName, nameof(tableName));
+        ValidateSqlIdentifier(columnName, nameof(columnName));
         var sql = $"SELECT COUNT(*) FROM {tableName} WHERE {columnName}=@value";
         List<SugarParameter> parameters = [new SugarParameter("@value", value)];
         return await GetClient().Ado.GetLongAsync(sql, parameters) > 0;
@@ -217,6 +214,8 @@ public static class SqlUtil
     public static bool Exists(string tableName, string columnName, dynamic value)
     {
         if (value == null) return default;
+        ValidateSqlIdentifier(tableName, nameof(tableName));
+        ValidateSqlIdentifier(columnName, nameof(columnName));
         var sql = $"SELECT COUNT(*) FROM {tableName} WHERE {columnName}=@value";
         List<SugarParameter> parameters = [new SugarParameter("@value", value)];
         return GetClient().Ado.GetLong(sql, parameters) > 0;
@@ -483,9 +482,13 @@ public static class SqlUtil
 
             case "boolean":
             case "bool":
-            case "box":
-            case "bytea":
                 return "bool";
+
+            case "box":
+                return "string";
+
+            case "bytea":
+                return "byte[]";
 
             case "varchar":
             case "character varying":
