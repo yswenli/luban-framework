@@ -30,15 +30,16 @@ public static class EmbeddingModelCatalog
         });
 
     /// <summary>
-    /// bge-small-zh-v1.5（384 维，中文+代码混合场景）
+    /// bge-small-zh-v1.5（384 维，中文+代码混合场景，默认）
     /// </summary>
     public static readonly EmbeddingModelSpec BgeSmallZhV15 = new(
         "bge-small-zh-v1.5", 384,
-        "https://huggingface.co/BAAI/bge-small-zh-v1.5/resolve/main/",
-        "https://hf-mirror.com/BAAI/bge-small-zh-v1.5/resolve/main/",
+        "https://huggingface.co/onnx-community/bge-small-zh-v1.5-ONNX/resolve/main/",
+        "https://hf-mirror.com/onnx-community/bge-small-zh-v1.5-ONNX/resolve/main/",
         new ModelFileSpec[]
         {
-            new("onnx/model.onnx", "model.onnx", 10_000_000),
+            new("onnx/model.onnx?download=true", "model.onnx", 10_000_000),
+            new("onnx/model.onnx_data?download=true", "model.onnx_data", 40_000_000),
             new("tokenizer.json", "tokenizer.json", 100_000),
             new("tokenizer_config.json", "tokenizer_config.json", 100),
         });
@@ -46,7 +47,7 @@ public static class EmbeddingModelCatalog
     /// <summary>
     /// 默认模型
     /// </summary>
-    public static readonly EmbeddingModelSpec Default = AllMiniLmL6V2;
+    public static readonly EmbeddingModelSpec Default = BgeSmallZhV15;
 
     /// <summary>
     /// 按模型标识查找
