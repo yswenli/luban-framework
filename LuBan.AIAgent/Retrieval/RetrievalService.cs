@@ -4,6 +4,7 @@ using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Options;
 using LuBan.AIAgent.Configuration;
 using LuBan.AIAgent.Retrieval.Chunkers;
+using LuBan.Threading;
 
 namespace LuBan.AIAgent.Retrieval;
 
@@ -13,13 +14,12 @@ namespace LuBan.AIAgent.Retrieval;
 public class RetrievalService : IRetrievalService
 {
     private const int EmbedBatchSize = 32;
+    private const int SearchOversampleFactor = 20;
     private readonly IVectorStore _store;
     private readonly IEmbeddingGenerator<string, Embedding<float>> _embedder;
     private readonly ChunkerFactory _chunkers;
     private readonly RetrievalToolOptions _options;
-    private readonly SemaphoreSlim _writeGate = new(1, 1);
-    private readonly SemaphoreSlim _readGate = new(1, 1);
-    private int _readCount;
+    private readonly AsyncReaderWriterLock _rwLock = new();
 
     /// <summary>
     /// 创建检索服务
@@ -39,76 +39,95 @@ public class RetrievalService : IRetrievalService
     /// <inheritdoc />
     public async Task<IndexReport> IndexDirectoryAsync(string path, string? glob = null, bool force = false, CancellationToken cancellationToken = default)
     {
-        await _writeGate.WaitAsync(cancellationToken);
+        using var _ = await _rwLock.WriteLockAsync(cancellationToken);
+        var report = new IndexReport();
+        var root = Path.GetFullPath(path);
+        var patterns = string.IsNullOrWhiteSpace(glob) ? new[] { "*" } : glob.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        List<string> files;
         try
         {
-            var report = new IndexReport();
-            var root = Path.GetFullPath(path);
-            var patterns = string.IsNullOrWhiteSpace(glob) ? new[] { "*" } : glob.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            var files = patterns.SelectMany(p => Directory.EnumerateFiles(root, p, SearchOption.AllDirectories))
+            files = patterns.SelectMany(p => SafeEnumerateFiles(root, p))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .Where(f => _chunkers.ShouldIndex(f, root, _options.MaxFileSizeKB * 1024L))
                 .ToList();
-            report.ScannedFiles = files.Count;
-
-            var existing = (await _store.GetFilesAsync(root)).ToDictionary(f => f.FilePath, StringComparer.OrdinalIgnoreCase);
-            var seenPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-            foreach (var file in files)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                try
-                {
-                    var fullPath = Path.GetFullPath(file);
-                    seenPaths.Add(fullPath);
-                    var content = await File.ReadAllTextAsync(fullPath, cancellationToken);
-                    var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(content)));
-                    existing.TryGetValue(fullPath, out var existingFile);
-                    if (!force && existingFile != null && existingFile.FileHash == hash)
-                    {
-                        report.SkippedFiles++;
-                        continue;
-                    }
-                    bool isNew = existingFile == null;
-                    var r = await IndexSingleContentAsync(content, _chunkers.GetLanguage(fullPath), fullPath, hash, cancellationToken);
-                    report.TotalChunks += r.TotalChunks;
-                    report.EmbeddedChunks += r.EmbeddedChunks;
-                    report.ReusedChunks += r.ReusedChunks;
-                    if (isNew) report.NewFiles++; else report.UpdatedFiles++;
-                }
-                catch (Exception ex)
-                {
-                    report.Errors.Add($"{file}: {ex.Message}");
-                }
-            }
-
-            foreach (var kv in existing)
-            {
-                if (!seenPaths.Contains(kv.Key) && kv.Key.StartsWith(root, StringComparison.OrdinalIgnoreCase))
-                {
-                    await _store.SoftDeleteFileAsync(kv.Value.Id);
-                    report.DeletedFiles++;
-                }
-            }
+        }
+        catch (Exception ex)
+        {
+            report.Errors.Add($"枚举文件失败: {ex.Message}");
             return report;
         }
-        finally { _writeGate.Release(); }
+        report.ScannedFiles = files.Count;
+
+        var existing = (await _store.GetFilesAsync(root)).ToDictionary(f => f.FilePath, StringComparer.OrdinalIgnoreCase);
+        var seenPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var file in files)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                var fullPath = Path.GetFullPath(file);
+                seenPaths.Add(fullPath);
+                var content = await File.ReadAllTextAsync(fullPath, cancellationToken);
+                var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(content)));
+                existing.TryGetValue(fullPath, out var existingFile);
+                if (!force && existingFile != null && existingFile.FileHash == hash)
+                {
+                    report.SkippedFiles++;
+                    continue;
+                }
+                bool isNew = existingFile == null;
+                var r = await IndexSingleContentAsync(content, _chunkers.GetLanguage(fullPath), fullPath, hash, cancellationToken);
+                report.TotalChunks += r.TotalChunks;
+                report.EmbeddedChunks += r.EmbeddedChunks;
+                report.ReusedChunks += r.ReusedChunks;
+                if (isNew) report.NewFiles++; else report.UpdatedFiles++;
+            }
+            catch (Exception ex)
+            {
+                report.Errors.Add($"{file}: {ex.Message}");
+            }
+        }
+
+        foreach (var kv in existing)
+        {
+            if (!seenPaths.Contains(kv.Key) && kv.Key.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+            {
+                await _store.SoftDeleteFileAsync(kv.Value.Id);
+                report.DeletedFiles++;
+            }
+        }
+        return report;
+    }
+
+    private static IEnumerable<string> SafeEnumerateFiles(string root, string pattern)
+    {
+        Queue<string> dirs = new();
+        dirs.Enqueue(root);
+        while (dirs.Count > 0)
+        {
+            var dir = dirs.Dequeue();
+            string[] files;
+            try { files = Directory.GetFiles(dir, pattern); }
+            catch { continue; }
+            foreach (var f in files) yield return f;
+            string[] subDirs;
+            try { subDirs = Directory.GetDirectories(dir); }
+            catch { continue; }
+            foreach (var d in subDirs) dirs.Enqueue(d);
+        }
     }
 
     /// <inheritdoc />
     public async Task<IndexReport> IndexContentAsync(string content, string language, string sourceName, CancellationToken cancellationToken = default)
     {
-        await _writeGate.WaitAsync(cancellationToken);
-        try
-        {
-            var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(content)));
-            var existing = await _store.GetFilesAsync(null);
-            var old = existing.FirstOrDefault(f => f.FilePath == sourceName);
-            if (old != null && old.FileHash == hash)
-                return new IndexReport { ScannedFiles = 1, SkippedFiles = 1 };
-            return await IndexSingleContentAsync(content, language, sourceName, hash, cancellationToken);
-        }
-        finally { _writeGate.Release(); }
+        using var _ = await _rwLock.WriteLockAsync(cancellationToken);
+        var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(content)));
+        var existing = await _store.GetFilesAsync(null);
+        var old = existing.FirstOrDefault(f => f.FilePath == sourceName);
+        if (old != null && old.FileHash == hash)
+            return new IndexReport { ScannedFiles = 1, SkippedFiles = 1 };
+        return await IndexSingleContentAsync(content, language, sourceName, hash, cancellationToken);
     }
 
     private async Task<IndexReport> IndexSingleContentAsync(string content, string language, string filePath, string hash, CancellationToken ct)
@@ -140,7 +159,11 @@ public class RetrievalService : IRetrievalService
 
         var pairs = new List<ChunkVectorPair>(chunks.Count);
         for (int i = 0; i < chunks.Count; i++)
+        {
+            if (reusedVectors[i] == null)
+                throw new InvalidOperationException($"Chunk {i} has no vector (neither reused nor embedded)");
             pairs.Add(new ChunkVectorPair { Chunk = chunks[i], Vector = reusedVectors[i] });
+        }
 
         await _store.ReplaceFileChunksAsync(fileId, _options.ModelId, pairs);
 
@@ -155,38 +178,29 @@ public class RetrievalService : IRetrievalService
     public async Task<IReadOnlyList<RetrievalResult>> SearchAsync(string query, int topK = 5, string? pathPrefix = null, string? language = null, CancellationToken cancellationToken = default)
     {
         topK = Math.Clamp(topK, 1, 20);
-        await _readGate.WaitAsync(cancellationToken);
-        try { _readCount++; }
-        finally { _readGate.Release(); }
-        try
+        if (string.IsNullOrWhiteSpace(query))
+            return Array.Empty<RetrievalResult>();
+        using var _ = await _rwLock.ReadLockAsync(cancellationToken);
+        var embeddings = await _embedder.GenerateAsync(new[] { query }, cancellationToken: cancellationToken);
+        var queryVector = embeddings[0].Vector.ToArray();
+        var entries = await _store.LoadVectorsAsync(pathPrefix, language, topK * SearchOversampleFactor);
+        var scored = entries
+            .Select(e => (e.ChunkId, Score: VectorMath.Cosine(queryVector, e.Vector)))
+            .OrderByDescending(x => x.Score)
+            .Take(topK)
+            .ToList();
+        var map = await _store.GetChunksAsync(scored.Select(s => s.ChunkId).ToList());
+        var results = new List<RetrievalResult>();
+        foreach (var (chunkId, score) in scored)
         {
-            var embeddings = await _embedder.GenerateAsync(new[] { query }, cancellationToken: cancellationToken);
-            var queryVector = embeddings[0].Vector.ToArray();
-            var entries = await _store.LoadVectorsAsync(pathPrefix, language, topK * 20);
-            var scored = entries
-                .Select(e => (e.ChunkId, Score: VectorMath.Cosine(queryVector, e.Vector)))
-                .OrderByDescending(x => x.Score)
-                .Take(topK)
-                .ToList();
-            var map = await _store.GetChunksAsync(scored.Select(s => s.ChunkId).ToList());
-            var results = new List<RetrievalResult>();
-            foreach (var (chunkId, score) in scored)
+            if (!map.TryGetValue(chunkId, out var c)) continue;
+            results.Add(new RetrievalResult
             {
-                if (!map.TryGetValue(chunkId, out var c)) continue;
-                results.Add(new RetrievalResult
-                {
-                    ChunkId = chunkId, FilePath = c.FilePath, StartLine = c.StartLine, EndLine = c.EndLine,
-                    ChunkType = c.ChunkType, SymbolName = c.SymbolName, Content = c.Content, Score = score
-                });
-            }
-            return results;
+                ChunkId = chunkId, FilePath = c.FilePath, StartLine = c.StartLine, EndLine = c.EndLine,
+                ChunkType = c.ChunkType, SymbolName = c.SymbolName, Content = c.Content, Score = score
+            });
         }
-        finally
-        {
-            await _readGate.WaitAsync(cancellationToken);
-            try { _readCount--; }
-            finally { _readGate.Release(); }
-        }
+        return results;
     }
 
     /// <inheritdoc />

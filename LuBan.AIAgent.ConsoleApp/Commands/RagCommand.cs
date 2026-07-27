@@ -77,6 +77,7 @@ public class RagCommand : CommandBase
                 if (service == null) { Console.WriteLine("检索功能未启用（模型未就绪或配置 disabled）"); return; }
                 var path = extraArgs?.Length > 0 ? extraArgs[0] : Prompt("请输入目录路径: ");
                 var glob = extraArgs?.Length > 1 ? string.Join(' ', extraArgs[1..]) : null;
+                if (string.IsNullOrWhiteSpace(glob)) glob = null;
                 if (!Directory.Exists(path)) { Console.WriteLine($"目录不存在: {path}"); return; }
                 var report = await ConsoleUtil.RunWithStatusAsync<IndexReport>(
                     async (update, ct) => await service.IndexDirectoryAsync(path, glob, false, ct), "索引中…");
@@ -89,6 +90,7 @@ public class RagCommand : CommandBase
             case "search":
                 if (service == null) { Console.WriteLine("检索功能未启用"); return; }
                 var query = extraArgs?.Length > 0 ? string.Join(' ', extraArgs) : Prompt("请输入搜索内容: ");
+                if (string.IsNullOrWhiteSpace(query)) { Console.WriteLine("搜索内容不能为空"); return; }
                 var results = await service.SearchAsync(query);
                 if (results.Count == 0) { Console.WriteLine("未找到相关内容"); return; }
                 foreach (var r in results)

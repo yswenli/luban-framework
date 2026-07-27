@@ -34,10 +34,10 @@ public class RetrievalToolPlugin : ILuBanToolPlugin
         var svc = sp.GetService<IRetrievalService>();
         if (svc == null) return Array.Empty<AIFunction>();
         var group = new RetrievalToolGroup(svc, _options.Value.Tools.Retrieval);
-        return typeof(RetrievalToolGroup)
+        var toolMethods = typeof(RetrievalToolGroup)
             .GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
-            .Select(m => AIFunctionFactory.Create(m, group))
-            .ToList();
+            .Where(m => m.GetCustomAttribute<DescriptionAttribute>() != null);
+        return toolMethods.Select(m => AIFunctionFactory.Create(m, group)).ToList();
     }
 
     /// <inheritdoc />

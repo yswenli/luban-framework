@@ -88,7 +88,12 @@ public class ModelManager
             File.Delete(tmpPath); existing = 0;
         }
         response.EnsureSuccessStatusCode();
-        var total = (response.Content.Headers.ContentLength ?? 0) + existing;
+        long total = 0;
+        var contentRange = response.Content.Headers.ContentRange;
+        if (contentRange != null && contentRange.HasLength)
+            total = contentRange.Length ?? 0;
+        else if (response.Content.Headers.ContentLength.HasValue)
+            total = response.Content.Headers.ContentLength.Value + existing;
         await using var input = await response.Content.ReadAsStreamAsync(ct);
         await using var output = new FileStream(tmpPath, existing > 0 ? FileMode.Append : FileMode.Create, FileAccess.Write);
         var buffer = new byte[81920];
@@ -98,10 +103,9 @@ public class ModelManager
         {
             await output.WriteAsync(buffer.AsMemory(0, read), ct);
             received += read;
-            if (total > 0) report?.Invoke($"下载 {displayName}：{received * 100 / total}%（{received / 1048576}MB/{total / 1048576}MB）");
+            if (total > 0) report?.Invoke($"下载 {displayName}：{(received * 100.0 / total):F0}%（{received / 1048576}MB/{total / 1048576}MB）");
             else report?.Invoke($"下载 {displayName}：{received / 1048576}MB");
         }
-        output.Close();
         File.Move(tmpPath, targetPath, true);
     }
 }

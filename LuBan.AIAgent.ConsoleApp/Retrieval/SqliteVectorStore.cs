@@ -20,7 +20,7 @@ public class SqliteVectorStore : IVectorStore
     public async Task<IReadOnlyList<IndexedFile>> GetFilesAsync(string? pathPrefix = null)
     {
         var q = _files.AsQueryable().Where(f => !f.IsDelete);
-        if (!string.IsNullOrEmpty(pathPrefix)) q = q.Where(f => f.FilePath.StartsWith(pathPrefix));
+        if (!string.IsNullOrEmpty(pathPrefix)) q = q.Where(f => f.FilePath.StartsWith(pathPrefix, StringComparison.OrdinalIgnoreCase));
         var list = await q.ToListAsync();
         return list.Select(f => new IndexedFile { Id = f.Id, FilePath = f.FilePath, FileHash = f.FileHash, Language = f.Language }).ToList();
     }
@@ -110,7 +110,7 @@ public class SqliteVectorStore : IVectorStore
         var q = _chunks.Context.Queryable<DbRagChunk>()
             .InnerJoin<DbRagFile>((c, f) => c.FileId == f.Id)
             .Where((c, f) => !c.IsDelete && !f.IsDelete);
-        if (!string.IsNullOrEmpty(pathPrefix)) q = q.Where((c, f) => f.FilePath.StartsWith(pathPrefix));
+        if (!string.IsNullOrEmpty(pathPrefix)) q = q.Where((c, f) => f.FilePath.StartsWith(pathPrefix, StringComparison.OrdinalIgnoreCase));
         if (!string.IsNullOrEmpty(language)) q = q.Where((c, f) => f.Language == language);
         if (maxResults < int.MaxValue) q = q.Take(maxResults);
         var list = await q.Select((c, f) => new { c.Id, c.Vector }).ToListAsync();

@@ -30,6 +30,7 @@
   <ItemGroup>
     <ProjectReference Include="..\LuBan.Common\LuBan.Common.csproj" />
     <ProjectReference Include="..\LuBan.DI\LuBan.DI.csproj" />
+    <ProjectReference Include="..\LuBan.Threading\LuBan.Threading.csproj" />
   </ItemGroup>
 
   <ItemGroup>

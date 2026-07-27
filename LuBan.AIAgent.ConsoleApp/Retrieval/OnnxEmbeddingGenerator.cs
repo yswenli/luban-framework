@@ -14,8 +14,8 @@ public class OnnxEmbeddingGenerator : IEmbeddingGenerator<string, Embedding<floa
     private readonly string _modelDir;
     private readonly EmbeddingModelSpec _spec;
     private readonly object _initLock = new();
-    private InferenceSession? _session;
-    private Tokenizer? _tokenizer;
+    private volatile InferenceSession? _session;
+    private volatile Tokenizer? _tokenizer;
 
     /// <summary>
     /// 创建 ONNX 嵌入生成器

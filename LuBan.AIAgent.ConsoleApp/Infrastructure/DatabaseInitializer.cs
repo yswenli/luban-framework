@@ -7,15 +7,14 @@ namespace LuBan.AIAgent.ConsoleApp.Infrastructure;
 /// </summary>
 public static class DatabaseInitializer
 {
-    private static bool _initialized;
+    private static int _initialized;
 
     /// <summary>
     /// 初始化数据库
     /// </summary>
     public static void Initialize()
     {
-        if (_initialized) return;
-        _initialized = true;
+        if (Interlocked.CompareExchange(ref _initialized, 1, 0) != 0) return;
 
         MigrateLegacyDatabase();
         LuBanOrm.Init();
