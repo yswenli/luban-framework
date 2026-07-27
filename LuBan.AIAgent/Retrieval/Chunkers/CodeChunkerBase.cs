@@ -55,18 +55,19 @@ public abstract class CodeChunkerBase : ICodeChunker
                 j++;
                 if (len >= TargetChars) break;
             }
+            int actualEnd = Math.Min(j, endLine);
             chunks.Add(new CodeChunk
             {
                 FilePath = filePath,
                 StartLine = i,
-                EndLine = j,
+                EndLine = actualEnd,
                 ChunkType = chunkType,
                 SymbolName = symbol,
                 Language = language,
-                Content = JoinLines(lines, i, j)
+                Content = JoinLines(lines, i, actualEnd)
             });
-            if (j >= endLine) break;
-            i = Math.Max(i + 1, j - OverlapLines + 1);
+            if (actualEnd >= endLine) break;
+            i = Math.Max(i + 1, actualEnd - OverlapLines + 1);
         }
         return chunks;
     }
