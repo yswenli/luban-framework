@@ -31,20 +31,20 @@ public class OnnxEmbeddingGenerator : IEmbeddingGenerator<string, Embedding<floa
         if (_session != null && _tokenizer != null) return (_session, _tokenizer);
         lock (_initLock)
         {
-            // TODO: Microsoft.ML.Tokenizers 2.0.0 API 变更，需要确认正确的 tokenizer 加载方式
-            // 当前使用反射尝试加载 BertTokenizer
-            var tokenizerPath = Path.Combine(_modelDir, "tokenizer.json");
-            var bertTokenizerType = typeof(Tokenizer).Assembly.GetType("Microsoft.ML.Tokenizers.BertTokenizer");
-            if (bertTokenizerType != null)
-            {
-                var loadMethod = bertTokenizerType.GetMethod("Load", new[] { typeof(string) });
-                if (loadMethod != null)
-                {
-                    _tokenizer = loadMethod.Invoke(null, new object[] { tokenizerPath }) as Tokenizer;
-                }
-            }
             if (_tokenizer == null)
-                throw new NotSupportedException("无法加载 tokenizer，请检查 Microsoft.ML.Tokenizers 版本和 API");
+            {
+                var tokenizerPath = Path.Combine(_modelDir, "tokenizer.json");
+                if (!File.Exists(tokenizerPath))
+                    throw new FileNotFoundException($"tokenizer.json 不存在于 {tokenizerPath}");
+                var bertTokenizerType = typeof(Tokenizer).Assembly.GetType("Microsoft.ML.Tokenizers.BertTokenizer");
+                if (bertTokenizerType == null)
+                    throw new NotSupportedException("Microsoft.ML.Tokenizers 版本不支持 BertTokenizer");
+                var loadMethod = bertTokenizerType.GetMethod("Load", new[] { typeof(string) });
+                if (loadMethod == null)
+                    throw new NotSupportedException("BertTokenizer.Load 方法不存在，请检查 Microsoft.ML.Tokenizers 版本");
+                _tokenizer = loadMethod.Invoke(null, new object[] { tokenizerPath }) as Tokenizer
+                    ?? throw new InvalidOperationException("BertTokenizer.Load 返回 null");
+            }
             _session ??= new InferenceSession(Path.Combine(_modelDir, "model.onnx"));
             return (_session, _tokenizer);
         }
@@ -123,5 +123,10 @@ public class OnnxEmbeddingGenerator : IEmbeddingGenerator<string, Embedding<floa
     }
 
     /// <inheritdoc />
-    public void Dispose() => _session?.Dispose();
+    public void Dispose()
+    {
+        _session?.Dispose();
+        if (_tokenizer is IDisposable disposable)
+            disposable.Dispose();
+    }
 }

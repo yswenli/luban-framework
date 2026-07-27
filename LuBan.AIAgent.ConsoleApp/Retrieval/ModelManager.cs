@@ -7,7 +7,11 @@ namespace LuBan.AIAgent.ConsoleApp.Retrieval;
 /// </summary>
 public class ModelManager
 {
-    private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromMinutes(30) };
+    private static readonly Lazy<HttpClient> _http = new(() => new HttpClient
+    {
+        Timeout = TimeSpan.FromMinutes(30),
+        DefaultRequestVersion = new Version(2, 0)
+    });
     private readonly EmbeddingModelSpec _spec;
 
     /// <summary>
@@ -78,7 +82,7 @@ public class ModelManager
         long existing = File.Exists(tmpPath) ? new FileInfo(tmpPath).Length : 0;
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
         if (existing > 0) request.Headers.Range = new RangeHeaderValue(existing, null);
-        using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
+        using var response = await _http.Value.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
         if (existing > 0 && response.StatusCode == System.Net.HttpStatusCode.OK)
         {
             File.Delete(tmpPath); existing = 0;
@@ -95,6 +99,7 @@ public class ModelManager
             await output.WriteAsync(buffer.AsMemory(0, read), ct);
             received += read;
             if (total > 0) report?.Invoke($"下载 {displayName}：{received * 100 / total}%（{received / 1048576}MB/{total / 1048576}MB）");
+            else report?.Invoke($"下载 {displayName}：{received / 1048576}MB");
         }
         output.Close();
         File.Move(tmpPath, targetPath, true);

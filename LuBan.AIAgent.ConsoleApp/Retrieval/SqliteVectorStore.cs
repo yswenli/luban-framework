@@ -78,6 +78,7 @@ public class SqliteVectorStore : IVectorStore
         await _writeGate.WaitAsync();
         try
         {
+            using var scope = new System.Transactions.TransactionScope(System.Transactions.TransactionScopeAsyncFlowOption.Enabled);
             await _chunks.DeleteAsync(c => c.FileId == fileId);
             foreach (var p in chunks)
             {
@@ -98,18 +99,20 @@ public class SqliteVectorStore : IVectorStore
                 };
                 await _chunks.InsertAsync(entity);
             }
+            scope.Complete();
         }
         finally { _writeGate.Release(); }
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<VectorEntry>> LoadVectorsAsync(string? pathPrefix = null, string? language = null)
+    public async Task<IReadOnlyList<VectorEntry>> LoadVectorsAsync(string? pathPrefix = null, string? language = null, int maxResults = int.MaxValue)
     {
         var q = _chunks.Context.Queryable<DbRagChunk>()
             .InnerJoin<DbRagFile>((c, f) => c.FileId == f.Id)
             .Where((c, f) => !c.IsDelete && !f.IsDelete);
         if (!string.IsNullOrEmpty(pathPrefix)) q = q.Where((c, f) => f.FilePath.StartsWith(pathPrefix));
         if (!string.IsNullOrEmpty(language)) q = q.Where((c, f) => f.Language == language);
+        if (maxResults < int.MaxValue) q = q.Take(maxResults);
         var list = await q.Select((c, f) => new { c.Id, c.Vector }).ToListAsync();
         return list.Select(x => new VectorEntry { ChunkId = x.Id, Vector = VectorMath.ToFloats(x.Vector) }).ToList();
     }
@@ -139,7 +142,7 @@ public class SqliteVectorStore : IVectorStore
         return new StoreStats
         {
             FileCount = fileCount, ChunkCount = chunkCount,
-            ModelId = first?.ModelId, Dimension = first != null ? first.Vector.Length / 4 : 0
+            ModelId = first?.ModelId,             Dimension = first != null ? first.Vector.Length / sizeof(float) : 0
         };
     }
 }

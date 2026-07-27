@@ -59,11 +59,12 @@ public class FakeVectorStore : IVectorStore
         return Task.CompletedTask;
     }
 
-    public Task<IReadOnlyList<VectorEntry>> LoadVectorsAsync(string? pathPrefix = null, string? language = null)
+    public Task<IReadOnlyList<VectorEntry>> LoadVectorsAsync(string? pathPrefix = null, string? language = null, int maxResults = int.MaxValue)
     {
         var q = _chunks.Values.AsEnumerable();
         if (!string.IsNullOrEmpty(pathPrefix)) q = q.Where(c => _files.TryGetValue(c.fileId, out var f) && f.FilePath.StartsWith(pathPrefix, StringComparison.OrdinalIgnoreCase));
         if (!string.IsNullOrEmpty(language)) q = q.Where(c => _files.TryGetValue(c.fileId, out var f) && f.Language == language);
+        if (maxResults < int.MaxValue) q = q.Take(maxResults);
         var list = q.Select(c => new VectorEntry { ChunkId = _chunks.First(kv => kv.Value.chunk == c.chunk).Key, Vector = c.vector }).ToList();
         return Task.FromResult<IReadOnlyList<VectorEntry>>(list);
     }

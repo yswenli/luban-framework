@@ -17,7 +17,9 @@ public class RetrievalService : IRetrievalService
     private readonly IEmbeddingGenerator<string, Embedding<float>> _embedder;
     private readonly ChunkerFactory _chunkers;
     private readonly RetrievalToolOptions _options;
-    private readonly SemaphoreSlim _gate = new(1, 1);
+    private readonly SemaphoreSlim _writeGate = new(1, 1);
+    private readonly SemaphoreSlim _readGate = new(1, 1);
+    private int _readCount;
 
     /// <summary>
     /// 创建检索服务
@@ -37,7 +39,7 @@ public class RetrievalService : IRetrievalService
     /// <inheritdoc />
     public async Task<IndexReport> IndexDirectoryAsync(string path, string? glob = null, bool force = false, CancellationToken cancellationToken = default)
     {
-        await _gate.WaitAsync(cancellationToken);
+        await _writeGate.WaitAsync(cancellationToken);
         try
         {
             var report = new IndexReport();
@@ -90,13 +92,13 @@ public class RetrievalService : IRetrievalService
             }
             return report;
         }
-        finally { _gate.Release(); }
+        finally { _writeGate.Release(); }
     }
 
     /// <inheritdoc />
     public async Task<IndexReport> IndexContentAsync(string content, string language, string sourceName, CancellationToken cancellationToken = default)
     {
-        await _gate.WaitAsync(cancellationToken);
+        await _writeGate.WaitAsync(cancellationToken);
         try
         {
             var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(content)));
@@ -106,7 +108,7 @@ public class RetrievalService : IRetrievalService
                 return new IndexReport { ScannedFiles = 1, SkippedFiles = 1 };
             return await IndexSingleContentAsync(content, language, sourceName, hash, cancellationToken);
         }
-        finally { _gate.Release(); }
+        finally { _writeGate.Release(); }
     }
 
     private async Task<IndexReport> IndexSingleContentAsync(string content, string language, string filePath, string hash, CancellationToken ct)
@@ -153,26 +155,38 @@ public class RetrievalService : IRetrievalService
     public async Task<IReadOnlyList<RetrievalResult>> SearchAsync(string query, int topK = 5, string? pathPrefix = null, string? language = null, CancellationToken cancellationToken = default)
     {
         topK = Math.Clamp(topK, 1, 20);
-        var embeddings = await _embedder.GenerateAsync(new[] { query }, cancellationToken: cancellationToken);
-        var queryVector = embeddings[0].Vector.ToArray();
-        var entries = await _store.LoadVectorsAsync(pathPrefix, language);
-        var scored = entries
-            .Select(e => (e.ChunkId, Score: VectorMath.Cosine(queryVector, e.Vector)))
-            .OrderByDescending(x => x.Score)
-            .Take(topK)
-            .ToList();
-        var map = await _store.GetChunksAsync(scored.Select(s => s.ChunkId).ToList());
-        var results = new List<RetrievalResult>();
-        foreach (var (chunkId, score) in scored)
+        await _readGate.WaitAsync(cancellationToken);
+        try { _readCount++; }
+        finally { _readGate.Release(); }
+        try
         {
-            if (!map.TryGetValue(chunkId, out var c)) continue;
-            results.Add(new RetrievalResult
+            var embeddings = await _embedder.GenerateAsync(new[] { query }, cancellationToken: cancellationToken);
+            var queryVector = embeddings[0].Vector.ToArray();
+            var entries = await _store.LoadVectorsAsync(pathPrefix, language, topK * 20);
+            var scored = entries
+                .Select(e => (e.ChunkId, Score: VectorMath.Cosine(queryVector, e.Vector)))
+                .OrderByDescending(x => x.Score)
+                .Take(topK)
+                .ToList();
+            var map = await _store.GetChunksAsync(scored.Select(s => s.ChunkId).ToList());
+            var results = new List<RetrievalResult>();
+            foreach (var (chunkId, score) in scored)
             {
-                ChunkId = chunkId, FilePath = c.FilePath, StartLine = c.StartLine, EndLine = c.EndLine,
-                ChunkType = c.ChunkType, SymbolName = c.SymbolName, Content = c.Content, Score = score
-            });
+                if (!map.TryGetValue(chunkId, out var c)) continue;
+                results.Add(new RetrievalResult
+                {
+                    ChunkId = chunkId, FilePath = c.FilePath, StartLine = c.StartLine, EndLine = c.EndLine,
+                    ChunkType = c.ChunkType, SymbolName = c.SymbolName, Content = c.Content, Score = score
+                });
+            }
+            return results;
         }
-        return results;
+        finally
+        {
+            await _readGate.WaitAsync(cancellationToken);
+            try { _readCount--; }
+            finally { _readGate.Release(); }
+        }
     }
 
     /// <inheritdoc />

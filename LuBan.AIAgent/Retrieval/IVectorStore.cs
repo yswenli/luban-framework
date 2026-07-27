@@ -33,7 +33,7 @@ public interface IVectorStore
     /// <summary>
     /// 加载向量（可按路径前缀/语言预过滤）
     /// </summary>
-    Task<IReadOnlyList<VectorEntry>> LoadVectorsAsync(string? pathPrefix = null, string? language = null);
+    Task<IReadOnlyList<VectorEntry>> LoadVectorsAsync(string? pathPrefix = null, string? language = null, int maxResults = int.MaxValue);
 
     /// <summary>
     /// 按 Id 取切块内容（含文件路径/语言）
