@@ -66,7 +66,19 @@ class Program
             "检查嵌入模型…");
         if (!ok || !mm.IsModelReady())
         {
-            Console.WriteLine("嵌入模型下载失败，检索功能已禁用（不影响其他功能）");
+            Console.WriteLine();
+            Console.WriteLine($"嵌入模型 {spec.ModelId} 下载失败，检索功能已禁用（不影响其他功能）");
+            Console.WriteLine();
+            Console.WriteLine("如需使用检索功能，请手动下载以下文件并放到指定目录：");
+            Console.WriteLine($"目标目录: {mm.ModelDirectory}");
+            Console.WriteLine();
+            foreach (var file in spec.Files)
+            {
+                var url = spec.MirrorBase + file.RemotePath;
+                Console.WriteLine($"  - {file.LocalName}");
+                Console.WriteLine($"    下载地址: {url}");
+            }
+            Console.WriteLine();
             return (null, null);
         }
         return (new OnnxEmbeddingGenerator(mm.ModelDirectory, spec), mm);
