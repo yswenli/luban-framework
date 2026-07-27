@@ -1,0 +1,297 @@
+/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net8.0
+*机器名称：WALLE
+*Author：yswenli
+*命名空间：LuBan.AIAgent.ConsoleApp.Services
+*文件名： ConsoleAppService
+*版本号： V1.0.0.0
+*唯一标识：新建
+*当前的用户域：WALLE
+*创建人：yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/7/27
+*描述：控制台应用服务，管理命令分发
+*
+*****************************************************************************/
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using LuBan.AIAgent.ConsoleApp.Commands;
+using LuBan.AIAgent.Configuration;
+using LuBan.AIAgent.MCP;
+using LuBan.AIAgent.Rules;
+using LuBan.AIAgent.Sessions;
+using LuBan.AIAgent.Skills;
+using LuBan.Common;
+using Microsoft.Extensions.Configuration;
+
+namespace LuBan.AIAgent.ConsoleApp.Services;
+
+/// <summary>
+/// 控制台应用服务，管理命令分发
+/// </summary>
+public class ConsoleAppService
+{
+    private readonly ConfigManager _configManager;
+    private readonly IConfiguration _configuration;
+    private readonly SkillRegistry _skillRegistry;
+    private readonly RuleEngine _ruleEngine;
+    private readonly MCPRegistry _mcpRegistry;
+    private readonly ISessionManager _sessionManager;
+    private readonly Dictionary<string, ICommand> _commands;
+    private readonly List<string> _commandHistory;
+
+    /// <summary>
+    /// 可用的命令名称列表（用于 Tab 自动完成）
+    /// </summary>
+    private static readonly string[] CommandNames = new[]
+    {
+        "/add-provider",
+        "/list",
+        "/select",
+        "/browse",
+        "/chat",
+        "/session",
+        "/skill",
+        "/rule",
+        "/mcp",
+        "/clear",
+        "/exit"
+    };
+
+    /// <summary>
+    /// 创建应用服务实例
+    /// </summary>
+    /// <param name="configManager">配置管理器</param>
+    /// <param name="configuration">应用配置</param>
+    /// <param name="skillRegistry">Skill 注册表</param>
+    /// <param name="ruleEngine">规则引擎</param>
+    /// <param name="mcpRegistry">MCP 注册表</param>
+    /// <param name="sessionManager">Session 管理器</param>
+    public ConsoleAppService(
+        ConfigManager configManager,
+        IConfiguration configuration,
+        SkillRegistry skillRegistry,
+        RuleEngine ruleEngine,
+        MCPRegistry mcpRegistry,
+        ISessionManager sessionManager)
+    {
+        _configManager = configManager;
+        _configuration = configuration;
+        _skillRegistry = skillRegistry;
+        _ruleEngine = ruleEngine;
+        _mcpRegistry = mcpRegistry;
+        _sessionManager = sessionManager;
+        _commands = new Dictionary<string, ICommand>();
+        _commandHistory = new List<string>();
+
+        RegisterCommands();
+    }
+
+    /// <summary>
+    /// 注册所有命令
+    /// </summary>
+    private void RegisterCommands()
+    {
+        RegisterCommand(new AddProviderCommand(_configManager, _configuration));
+        RegisterCommand(new ListCommand(_configManager, _configuration));
+        RegisterCommand(new SelectCommand(_configManager, _configuration));
+        RegisterCommand(new BrowseCommand(_configManager, _configuration, TryExecuteCommandAsync));
+        RegisterCommand(new ChatCommand(_configManager, _configuration, _sessionManager, TryExecuteCommandAsync));
+        RegisterCommand(new SessionCommand(_configManager, _configuration, _sessionManager));
+        RegisterCommand(new SkillCommand(_configManager, _configuration, _skillRegistry));
+        RegisterCommand(new RuleCommand(_configManager, _configuration, _ruleEngine));
+        RegisterCommand(new MCPCommand(_configManager, _configuration, _mcpRegistry));
+        RegisterCommand(new ClearCommand(_configManager, _configuration));
+    }
+
+    /// <summary>
+    /// 注册单个命令
+    /// </summary>
+    private void RegisterCommand(ICommand command)
+    {
+        _commands[command.Name] = command;
+    }
+
+    /// <summary>
+    /// 运行应用
+    /// </summary>
+    public async Task RunAsync()
+    {
+        ShowWelcome();
+        ShowCurrentStatus();
+
+        while (true)
+        {
+            ShowMenu();
+
+            // 使用 Tab 自动完成功能读取命令
+            var input = ConsoleUtil.ReadLineWithAutoComplete(
+                "请输入命令: ",
+                CommandNames,
+                _commandHistory);
+
+            if (string.IsNullOrEmpty(input))
+                continue;
+
+            // 支持 / 前缀
+            input = NormalizeInput(input);
+
+            if (input == "exit")
+            {
+                Console.WriteLine("再见！");
+                return;
+            }
+
+            await ExecuteCommandAsync(input);
+        }
+    }
+
+    /// <summary>
+    /// 显示欢迎信息
+    /// </summary>
+    private static void ShowWelcome()
+    {
+        Console.OutputEncoding = System.Text.Encoding.UTF8;
+        Console.WriteLine("========================================");
+        Console.WriteLine("  LuBan AI Agent 命令行工具 v1.0");
+        Console.WriteLine("========================================");
+        Console.WriteLine();
+        Console.WriteLine("提示: 所有命令以 / 开头，按 Tab 自动完成，按上/下箭头浏览历史");
+        Console.WriteLine("      在对话过程中也可使用 / 命令，如 /session switch 1");
+    }
+
+    /// <summary>
+    /// 显示当前状态
+    /// </summary>
+    private void ShowCurrentStatus()
+    {
+        Console.WriteLine();
+        Console.WriteLine("当前状态:");
+        Console.WriteLine($"  Provider 数量: {_configManager.Providers.Count}");
+
+        if (_configManager.Providers.Count > 0)
+        {
+            Console.WriteLine("  已配置的 Provider:");
+            foreach (var p in _configManager.Providers)
+            {
+                Console.WriteLine($"    - {ProviderModels.GetDisplayName(p.Name)}");
+            }
+        }
+
+        if (_configManager.HasSelectedModel)
+        {
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine($"  当前选择的模型: {_configManager.SelectedModel}");
+            Console.ResetColor();
+        }
+        else if (_configManager.Providers.Count > 0)
+        {
+            Console.WriteLine("  当前选择的模型: 未选择 (请使用 select 命令选择)");
+        }
+    }
+
+    /// <summary>
+    /// 显示菜单
+    /// </summary>
+    private static void ShowMenu()
+    {
+        Console.WriteLine();
+        Console.WriteLine("可用命令 (/ 前缀，Tab 自动完成):");
+        Console.WriteLine("  /add-provider  - 添加 AI Provider");
+        Console.WriteLine("  /list          - 列出所有 Provider");
+        Console.WriteLine("  /select        - 选择模型");
+        Console.WriteLine("  /browse        - 用自然语言操作网站");
+        Console.WriteLine("  /chat          - 智能对话（支持工具调用）");
+        Console.WriteLine("  /session       - 管理对话会话");
+        Console.WriteLine("  /skill         - 查看和执行 Skill（技能）");
+        Console.WriteLine("  /rule          - 查看和管理规则");
+        Console.WriteLine("  /mcp           - 查看 MCP 客户端");
+        Console.WriteLine("  /clear         - 清除配置");
+        Console.WriteLine("  /exit          - 退出程序");
+    }
+
+    /// <summary>
+    /// 标准化输入，移除 / 前缀
+    /// </summary>
+    private static string NormalizeInput(string input)
+    {
+        input = input.Trim();
+        if (input.StartsWith('/'))
+            input = input[1..];
+        return input;
+    }
+
+    /// <summary>
+    /// 执行命令（供外部调用，如 ChatCommand 中的 / 命令）
+    /// </summary>
+    /// <param name="input">原始输入（支持 / 前缀）</param>
+    /// <returns>是否已处理</returns>
+    public async Task<bool> TryExecuteCommandAsync(string input)
+    {
+        if (string.IsNullOrEmpty(input) || !input.StartsWith('/'))
+            return false;
+
+        input = NormalizeInput(input);
+        if (input == "exit")
+            return false;
+
+        await ExecuteCommandAsync(input);
+        return true;
+    }
+
+    /// <summary>
+    /// 执行命令
+    /// </summary>
+    private async Task ExecuteCommandAsync(string input)
+    {
+        var parts = input.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var commandName = GetCommandName(parts[0]);
+        if (commandName == null)
+        {
+            Console.WriteLine("未知命令，请重试");
+            return;
+        }
+
+        if (_commands.TryGetValue(commandName, out var command))
+        {
+            // 如果有子命令参数，先尝试带参数执行
+            if (parts.Length > 1)
+            {
+                var handled = await command.ExecuteAsync(parts[1..]);
+                if (handled)
+                    return;
+            }
+            // 没有参数或命令不支持子命令，走交互式菜单
+            await command.ExecuteAsync();
+        }
+        else
+        {
+            Console.WriteLine("未知命令，请重试");
+        }
+    }
+
+    /// <summary>
+    /// 获取命令名称
+    /// </summary>
+    private static string? GetCommandName(string input)
+    {
+        var name = input.ToLower().TrimStart('/');
+        return name switch
+        {
+            "1" or "add-provider" => "add-provider",
+            "2" or "list" => "list",
+            "3" or "select" => "select",
+            "4" or "browse" => "browse",
+            "5" or "chat" => "chat",
+            "6" or "session" => "session",
+            "7" or "skill" => "skill",
+            "8" or "rule" => "rule",
+            "9" or "mcp" => "mcp",
+            "10" or "clear" => "clear",
+            "11" or "exit" => "exit",
+            _ => name
+        };
+    }
+}

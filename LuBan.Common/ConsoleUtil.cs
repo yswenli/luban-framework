@@ -634,6 +634,327 @@ public static class ConsoleUtil
         // EventBus 的生命周期由依赖注入管理
     }
 
+    /// <summary>
+    /// 读取带 Tab 自动完成的命令行
+    /// </summary>
+    /// <param name="prompt">提示符</param>
+    /// <param name="completions">可选的完成列表</param>
+    /// <param name="history">历史记录（可选）</param>
+    /// <returns>用户输入的命令</returns>
+    public static string ReadLineWithAutoComplete(string prompt, IEnumerable<string>? completions = null, List<string>? history = null)
+    {
+        var completionsList = completions?.ToList() ?? new List<string>();
+        var input = new System.Text.StringBuilder();
+        var historyIndex = history?.Count ?? 0;
+        var savedInput = string.Empty;
+
+        Console.Write(prompt);
+
+        while (true)
+        {
+            var keyInfo = Console.ReadKey(true);
+
+            if (keyInfo.Key == ConsoleKey.Enter)
+            {
+                Console.WriteLine();
+                var result = input.ToString();
+                if (!string.IsNullOrWhiteSpace(result) && history != null && (history.Count == 0 || history[^1] != result))
+                {
+                    history.Add(result);
+                }
+                return result;
+            }
+            else if (keyInfo.Key == ConsoleKey.Tab)
+            {
+                if (completionsList.Count > 0)
+                {
+                    var currentInput = input.ToString();
+                    var matches = completionsList
+                        .Where(c => c.StartsWith(currentInput, StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+
+                    if (matches.Count > 0)
+                    {
+                        var match = matches[0];
+                        ClearCurrentLine(prompt.Length, input.Length);
+                        input.Clear();
+                        input.Append(match);
+                        Console.Write(prompt);
+                        Console.Write(match);
+                    }
+                }
+            }
+            else if (keyInfo.Key == ConsoleKey.UpArrow)
+            {
+                if (history != null && history.Count > 0 && historyIndex > 0)
+                {
+                    if (historyIndex == history.Count)
+                    {
+                        savedInput = input.ToString();
+                    }
+                    historyIndex--;
+                    ClearCurrentLine(prompt.Length, input.Length);
+                    input.Clear();
+                    input.Append(history[historyIndex]);
+                    Console.Write(prompt);
+                    Console.Write(history[historyIndex]);
+                }
+            }
+            else if (keyInfo.Key == ConsoleKey.DownArrow)
+            {
+                if (history != null && historyIndex < history.Count)
+                {
+                    historyIndex++;
+                    ClearCurrentLine(prompt.Length, input.Length);
+                    input.Clear();
+                    if (historyIndex < history.Count)
+                    {
+                        input.Append(history[historyIndex]);
+                        Console.Write(prompt);
+                        Console.Write(history[historyIndex]);
+                    }
+                    else
+                    {
+                        input.Append(savedInput);
+                        Console.Write(prompt);
+                        Console.Write(savedInput);
+                    }
+                }
+            }
+            else if (keyInfo.Key == ConsoleKey.Backspace)
+            {
+                if (input.Length > 0)
+                {
+                    input.Remove(input.Length - 1, 1);
+                    Console.Write("\b \b");
+                }
+            }
+            else if (keyInfo.Key == ConsoleKey.Escape)
+            {
+                ClearCurrentLine(prompt.Length, input.Length);
+                input.Clear();
+                Console.Write(prompt);
+            }
+            else if (!char.IsControl(keyInfo.KeyChar))
+            {
+                input.Append(keyInfo.KeyChar);
+                Console.Write(keyInfo.KeyChar);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 清除当前行
+    /// </summary>
+    private static void ClearCurrentLine(int promptLength, int inputLength)
+    {
+        Console.Write(new string('\b', promptLength + inputLength));
+        Console.Write(new string(' ', promptLength + inputLength));
+        Console.Write(new string('\b', promptLength + inputLength));
+    }
+
+    /// <summary>
+    /// 带动画的异步执行（可动态更新状态，支持 ESC 取消）
+    /// </summary>
+    /// <param name="action">执行的操作，参数为状态更新器和取消令牌</param>
+    /// <param name="initialStatus">初始状态文本</param>
+    /// <param name="color">动画颜色</param>
+    /// <returns>操作结果，如果用户取消则返回 default</returns>
+    public static async Task<T?> RunWithStatusAsync<T>(Func<Action<string>, CancellationToken, Task<T>> action, string initialStatus = "正在处理...", string color = "cyan")
+    {
+        using var cts = new System.Threading.CancellationTokenSource();
+        var cancelled = false;
+        Thread? keyThread = null;
+
+        try
+        {
+            var task = AnsiConsole.Status()
+                .Spinner(Spinner.Known.DotsCircle)
+                .SpinnerStyle(Style.Parse(color))
+                .StartAsync(initialStatus, async ctx =>
+                {
+                    void UpdateStatus(string status) => ctx.Status(status);
+                    return await action(UpdateStatus, cts.Token);
+                });
+
+            keyThread = new Thread(() =>
+            {
+                try
+                {
+                    while (!cts.Token.IsCancellationRequested)
+                    {
+                        if (Console.KeyAvailable)
+                        {
+                            var key = Console.ReadKey(true);
+                            if (key.Key == ConsoleKey.Escape)
+                            {
+                                Volatile.Write(ref cancelled, true);
+                                cts.Cancel();
+                                break;
+                            }
+                        }
+                        else
+                        {
+                            Thread.Sleep(100);
+                        }
+                    }
+                }
+                catch
+                {
+                }
+            })
+            {
+                IsBackground = true
+            };
+            keyThread.Start();
+
+            var result = await task;
+            cts.Cancel();
+            return result;
+        }
+        catch (OperationCanceledException)
+        {
+            Volatile.Write(ref cancelled, true);
+            return default;
+        }
+        finally
+        {
+            cts.Cancel();
+            if (keyThread != null && keyThread.IsAlive)
+            {
+                keyThread.Join(500);
+            }
+            if (Volatile.Read(ref cancelled))
+            {
+                WriteLine();
+                WriteLine("操作已被用户取消 (ESC)");
+            }
+        }
+    }
+
+    /// <summary>
+    /// 带动画的异步执行（可动态更新状态，支持 ESC 取消）
+    /// </summary>
+    /// <param name="action">执行的操作，参数为状态更新器和取消令牌</param>
+    /// <param name="initialStatus">初始状态文本</param>
+    /// <param name="color">动画颜色</param>
+    /// <returns>是否被用户取消</returns>
+    public static async Task<bool> RunWithStatusAsync(Func<Action<string>, CancellationToken, Task> action, string initialStatus = "正在处理...", string color = "cyan")
+    {
+        using var cts = new System.Threading.CancellationTokenSource();
+        var cancelled = false;
+        Thread? keyThread = null;
+
+        try
+        {
+            var task = AnsiConsole.Status()
+                .Spinner(Spinner.Known.DotsCircle)
+                .SpinnerStyle(Style.Parse(color))
+                .StartAsync(initialStatus, async ctx =>
+                {
+                    void UpdateStatus(string status) => ctx.Status(status);
+                    await action(UpdateStatus, cts.Token);
+                });
+
+            keyThread = new Thread(() =>
+            {
+                try
+                {
+                    while (!cts.Token.IsCancellationRequested)
+                    {
+                        if (Console.KeyAvailable)
+                        {
+                            var key = Console.ReadKey(true);
+                            if (key.Key == ConsoleKey.Escape)
+                            {
+                                Volatile.Write(ref cancelled, true);
+                                cts.Cancel();
+                                break;
+                            }
+                        }
+                        else
+                        {
+                            Thread.Sleep(100);
+                        }
+                    }
+                }
+                catch
+                {
+                }
+            })
+            {
+                IsBackground = true
+            };
+            keyThread.Start();
+
+            await task;
+            cts.Cancel();
+            return false;
+        }
+        catch (OperationCanceledException)
+        {
+            Volatile.Write(ref cancelled, true);
+            return true;
+        }
+        finally
+        {
+            cts.Cancel();
+            if (keyThread != null && keyThread.IsAlive)
+            {
+                keyThread.Join(500);
+            }
+            if (Volatile.Read(ref cancelled))
+            {
+                WriteLine();
+                WriteLine("操作已被用户取消 (ESC)");
+            }
+        }
+    }
+
+    /// <summary>
+    /// 带动画的异步执行（可动态更新状态）
+    /// </summary>
+    /// <param name="action">执行的操作，参数为状态更新器</param>
+    /// <param name="initialStatus">初始状态文本</param>
+    /// <param name="color">动画颜色</param>
+    /// <returns>操作结果</returns>
+    public static async Task<T?> RunWithStatusAsync<T>(Func<Action<string>, Task<T>> action, string initialStatus = "正在处理...", string color = "cyan")
+    {
+        try
+        {
+            return await AnsiConsole.Status()
+                .Spinner(Spinner.Known.DotsCircle)
+                .SpinnerStyle(Style.Parse(color))
+                .StartAsync(initialStatus, async ctx =>
+                {
+                    void UpdateStatus(string status) => ctx.Status(status);
+                    return await action(UpdateStatus);
+                });
+        }
+        catch (OperationCanceledException)
+        {
+            return default;
+        }
+    }
+
+    /// <summary>
+    /// 带动画的异步执行（可动态更新状态）
+    /// </summary>
+    /// <param name="action">执行的操作，参数为状态更新器</param>
+    /// <param name="initialStatus">初始状态文本</param>
+    /// <param name="color">动画颜色</param>
+    public static async Task RunWithStatusAsync(Func<Action<string>, Task> action, string initialStatus = "正在处理...", string color = "cyan")
+    {
+        await AnsiConsole.Status()
+            .Spinner(Spinner.Known.DotsCircle)
+            .SpinnerStyle(Style.Parse(color))
+            .StartAsync(initialStatus, async ctx =>
+            {
+                void UpdateStatus(string status) => ctx.Status(status);
+                await action(UpdateStatus);
+            });
+    }
+
 }
 
 /// <summary>

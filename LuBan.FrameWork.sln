@@ -1,4 +1,4 @@
-
+﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
 VisualStudioVersion = 18.3.11206.111
@@ -56,6 +56,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LuBan.AIAgent", "LuBan.AIAgent\LuBan.AIAgent.csproj", "{AB225CBE-D9CB-4AD5-B1B1-5F09CC0E0798}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LuBan.EventBus", "LuBan.EventBus\LuBan.EventBus.csproj", "{4AAE52AF-9714-FB3D-4CBD-9CDDBC1DD6E6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LuBan.AIAgent.ConsoleApp", "LuBan.AIAgent.ConsoleApp\LuBan.AIAgent.ConsoleApp.csproj", "{80DA1BCF-6F5B-49E2-93F9-33C884CF0297}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -163,6 +165,10 @@ Global
 		{4AAE52AF-9714-FB3D-4CBD-9CDDBC1DD6E6}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4AAE52AF-9714-FB3D-4CBD-9CDDBC1DD6E6}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4AAE52AF-9714-FB3D-4CBD-9CDDBC1DD6E6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{80DA1BCF-6F5B-49E2-93F9-33C884CF0297}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{80DA1BCF-6F5B-49E2-93F9-33C884CF0297}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{80DA1BCF-6F5B-49E2-93F9-33C884CF0297}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{80DA1BCF-6F5B-49E2-93F9-33C884CF0297}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -193,6 +199,7 @@ Global
 		{71C5E2FE-EFC1-8366-06C6-96EBAE645EA3} = {D3458C2D-63BF-415A-995C-F6FAF674B144}
 		{AB225CBE-D9CB-4AD5-B1B1-5F09CC0E0798} = {D3458C2D-63BF-415A-995C-F6FAF674B144}
 		{4AAE52AF-9714-FB3D-4CBD-9CDDBC1DD6E6} = {D3458C2D-63BF-415A-995C-F6FAF674B144}
+		{80DA1BCF-6F5B-49E2-93F9-33C884CF0297} = {AD6D7E01-525C-4BF2-A802-4D93CE3B233A}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {4EB4709D-D31C-4225-8514-A09C2EB150BF}
