@@ -157,7 +157,7 @@ public class SkillCommand : CommandBase
             }
 
             Console.Write("请输入内容: ");
-            input = Console.ReadLine()?.Trim();
+            input = Console.ReadLine()?.Trim() ?? "";
 
             if (string.IsNullOrEmpty(input))
             {
