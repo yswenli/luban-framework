@@ -1,19 +1,3 @@
-/****************************************************************************
-*Copyright @ yswenli All Rights Reserved.
-*CLR版本： .net8.0
-*机器名称：WALLE
-*Author：yswenli
-*命名空间：LuBan.AIAgent.ConsoleApp.Infrastructure
-*文件名： DatabaseInitializer
-*版本号： V1.0.0.0
-*唯一标识：新建
-*当前的用户域：WALLE
-*创建人：yswenli
-*电子邮箱：yswenli@outlook.com
-*创建时间：2026/7/27
-*描述：数据库初始化
-*
-*****************************************************************************/
 using LuBan.Orm;
 
 namespace LuBan.AIAgent.ConsoleApp.Infrastructure;
@@ -33,6 +17,7 @@ public static class DatabaseInitializer
         if (_initialized) return;
         _initialized = true;
 
+        MigrateLegacyDatabase();
         LuBanOrm.Init();
 
         var dbPath = GetDatabasePath();
@@ -44,7 +29,25 @@ public static class DatabaseInitializer
     /// </summary>
     public static string GetDatabasePath()
     {
-        var dbPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ai_sessions.db");
+        var dbPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "luban-ai-agent.db");
         return Path.GetFullPath(dbPath);
+    }
+
+    private static void MigrateLegacyDatabase()
+    {
+        var legacy = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ai_sessions.db");
+        var current = GetDatabasePath();
+        if (File.Exists(legacy) && !File.Exists(current))
+        {
+            try
+            {
+                File.Move(legacy, current);
+                Console.WriteLine($"数据库已从 {Path.GetFileName(legacy)} 更名为 {Path.GetFileName(current)}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"数据库更名失败: {ex.Message}");
+            }
+        }
     }
 }
