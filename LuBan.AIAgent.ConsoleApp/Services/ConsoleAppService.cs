@@ -39,6 +39,7 @@ public class ConsoleAppService
     private readonly RuleEngine _ruleEngine;
     private readonly MCPRegistry _mcpRegistry;
     private readonly ISessionManager _sessionManager;
+    private readonly IServiceProvider _serviceProvider;
     private readonly Dictionary<string, ICommand> _commands;
     private readonly List<string> _commandHistory;
 
@@ -56,6 +57,7 @@ public class ConsoleAppService
         "/skill",
         "/rule",
         "/mcp",
+        "/rag",
         "/clear",
         "/exit"
     };
@@ -63,19 +65,14 @@ public class ConsoleAppService
     /// <summary>
     /// 创建应用服务实例
     /// </summary>
-    /// <param name="configManager">配置管理器</param>
-    /// <param name="configuration">应用配置</param>
-    /// <param name="skillRegistry">Skill 注册表</param>
-    /// <param name="ruleEngine">规则引擎</param>
-    /// <param name="mcpRegistry">MCP 注册表</param>
-    /// <param name="sessionManager">Session 管理器</param>
     public ConsoleAppService(
         ConfigManager configManager,
         IConfiguration configuration,
         SkillRegistry skillRegistry,
         RuleEngine ruleEngine,
         MCPRegistry mcpRegistry,
-        ISessionManager sessionManager)
+        ISessionManager sessionManager,
+        IServiceProvider serviceProvider)
     {
         _configManager = configManager;
         _configuration = configuration;
@@ -83,6 +80,7 @@ public class ConsoleAppService
         _ruleEngine = ruleEngine;
         _mcpRegistry = mcpRegistry;
         _sessionManager = sessionManager;
+        _serviceProvider = serviceProvider;
         _commands = new Dictionary<string, ICommand>();
         _commandHistory = new List<string>();
 
@@ -103,6 +101,7 @@ public class ConsoleAppService
         RegisterCommand(new SkillCommand(_configManager, _configuration, _skillRegistry));
         RegisterCommand(new RuleCommand(_configManager, _configuration, _ruleEngine));
         RegisterCommand(new MCPCommand(_configManager, _configuration, _mcpRegistry));
+        RegisterCommand(new RagCommand(_configManager, _configuration, _serviceProvider));
         RegisterCommand(new ClearCommand(_configManager, _configuration));
     }
 
