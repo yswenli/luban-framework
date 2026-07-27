@@ -70,7 +70,8 @@ public class ModelManager
             }
             catch (Exception ex)
             {
-                report?.Invoke($"{file.LocalName} 从 {new Uri(baseUrl).Host} 下载失败：{ex.Message}，尝试备用源…");
+                var host = Uri.TryCreate(baseUrl, UriKind.Absolute, out var uri) ? uri.Host : baseUrl;
+                report?.Invoke($"{file.LocalName} 从 {host} 下载失败：{ex.Message}，尝试备用源…");
             }
         }
         return false;

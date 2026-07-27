@@ -22,7 +22,17 @@ public class AsyncReaderWriterLock : IDisposable
         {
             _readCount++;
             if (_readCount == 1)
-                await _writeLock.WaitAsync(cancellationToken);
+            {
+                try
+                {
+                    await _writeLock.WaitAsync(cancellationToken);
+                }
+                catch
+                {
+                    _readCount--;
+                    throw;
+                }
+            }
         }
         finally
         {

@@ -64,6 +64,8 @@ public class OnnxEmbeddingGenerator : IEmbeddingGenerator<string, Embedding<floa
             var encoded = batch.Select(t =>
             {
                 var ids = tokenizer.EncodeToIds(t);
+                if (ids.Count == 0)
+                    return (IReadOnlyList<int>)new List<int> { 0 };
                 if (ids.Count > MaxTokens)
                     ids = ids.Take(MaxTokens - 1).Append(ids[^1]).ToList();
                 return (IReadOnlyList<int>)ids;
@@ -89,7 +91,10 @@ public class OnnxEmbeddingGenerator : IEmbeddingGenerator<string, Embedding<floa
                 inputs.Add(NamedOnnxValue.CreateFromTensor("token_type_ids", new DenseTensor<long>(tokenTypes, dims)));
 
             using var outputs = session.Run(inputs);
-            var hidden = outputs.First(o => o.Name == session.OutputNames[0]).AsTensor<float>();
+            var outputName = session.OutputNames.Count > 0 ? session.OutputNames[0] : null;
+            var hidden = outputs.FirstOrDefault(o => o.Name == outputName)?.AsTensor<float>();
+            if (hidden == null)
+                throw new InvalidOperationException($"模型输出 '{outputName}' 不存在或类型不匹配");
             int hiddenDim = hidden.Dimensions[2];
             for (int i = 0; i < batch.Length; i++)
             {

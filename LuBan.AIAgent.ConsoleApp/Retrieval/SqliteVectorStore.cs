@@ -141,8 +141,10 @@ public class SqliteVectorStore : IVectorStore
         var first = await _chunks.AsQueryable().Where(c => !c.IsDelete).OrderBy(c => c.Id).FirstAsync();
         return new StoreStats
         {
-            FileCount = fileCount, ChunkCount = chunkCount,
-            ModelId = first?.ModelId,             Dimension = first != null ? first.Vector.Length / sizeof(float) : 0
+            FileCount = fileCount,
+            ChunkCount = chunkCount,
+            ModelId = first?.ModelId,
+            Dimension = first != null ? first.Vector.Length / sizeof(float) : 0
         };
     }
 }
