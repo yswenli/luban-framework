@@ -49,8 +49,8 @@ Console.WriteLine(response.Text);
 
 ## Installation
 
-```xml
-<PackageReference Include="LuBan.AIAgent" Version="*" />
+```bash
+dotnet add package LuBan.AIAgent
 ```
 
 Install Playwright browsers (required for browser tools):

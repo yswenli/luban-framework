@@ -1,13 +1,3 @@
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Net.Http;
-using System.Reflection;
-using System.Text.Json;
-using LuBan.AIAgent.Abstractions;
-using LuBan.AIAgent.Configuration;
-using Microsoft.Extensions.AI;
-using Microsoft.Extensions.Options;
-
 namespace LuBan.AIAgent.Tools.Web;
 
 /// <summary>
@@ -108,6 +98,9 @@ public class WebToolGroup : IDisposable
         });
     }
 
+    /// <summary>
+    /// 释放 WebToolGroup 占用的 HttpClient 资源。
+    /// </summary>
     public void Dispose()
     {
         _httpClient.Dispose();

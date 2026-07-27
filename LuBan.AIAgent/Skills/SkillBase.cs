@@ -14,9 +14,6 @@
 *描述：Skill 基类，提供通用功能
 *
 *****************************************************************************/
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 
 namespace LuBan.AIAgent.Skills;
 

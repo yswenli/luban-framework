@@ -1,13 +1,26 @@
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using LuBan.AIAgent.Plugins;
-using LuBan.DI;
-using Microsoft.Agents.AI;
-using Microsoft.Extensions.AI;
-using Microsoft.Extensions.Options;
-
+/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net8.0
+*机器名称：WALLE
+*公司名称：Walle
+*命名空间：LuBan.AIAgent
+*文件名： ILuBanAgentFactory
+*版本号： V1.0.0.0
+*唯一标识：5ecf6fa5-aa2a-4957-8be1-bddf447ca821
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2023/12/4 14:21:20
+*描述：LuBan Agent 工厂接口
+*
+*=================================================
+*修改标记
+*修改时间：2023/12/4 14:21:20
+*修改人： yswenli
+*版本号： V1.0.0.0
+*描述：LuBan Agent 工厂接口
+*
+*****************************************************************************/
 namespace LuBan.AIAgent;
 
 /// <summary>

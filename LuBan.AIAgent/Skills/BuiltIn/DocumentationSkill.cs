@@ -14,8 +14,6 @@
 *描述：文档生成 Skill
 *
 *****************************************************************************/
-using System.Collections.Generic;
-using System.Threading.Tasks;
 
 namespace LuBan.AIAgent.Skills.BuiltIn;
 

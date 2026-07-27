@@ -14,13 +14,6 @@
 *描述：文件系统 MCP 客户端（示例实现）
 *
 *****************************************************************************/
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace LuBan.AIAgent.MCP.BuiltIn;
 

@@ -14,8 +14,6 @@
 *描述：规则接口定义
 *
 *****************************************************************************/
-using System.Collections.Generic;
-using System.Threading.Tasks;
 
 namespace LuBan.AIAgent.Rules;
 

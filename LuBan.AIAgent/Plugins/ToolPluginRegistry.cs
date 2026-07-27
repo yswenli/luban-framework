@@ -14,11 +14,7 @@
 *描述：工具插件注册表
 *
 *****************************************************************************/
-using LuBan.AIAgent.Abstractions;
-using LuBan.AIAgent.Configuration;
 
-using Microsoft.Extensions.AI;
-using Microsoft.Extensions.Options;
 
 namespace LuBan.AIAgent.Plugins;
 

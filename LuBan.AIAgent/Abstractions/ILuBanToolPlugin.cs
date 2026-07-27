@@ -1,6 +1,3 @@
-using Microsoft.Extensions.AI;
-using LuBan.AIAgent.Configuration;
-
 namespace LuBan.AIAgent.Abstractions;
 
 /// <summary>

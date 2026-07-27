@@ -49,8 +49,8 @@ Console.WriteLine(response.Text);
 
 ## 安装
 
-```xml
-<PackageReference Include="LuBan.AIAgent" Version="*" />
+```bash
+dotnet add package LuBan.AIAgent
 ```
 
 安装 Playwright 浏览器（使用浏览器工具时需要）：

@@ -45,8 +45,8 @@ var chunks = await client.GetChunksAsync(datasetId, fileId);
 
 ## 安装
 
-```xml
-<PackageReference Include="LuBan.AIFlow" Version="*" />
+```bash
+dotnet add package LuBan.AIFlow
 ```
 
 ## 功能总览

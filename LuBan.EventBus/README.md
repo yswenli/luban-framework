@@ -58,8 +58,8 @@ await eventBus.PublishAsync(new OrderCreatedEvent
 
 ## 安装
 
-```xml
-<PackageReference Include="LuBan.EventBus" Version="*" />
+```bash
+dotnet add package LuBan.EventBus
 ```
 
 ## 功能总览

@@ -1,14 +1,3 @@
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Reflection;
-using System.Text.Json;
-using LuBan.AIAgent.Abstractions;
-using LuBan.AIAgent.Configuration;
-using LuBan.AIAgent.Infrastructure;
-using LuBan.AIAgent.Services;
-using Microsoft.Extensions.AI;
-using Microsoft.Extensions.Options;
-
 namespace LuBan.AIAgent.Tools.Script;
 
 /// <summary>

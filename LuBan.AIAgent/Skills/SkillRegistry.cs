@@ -14,9 +14,6 @@
 *描述：Skill 注册表
 *
 *****************************************************************************/
-using System;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace LuBan.AIAgent.Skills;
 

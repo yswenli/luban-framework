@@ -14,8 +14,6 @@
 *描述：代码审查 Skill
 *
 *****************************************************************************/
-using System.Collections.Generic;
-using System.Threading.Tasks;
 
 namespace LuBan.AIAgent.Skills.BuiltIn;
 

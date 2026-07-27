@@ -14,8 +14,6 @@
 *描述：头脑风暴 Skill - 在实现功能前探索需求和设计
 *
 *****************************************************************************/
-using System.Collections.Generic;
-using System.Threading.Tasks;
 
 namespace LuBan.AIAgent.Skills.BuiltIn;
 

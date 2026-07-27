@@ -1,10 +1,8 @@
-using System.Threading;
-using Microsoft.Playwright;
-using LuBan.AIAgent.Configuration;
-using Microsoft.Extensions.Options;
-
 namespace LuBan.AIAgent.Infrastructure;
 
+/// <summary>
+/// Playwright 浏览器会话管理类，负责初始化浏览器并管理页面生命周期。
+/// </summary>
 public sealed class PlaywrightSession : IAsyncDisposable, IDisposable
 {
     private IPlaywright? _playwright;
@@ -15,11 +13,21 @@ public sealed class PlaywrightSession : IAsyncDisposable, IDisposable
     private bool _disposed;
     private bool _initialized;
 
+    /// <summary>
+    /// 创建 PlaywrightSession 实例。
+    /// </summary>
+    /// <param name="options">LuBan Agent 配置选项。</param>
     public PlaywrightSession(IOptions<LuBanAgentOptions> options)
     {
         _options = options.Value.Tools.Browser;
     }
 
+    /// <summary>
+    /// 获取当前 Playwright 页面实例，若未初始化则自动创建浏览器和页面。
+    /// </summary>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>Playwright 页面实例。</returns>
+    /// <exception cref="InvalidOperationException">Playwright 初始化失败或浏览器启动失败时抛出。</exception>
     public async Task<IPage> GetPageAsync(CancellationToken cancellationToken = default)
     {
         await _lock.WaitAsync(cancellationToken);
@@ -98,6 +106,9 @@ public sealed class PlaywrightSession : IAsyncDisposable, IDisposable
         _initialized = false;
     }
 
+    /// <summary>
+    /// 异步释放 Playwright 会话占用的资源。
+    /// </summary>
     public async ValueTask DisposeAsync()
     {
         if (_disposed) return;
@@ -116,6 +127,9 @@ public sealed class PlaywrightSession : IAsyncDisposable, IDisposable
         _lock.Dispose();
     }
 
+    /// <summary>
+    /// 同步释放 Playwright 会话占用的资源。
+    /// </summary>
     public void Dispose()
     {
         DisposeAsync().AsTask().ConfigureAwait(false).GetAwaiter().GetResult();

@@ -14,10 +14,6 @@
 *描述：路径访问规则
 *
 *****************************************************************************/
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace LuBan.AIAgent.Rules.BuiltIn;
 

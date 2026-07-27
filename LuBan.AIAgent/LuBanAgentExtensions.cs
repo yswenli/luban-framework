@@ -1,19 +1,26 @@
-using System.Linq;
-using System.Reflection;
-using LuBan.AIAgent.Abstractions;
-using LuBan.AIAgent.Configuration;
-using LuBan.AIAgent.Infrastructure;
-using LuBan.AIAgent.MCP;
-using LuBan.AIAgent.MCP.BuiltIn;
-using LuBan.AIAgent.Plugins;
-using LuBan.AIAgent.Rules;
-using LuBan.AIAgent.Rules.BuiltIn;
-using LuBan.AIAgent.Skills;
-using LuBan.AIAgent.Skills.BuiltIn;
-using Microsoft.Extensions.AI;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-
+/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net8.0
+*机器名称：WALLE
+*公司名称：Walle
+*命名空间：LuBan.AIAgent
+*文件名： LuBanAgentExtensions
+*版本号： V1.0.0.0
+*唯一标识：5ecf6fa5-aa2a-4957-8be1-bddf447ca821
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2023/12/4 14:21:20
+*描述：LuBan Agent 服务集合扩展
+*
+*=================================================
+*修改标记
+*修改时间：2023/12/4 14:21:20
+*修改人： yswenli
+*版本号： V1.0.0.0
+*描述：LuBan Agent 服务集合扩展
+*
+*****************************************************************************/
 namespace LuBan.AIAgent;
 
 /// <summary>

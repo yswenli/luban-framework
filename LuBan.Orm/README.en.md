@@ -59,8 +59,8 @@ public class ProductService : BaseService<Product>
 
 ## Installation
 
-```xml
-<PackageReference Include="LuBan.Orm" Version="*" />
+```bash
+dotnet add package LuBan.Orm
 ```
 
 ## Feature Overview

@@ -14,7 +14,6 @@
 *描述：规则基类
 *
 *****************************************************************************/
-using System.Threading.Tasks;
 
 namespace LuBan.AIAgent.Rules;
 

@@ -58,8 +58,8 @@ public class DataCleanupJob : BaseJobService
 
 ## Installation
 
-```xml
-<PackageReference Include="LuBan.Service" Version="*" />
+```bash
+dotnet add package LuBan.Service
 ```
 
 ## Feature Overview
