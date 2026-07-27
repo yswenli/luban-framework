@@ -34,4 +34,9 @@ public class ToolGroupOptions
     /// Web 工具配置
     /// </summary>
     public WebToolOptions Web { get; set; } = new();
+
+    /// <summary>
+    /// 语义检索工具配置
+    /// </summary>
+    public RetrievalToolOptions Retrieval { get; set; } = new();
 }
