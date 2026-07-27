@@ -13,7 +13,7 @@ public class RetrievalToolOptions
     /// <summary>
     /// 嵌入模型标识
     /// </summary>
-    public string ModelId { get; set; } = "bge-small-zh-v1.5";
+    public string ModelId { get; set; } = "all-MiniLM-L6-v2";
 
     /// <summary>
     /// 启动时是否自动下载缺失的模型
