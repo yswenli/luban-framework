@@ -78,6 +78,42 @@ public class SessionRepository : BaseRepository<DbSession>
             .Where(s => s.SessionId == sessionId)
             .ExecuteCommandAsync();
     }
+
+    /// <summary>
+    /// 物理删除全部会话
+    /// </summary>
+    public async Task DeleteAllAsync()
+    {
+        await Context.Deleteable<DbSession>().ExecuteCommandAsync();
+    }
+
+    /// <summary>
+    /// 仅累加 Token（用于摘要消息：token 计入，消息数不计）
+    /// </summary>
+    public async Task IncrementTokenCountAsync(string sessionId, int tokens)
+    {
+        await Context.Updateable<DbSession>()
+            .SetColumns(s => s.TotalTokens == s.TotalTokens + tokens)
+            .SetColumns(s => s.UpdateTime == DateTime.Now)
+            .Where(s => s.SessionId == sessionId)
+            .ExecuteCommandAsync();
+    }
+
+    /// <summary>
+    /// 全局聚合统计
+    /// </summary>
+    public async Task<(int sessions, int messages, long tokens, DateTime? earliest)> GetGlobalStatsAsync(DateTime? since)
+    {
+        var query = AsQueryable().Where(s => !s.IsDelete);
+        if (since.HasValue)
+            query = query.Where(s => s.CreateTime >= since.Value);
+
+        var list = await query.ToListAsync();
+        return (list.Count,
+                list.Sum(s => s.MessageCount),
+                list.Sum(s => (long)s.TotalTokens),
+                list.Count > 0 ? list.Min(s => s.CreateTime) : null);
+    }
 }
 
 /// <summary>
@@ -138,9 +174,12 @@ public class SessionMessageRepository : BaseRepository<DbSessionMessage>
 
         foreach (var stat in stats)
         {
-            total += stat.Count;
             totalTokens += stat.Tokens;
 
+            if (stat.Role == "summary")
+                continue;   // 摘要不计入消息数
+
+            total += stat.Count;
             if (stat.Role == "user")
                 userMsgs = stat.Count;
             else if (stat.Role == "assistant")
@@ -148,5 +187,35 @@ public class SessionMessageRepository : BaseRepository<DbSessionMessage>
         }
 
         return (total, userMsgs, assistantMsgs, totalTokens);
+    }
+
+    /// <summary>
+    /// 获取会话活跃消息（未压缩，含摘要消息）
+    /// </summary>
+    public async Task<List<DbSessionMessage>> GetActiveMessagesAsync(string sessionId)
+    {
+        return await AsQueryable()
+            .Where(m => m.SessionId == sessionId && !m.IsCompacted)
+            .OrderBy(m => m.CreateTime, OrderByType.Asc)
+            .ToListAsync();
+    }
+
+    /// <summary>
+    /// 标记消息为已压缩
+    /// </summary>
+    public async Task MarkCompactedAsync(string sessionId, IEnumerable<long> ids)
+    {
+        await Context.Updateable<DbSessionMessage>()
+            .SetColumns(m => m.IsCompacted == true)
+            .Where(m => m.SessionId == sessionId && ids.Contains(m.Id))
+            .ExecuteCommandAsync();
+    }
+
+    /// <summary>
+    /// 物理删除全部消息
+    /// </summary>
+    public async Task DeleteAllAsync()
+    {
+        await Context.Deleteable<DbSessionMessage>().ExecuteCommandAsync();
     }
 }

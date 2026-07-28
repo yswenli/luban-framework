@@ -134,12 +134,23 @@ public class SessionManager : ISessionManager
         var id = await _messageRepo.InsertReturnIdentityAsync(message);
         message.Id = id;
 
-        await _sessionRepo.IncrementMessageCountAsync(sessionId, tokens ?? 0);
-
-        if (_currentSession?.SessionId == sessionId)
+        if (role == "summary")
         {
-            _currentSession.MessageCount++;
-            _currentSession.TotalTokens += tokens ?? 0;
+            // 摘要消息：token 计入，消息数不计
+            await _sessionRepo.IncrementTokenCountAsync(sessionId, tokens ?? 0);
+            if (_currentSession?.SessionId == sessionId)
+            {
+                _currentSession.TotalTokens += tokens ?? 0;
+            }
+        }
+        else
+        {
+            await _sessionRepo.IncrementMessageCountAsync(sessionId, tokens ?? 0);
+            if (_currentSession?.SessionId == sessionId)
+            {
+                _currentSession.MessageCount++;
+                _currentSession.TotalTokens += tokens ?? 0;
+            }
         }
 
         return ToSessionMessage(message);
@@ -191,6 +202,55 @@ public class SessionManager : ISessionManager
     public async Task SetCurrentSessionAsync(string sessionId)
     {
         _currentSession = await GetSessionAsync(sessionId);
+    }
+
+    /// <summary>
+    /// 物理删除全部会话及消息数据
+    /// </summary>
+    public async Task ClearAllSessionsAsync()
+    {
+        await _messageRepo.DeleteAllAsync();
+        await _sessionRepo.DeleteAllAsync();
+        _currentSession = null;
+    }
+
+    /// <summary>
+    /// 获取全局会话统计
+    /// </summary>
+    public async Task<GlobalSessionStats> GetGlobalStatsAsync(int? days = null)
+    {
+        var since = days.HasValue ? DateTime.Now.AddDays(-days.Value) : (DateTime?)null;
+        var (sessions, messages, tokens, earliest) = await _sessionRepo.GetGlobalStatsAsync(since);
+
+        var spanDays = days ?? (earliest.HasValue
+            ? Math.Max(1, (int)(DateTime.Now - earliest.Value).TotalDays + 1)
+            : 1);
+
+        return new GlobalSessionStats
+        {
+            TotalSessions = sessions,
+            TotalMessages = messages,
+            TotalTokens = tokens,
+            Days = spanDays,
+            AverageDailyTokens = spanDays > 0 ? tokens / (double)spanDays : 0
+        };
+    }
+
+    /// <summary>
+    /// 获取会话的活跃消息（未被压缩的）
+    /// </summary>
+    public async Task<IEnumerable<SessionMessage>> GetActiveMessagesAsync(string sessionId)
+    {
+        var messages = await _messageRepo.GetActiveMessagesAsync(sessionId);
+        return messages.Select(ToSessionMessage);
+    }
+
+    /// <summary>
+    /// 将指定消息标记为已压缩
+    /// </summary>
+    public async Task MarkMessagesCompactedAsync(string sessionId, IEnumerable<long> messageIds)
+    {
+        await _messageRepo.MarkCompactedAsync(sessionId, messageIds);
     }
 
     /// <summary>
