@@ -21,7 +21,7 @@
 │ LuBan.AIAgent.CLI                                           │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│  [Header - PrintName() 输出]                                │
+│  [Header - GetLBFName() 输出]                               │
 │                                                             │
 ├──────────┬──────────────────────────────────────────────────┤
 │ Session  │  [Display Area - 滚动显示区]                     │
@@ -48,7 +48,7 @@
 - `StatusBar` + `StatusItem` - 底部状态栏
 
 **布局计算：**
-- Header：固定高度约 6 行（PrintName 输出实际高度，非 1/5 比例）
+- Header：固定高度约 6 行（GetLBFName() 输出实际高度，非 1/5 比例）
 - 左侧面板：固定宽度（Console.WindowWidth / 5）
 - 右侧显示区：占据 Header 和 InputArea 之间的剩余空间
 - 右侧输入区：固定高度 5 行
@@ -72,10 +72,9 @@ Program.Main()
 - 无需显式 `/chat` 命令进入对话模式，默认即为对话模式
 - 输入 `/` 开头的命令时，走命令分发逻辑（如 `/session`、`/skill` 等）
 
-**PrintName() 输出捕获：**
-- 修改 `ConsoleUtil.PrintName()` 支持返回字符串而非直接输出
-- 或使用 `Console.SetOut()` 重定向输出到 `StringWriter`，捕获后清空
-- HeaderView 显示捕获的文本内容
+**HeaderView 输出：**
+- 使用 `ConsoleUtil.GetLBFName()` 获取 LuBan Framework 名称字符串
+- 该方法是纯函数，返回字符串而非直接输出，适合 TUI 场景
 
 **核心类结构：**
 
