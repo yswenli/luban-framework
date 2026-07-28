@@ -676,7 +676,7 @@ public static class ConsoleUtil
                     if (matches.Count > 0)
                     {
                         var match = matches[0];
-                        ClearCurrentLine(prompt.Length, input.Length);
+                        ClearCurrentLine(prompt, input.ToString());
                         input.Clear();
                         input.Append(match);
                         Console.Write(prompt);
@@ -693,7 +693,7 @@ public static class ConsoleUtil
                         savedInput = input.ToString();
                     }
                     historyIndex--;
-                    ClearCurrentLine(prompt.Length, input.Length);
+                    ClearCurrentLine(prompt, input.ToString());
                     input.Clear();
                     input.Append(history[historyIndex]);
                     Console.Write(prompt);
@@ -705,7 +705,7 @@ public static class ConsoleUtil
                 if (history != null && historyIndex < history.Count)
                 {
                     historyIndex++;
-                    ClearCurrentLine(prompt.Length, input.Length);
+                    ClearCurrentLine(prompt, input.ToString());
                     input.Clear();
                     if (historyIndex < history.Count)
                     {
@@ -731,7 +731,7 @@ public static class ConsoleUtil
             }
             else if (keyInfo.Key == ConsoleKey.Escape)
             {
-                ClearCurrentLine(prompt.Length, input.Length);
+                ClearCurrentLine(prompt, input.ToString());
                 input.Clear();
                 Console.Write(prompt);
             }
@@ -746,11 +746,38 @@ public static class ConsoleUtil
     /// <summary>
     /// 清除当前行
     /// </summary>
-    private static void ClearCurrentLine(int promptLength, int inputLength)
+    private static void ClearCurrentLine(string prompt, string input)
     {
-        Console.Write(new string('\b', promptLength + inputLength));
-        Console.Write(new string(' ', promptLength + inputLength));
-        Console.Write(new string('\b', promptLength + inputLength));
+        var totalLength = GetVisualWidth(prompt) + GetVisualWidth(input);
+        Console.Write("\r" + new string(' ', totalLength) + "\r");
+    }
+
+    /// <summary>
+    /// 计算字符串的视觉宽度（中文字符算2，其他算1）
+    /// </summary>
+    private static int GetVisualWidth(string? str)
+    {
+        if (string.IsNullOrEmpty(str)) return 0;
+        int width = 0;
+        foreach (var c in str)
+        {
+            width += IsWideChar(c) ? 2 : 1;
+        }
+        return width;
+    }
+
+    /// <summary>
+    /// 判断字符是否为宽字符（中文、日文、韩文等）
+    /// </summary>
+    private static bool IsWideChar(char c)
+    {
+        return (c >= 0x4E00 && c <= 0x9FFF) ||   // CJK Unified Ideographs
+               (c >= 0x3400 && c <= 0x4DBF) ||   // CJK Unified Ideographs Extension A
+               (c >= 0x3000 && c <= 0x303F) ||   // CJK Symbols and Punctuation
+               (c >= 0xFF00 && c <= 0xFFEF) ||   // Halfwidth and Fullwidth Forms
+               (c >= 0x3040 && c <= 0x309F) ||   // Hiragana
+               (c >= 0x30A0 && c <= 0x30FF) ||   // Katakana
+               (c >= 0xAC00 && c <= 0xD7AF);     // Hangul Syllables
     }
 
     /// <summary>
