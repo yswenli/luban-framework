@@ -48,10 +48,10 @@
 - `StatusBar` + `StatusItem` - 底部状态栏
 
 **布局计算：**
-- Header：固定高度（PrintName 输出约 6 行）
+- Header：固定高度约 6 行（PrintName 输出实际高度，非 1/5 比例）
 - 左侧面板：固定宽度（Console.WindowWidth / 5）
-- 右侧显示区：占据剩余高度的 4/5
-- 右侧输入区：固定高度（5 行）
+- 右侧显示区：占据 Header 和 InputArea 之间的剩余空间
+- 右侧输入区：固定高度 5 行
 - StatusBar：固定 1 行
 
 ## 核心组件与交互逻辑
@@ -72,9 +72,10 @@ ConsoleApp/
 **多行输入实现：**
 - 使用 `TextView` 控件，设置 `Height = 5`
 - 拦截 `KeyDown` 事件：
-  - `Enter` + `Shift` → 插入换行
-  - `Enter`（无 Shift）→ 触发发送
+  - `Enter` + `Shift` → 插入换行符（`\n`）
+  - `Enter`（无 Shift）→ 触发发送，清空输入框
   - `Ctrl+C` → 取消当前操作
+- 注意：Terminal.Gui TextView 默认 Enter 换行，需要覆盖默认行为
 
 **显示区更新机制：**
 - `DisplayView` 使用 `TextView`（只读模式）
@@ -89,7 +90,7 @@ ConsoleApp/
 
 **状态栏动态更新：**
 - 模型信息：从 `ConfigManager.SelectedModel` 读取
-- 连接状态：定期 ping API 或使用缓存状态
+- 连接状态：每次发送消息前检查连接，失败时更新状态栏
 - 快捷键提示：静态文本
 
 **快捷键处理：**
