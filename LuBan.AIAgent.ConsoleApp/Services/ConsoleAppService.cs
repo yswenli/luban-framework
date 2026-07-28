@@ -96,7 +96,7 @@ public class ConsoleAppService
         RegisterCommand(new ListCommand(_configManager, _configuration));
         RegisterCommand(new SelectCommand(_configManager, _configuration));
         RegisterCommand(new BrowseCommand(_configManager, _configuration, TryExecuteCommandAsync));
-        RegisterCommand(new ChatCommand(_configManager, _configuration, _sessionManager, TryExecuteCommandAsync));
+        RegisterCommand(new ChatCommand(_configManager, _configuration, _sessionManager, _serviceProvider, TryExecuteCommandAsync));
         RegisterCommand(new SessionCommand(_configManager, _configuration, _sessionManager));
         RegisterCommand(new SkillCommand(_configManager, _configuration, _skillRegistry));
         RegisterCommand(new RuleCommand(_configManager, _configuration, _ruleEngine));

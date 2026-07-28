@@ -34,6 +34,7 @@ namespace LuBan.AIAgent.ConsoleApp.Commands;
 public class ChatCommand : CommandBase
 {
     private readonly ISessionManager _sessionManager;
+    private readonly IServiceProvider _serviceProvider;
     private readonly Func<string, Task<bool>>? _executeCommandAsync;
 
     /// <summary>
@@ -49,10 +50,11 @@ public class ChatCommand : CommandBase
     /// <summary>
     /// 创建命令实例
     /// </summary>
-    public ChatCommand(ConfigManager configManager, IConfiguration configuration, ISessionManager sessionManager, Func<string, Task<bool>>? executeCommandAsync = null)
+    public ChatCommand(ConfigManager configManager, IConfiguration configuration, ISessionManager sessionManager, IServiceProvider serviceProvider, Func<string, Task<bool>>? executeCommandAsync = null)
         : base(configManager, configuration)
     {
         _sessionManager = sessionManager;
+        _serviceProvider = serviceProvider;
         _executeCommandAsync = executeCommandAsync;
     }
 
@@ -75,7 +77,9 @@ public class ChatCommand : CommandBase
             Console.WriteLine($"已创建新会话: {currentSession.SessionId}");
         }
 
-        using var serviceProvider = BuildServiceProvider();
+        // 使用注入的 ServiceProvider，而不是创建新的
+        // 这样可以确保所有服务（包括 IRetrievalService）都可用
+        var serviceProvider = _serviceProvider;
 
         Console.WriteLine();
         Console.WriteLine("可用工具: 文件系统、脚本执行、浏览器、数据库、Redis、Web请求");
@@ -144,7 +148,7 @@ public class ChatCommand : CommandBase
 
 请立即使用工具来帮助用户完成任务。");
 
-            Console.WriteLine("✓ 已加载 6 个工具插件（文件系统、脚本、浏览器、数据库、Redis、Web）");
+            Console.WriteLine("✓ 工具插件已加载（根据 appsettings.json 配置启用）");
             Console.WriteLine();
 
             await RunChatLoop(agent);
