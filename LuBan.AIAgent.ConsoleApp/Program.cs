@@ -37,8 +37,9 @@ class Program
         {
             var sessionManager = serviceProvider.GetRequiredService<ISessionManager>();
             var configManager = serviceProvider.GetRequiredService<ConfigManager>();
+            var consoleAppService = serviceProvider.GetRequiredService<ConsoleAppService>();
             
-            var mainView = new MainView(sessionManager, configManager, serviceProvider);
+            var mainView = new MainView(sessionManager, configManager, serviceProvider, consoleAppService);
             
             Application.Run(mainView);
         }

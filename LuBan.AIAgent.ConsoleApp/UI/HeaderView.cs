@@ -8,23 +8,23 @@ namespace LuBan.AIAgent.ConsoleApp.UI;
 /// </summary>
 public class HeaderView : View
 {
+    private readonly string[] _lines;
+
     public HeaderView()
     {
         Height = 6;
         CanFocus = false;
+        _lines = ConsoleUtil.GetLBFName().Split('\n');
     }
 
     public override void Redraw(Rect bounds)
     {
         base.Redraw(bounds);
         
-        var name = ConsoleUtil.GetLBFName();
-        var lines = name.Split('\n');
-        
-        for (int i = 0; i < Math.Min(lines.Length, 6); i++)
+        for (int i = 0; i < Math.Min(_lines.Length, 6); i++)
         {
             Move(0, i);
-            Driver.AddStr(lines[i]);
+            Driver.AddStr(_lines[i]);
         }
     }
 }
