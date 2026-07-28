@@ -18,39 +18,73 @@
 namespace LuBan.AIAgent.Skills;
 
 /// <summary>
-/// Skill 注册表，管理所有可用的 Skill
+/// Skill 注册表，管理所有可用的 Skill（内置 + 自定义，惰性合并）
 /// </summary>
 public class SkillRegistry
 {
-    private readonly Dictionary<string, ISkill> _skills = new();
+    private readonly Dictionary<string, ISkill> _builtinSkills = new();
+    private readonly Configuration.ConfigManager? _configManager;
 
     /// <summary>
     /// 创建 SkillRegistry 实例
     /// </summary>
-    /// <param name="skills">所有注册的 Skill</param>
-    public SkillRegistry(IEnumerable<ISkill> skills)
+    /// <param name="skills">DI 注册的内置 Skill</param>
+    /// <param name="configManager">配置管理器（可选，无则只有内置）</param>
+    public SkillRegistry(IEnumerable<ISkill> skills, Configuration.ConfigManager? configManager = null)
     {
         foreach (var skill in skills)
         {
-            _skills[skill.Id] = skill;
+            _builtinSkills[skill.Id] = skill;
+        }
+        _configManager = configManager;
+    }
+
+    private IEnumerable<ISkill> GetMerged()
+    {
+        var disabledBuiltin = _configManager?.DisabledBuiltinSkills;
+        foreach (var (id, skill) in _builtinSkills)
+        {
+            if (disabledBuiltin?.Contains(id.ToLowerInvariant()) == true)
+                continue;
+            yield return skill;
+        }
+
+        if (_configManager != null)
+        {
+            foreach (var cfg in _configManager.CustomSkills.Where(c => c.Enabled))
+            {
+                yield return new CustomSkill(cfg);
+            }
         }
     }
 
     /// <summary>
     /// 获取所有 Skill
     /// </summary>
-    public IReadOnlyList<ISkill> GetAll() => _skills.Values.ToList();
+    public IReadOnlyList<ISkill> GetAll() => GetMerged().ToList();
 
     /// <summary>
     /// 根据分类获取 Skill
     /// </summary>
     public IReadOnlyList<ISkill> GetByCategory(string category)
-        => _skills.Values.Where(s => s.Category.Equals(category, StringComparison.OrdinalIgnoreCase)).ToList();
+        => GetMerged().Where(s => s.Category.Equals(category, StringComparison.OrdinalIgnoreCase)).ToList();
 
     /// <summary>
     /// 根据 ID 获取 Skill
     /// </summary>
-    public ISkill? Get(string id) => _skills.TryGetValue(id, out var skill) ? skill : null;
+    public ISkill? Get(string id)
+    {
+        id = id.ToLowerInvariant();
+        if (_configManager?.DisabledBuiltinSkills.Contains(id) != true
+            && _builtinSkills.TryGetValue(id, out var builtin))
+        {
+            return builtin;
+        }
+
+        var custom = _configManager?.CustomSkills
+            .FirstOrDefault(c => c.Id == id && c.Enabled);
+        return custom != null ? new CustomSkill(custom) : null;
+    }
 
     /// <summary>
     /// 搜索 Skill
@@ -60,7 +94,7 @@ public class SkillRegistry
         if (string.IsNullOrWhiteSpace(keyword))
             return GetAll();
 
-        return _skills.Values
+        return GetMerged()
             .Where(s => s.Name.Contains(keyword, StringComparison.OrdinalIgnoreCase) ||
                        s.Description.Contains(keyword, StringComparison.OrdinalIgnoreCase))
             .ToList();
@@ -70,5 +104,5 @@ public class SkillRegistry
     /// 获取所有分类
     /// </summary>
     public IReadOnlyList<string> GetCategories()
-        => _skills.Values.Select(s => s.Category).Distinct().ToList();
+        => GetMerged().Select(s => s.Category).Distinct().ToList();
 }
