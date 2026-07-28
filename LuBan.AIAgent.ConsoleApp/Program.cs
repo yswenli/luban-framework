@@ -2,6 +2,7 @@
 using LuBan.AIAgent.ConsoleApp.Infrastructure;
 using LuBan.AIAgent.ConsoleApp.Retrieval;
 using LuBan.AIAgent.ConsoleApp.Services;
+using LuBan.AIAgent.ConsoleApp.UI;
 using LuBan.AIAgent.Retrieval;
 using LuBan.AIAgent.Sessions;
 using LuBan.Common;
@@ -9,6 +10,7 @@ using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Terminal.Gui;
 
 namespace LuBan.AIAgent.ConsoleApp;
 
@@ -22,16 +24,28 @@ class Program
     /// </summary>
     static async Task Main(string[] args)
     {
-        ConsoleUtil.PrintName();
-
         DatabaseInitializer.Initialize();
 
         var configuration = BuildConfiguration(args);
         var (embedder, modelManager) = await PrepareRetrievalAsync(configuration);
+
         using var serviceProvider = BuildServiceProvider(configuration, embedder, modelManager);
 
-        var appService = serviceProvider.GetRequiredService<ConsoleAppService>();
-        await appService.RunAsync();
+        Application.Init();
+        
+        try
+        {
+            var sessionManager = serviceProvider.GetRequiredService<ISessionManager>();
+            var configManager = serviceProvider.GetRequiredService<ConfigManager>();
+            
+            var mainView = new MainView(sessionManager, configManager, serviceProvider);
+            
+            Application.Run(mainView);
+        }
+        finally
+        {
+            Application.Shutdown();
+        }
     }
 
     private static IConfiguration BuildConfiguration(string[] args)
@@ -56,15 +70,16 @@ class Program
         }
         var mm = new ModelManager(spec);
         if (mm.IsModelReady()) return (new OnnxEmbeddingGenerator(mm.ModelDirectory, spec), mm);
-        var ok = await ConsoleUtil.RunWithStatusAsync<bool>(
-            async (update, ct) => await mm.EnsureModelAsync(update, ct),
-            "准备嵌入模型…");
+        
+        Console.WriteLine("准备嵌入模型...");
+        var ok = await mm.EnsureModelAsync(
+            (progress) => Console.Write($"\r进度: {progress:P0}"),
+            CancellationToken.None);
+        
         if (!ok || !mm.IsModelReady())
         {
             Console.WriteLine();
-            Console.WriteLine($"嵌入模型 {spec.ModelId} 未就绪，检索功能已禁用（不影响其他功能）");
-            Console.WriteLine($"请将模型包放到: {mm.LocalZipPath}");
-            Console.WriteLine();
+            Console.WriteLine($"嵌入模型 {spec.ModelId} 未就绪，检索功能已禁用");
             return (null, null);
         }
         return (new OnnxEmbeddingGenerator(mm.ModelDirectory, spec), mm);
@@ -80,7 +95,6 @@ class Program
         configManager.Load();
         services.AddSingleton(configManager);
 
-        // 注册 IChatClient，使用 ConfigManager 动态创建
         services.AddScoped<IChatClient>(sp =>
         {
             var cm = sp.GetRequiredService<ConfigManager>();
