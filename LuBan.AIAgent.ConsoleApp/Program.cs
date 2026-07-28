@@ -80,6 +80,13 @@ class Program
         configManager.Load();
         services.AddSingleton(configManager);
 
+        // 注册 IChatClient，使用 ConfigManager 动态创建
+        services.AddScoped<IChatClient>(sp =>
+        {
+            var cm = sp.GetRequiredService<ConfigManager>();
+            return cm.CreateChatClient();
+        });
+
         services.AddLuBanAgent(configuration);
 
         services.AddSingleton<ISessionManager, SessionManager>();
