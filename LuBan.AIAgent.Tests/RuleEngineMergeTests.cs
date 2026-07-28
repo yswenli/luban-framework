@@ -96,5 +96,40 @@ public class RuleEngineMergeTests
 
         var rules = engine.GetAllRules();
         Assert.AreEqual("high", rules[0].Id);
+        Assert.AreEqual("low", rules[1].Id);
+    }
+
+    [TestMethod]
+    public void GetAllRules_DuplicateId_BuiltinWins()
+    {
+        var cm = new ConfigManager(_tempPath);
+        cm.AddCustomRule(new CustomRuleConfig { Id = "builtin-rule", Name = "同名自定义" });
+        var engine = new RuleEngine(new IRule[] { new FakeBuiltinRule() }, cm);
+
+        var rules = engine.GetAllRules();
+        Assert.AreEqual(1, rules.Count);
+        Assert.AreEqual("内置规则", rules[0].Name);
+    }
+
+    [TestMethod]
+    public void GetAllRules_DisabledCustom_StillListed()
+    {
+        var cm = new ConfigManager(_tempPath);
+        cm.AddCustomRule(new CustomRuleConfig { Id = "cr1", Name = "自定义规则" });
+        cm.SetCustomRuleEnabled("cr1", false);
+        var engine = new RuleEngine(Array.Empty<IRule>(), cm);
+
+        Assert.AreEqual(1, engine.GetAllRules().Count);
+        Assert.IsFalse(engine.GetAllRules()[0].IsEnabled);
+    }
+
+    [TestMethod]
+    public void GetRule_CaseInsensitive()
+    {
+        var cm = new ConfigManager(_tempPath);
+        cm.AddCustomRule(new CustomRuleConfig { Id = "cr1", Name = "自定义规则" });
+        var engine = new RuleEngine(Array.Empty<IRule>(), cm);
+
+        Assert.IsNotNull(engine.GetRule("CR1"));
     }
 }

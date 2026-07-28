@@ -46,8 +46,7 @@ public class RuleEngine
     {
         var disabledBuiltin = _configManager?.DisabledBuiltinRules;
         var merged = _builtinRules
-            .Where(r => disabledBuiltin?.Contains(r.Id.ToLowerInvariant()) != true)
-            .Cast<IRule>();
+            .Where(r => disabledBuiltin?.Contains(r.Id.ToLowerInvariant()) != true);
 
         if (_configManager != null)
         {
@@ -73,7 +72,7 @@ public class RuleEngine
     /// <summary>
     /// 根据规则 ID 获取规则
     /// </summary>
-    public IRule? GetRule(string id) => GetMerged().FirstOrDefault(r => r.Id == id);
+    public IRule? GetRule(string id) => GetMerged().FirstOrDefault(r => r.Id == id.ToLowerInvariant());
 
     /// <summary>
     /// 评估规则
