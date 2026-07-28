@@ -116,4 +116,46 @@ public class ConfigManagerTests
         Assert.ThrowsException<InvalidOperationException>(() =>
             cm.AddMcpServer(new McpServerConfig { Name = "fs", Command = "node" }));
     }
+
+    [TestMethod]
+    public void CustomSkill_Update_PersistsAndReloads()
+    {
+        var cm = new ConfigManager(_tempPath);
+        cm.AddCustomSkill(new CustomSkillConfig { Id = "s1", Name = "a", PromptTemplate = "old" });
+        cm.UpdateCustomSkill(new CustomSkillConfig { Id = "s1", Name = "b", Description = "d2", PromptTemplate = "new" });
+
+        var cm2 = new ConfigManager(_tempPath);
+        cm2.Load();
+
+        Assert.AreEqual(1, cm2.CustomSkills.Count);
+        Assert.AreEqual("b", cm2.CustomSkills[0].Name);
+        Assert.AreEqual("d2", cm2.CustomSkills[0].Description);
+        Assert.AreEqual("new", cm2.CustomSkills[0].PromptTemplate);
+    }
+
+    [TestMethod]
+    public void CustomSkill_SetEnabled_PersistsAndReloads()
+    {
+        var cm = new ConfigManager(_tempPath);
+        cm.AddCustomSkill(new CustomSkillConfig { Id = "s1", Name = "a" });
+        cm.SetCustomSkillEnabled("s1", false);
+
+        var cm2 = new ConfigManager(_tempPath);
+        cm2.Load();
+
+        Assert.AreEqual(1, cm2.CustomSkills.Count);
+        Assert.IsFalse(cm2.CustomSkills[0].Enabled);
+    }
+
+    [TestMethod]
+    public void BuiltinRule_SetEnabled_PersistsAndReloads()
+    {
+        var cm = new ConfigManager(_tempPath);
+        cm.SetBuiltinRuleEnabled("path-access", false);
+
+        var cm2 = new ConfigManager(_tempPath);
+        cm2.Load();
+
+        Assert.IsTrue(cm2.DisabledBuiltinRules.Contains("path-access"));
+    }
 }

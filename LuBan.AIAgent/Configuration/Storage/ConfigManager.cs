@@ -236,6 +236,7 @@ public class ConfigManager
     /// 更新自定义 Skill
     /// </summary>
     /// <param name="skill">Skill 配置</param>
+    /// <remarks>不更新 Enabled 状态，请使用 SetCustomSkillEnabled</remarks>
     public void UpdateCustomSkill(CustomSkillConfig skill)
     {
         ArgumentNullException.ThrowIfNull(skill);
@@ -309,6 +310,7 @@ public class ConfigManager
     /// 更新自定义规则
     /// </summary>
     /// <param name="rule">规则配置</param>
+    /// <remarks>不更新 Enabled 状态，请使用 SetCustomRuleEnabled</remarks>
     public void UpdateCustomRule(CustomRuleConfig rule)
     {
         ArgumentNullException.ThrowIfNull(rule);
@@ -383,6 +385,7 @@ public class ConfigManager
     /// 更新外部 MCP 服务器
     /// </summary>
     /// <param name="server">服务器配置</param>
+    /// <remarks>不更新 Enabled 状态，请使用 SetMcpServerEnabled</remarks>
     public void UpdateMcpServer(McpServerConfig server)
     {
         ArgumentNullException.ThrowIfNull(server);
@@ -390,6 +393,7 @@ public class ConfigManager
         if (existing == null)
             throw new InvalidOperationException($"MCP 服务器 '{server.Name}' 不存在");
         existing.Description = server.Description;
+        existing.Transport = server.Transport;
         existing.Command = server.Command;
         existing.Args = server.Args;
         Save();
