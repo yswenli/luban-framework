@@ -56,6 +56,27 @@
 
 ## 核心组件与交互逻辑
 
+**Terminal.Gui 初始化流程：**
+```
+Program.Main()
+  ├── DatabaseInitializer.Initialize()  # 保留现有初始化
+  ├── Application.Init()                # 初始化 Terminal.Gui
+  ├── new MainView()                    # 创建主视图
+  ├── Application.Run(mainView)         # 进入主循环
+  └── Application.Shutdown()            # 退出清理
+```
+
+**主循环流程变更：**
+- **旧流程**：显示命令菜单 → 用户输入 `/chat` → 进入对话模式
+- **新流程**：直接进入 TUI 主界面 → 用户直接输入对话或 `/` 命令
+- 无需显式 `/chat` 命令进入对话模式，默认即为对话模式
+- 输入 `/` 开头的命令时，走命令分发逻辑（如 `/session`、`/skill` 等）
+
+**PrintName() 输出捕获：**
+- 修改 `ConsoleUtil.PrintName()` 支持返回字符串而非直接输出
+- 或使用 `Console.SetOut()` 重定向输出到 `StringWriter`，捕获后清空
+- HeaderView 显示捕获的文本内容
+
 **核心类结构：**
 
 ```
@@ -98,6 +119,12 @@ ConsoleApp/
 - `F2` → 打开会话切换对话框
 - `F10` 或 `Ctrl+Q` → 退出程序
 - `Ctrl+L` → 清屏（清空显示区）
+
+**资源清理（退出时）：**
+- 保存当前会话数据到数据库
+- 取消正在进行的 Agent 调用
+- 关闭 Terminal.Gui：`Application.Shutdown()`
+- 恢复控制台设置（如有修改）
 
 ## 数据流与集成
 
