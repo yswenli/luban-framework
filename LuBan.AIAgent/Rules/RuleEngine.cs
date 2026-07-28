@@ -18,35 +18,62 @@
 namespace LuBan.AIAgent.Rules;
 
 /// <summary>
-/// 规则引擎 - 管理和执行规则
+/// 规则引擎 - 管理和执行规则（内置 + 自定义，惰性合并）
 /// </summary>
+/// <remarks>
+/// 内置规则构造时缓存，自定义规则每次读取时从 ConfigManager 实时合并；
+/// 内置与自定义 Id 冲突时内置优先（冲突项在合并时被跳过）。
+/// </remarks>
 public class RuleEngine
 {
-    private readonly List<IRule> _rules;
+    private readonly List<IRule> _builtinRules;
+    private readonly HashSet<string> _builtinIds;
+    private readonly Configuration.ConfigManager? _configManager;
 
     /// <summary>
     /// 创建规则引擎实例
     /// </summary>
-    /// <param name="rules">所有注册的规则</param>
-    public RuleEngine(IEnumerable<IRule> rules)
+    /// <param name="rules">DI 注册的内置规则</param>
+    /// <param name="configManager">配置管理器（可选，无则只有内置）</param>
+    public RuleEngine(IEnumerable<IRule> rules, Configuration.ConfigManager? configManager = null)
     {
-        _rules = rules.OrderByDescending(r => r.Priority).ToList();
+        _builtinRules = rules.ToList();
+        _builtinIds = _builtinRules.Select(r => r.Id.ToLowerInvariant()).ToHashSet();
+        _configManager = configManager;
+    }
+
+    private List<IRule> GetMerged()
+    {
+        var disabledBuiltin = _configManager?.DisabledBuiltinRules;
+        var merged = _builtinRules
+            .Where(r => disabledBuiltin?.Contains(r.Id.ToLowerInvariant()) != true)
+            .Cast<IRule>();
+
+        if (_configManager != null)
+        {
+            merged = merged.Concat(
+                _configManager.CustomRules
+                    .Where(c => !_builtinIds.Contains(c.Id.ToLowerInvariant()))
+                    .Select(c => new CustomRule(c)));
+        }
+
+        return merged.OrderByDescending(r => r.Priority).ToList();
     }
 
     /// <summary>
     /// 获取所有规则
     /// </summary>
-    public IReadOnlyList<IRule> GetAllRules() => _rules;
+    public IReadOnlyList<IRule> GetAllRules() => GetMerged();
 
     /// <summary>
     /// 获取启用的规则
     /// </summary>
-    public IReadOnlyList<IRule> GetEnabledRules() => _rules.Where(r => r.IsEnabled).ToList();
+    public IReadOnlyList<IRule> GetEnabledRules() => GetMerged().Where(r => r.IsEnabled).ToList();
 
     /// <summary>
     /// 根据规则 ID 获取规则
     /// </summary>
-    public IRule? GetRule(string id) => _rules.FirstOrDefault(r => r.Id == id);
+    public IRule? GetRule(string id) => GetMerged().FirstOrDefault(r => r.Id == id);
 
     /// <summary>
     /// 评估规则
