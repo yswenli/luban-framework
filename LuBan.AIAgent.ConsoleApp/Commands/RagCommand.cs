@@ -47,7 +47,7 @@ public class RagCommand : CommandBase
         Console.WriteLine("  1. index    - 索引目录");
         Console.WriteLine("  2. search   - 语义搜索");
         Console.WriteLine("  3. stats    - 索引统计");
-        Console.WriteLine("  4. model    - 模型管理（status/download）");
+        Console.WriteLine("  4. model    - 模型状态");
         Console.WriteLine();
         Console.Write("请输入操作: ");
         var input = Console.ReadLine()?.Trim().ToLower();
@@ -121,32 +121,23 @@ public class RagCommand : CommandBase
         }
     }
 
-    private async Task HandleModelCommand(string[]? extraArgs)
+    private Task HandleModelCommand(string[]? extraArgs)
     {
         var mm = _serviceProvider.GetService<ModelManager>();
         var config = Configuration.GetSection("LuBanAgent:Tools:Retrieval").Get<RetrievalToolOptions>() ?? new RetrievalToolOptions();
         var spec = EmbeddingModelCatalog.Find(config.ModelId);
-        if (spec == null) { Console.WriteLine($"未知模型: {config.ModelId}"); return; }
+        if (spec == null) { Console.WriteLine($"未知模型: {config.ModelId}"); return Task.CompletedTask; }
         if (mm == null) mm = new ModelManager(spec);
 
-        var sub = extraArgs?.Length > 0 ? extraArgs[0].ToLower() : "status";
-        switch (sub)
+        Console.WriteLine($"模型: {spec.ModelId}，维度: {spec.Dimension}");
+        Console.WriteLine($"目录: {mm.ModelDirectory}");
+        Console.WriteLine(mm.IsModelReady() ? "状态: 就绪" : "状态: 未就绪");
+        if (!mm.IsModelReady())
         {
-            case "status":
-                Console.WriteLine($"模型: {spec.ModelId}，维度: {spec.Dimension}");
-                Console.WriteLine($"目录: {mm.ModelDirectory}");
-                Console.WriteLine(mm.IsModelReady() ? "状态: 就绪" : "状态: 未就绪");
-                break;
-            case "download":
-                Console.WriteLine("开始下载模型…");
-                var ok = await ConsoleUtil.RunWithStatusAsync<bool>(
-                    async (update, ct) => await mm.EnsureModelAsync(update, ct), "下载中…");
-                Console.WriteLine(ok && mm.IsModelReady() ? "下载完成，重启后生效" : "下载失败");
-                break;
-            default:
-                Console.WriteLine("用法: rag model [status|download]");
-                break;
+            Console.WriteLine($"本地包: {mm.LocalZipPath}");
+            Console.WriteLine(File.Exists(mm.LocalZipPath) ? "本地包: 存在" : "本地包: 不存在");
         }
+        return Task.CompletedTask;
     }
 
     private static string Prompt(string message)

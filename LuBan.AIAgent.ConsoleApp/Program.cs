@@ -56,37 +56,14 @@ class Program
         }
         var mm = new ModelManager(spec);
         if (mm.IsModelReady()) return (new OnnxEmbeddingGenerator(mm.ModelDirectory, spec), mm);
-        if (!retrieval.AutoDownload)
-        {
-            Console.WriteLine($"嵌入模型 {spec.ModelId} 未就绪（运行 rag model download 手动下载），检索功能已禁用");
-            return (null, null);
-        }
         var ok = await ConsoleUtil.RunWithStatusAsync<bool>(
             async (update, ct) => await mm.EnsureModelAsync(update, ct),
-            "检查嵌入模型…");
+            "准备嵌入模型…");
         if (!ok || !mm.IsModelReady())
         {
-            var missingFiles = spec.Files
-                .Where(f => !File.Exists(Path.Combine(mm.ModelDirectory, f.LocalName)))
-                .Select(f => f.LocalName)
-                .ToList();
             Console.WriteLine();
-            Console.WriteLine($"嵌入模型 {spec.ModelId} 下载失败，检索功能已禁用（不影响其他功能）");
-            Console.WriteLine();
-            if (missingFiles.Count > 0)
-            {
-                Console.WriteLine($"缺失文件：{string.Join(", ", missingFiles)}");
-                Console.WriteLine();
-            }
-            Console.WriteLine("如需使用检索功能，请手动下载以下文件并放到指定目录：");
-            Console.WriteLine($"目标目录: {mm.ModelDirectory}");
-            Console.WriteLine();
-            foreach (var file in spec.Files)
-            {
-                var url = spec.MirrorBase + file.RemotePath;
-                Console.WriteLine($"  - {file.LocalName}");
-                Console.WriteLine($"    下载地址: {url}");
-            }
+            Console.WriteLine($"嵌入模型 {spec.ModelId} 未就绪，检索功能已禁用（不影响其他功能）");
+            Console.WriteLine($"请将模型包放到: {mm.LocalZipPath}");
             Console.WriteLine();
             return (null, null);
         }
