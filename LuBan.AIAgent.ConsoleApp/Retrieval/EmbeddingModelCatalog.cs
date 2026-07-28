@@ -38,8 +38,8 @@ public static class EmbeddingModelCatalog
         "https://hf-mirror.com/onnx-community/bge-small-zh-v1.5-ONNX/resolve/main/",
         new ModelFileSpec[]
         {
-            new("onnx/model.onnx?download=true", "model.onnx", 1),
-            new("onnx/model.onnx_data?download=true", "model.onnx_data", 1),
+            new("onnx/model.onnx?download=true", "onnx/model.onnx", 1),
+            new("onnx/model.onnx_data?download=true", "onnx/model.onnx_data", 1),
             new("tokenizer.json", "tokenizer.json", 1),
             new("tokenizer_config.json", "tokenizer_config.json", 1),
         });
