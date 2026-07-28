@@ -98,6 +98,30 @@ public interface ISessionManager
     /// 当前活动会话
     /// </summary>
     SessionInfo? CurrentSession { get; }
+
+    /// <summary>
+    /// 物理删除全部会话及消息数据
+    /// </summary>
+    Task ClearAllSessionsAsync();
+
+    /// <summary>
+    /// 获取全局会话统计
+    /// </summary>
+    /// <param name="days">限定最近 N 天（按会话创建时间），null 统计全部</param>
+    Task<GlobalSessionStats> GetGlobalStatsAsync(int? days = null);
+
+    /// <summary>
+    /// 获取会话的活跃消息（未被压缩的，含 role=summary 摘要消息）
+    /// </summary>
+    /// <param name="sessionId">会话ID</param>
+    Task<IEnumerable<SessionMessage>> GetActiveMessagesAsync(string sessionId);
+
+    /// <summary>
+    /// 将指定消息标记为已压缩（保留数据，不再进入模型上下文）
+    /// </summary>
+    /// <param name="sessionId">会话ID</param>
+    /// <param name="messageIds">消息ID列表</param>
+    Task MarkMessagesCompactedAsync(string sessionId, IEnumerable<long> messageIds);
 }
 
 /// <summary>
@@ -206,4 +230,35 @@ public class SessionStats
     /// 平均消息长度
     /// </summary>
     public double AverageMessageLength { get; set; }
+}
+
+/// <summary>
+/// 全局会话统计
+/// </summary>
+public class GlobalSessionStats
+{
+    /// <summary>
+    /// 总会话数
+    /// </summary>
+    public int TotalSessions { get; set; }
+
+    /// <summary>
+    /// 总消息数（不含摘要消息）
+    /// </summary>
+    public int TotalMessages { get; set; }
+
+    /// <summary>
+    /// 总 Token 数（含摘要消息 token）
+    /// </summary>
+    public long TotalTokens { get; set; }
+
+    /// <summary>
+    /// 统计覆盖天数
+    /// </summary>
+    public int Days { get; set; }
+
+    /// <summary>
+    /// 日均 Token
+    /// </summary>
+    public double AverageDailyTokens { get; set; }
 }

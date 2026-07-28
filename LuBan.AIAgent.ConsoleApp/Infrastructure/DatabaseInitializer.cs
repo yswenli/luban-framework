@@ -17,7 +17,24 @@ public static class DatabaseInitializer
         if (Interlocked.CompareExchange(ref _initialized, 1, 0) != 0) return;
         MigrateLegacyDatabase();
         LuBanOrm.Init();
+        EnsureIsCompactedColumn();
         var dbPath = GetDatabasePath();
+    }
+
+    /// <summary>
+    /// 兜底迁移：ai_session_message 新增 IsCompacted 列
+    /// </summary>
+    private static void EnsureIsCompactedColumn()
+    {
+        try
+        {
+            new Repositories.SessionMessageRepository().Context.Ado
+                .ExecuteCommand("ALTER TABLE ai_session_message ADD COLUMN IsCompacted INTEGER NOT NULL DEFAULT 0");
+        }
+        catch
+        {
+            // 列已存在（CodeFirst 已迁移或重复执行），忽略
+        }
     }
 
     /// <summary>
