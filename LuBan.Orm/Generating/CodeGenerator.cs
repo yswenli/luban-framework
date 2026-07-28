@@ -130,7 +130,7 @@ public static class CodeGenerator
         foreach (var column in columns)
         {
             if (LuBanOrm.GetEntityBaseFields()?.Any(q => q == column.DbColumnName.ConvertToPropertyName()) ?? false) continue;
-            sp.AppendLine();
+            sp.AppendNewLine();
             sp.AppendLine("    /// <summary>");
             sp.AppendLine($"    /// {column.DbColumnName.ConvertToPropertyName()}{column.ColumnDescription}");
             sp.AppendLine("    /// </summary>");

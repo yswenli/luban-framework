@@ -11,14 +11,9 @@ public class DatabaseToolOptions
     public bool Enabled { get; set; } = true;
 
     /// <summary>
-    /// 数据库连接字符串
+    /// 数据库连接字符串（支持 MySQL、PostgreSQL、SQL Server、SQLite）
     /// </summary>
     public string? ConnectionString { get; set; }
-
-    /// <summary>
-    /// 数据库引擎：sqlcmd, mysql
-    /// </summary>
-    public string Engine { get; set; } = "sqlcmd";
 
     /// <summary>
     /// 默认超时时间（毫秒）

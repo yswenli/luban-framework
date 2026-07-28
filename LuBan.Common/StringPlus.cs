@@ -84,9 +84,13 @@ public class StringPlus : IDisposable
     /// 添加空行
     /// </summary>
     /// <returns></returns>
-    public void AppendLine()
+    public void AppendNewLine(int size = 1)
     {
-        _sb.Append("\r\n");
+        if (size < 1) size = 1;
+        for (int i = 0; i < size; i++)
+        {
+            _sb.Append(Environment.NewLine);
+        }
     }
 
     /// <summary>

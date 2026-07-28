@@ -1,3 +1,10 @@
+using System.Data;
+using System.Data.Common;
+using Microsoft.Data.SqlClient;
+using MySqlConnector;
+using Npgsql;
+using System.Data.SQLite;
+
 namespace LuBan.AIAgent.Tools.Database;
 
 /// <summary>
@@ -6,17 +13,14 @@ namespace LuBan.AIAgent.Tools.Database;
 public class DatabaseToolPlugin : ILuBanToolPlugin
 {
     private readonly DatabaseToolOptions _options;
-    private readonly ProcessRunner _processRunner;
 
     /// <summary>
     /// 创建 DatabaseToolPlugin 实例
     /// </summary>
     /// <param name="options">配置选项</param>
-    /// <param name="processRunner">进程执行器</param>
-    public DatabaseToolPlugin(IOptions<LuBanAgentOptions> options, ProcessRunner processRunner)
+    public DatabaseToolPlugin(IOptions<LuBanAgentOptions> options)
     {
         _options = options.Value.Tools.Database;
-        _processRunner = processRunner;
     }
 
     /// <summary>
@@ -27,7 +31,7 @@ public class DatabaseToolPlugin : ILuBanToolPlugin
     /// <summary>
     /// 工具分组描述
     /// </summary>
-    public string? Description => "数据库操作工具，通过 sqlcmd 执行 SQL 语句";
+    public string? Description => "数据库操作工具，支持 MySQL、PostgreSQL、SQL Server、SQLite";
 
     /// <summary>
     /// 获取工具函数列表
@@ -36,7 +40,7 @@ public class DatabaseToolPlugin : ILuBanToolPlugin
     /// <returns>工具函数列表</returns>
     public IReadOnlyList<AIFunction> GetTools(IServiceProvider sp)
     {
-        var toolGroup = new DatabaseToolGroup(_options, _processRunner);
+        var toolGroup = new DatabaseToolGroup(_options);
         var tools = new List<AIFunction>();
 
         foreach (var method in typeof(DatabaseToolGroup).GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly))
@@ -62,66 +66,166 @@ public class DatabaseToolPlugin : ILuBanToolPlugin
 public class DatabaseToolGroup
 {
     private readonly DatabaseToolOptions _options;
-    private readonly ProcessRunner _processRunner;
 
     /// <summary>
     /// 创建 DatabaseToolGroup 实例
     /// </summary>
     /// <param name="options">配置选项</param>
-    /// <param name="processRunner">进程执行器</param>
-    public DatabaseToolGroup(DatabaseToolOptions options, ProcessRunner processRunner)
+    public DatabaseToolGroup(DatabaseToolOptions options)
     {
         _options = options;
-        _processRunner = processRunner;
     }
 
     /// <summary>
-    /// 执行 SQL 语句
+    /// 执行查询 SQL（SELECT）
     /// </summary>
-    /// <param name="sql">SQL 语句</param>
-    /// <returns>执行结果</returns>
-    [Description("执行 SQL 语句")]
-    public async Task<string> RunSqlAsync(string sql)
+    /// <param name="sql">SELECT SQL 语句</param>
+    /// <returns>查询结果（JSON 格式）</returns>
+    [Description("执行查询 SQL（SELECT），返回结果集")]
+    public async Task<string> ExecuteQueryAsync(string sql)
     {
         if (string.IsNullOrEmpty(_options.ConnectionString))
             return "错误：未配置数据库连接字符串";
 
-        var tempFile = Path.GetTempFileName();
         try
         {
-            await File.WriteAllTextAsync(tempFile, sql);
-            var args = BuildSqlCmdArgs(tempFile);
-            var result = await _processRunner.RunAsync(
-                _options.Engine,
-                args,
-                timeoutMs: _options.DefaultTimeout);
+            using var connection = CreateConnection();
+            await connection.OpenAsync();
+
+            using var command = connection.CreateCommand();
+            command.CommandText = sql;
+            command.CommandTimeout = _options.DefaultTimeout / 1000;
+
+            using var reader = await command.ExecuteReaderAsync();
+            var results = new List<Dictionary<string, object?>>();
+            var columns = new List<string>();
+
+            for (int i = 0; i < reader.FieldCount; i++)
+            {
+                columns.Add(reader.GetName(i));
+            }
+
+            while (await reader.ReadAsync())
+            {
+                var row = new Dictionary<string, object?>();
+                for (int i = 0; i < reader.FieldCount; i++)
+                {
+                    row[columns[i]] = reader.IsDBNull(i) ? null : reader.GetValue(i);
+                }
+                results.Add(row);
+            }
 
             return JsonSerializer.Serialize(new
             {
-                exitCode = result.ExitCode,
-                stdout = result.StandardOutput,
-                stderr = result.StandardError,
-                durationMs = result.DurationMs,
-                timedOut = result.TimedOut
-            });
+                success = true,
+                columns,
+                rows = results,
+                rowCount = results.Count
+            }, new JsonSerializerOptions { WriteIndented = true });
         }
-        finally
+        catch (Exception ex)
         {
-            try { File.Delete(tempFile); } catch { }
+            return JsonSerializer.Serialize(new
+            {
+                success = false,
+                error = ex.Message
+            });
         }
     }
 
-    private string BuildSqlCmdArgs(string sqlFilePath)
+    /// <summary>
+    /// 执行非查询 SQL（INSERT、UPDATE、DELETE、CREATE 等）
+    /// </summary>
+    /// <param name="sql">SQL 语句</param>
+    /// <returns>执行结果</returns>
+    [Description("执行非查询 SQL（INSERT、UPDATE、DELETE、CREATE 等），返回受影响的行数")]
+    public async Task<string> ExecuteNonQueryAsync(string sql)
     {
-        var args = new StringBuilder();
-        if (_options.Engine == "sqlcmd")
+        if (string.IsNullOrEmpty(_options.ConnectionString))
+            return "错误：未配置数据库连接字符串";
+
+        try
         {
-            args.Append($"-i \"{sqlFilePath}\" ");
-            if (!string.IsNullOrEmpty(_options.ConnectionString))
+            using var connection = CreateConnection();
+            await connection.OpenAsync();
+
+            using var command = connection.CreateCommand();
+            command.CommandText = sql;
+            command.CommandTimeout = _options.DefaultTimeout / 1000;
+
+            var affectedRows = await command.ExecuteNonQueryAsync();
+
+            return JsonSerializer.Serialize(new
             {
-                args.Append($"-S \"{_options.ConnectionString}\"");
-            }
+                success = true,
+                affectedRows,
+                message = $"成功执行，受影响行数：{affectedRows}"
+            });
         }
-        return args.ToString();
+        catch (Exception ex)
+        {
+            return JsonSerializer.Serialize(new
+            {
+                success = false,
+                error = ex.Message
+            });
+        }
     }
+
+    private DbConnection CreateConnection()
+    {
+        var connectionString = _options.ConnectionString!;
+        var dbType = DetectDatabaseType(connectionString);
+
+        return dbType switch
+        {
+            DatabaseType.MySql => new MySqlConnection(connectionString),
+            DatabaseType.PostgreSql => new NpgsqlConnection(connectionString),
+            DatabaseType.SqlServer => new SqlConnection(connectionString),
+            DatabaseType.SQLite => new SQLiteConnection(connectionString),
+            _ => throw new NotSupportedException($"不支持的数据库类型：{dbType}")
+        };
+    }
+
+    private static DatabaseType DetectDatabaseType(string connectionString)
+    {
+        var lower = connectionString.ToLower();
+
+        if (lower.Contains("server=") || lower.Contains("data source=") && lower.Contains("initial catalog="))
+        {
+            if (lower.Contains("mysql") || lower.Contains("port=3306"))
+                return DatabaseType.MySql;
+            if (lower.Contains("postgresql") || lower.Contains("port=5432"))
+                return DatabaseType.PostgreSql;
+            return DatabaseType.SqlServer;
+        }
+
+        if (lower.Contains("host=") && (lower.Contains("port=5432") || lower.Contains("postgresql")))
+            return DatabaseType.PostgreSql;
+
+        if (lower.Contains("host=") && (lower.Contains("port=3306") || lower.Contains("mysql")))
+            return DatabaseType.MySql;
+
+        if (lower.Contains(".db") || lower.Contains(".sqlite") || lower.Contains("data source=") && !lower.Contains("server="))
+            return DatabaseType.SQLite;
+
+        if (lower.Contains("mysql"))
+            return DatabaseType.MySql;
+
+        if (lower.Contains("postgresql") || lower.Contains("postgres"))
+            return DatabaseType.PostgreSql;
+
+        return DatabaseType.SqlServer;
+    }
+}
+
+/// <summary>
+/// 数据库类型
+/// </summary>
+public enum DatabaseType
+{
+    SqlServer,
+    MySql,
+    PostgreSql,
+    SQLite
 }

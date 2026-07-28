@@ -25,6 +25,7 @@ using LuBan.Common;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Spectre.Console;
 
 namespace LuBan.AIAgent.ConsoleApp.Commands;
 
@@ -96,31 +97,29 @@ public class ChatCommand : CommandBase
             // 设置工具确认回调
             ToolConfirmationService.ConfirmationCallback = (toolName, args) =>
             {
-                Console.WriteLine();
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine($"⚠️  危险操作请求: {toolName}");
-                Console.ResetColor();
-                Console.WriteLine("参数:");
-                Console.WriteLine(ToolConfirmationService.FormatArguments(args));
-                Console.WriteLine();
-                Console.Write("是否执行此操作？(y/N): ");
-                
+                AnsiConsole.WriteLine();
+                AnsiConsole.MarkupLine($"[yellow]⚠️  [bold]危险操作请求: {Markup.Escape(toolName)}[/][/]");
+                AnsiConsole.MarkupLine("[yellow]参数:[/]");
+                var formattedArgs = ToolConfirmationService.FormatArguments(args, 500);
+                foreach (var line in formattedArgs.Split('\n'))
+                {
+                    AnsiConsole.WriteLine(line);
+                }
+                AnsiConsole.WriteLine();
+
+                AnsiConsole.Markup("[yellow]是否执行此操作？(y/N): [/]");
                 var input = Console.ReadLine()?.Trim().ToLower();
                 var confirmed = input == "y" || input == "yes";
-                
+
                 if (confirmed)
                 {
-                    Console.ForegroundColor = ConsoleColor.Green;
-                    Console.WriteLine("✓ 已确认执行");
-                    Console.ResetColor();
+                    AnsiConsole.MarkupLine("[green]✓ 已确认执行[/]");
                 }
                 else
                 {
-                    Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine("✗ 已取消执行");
-                    Console.ResetColor();
+                    AnsiConsole.MarkupLine("[red]✗ 已取消执行[/]");
                 }
-                
+
                 return confirmed;
             };
 
@@ -195,17 +194,14 @@ public class ChatCommand : CommandBase
                 string? finalResponse = null;
                 var cancelled = false;
                 var toolCalls = new System.Collections.Generic.List<string>();
-                
-                // 使用动画显示执行状态，支持 ESC 取消
-                // 注意：必须使用 RunAsync（非流式），因为 ChatClientAgent.RunStreamingAsync 不支持自动工具调用循环
+                var thinkingContents = new System.Collections.Generic.List<string>();
+
                 cancelled = await ConsoleUtil.RunWithStatusAsync(async (updateStatus, cancellationToken) =>
                 {
                     updateStatus("AI 正在思考中...");
-                    
-                    // 执行 Agent（非流式，支持完整的工具调用循环）
+
                     var response = await agent.RunAsync(input, cancellationToken);
-                    
-                    // 检查是否有工具调用
+
                     if (response.Messages != null)
                     {
                         foreach (var message in response.Messages)
@@ -220,19 +216,45 @@ public class ChatCommand : CommandBase
                                         toolCalls.Add(toolInfo);
                                     }
                                 }
+
+                                var textContents = message.Contents
+                                    .OfType<TextContent>()
+                                    .Where(t => !string.IsNullOrWhiteSpace(t.Text))
+                                    .ToList();
+
+                                foreach (var text in textContents)
+                                {
+                                    var isThinking = false;
+                                    if (text.AdditionalProperties != null)
+                                    {
+                                        foreach (var key in text.AdditionalProperties.Keys)
+                                        {
+                                            if (key.Contains("thinking", StringComparison.OrdinalIgnoreCase) ||
+                                                key.Contains("thought", StringComparison.OrdinalIgnoreCase) ||
+                                                key.Contains("reasoning", StringComparison.OrdinalIgnoreCase))
+                                            {
+                                                isThinking = true;
+                                                break;
+                                            }
+                                        }
+                                    }
+
+                                    if (isThinking)
+                                    {
+                                        thinkingContents.Add(text.Text!);
+                                    }
+                                }
                             }
                         }
-                        
-                        // 如果有工具调用，显示工具执行完成状态
+
                         if (toolCalls.Count > 0)
                         {
                             updateStatus($"已调用 {toolCalls.Count} 个工具，正在生成回答...");
                         }
                     }
-                    
-                    // 获取最终回答
+
                     finalResponse = response.Text;
-                    
+
                     if (!string.IsNullOrEmpty(finalResponse))
                     {
                         updateStatus("生成回答完成");
@@ -268,6 +290,23 @@ public class ChatCommand : CommandBase
                     foreach (var toolCall in toolCalls)
                     {
                         Console.WriteLine($"  {toolCall}");
+                    }
+                    Console.ResetColor();
+                }
+
+                // 显示思考内容
+                if (thinkingContents.Count > 0)
+                {
+                    Console.WriteLine();
+                    Console.ForegroundColor = ConsoleColor.DarkGray;
+                    Console.WriteLine("💭 思考过程:");
+                    foreach (var thinking in thinkingContents)
+                    {
+                        var lines = thinking.Split('\n');
+                        foreach (var line in lines)
+                        {
+                            Console.WriteLine($"  {line}");
+                        }
                     }
                     Console.ResetColor();
                 }
