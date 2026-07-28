@@ -66,7 +66,7 @@ public class ChatCommand : CommandBase
     {
         if (!ConfigManager.HasSelectedModel)
         {
-            WriteError("请先使用 select 命令选择模型");
+            WriteError("请先使用 model switch 命令选择模型");
             return;
         }
 
@@ -172,7 +172,7 @@ public class ChatCommand : CommandBase
         
         while (true)
         {
-            Console.Write("你: ");
+            Console.Write("👶 ");
             var input = Console.ReadLine()?.Trim();
 
             if (string.IsNullOrEmpty(input))
@@ -191,76 +191,92 @@ public class ChatCommand : CommandBase
 
             try
             {
-                string? finalResponse = null;
+                var finalResponseBuilder = new System.Text.StringBuilder();
                 var cancelled = false;
                 var toolCalls = new System.Collections.Generic.List<string>();
-                var thinkingContents = new System.Collections.Generic.List<string>();
+                var hasThinkingContent = false;
+                var hasToolCalls = false;
+                var hasAnswerContent = false;
 
-                cancelled = await ConsoleUtil.RunWithStatusAsync(async (updateStatus, cancellationToken) =>
+                using var cts = new CancellationTokenSource();
+                var cancellationToken = cts.Token;
+
+                await Console.Out.WriteLineAsync();
+
+                try
                 {
-                    updateStatus("AI 正在思考中...");
-
-                    var response = await agent.RunAsync(input, cancellationToken);
-
-                    if (response.Messages != null)
+                    await foreach (var update in agent.RunStreamingAsync(input, cancellationToken))
                     {
-                        foreach (var message in response.Messages)
+                        if (update.Contents == null) continue;
+
+                        foreach (var content in update.Contents)
                         {
-                            if (message.Role == ChatRole.Assistant && message.Contents != null)
+                            if (content is TextReasoningContent reasoning)
                             {
-                                foreach (var content in message.Contents)
+                                if (!string.IsNullOrWhiteSpace(reasoning.Text))
                                 {
-                                    if (content is Microsoft.Extensions.AI.FunctionCallContent functionCall)
+                                    if (!hasThinkingContent)
                                     {
-                                        var toolInfo = $"调用工具: {functionCall.Name}";
-                                        toolCalls.Add(toolInfo);
+                                        Console.ForegroundColor = ConsoleColor.DarkGray;
+                                        Console.WriteLine("💭 思考过程:");
+                                        hasThinkingContent = true;
                                     }
-                                }
-
-                                var textContents = message.Contents
-                                    .OfType<TextContent>()
-                                    .Where(t => !string.IsNullOrWhiteSpace(t.Text))
-                                    .ToList();
-
-                                foreach (var text in textContents)
-                                {
-                                    var isThinking = false;
-                                    if (text.AdditionalProperties != null)
-                                    {
-                                        foreach (var key in text.AdditionalProperties.Keys)
-                                        {
-                                            if (key.Contains("thinking", StringComparison.OrdinalIgnoreCase) ||
-                                                key.Contains("thought", StringComparison.OrdinalIgnoreCase) ||
-                                                key.Contains("reasoning", StringComparison.OrdinalIgnoreCase))
-                                            {
-                                                isThinking = true;
-                                                break;
-                                            }
-                                        }
-                                    }
-
-                                    if (isThinking)
-                                    {
-                                        thinkingContents.Add(text.Text!);
-                                    }
+                                    Console.Write(reasoning.Text);
                                 }
                             }
-                        }
-
-                        if (toolCalls.Count > 0)
-                        {
-                            updateStatus($"已调用 {toolCalls.Count} 个工具，正在生成回答...");
+                            else if (content is Microsoft.Extensions.AI.FunctionCallContent functionCall)
+                            {
+                                if (!hasToolCalls)
+                                {
+                                    if (hasThinkingContent)
+                                    {
+                                        Console.WriteLine();
+                                        Console.ResetColor();
+                                    }
+                                    Console.ForegroundColor = ConsoleColor.Cyan;
+                                    Console.WriteLine("工具调用过程:");
+                                    hasToolCalls = true;
+                                }
+                                var toolInfo = $"调用工具: {functionCall.Name}";
+                                if (functionCall.Arguments != null && functionCall.Arguments.Count > 0)
+                                {
+                                    var args = string.Join(", ", functionCall.Arguments.Take(3).Select(a => $"{a.Key}={TruncateValue(a.Value)}"));
+                                    if (functionCall.Arguments.Count > 3) args += ", ...";
+                                    toolInfo += $"({args})";
+                                }
+                                Console.WriteLine($"  {toolInfo}");
+                                toolCalls.Add(toolInfo);
+                            }
+                            else if (content is TextContent text && !string.IsNullOrWhiteSpace(text.Text))
+                            {
+                                if (!hasAnswerContent)
+                                {
+                                    if (hasThinkingContent || hasToolCalls)
+                                    {
+                                        Console.WriteLine();
+                                        Console.ResetColor();
+                                    }
+                                    Console.ForegroundColor = ConsoleColor.Green;
+                                    Console.Write("🤖 ");
+                                    Console.ResetColor();
+                                    hasAnswerContent = true;
+                                }
+                                Console.Write(text.Text);
+                                finalResponseBuilder.Append(text.Text);
+                            }
                         }
                     }
 
-                    finalResponse = response.Text;
-
-                    if (!string.IsNullOrEmpty(finalResponse))
+                    if (hasThinkingContent || hasToolCalls || hasAnswerContent)
                     {
-                        updateStatus("生成回答完成");
-                        await Task.Delay(200, cancellationToken);
+                        Console.WriteLine();
+                        Console.ResetColor();
                     }
-                }, "正在处理... (按 ESC 取消)", "cyan");
+                }
+                catch (OperationCanceledException)
+                {
+                    cancelled = true;
+                }
                 
                 if (cancelled)
                 {
@@ -271,8 +287,10 @@ public class ChatCommand : CommandBase
                     continue;
                 }
                 
+                var finalResponse = finalResponseBuilder.ToString();
+                
                 // 保存消息到 Session
-                if (currentSession != null && !cancelled)
+                if (currentSession != null)
                 {
                     await _sessionManager.AddMessageAsync(currentSession.SessionId, "user", input);
                     if (!string.IsNullOrEmpty(finalResponse))
@@ -281,48 +299,8 @@ public class ChatCommand : CommandBase
                     }
                 }
                 
-                // 显示工具调用过程
-                if (toolCalls.Count > 0)
+                if (!hasAnswerContent && string.IsNullOrEmpty(finalResponse))
                 {
-                    Console.WriteLine();
-                    Console.ForegroundColor = ConsoleColor.Cyan;
-                    Console.WriteLine("工具调用过程:");
-                    foreach (var toolCall in toolCalls)
-                    {
-                        Console.WriteLine($"  {toolCall}");
-                    }
-                    Console.ResetColor();
-                }
-
-                // 显示思考内容
-                if (thinkingContents.Count > 0)
-                {
-                    Console.WriteLine();
-                    Console.ForegroundColor = ConsoleColor.DarkGray;
-                    Console.WriteLine("💭 思考过程:");
-                    foreach (var thinking in thinkingContents)
-                    {
-                        var lines = thinking.Split('\n');
-                        foreach (var line in lines)
-                        {
-                            Console.WriteLine($"  {line}");
-                        }
-                    }
-                    Console.ResetColor();
-                }
-                
-                // 显示最终回答
-                if (!string.IsNullOrEmpty(finalResponse))
-                {
-                    Console.WriteLine();
-                    Console.ForegroundColor = ConsoleColor.Green;
-                    Console.Write("AI: ");
-                    Console.ResetColor();
-                    Console.WriteLine(finalResponse);
-                }
-                else if (!cancelled)
-                {
-                    Console.WriteLine();
                     Console.ForegroundColor = ConsoleColor.DarkGray;
                     Console.WriteLine("（无响应）");
                     Console.ResetColor();
@@ -450,6 +428,14 @@ public class ChatCommand : CommandBase
                 }
             }
         }
+    }
+
+    private static string TruncateValue(object? value, int maxLength = 50)
+    {
+        var str = value?.ToString() ?? "null";
+        if (str.Length > maxLength)
+            return str.Substring(0, maxLength) + "...";
+        return str;
     }
 
 }

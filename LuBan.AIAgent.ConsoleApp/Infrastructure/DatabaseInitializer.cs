@@ -15,12 +15,9 @@ public static class DatabaseInitializer
     public static void Initialize()
     {
         if (Interlocked.CompareExchange(ref _initialized, 1, 0) != 0) return;
-
         MigrateLegacyDatabase();
         LuBanOrm.Init();
-
         var dbPath = GetDatabasePath();
-        Console.WriteLine($"数据库已初始化: {dbPath}");
     }
 
     /// <summary>

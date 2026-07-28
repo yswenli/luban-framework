@@ -167,6 +167,90 @@ public class ConfigManager
     }
 
     /// <summary>
+    /// 添加自定义模型到指定 Provider
+    /// </summary>
+    public void AddCustomModel(string providerName, string modelName)
+    {
+        var provider = GetProvider(providerName);
+        if (provider == null)
+            throw new InvalidOperationException($"Provider '{providerName}' 不存在");
+
+        modelName = modelName.Trim();
+        if (string.IsNullOrWhiteSpace(modelName))
+            throw new ArgumentException("模型名称不能为空", nameof(modelName));
+
+        if (!provider.CustomModels.Contains(modelName))
+        {
+            provider.CustomModels.Add(modelName);
+            Save();
+        }
+    }
+
+    /// <summary>
+    /// 更新自定义模型名称
+    /// </summary>
+    public void UpdateCustomModel(string providerName, string oldModelName, string newModelName)
+    {
+        var provider = GetProvider(providerName);
+        if (provider == null)
+            throw new InvalidOperationException($"Provider '{providerName}' 不存在");
+
+        var index = provider.CustomModels.IndexOf(oldModelName);
+        if (index >= 0)
+        {
+            provider.CustomModels[index] = newModelName.Trim();
+            
+            if (SelectedModel == $"{providerName}:{oldModelName}")
+            {
+                SelectedModel = $"{providerName}:{newModelName.Trim()}";
+            }
+            
+            Save();
+        }
+    }
+
+    /// <summary>
+    /// 删除自定义模型
+    /// </summary>
+    public void RemoveCustomModel(string providerName, string modelName)
+    {
+        var provider = GetProvider(providerName);
+        if (provider == null)
+            throw new InvalidOperationException($"Provider '{providerName}' 不存在");
+
+        if (provider.CustomModels.Remove(modelName))
+        {
+            if (SelectedModel == $"{providerName}:{modelName}")
+            {
+                SelectedModel = null;
+            }
+            Save();
+        }
+    }
+
+    /// <summary>
+    /// 获取 Provider 的所有模型（预定义 + 自定义）
+    /// </summary>
+    public List<string> GetAllModels(string providerName)
+    {
+        var provider = GetProvider(providerName);
+        if (provider == null)
+            return new List<string>();
+
+        var models = ProviderModels.GetModels(providerName);
+        var customModels = provider.CustomModels ?? new List<string>();
+        
+        var allModels = new List<string>(models);
+        foreach (var custom in customModels)
+        {
+            if (!allModels.Contains(custom))
+                allModels.Add(custom);
+        }
+        
+        return allModels;
+    }
+
+    /// <summary>
     /// 创建 ChatClient 实例
     /// </summary>
     /// <returns>IChatClient 实例</returns>

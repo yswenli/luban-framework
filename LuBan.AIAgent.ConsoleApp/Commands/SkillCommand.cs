@@ -134,7 +134,7 @@ public class SkillCommand : CommandBase
 
         if (!ConfigManager.HasSelectedModel)
         {
-            WriteError("请先使用 select 命令选择模型");
+            WriteError("请先使用 model switch 命令选择模型");
             return;
         }
 

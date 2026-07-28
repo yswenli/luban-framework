@@ -54,7 +54,7 @@ public class BrowseCommand : CommandBase
     {
         if (!ConfigManager.HasSelectedModel)
         {
-            WriteError("请先使用 select 命令选择模型");
+            WriteError("请先使用 model switch 命令选择模型");
             return;
         }
 
@@ -149,19 +149,46 @@ public class BrowseCommand : CommandBase
 
             try
             {
-                string? finalResponse = null;
+                var finalResponseBuilder = new System.Text.StringBuilder();
                 var cancelled = false;
-                
-                cancelled = await ConsoleUtil.RunWithStatusAsync(async (updateStatus, cancellationToken) =>
+                var hasContent = false;
+
+                using var cts = new CancellationTokenSource();
+                var cancellationToken = cts.Token;
+
+                try
                 {
-                    updateStatus("AI 正在执行...");
-                    
-                    var response = await agent.RunAsync(input, cancellationToken);
-                    finalResponse = response.Text;
-                    updateStatus("执行完成");
-                    await Task.Delay(200, cancellationToken);
-                }, "正在执行... (按 ESC 取消)", "cyan");
-                
+                    await foreach (var update in agent.RunStreamingAsync(input, cancellationToken))
+                    {
+                        if (update.Contents == null) continue;
+
+                        foreach (var content in update.Contents)
+                        {
+                            if (content is Microsoft.Extensions.AI.TextContent text && !string.IsNullOrWhiteSpace(text.Text))
+                            {
+                                if (!hasContent)
+                                {
+                                    Console.ForegroundColor = ConsoleColor.Green;
+                                    Console.Write("🤖 ");
+                                    Console.ResetColor();
+                                    hasContent = true;
+                                }
+                                Console.Write(text.Text);
+                                finalResponseBuilder.Append(text.Text);
+                            }
+                        }
+                    }
+
+                    if (hasContent)
+                    {
+                        Console.WriteLine();
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    cancelled = true;
+                }
+
                 if (cancelled)
                 {
                     Console.ForegroundColor = ConsoleColor.Yellow;
@@ -169,14 +196,9 @@ public class BrowseCommand : CommandBase
                     Console.ResetColor();
                     continue;
                 }
-                
-                Console.WriteLine();
-                Console.WriteLine("结果:");
-                if (!string.IsNullOrEmpty(finalResponse))
-                {
-                    Console.WriteLine(finalResponse);
-                }
-                else
+
+                var finalResponse = finalResponseBuilder.ToString();
+                if (!hasContent && string.IsNullOrEmpty(finalResponse))
                 {
                     Console.ForegroundColor = ConsoleColor.DarkGray;
                     Console.WriteLine("（无响应）");

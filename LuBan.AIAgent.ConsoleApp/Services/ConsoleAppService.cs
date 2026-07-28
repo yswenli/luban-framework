@@ -48,9 +48,8 @@ public class ConsoleAppService
     /// </summary>
     private static readonly string[] CommandNames = new[]
     {
-        "/add-provider",
-        "/list",
-        "/select",
+        "/provider",
+        "/model",
         "/browse",
         "/chat",
         "/session",
@@ -92,9 +91,8 @@ public class ConsoleAppService
     /// </summary>
     private void RegisterCommands()
     {
-        RegisterCommand(new AddProviderCommand(_configManager, _configuration));
-        RegisterCommand(new ListCommand(_configManager, _configuration));
-        RegisterCommand(new SelectCommand(_configManager, _configuration));
+        RegisterCommand(new ProviderCommand(_configManager, _configuration));
+        RegisterCommand(new ModelCommand(_configManager, _configuration));
         RegisterCommand(new BrowseCommand(_configManager, _configuration, TryExecuteCommandAsync));
         RegisterCommand(new ChatCommand(_configManager, _configuration, _sessionManager, _serviceProvider, TryExecuteCommandAsync));
         RegisterCommand(new SessionCommand(_configManager, _configuration, _sessionManager));
@@ -187,7 +185,7 @@ public class ConsoleAppService
         }
         else if (_configManager.Providers.Count > 0)
         {
-            Console.WriteLine("  当前选择的模型: 未选择 (请使用 select 命令选择)");
+            Console.WriteLine("  当前选择的模型: 未选择 (请使用 model switch 命令选择)");
         }
     }
 
@@ -198,9 +196,8 @@ public class ConsoleAppService
     {
         Console.WriteLine();
         Console.WriteLine("可用命令 (/ 前缀，Tab 自动完成):");
-        Console.WriteLine("  /add-provider  - 添加 AI Provider");
-        Console.WriteLine("  /list          - 列出所有 Provider");
-        Console.WriteLine("  /select        - 选择模型");
+        Console.WriteLine("  /provider      - 管理 AI Provider (list/add/update/delete/switch)");
+        Console.WriteLine("  /model         - 管理模型 (list/add/update/delete/switch)");
         Console.WriteLine("  /browse        - 用自然语言操作网站");
         Console.WriteLine("  /chat          - 智能对话（支持工具调用）");
         Console.WriteLine("  /session       - 管理对话会话");
@@ -279,17 +276,16 @@ public class ConsoleAppService
         var name = input.ToLower().TrimStart('/');
         return name switch
         {
-            "1" or "add-provider" => "add-provider",
-            "2" or "list" => "list",
-            "3" or "select" => "select",
-            "4" or "browse" => "browse",
-            "5" or "chat" => "chat",
-            "6" or "session" => "session",
-            "7" or "skill" => "skill",
-            "8" or "rule" => "rule",
-            "9" or "mcp" => "mcp",
-            "10" or "clear" => "clear",
-            "11" or "exit" => "exit",
+            "1" or "provider" => "provider",
+            "2" or "model" => "model",
+            "3" or "browse" => "browse",
+            "4" or "chat" => "chat",
+            "5" or "session" => "session",
+            "6" or "skill" => "skill",
+            "7" or "rule" => "rule",
+            "8" or "mcp" => "mcp",
+            "9" or "clear" => "clear",
+            "10" or "exit" => "exit",
             _ => name
         };
     }

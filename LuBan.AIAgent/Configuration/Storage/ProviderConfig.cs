@@ -29,4 +29,9 @@ public class ProviderConfig
     /// 支持的模型列表（运行时填充，不保存到配置文件）
     /// </summary>
     public List<string> SupportedModels { get; set; } = new();
+
+    /// <summary>
+    /// 用户自定义的模型列表（持久化保存）
+    /// </summary>
+    public List<string> CustomModels { get; set; } = new();
 }
