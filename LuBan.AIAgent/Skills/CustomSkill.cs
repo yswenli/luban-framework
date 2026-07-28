@@ -80,6 +80,10 @@ public class CustomSkill : ISkill
             var response = await context.Agent.RunAsync(prompt, context.CancellationToken);
             return SkillResult.Ok(response.Text ?? string.Empty);
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             return SkillResult.Fail($"执行失败: {ex.Message}");
