@@ -20,6 +20,9 @@ namespace LuBan.AIAgent.Skills;
 /// <summary>
 /// Skill 注册表，管理所有可用的 Skill（内置 + 自定义，惰性合并）
 /// </summary>
+/// <remarks>
+/// 内置与自定义 Id 冲突时内置优先；冲突在 /skill add 时拦截（命令层）。
+/// </remarks>
 public class SkillRegistry
 {
     private readonly Dictionary<string, ISkill> _builtinSkills = new();
@@ -34,7 +37,7 @@ public class SkillRegistry
     {
         foreach (var skill in skills)
         {
-            _builtinSkills[skill.Id] = skill;
+            _builtinSkills[skill.Id.ToLowerInvariant()] = skill;
         }
         _configManager = configManager;
     }
@@ -44,7 +47,7 @@ public class SkillRegistry
         var disabledBuiltin = _configManager?.DisabledBuiltinSkills;
         foreach (var (id, skill) in _builtinSkills)
         {
-            if (disabledBuiltin?.Contains(id.ToLowerInvariant()) == true)
+            if (disabledBuiltin?.Contains(id) == true)
                 continue;
             yield return skill;
         }
@@ -53,6 +56,8 @@ public class SkillRegistry
         {
             foreach (var cfg in _configManager.CustomSkills.Where(c => c.Enabled))
             {
+                if (_builtinSkills.ContainsKey(cfg.Id.ToLowerInvariant()))
+                    continue;
                 yield return new CustomSkill(cfg);
             }
         }

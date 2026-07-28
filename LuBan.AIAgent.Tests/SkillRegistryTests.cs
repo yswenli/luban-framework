@@ -31,6 +31,21 @@ public class SkillRegistryTests
             => Task.FromResult(SkillResult.Ok("ok"));
     }
 
+    private sealed class ConfigurableBuiltinSkill : ISkill
+    {
+        private readonly string _id;
+
+        public ConfigurableBuiltinSkill(string id) => _id = id;
+
+        public string Id => _id;
+        public string Name => "内置技能";
+        public string Description => "测试用";
+        public string Category => "builtin";
+        public IEnumerable<string> Examples => Array.Empty<string>();
+        public Task<SkillResult> ExecuteAsync(SkillContext context, string input)
+            => Task.FromResult(SkillResult.Ok("ok"));
+    }
+
     [TestMethod]
     public void GetAll_MergesBuiltinAndCustom()
     {
@@ -98,5 +113,28 @@ public class SkillRegistryTests
         var cats = registry.GetCategories();
         Assert.IsTrue(cats.Contains("builtin"));
         Assert.IsTrue(cats.Contains("custom"));
+    }
+
+    [TestMethod]
+    public void GetAll_DuplicateId_BuiltinWins()
+    {
+        var cm = new ConfigManager(_tempPath);
+        cm.AddCustomSkill(new CustomSkillConfig { Id = "dup", Name = "自定义" });
+        var builtin = new ConfigurableBuiltinSkill("dup");
+        var registry = new SkillRegistry(new ISkill[] { builtin }, cm);
+
+        var dups = registry.GetAll().Where(s => s.Id == "dup").ToList();
+        Assert.AreEqual(1, dups.Count);
+        Assert.AreSame(builtin, registry.Get("dup"));
+    }
+
+    [TestMethod]
+    public void Get_DisabledBuiltin_FallsBackToNull()
+    {
+        var cm = new ConfigManager(_tempPath);
+        cm.SetBuiltinSkillEnabled("builtin1", false);
+        var registry = new SkillRegistry(new ISkill[] { new FakeBuiltinSkill() }, cm);
+
+        Assert.IsNull(registry.Get("builtin1"));
     }
 }
