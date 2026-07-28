@@ -53,6 +53,12 @@ public class ModelManager
         Directory.CreateDirectory(ModelDirectory);
         foreach (var file in _spec.Files)
         {
+            var localPath = Path.Combine(ModelDirectory, file.LocalName);
+            if (File.Exists(localPath) && new FileInfo(localPath).Length >= file.MinSizeBytes)
+            {
+                reportStatus?.Invoke($"{file.LocalName} 已存在，跳过");
+                continue;
+            }
             var ok = await DownloadWithFallbackAsync(file, reportStatus, cancellationToken);
             if (!ok) return false;
         }

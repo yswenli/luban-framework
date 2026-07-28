@@ -66,9 +66,18 @@ class Program
             "检查嵌入模型…");
         if (!ok || !mm.IsModelReady())
         {
+            var missingFiles = spec.Files
+                .Where(f => !File.Exists(Path.Combine(mm.ModelDirectory, f.LocalName)))
+                .Select(f => f.LocalName)
+                .ToList();
             Console.WriteLine();
             Console.WriteLine($"嵌入模型 {spec.ModelId} 下载失败，检索功能已禁用（不影响其他功能）");
             Console.WriteLine();
+            if (missingFiles.Count > 0)
+            {
+                Console.WriteLine($"缺失文件：{string.Join(", ", missingFiles)}");
+                Console.WriteLine();
+            }
             Console.WriteLine("如需使用检索功能，请手动下载以下文件并放到指定目录：");
             Console.WriteLine($"目标目录: {mm.ModelDirectory}");
             Console.WriteLine();
