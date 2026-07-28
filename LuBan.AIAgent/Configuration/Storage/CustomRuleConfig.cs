@@ -36,7 +36,7 @@ public class CustomRuleConfig
     public string Action { get; set; } = "deny";
 
     /// <summary>
-    /// 优先级（数值越小优先级越高）
+    /// 优先级（数字越大优先级越高，与 IRule.Priority 语义一致）
     /// </summary>
     public int Priority { get; set; } = 100;
 

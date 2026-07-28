@@ -82,7 +82,7 @@ public class CustomRule : IRule
     /// <returns>规则执行结果</returns>
     public Task<RuleResult> ExecuteAsync(RuleContext context)
     {
-        if (_config.Action.Equals("allow", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(_config.Action, "allow", StringComparison.OrdinalIgnoreCase))
             return Task.FromResult(RuleResult.AllowResult($"规则 '{Name}' 允许"));
 
         return Task.FromResult(RuleResult.DenyResult(
