@@ -48,16 +48,47 @@ public class ConsoleAppService
     /// </summary>
     private static readonly string[] CommandNames = new[]
     {
-        "/provider",
-        "/model",
-        "/skill",
-        "/rule",
-        "/mcp",
-        "/session",
-        "/agi",
-        "/browse",
-        "/stats",
+        "/provider", "/p",
+        "/model", "/m",
+        "/skill", "/sk",
+        "/rule", "/r",
+        "/mcp", "/mp",
+        "/session", "/se",
+        "/agi", "/a",
+        "/browse", "/b",
+        "/stats", "/st",
         "/exit"
+    };
+
+    /// <summary>
+    /// 命令别名映射（简写 → 完整命令名）
+    /// </summary>
+    private static readonly Dictionary<string, string> CommandAliases = new()
+    {
+        ["p"] = "provider",
+        ["m"] = "model",
+        ["sk"] = "skill",
+        ["r"] = "rule",
+        ["mp"] = "mcp",
+        ["se"] = "session",
+        ["a"] = "agi",
+        ["b"] = "browse",
+        ["st"] = "stats"
+    };
+
+    /// <summary>
+    /// 子命令缩写映射（缩写 → 完整子命令名）
+    /// </summary>
+    private static readonly Dictionary<string, string> SubCommandAliases = new()
+    {
+        ["-l"] = "list",
+        ["-a"] = "add",
+        ["-u"] = "update",
+        ["-d"] = "delete",
+        ["-s"] = "switch",
+        ["-n"] = "new",
+        ["-c"] = "clear",
+        ["-t"] = "tools"
     };
 
     /// <summary>
@@ -154,7 +185,8 @@ public class ConsoleAppService
         Console.WriteLine("========================================");
         Console.WriteLine();
         Console.WriteLine("提示: 所有命令以 / 开头，按 Tab 自动完成，按上/下箭头浏览历史");
-        Console.WriteLine("      在对话过程中也可使用 / 命令，如 /session switch 1");
+        Console.WriteLine("      支持命令简写: /p=/provider, /m=/model, /sk=/skill 等");
+        Console.WriteLine("      支持子命令简写: -l=list, -a=add, -s=switch 等（例: /p -l）");
     }
 
     /// <summary>
@@ -193,17 +225,20 @@ public class ConsoleAppService
     private static void ShowMenu()
     {
         Console.WriteLine();
-        Console.WriteLine("可用命令 (/ 前缀，Tab 自动完成):");
-        Console.WriteLine("  /provider   - 管理 AI Provider (list/add/update/delete/switch)");
-        Console.WriteLine("  /model      - 管理模型 (list/add/update/delete/switch)");
-        Console.WriteLine("  /skill      - 查看和执行 Skill (list/add/update/delete/switch)");
-        Console.WriteLine("  /rule       - 查看和管理规则 (list/add/update/delete/switch)");
-        Console.WriteLine("  /mcp        - 查看 MCP 客户端 (list/add/update/delete/switch)");
-        Console.WriteLine("  /session    - 管理对话会话 (list/new/clear/switch)");
-        Console.WriteLine("  /agi        - 通用 Agent 对话");
-        Console.WriteLine("  /browse     - 针对网站操作特异化 Agent");
-        Console.WriteLine("  /stats      - 会话与 Token 统计 (days N)");
-        Console.WriteLine("  /exit       - 退出程序");
+        Console.WriteLine("可用命令 (/ 前缀，Tab 自动完成，支持简写):");
+        Console.WriteLine("  /provider /p   - 管理 AI Provider (list/add/update/delete/switch)");
+        Console.WriteLine("  /model /m      - 管理模型 (list/add/update/delete/switch)");
+        Console.WriteLine("  /skill /sk     - 查看和执行 Skill (list/add/update/delete/switch)");
+        Console.WriteLine("  /rule /r       - 查看和管理规则 (list/add/update/delete/switch)");
+        Console.WriteLine("  /mcp /mp       - 查看 MCP 客户端 (list/add/update/delete/switch/connect/tools)");
+        Console.WriteLine("  /session /se   - 管理对话会话 (list/new/clear/switch)");
+        Console.WriteLine("  /agi /a        - 通用 Agent 对话");
+        Console.WriteLine("  /browse /b     - 针对网站操作特异化 Agent");
+        Console.WriteLine("  /stats /st     - 会话与 Token 统计 (days N)");
+        Console.WriteLine("  /exit          - 退出程序");
+        Console.WriteLine();
+        Console.WriteLine("子命令简写: -l=list, -a=add, -u=update, -d=delete, -s=switch, -n=new, -c=clear, -t=tools");
+        Console.WriteLine("示例: /p -l (= /provider list), /se -n 标题 (= /session new 标题)");
     }
 
     /// <summary>
@@ -253,7 +288,8 @@ public class ConsoleAppService
             // 如果有子命令参数，先尝试带参数执行
             if (parts.Length > 1)
             {
-                var handled = await command.ExecuteAsync(parts[1..]);
+                var expandedArgs = ExpandSubCommandAliases(parts[1..]);
+                var handled = await command.ExecuteAsync(expandedArgs);
                 if (handled)
                     return;
             }
@@ -267,24 +303,53 @@ public class ConsoleAppService
     }
 
     /// <summary>
-    /// 获取命令名称
+    /// 展开子命令缩写（-l → list, -a → add 等）
+    /// </summary>
+    private static string[] ExpandSubCommandAliases(string[] args)
+    {
+        if (args.Length == 0) return args;
+
+        var result = new string[args.Length];
+        for (int i = 0; i < args.Length; i++)
+        {
+            result[i] = SubCommandAliases.TryGetValue(args[i].ToLower(), out var expanded)
+                ? expanded
+                : args[i];
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// 获取命令名称（支持别名）
     /// </summary>
     private static string? GetCommandName(string input)
     {
         var name = input.ToLower().TrimStart('/');
-        return name switch
+        
+        // 数字快捷键
+        if (int.TryParse(name, out var num))
         {
-            "1" or "provider" => "provider",
-            "2" or "model" => "model",
-            "3" or "skill" => "skill",
-            "4" or "rule" => "rule",
-            "5" or "mcp" => "mcp",
-            "6" or "session" => "session",
-            "7" or "agi" => "agi",
-            "8" or "browse" => "browse",
-            "9" or "stats" => "stats",
-            "10" or "exit" => "exit",
-            _ => name
-        };
+            return num switch
+            {
+                1 => "provider",
+                2 => "model",
+                3 => "skill",
+                4 => "rule",
+                5 => "mcp",
+                6 => "session",
+                7 => "agi",
+                8 => "browse",
+                9 => "stats",
+                10 => "exit",
+                _ => null
+            };
+        }
+
+        // 检查是否为别名
+        if (CommandAliases.TryGetValue(name, out var fullName))
+            return fullName;
+
+        // 返回原始名称（如果有效命令）或 null
+        return name;
     }
 }
