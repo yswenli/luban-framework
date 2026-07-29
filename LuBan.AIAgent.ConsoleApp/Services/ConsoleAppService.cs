@@ -50,14 +50,13 @@ public class ConsoleAppService
     {
         "/provider",
         "/model",
-        "/browse",
-        "/chat",
-        "/session",
         "/skill",
         "/rule",
         "/mcp",
-        "/rag",
-        "/clear",
+        "/session",
+        "/agi",
+        "/browse",
+        "/stats",
         "/exit"
     };
 
@@ -93,14 +92,13 @@ public class ConsoleAppService
     {
         RegisterCommand(new ProviderCommand(_configManager, _configuration));
         RegisterCommand(new ModelCommand(_configManager, _configuration));
-        RegisterCommand(new BrowseCommand(_configManager, _configuration, TryExecuteCommandAsync));
-        RegisterCommand(new ChatCommand(_configManager, _configuration, _sessionManager, _serviceProvider, TryExecuteCommandAsync));
-        RegisterCommand(new SessionCommand(_configManager, _configuration, _sessionManager));
         RegisterCommand(new SkillCommand(_configManager, _configuration, _skillRegistry));
         RegisterCommand(new RuleCommand(_configManager, _configuration, _ruleEngine));
         RegisterCommand(new MCPCommand(_configManager, _configuration, _mcpRegistry));
-        RegisterCommand(new RagCommand(_configManager, _configuration, _serviceProvider));
-        RegisterCommand(new ClearCommand(_configManager, _configuration));
+        RegisterCommand(new SessionCommand(_configManager, _configuration, _sessionManager));
+        RegisterCommand(new AgiCommand(_configManager, _configuration, _sessionManager, _serviceProvider, TryExecuteCommandAsync));
+        RegisterCommand(new BrowseCommand(_configManager, _configuration, TryExecuteCommandAsync));
+        RegisterCommand(new StatsCommand(_configManager, _configuration, _sessionManager));
     }
 
     /// <summary>
@@ -196,16 +194,16 @@ public class ConsoleAppService
     {
         Console.WriteLine();
         Console.WriteLine("可用命令 (/ 前缀，Tab 自动完成):");
-        Console.WriteLine("  /provider      - 管理 AI Provider (list/add/update/delete/switch)");
-        Console.WriteLine("  /model         - 管理模型 (list/add/update/delete/switch)");
-        Console.WriteLine("  /browse        - 用自然语言操作网站");
-        Console.WriteLine("  /chat          - 智能对话（支持工具调用）");
-        Console.WriteLine("  /session       - 管理对话会话");
-        Console.WriteLine("  /skill         - 查看和执行 Skill（技能）");
-        Console.WriteLine("  /rule          - 查看和管理规则");
-        Console.WriteLine("  /mcp           - 查看 MCP 客户端");
-        Console.WriteLine("  /clear         - 清除配置");
-        Console.WriteLine("  /exit          - 退出程序");
+        Console.WriteLine("  /provider   - 管理 AI Provider (list/add/update/delete/switch)");
+        Console.WriteLine("  /model      - 管理模型 (list/add/update/delete/switch)");
+        Console.WriteLine("  /skill      - 查看和执行 Skill (list/add/update/delete/switch)");
+        Console.WriteLine("  /rule       - 查看和管理规则 (list/add/update/delete/switch)");
+        Console.WriteLine("  /mcp        - 查看 MCP 客户端 (list/add/update/delete/switch)");
+        Console.WriteLine("  /session    - 管理对话会话 (list/new/clear/switch)");
+        Console.WriteLine("  /agi        - 通用 Agent 对话");
+        Console.WriteLine("  /browse     - 针对网站操作特异化 Agent");
+        Console.WriteLine("  /stats      - 会话与 Token 统计 (--day N)");
+        Console.WriteLine("  /exit       - 退出程序");
     }
 
     /// <summary>
@@ -220,7 +218,7 @@ public class ConsoleAppService
     }
 
     /// <summary>
-    /// 执行命令（供外部调用，如 ChatCommand 中的 / 命令）
+    /// 执行命令（供外部调用，如 AgiCommand 中的 / 命令）
     /// </summary>
     /// <param name="input">原始输入（支持 / 前缀）</param>
     /// <returns>是否已处理</returns>
@@ -278,13 +276,13 @@ public class ConsoleAppService
         {
             "1" or "provider" => "provider",
             "2" or "model" => "model",
-            "3" or "browse" => "browse",
-            "4" or "chat" => "chat",
-            "5" or "session" => "session",
-            "6" or "skill" => "skill",
-            "7" or "rule" => "rule",
-            "8" or "mcp" => "mcp",
-            "9" or "clear" => "clear",
+            "3" or "skill" => "skill",
+            "4" or "rule" => "rule",
+            "5" or "mcp" => "mcp",
+            "6" or "session" => "session",
+            "7" or "agi" => "agi",
+            "8" or "browse" => "browse",
+            "9" or "stats" => "stats",
             "10" or "exit" => "exit",
             _ => name
         };
