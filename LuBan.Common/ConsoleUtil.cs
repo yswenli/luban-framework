@@ -377,21 +377,31 @@ public static class ConsoleUtil
     /// </summary>
     public static void PrintName()
     {
-        GetTitle().Write(color: Color.Green);
-        GetSubTitle().Write(color: Color.Gray);
+        try
+        {
+            GetLBFName().Write();
+        }
+        catch (Exception ex)
+        {
+            WriteLine($"ConsoleUtil.PrintName 异常，ex:{ex}");
+        }
     }
 
 
     /// <summary>
     /// 输出名称
     /// </summary>
-    public static string GetTitle()
+    public static string GetLBFName()
     {
         try
         {
             var base64Str = "ICBfICAgICAgICAgIF9fX18gICAgICAgICAgICAgICAgX19fX18gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIF8gICAgCiB8IHwgICBfICAgX3wgX18gKSAgX18gXyBfIF9fICAgfCAgX19ffCBfXyBfXyBfIF8gX18gX19fICAgX19fX18gICAgICBfX19fXyAgXyBfX3wgfCBfXwogfCB8ICB8IHwgfCB8ICBfIFwgLyBfYCB8ICdfIFwgIHwgfF8gfCAnX18vIF9gIHwgJ18gYCBfIFwgLyBfIFwgXCAvXCAvIC8gXyBcfCAnX198IHwvIC8KIHwgfF9ffCB8X3wgfCB8XykgfCAoX3wgfCB8IHwgfCB8ICBffHwgfCB8IChffCB8IHwgfCB8IHwgfCAgX18vXCBWICBWIC8gKF8pIHwgfCAgfCAgIDwgCiB8X19fX19cX18sX3xfX19fLyBcX18sX3xffCB8X3wgfF98ICB8X3wgIFxfXyxffF98IHxffCB8X3xcX19ffCBcXy9cXy8gXF9fXy98X3wgIHxffFxfXAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA=";
             var sp = new StringPlus(base64Str.ToStr());
             sp.AppendNewLine();
+            var year = $"{"MjAyMi0=".ToStr()}{DateTime.Now.Year}";
+            var author = "IEAgeXN3ZW5saSBhbGwgcmlnaHRzIHJlc2VydmVk".ToStr();
+            sp.Append($"{year}{author}".PadLeft(87));
+            sp.AppendNewLine(3);
             return sp.ToString();
         }
         catch (Exception ex)
@@ -400,29 +410,6 @@ public static class ConsoleUtil
         }
         return string.Empty;
     }
-
-
-    /// <summary>
-    /// 输出名称
-    /// </summary>
-    public static string GetSubTitle()
-    {
-        try
-        {
-            var year = $"{"MjAyMi0=".ToStr()}{DateTime.Now.Year}";
-            var author = "IEAgeXN3ZW5saSBhbGwgcmlnaHRzIHJlc2VydmVk".ToStr();
-            var sp = new StringPlus();
-            sp.Append($"{year}{author}".PadLeft(87));
-            sp.AppendNewLine(3);
-            return sp.ToString();
-        }
-        catch (Exception ex)
-        {
-            WriteLine($"ConsoleUtil.GetSubTitle 异常，ex:{ex}");
-        }
-        return string.Empty;
-    }
-
 
     /// <summary>
     /// 输出进度
