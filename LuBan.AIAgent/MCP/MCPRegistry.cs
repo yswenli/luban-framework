@@ -64,7 +64,11 @@ public class MCPRegistry
                 _externalPool.Remove(name);
                 if (client.IsConnected)
                 {
-                    try { client.DisconnectAsync().GetAwaiter().GetResult(); } catch { }
+                    try { Task.Run(() => client.DisconnectAsync()).Wait(); } catch { }
+                }
+                else
+                {
+                    (client as IDisposable)?.Dispose();
                 }
             }
         }
