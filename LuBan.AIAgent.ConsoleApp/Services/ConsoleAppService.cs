@@ -202,7 +202,7 @@ public class ConsoleAppService
         Console.WriteLine("  /session    - 管理对话会话 (list/new/clear/switch)");
         Console.WriteLine("  /agi        - 通用 Agent 对话");
         Console.WriteLine("  /browse     - 针对网站操作特异化 Agent");
-        Console.WriteLine("  /stats      - 会话与 Token 统计 (--day N)");
+        Console.WriteLine("  /stats      - 会话与 Token 统计 (days N)");
         Console.WriteLine("  /exit       - 退出程序");
     }
 

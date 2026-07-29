@@ -37,7 +37,7 @@ public class StatsCommand : CommandBase
     /// <summary>
     /// 命令描述
     /// </summary>
-    public override string Description => "会话与 Token 统计 (--day N)";
+    public override string Description => "会话与 Token 统计 (days N)";
 
     /// <summary>
     /// 创建命令实例
@@ -54,7 +54,7 @@ public class StatsCommand : CommandBase
     public override Task ExecuteAsync() => ShowStatsAsync(null);
 
     /// <summary>
-    /// 执行带参数的命令，支持 --day N
+    /// 执行带参数的命令，支持 days N
     /// </summary>
     public override async Task<bool> ExecuteAsync(string[] args)
     {
@@ -62,13 +62,13 @@ public class StatsCommand : CommandBase
 
         if (args.Length > 0)
         {
-            if (args.Length == 2 && args[0] == "--day" && int.TryParse(args[1], out var d) && d > 0)
+            if (args.Length == 2 && args[0] == "days" && int.TryParse(args[1], out var d) && d > 0)
             {
                 days = d;
             }
             else
             {
-                WriteError("用法: /stats [--day N]（N 为正整数）");
+                WriteError("用法: /stats [days N]（N 为正整数）");
                 return true;
             }
         }
