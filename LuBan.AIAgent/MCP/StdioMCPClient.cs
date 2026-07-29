@@ -23,7 +23,7 @@ namespace LuBan.AIAgent.MCP;
 /// <summary>
 /// 基于 stdio JSON-RPC 2.0 的外部 MCP 客户端
 /// </summary>
-public class StdioMCPClient : IMCPClient
+public class StdioMCPClient : IMCPClient, IDisposable, IAsyncDisposable
 {
     private readonly Configuration.McpServerConfig _config;
     private readonly SemaphoreSlim _rpcLock = new(1, 1);
@@ -236,12 +236,17 @@ public class StdioMCPClient : IMCPClient
                 try { message = JsonNode.Parse(line); }
                 catch { continue; }
 
-                if (message?["id"]?.GetValue<int>() == id)
+                var responseId = message?["id"];
+                if (responseId != null && JsonNode.DeepEquals(responseId, JsonValue.Create(id)))
                 {
-                    return message["error"] != null ? null : message["result"];
+                    return message!["error"] != null ? null : message["result"];
                 }
             }
             return null;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch
         {
@@ -278,4 +283,18 @@ public class StdioMCPClient : IMCPClient
         JsonElement element => JsonNode.Parse(element.GetRawText()),
         _ => JsonValue.Create(value)
     };
+
+    public void Dispose()
+    {
+        DisconnectAsync().GetAwaiter().GetResult();
+        _rpcLock.Dispose();
+        GC.SuppressFinalize(this);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await DisconnectAsync();
+        _rpcLock.Dispose();
+        GC.SuppressFinalize(this);
+    }
 }
