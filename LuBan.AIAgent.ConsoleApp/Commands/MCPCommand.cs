@@ -84,7 +84,9 @@ public class MCPCommand : CommandBase
             .Where(s => !s.Enabled)
             .ToList();
 
-        if (clients.Count == 0 && disabledExternal.Count == 0)
+        var disabledBuiltin = ConfigManager.DisabledBuiltinMcpClients;
+
+        if (clients.Count == 0 && disabledExternal.Count == 0 && disabledBuiltin.Count == 0)
         {
             WriteInfo("暂无 MCP 客户端");
             return Task.CompletedTask;
