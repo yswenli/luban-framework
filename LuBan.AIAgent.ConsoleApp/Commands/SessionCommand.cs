@@ -38,7 +38,7 @@ public class SessionCommand : CommandBase
     /// <summary>
     /// 命令描述
     /// </summary>
-    public override string Description => "管理对话会话 (list/new/clear/switch)";
+    public override string Description => "管理对话会话（-list/-new/-clear/-switch）";
 
     /// <summary>
     /// 创建命令实例
@@ -56,10 +56,11 @@ public class SessionCommand : CommandBase
     {
         Console.WriteLine();
         Console.WriteLine("会话管理用法：");
-        Console.WriteLine("  /session list           - 列出全部会话（创建时间倒序）");
-        Console.WriteLine("  /session new <标题>     - 创建新会话并切换（标题必填）");
-        Console.WriteLine("  /session switch <标题>  - 按标题切换到会话");
-        Console.WriteLine("  /session clear          - 物理删除全部会话及消息（需确认）");
+        Console.WriteLine("  /session -list           - 列出全部会话（创建时间倒序）");
+        Console.WriteLine("  /session -new <标题>     - 创建新会话并切换（标题必填）");
+        Console.WriteLine("  /session -switch <标题>  - 按标题切换到会话");
+        Console.WriteLine("  /session -clear          - 物理删除全部会话及消息（需确认）");
+        Console.WriteLine("  简写: /se -l, /se -n 标题, /se -s 标题, /se -c");
         return Task.CompletedTask;
     }
 
@@ -76,15 +77,19 @@ public class SessionCommand : CommandBase
 
         switch (subCommand)
         {
+            case "-list":
             case "list":
                 await ListSessionsAsync();
                 break;
+            case "-new":
             case "new":
                 await CreateNewSessionAsync(rest);
                 break;
+            case "-switch":
             case "switch":
                 await SwitchSessionAsync(rest);
                 break;
+            case "-clear":
             case "clear":
                 await ClearAllSessionsAsync();
                 break;

@@ -33,7 +33,7 @@ public class SkillCommand : CommandBase
 
     public override string Name => "skill";
 
-    public override string Description => "查看和执行 Skill (list/add/update/delete/switch)";
+    public override string Description => "查看和执行 Skill（-list/-add/-update/-delete/-switch）";
 
     public SkillCommand(ConfigManager configManager, IConfiguration configuration, SkillRegistry skillRegistry)
         : base(configManager, configuration)
@@ -45,12 +45,13 @@ public class SkillCommand : CommandBase
     {
         Console.WriteLine();
         Console.WriteLine("Skill 管理命令:");
-        Console.WriteLine("  skill list    - 列出所有 Skill");
-        Console.WriteLine("  skill add     - 添加自定义 Skill");
-        Console.WriteLine("  skill update  - 更新自定义 Skill");
-        Console.WriteLine("  skill delete  - 删除自定义 Skill");
-        Console.WriteLine("  skill switch  - 启用/禁用 Skill");
-        Console.WriteLine("  skill <id>    - 执行 Skill");
+        Console.WriteLine("  skill -list    - 列出所有 Skill");
+        Console.WriteLine("  skill -add     - 添加自定义 Skill");
+        Console.WriteLine("  skill -update  - 更新自定义 Skill");
+        Console.WriteLine("  skill -delete  - 删除自定义 Skill");
+        Console.WriteLine("  skill -switch  - 启用/禁用 Skill");
+        Console.WriteLine("  skill <id>     - 执行 Skill");
+        Console.WriteLine("  简写: /sk -l, /sk -a, /sk -u, /sk -d, /sk -s");
         return Task.CompletedTask;
     }
 
@@ -61,11 +62,21 @@ public class SkillCommand : CommandBase
 
         switch (args[0].ToLower())
         {
-            case "list": await ListSkillsAsync(); return true;
-            case "add": await AddSkillAsync(); return true;
-            case "update": await UpdateSkillAsync(); return true;
-            case "delete": await DeleteSkillAsync(); return true;
-            case "switch": await SwitchSkillAsync(); return true;
+            case "-list":
+            case "list":
+                await ListSkillsAsync(); return true;
+            case "-add":
+            case "add":
+                await AddSkillAsync(); return true;
+            case "-update":
+            case "update":
+                await UpdateSkillAsync(); return true;
+            case "-delete":
+            case "delete":
+                await DeleteSkillAsync(); return true;
+            case "-switch":
+            case "switch":
+                await SwitchSkillAsync(); return true;
             default:
                 await ExecuteSkillAsync(args[0], args.Length > 1 ? string.Join(' ', args[1..]) : null);
                 return true;

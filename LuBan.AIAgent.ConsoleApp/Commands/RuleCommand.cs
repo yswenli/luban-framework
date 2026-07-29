@@ -33,7 +33,7 @@ public class RuleCommand : CommandBase
 
     public override string Name => "rule";
 
-    public override string Description => "查看和管理规则 (list/add/update/delete/switch)";
+    public override string Description => "查看和管理规则（-list/-add/-update/-delete/-switch）";
 
     public RuleCommand(ConfigManager configManager, IConfiguration configuration, RuleEngine ruleEngine)
         : base(configManager, configuration)
@@ -45,11 +45,12 @@ public class RuleCommand : CommandBase
     {
         Console.WriteLine();
         Console.WriteLine("Rule 管理命令:");
-        Console.WriteLine("  rule list    - 列出所有规则");
-        Console.WriteLine("  rule add     - 添加自定义规则");
-        Console.WriteLine("  rule update  - 更新自定义规则");
-        Console.WriteLine("  rule delete  - 删除自定义规则");
-        Console.WriteLine("  rule switch  - 启用/禁用规则");
+        Console.WriteLine("  rule -list    - 列出所有规则");
+        Console.WriteLine("  rule -add     - 添加自定义规则");
+        Console.WriteLine("  rule -update  - 更新自定义规则");
+        Console.WriteLine("  rule -delete  - 删除自定义规则");
+        Console.WriteLine("  rule -switch  - 启用/禁用规则");
+        Console.WriteLine("  简写: /r -l, /r -a, /r -u, /r -d, /r -s");
         return Task.CompletedTask;
     }
 
@@ -60,11 +61,21 @@ public class RuleCommand : CommandBase
 
         switch (args[0].ToLower())
         {
-            case "list": await ListRulesAsync(); return true;
-            case "add": await AddRuleAsync(); return true;
-            case "update": await UpdateRuleAsync(); return true;
-            case "delete": await DeleteRuleAsync(); return true;
-            case "switch": await SwitchRuleAsync(); return true;
+            case "-list":
+            case "list":
+                await ListRulesAsync(); return true;
+            case "-add":
+            case "add":
+                await AddRuleAsync(); return true;
+            case "-update":
+            case "update":
+                await UpdateRuleAsync(); return true;
+            case "-delete":
+            case "delete":
+                await DeleteRuleAsync(); return true;
+            case "-switch":
+            case "switch":
+                await SwitchRuleAsync(); return true;
             default:
                 Console.WriteLine($"未知子命令: {args[0]}");
                 return true;

@@ -77,18 +77,18 @@ public class ConsoleAppService
     };
 
     /// <summary>
-    /// 子命令缩写映射（缩写 → 完整子命令名）
+    /// 子命令缩写映射（缩写 → 完整子命令名，带 - 前缀）
     /// </summary>
     private static readonly Dictionary<string, string> SubCommandAliases = new()
     {
-        ["-l"] = "list",
-        ["-a"] = "add",
-        ["-u"] = "update",
-        ["-d"] = "delete",
-        ["-s"] = "switch",
-        ["-n"] = "new",
-        ["-c"] = "clear",
-        ["-t"] = "tools"
+        ["-l"] = "-list",
+        ["-a"] = "-add",
+        ["-u"] = "-update",
+        ["-d"] = "-delete",
+        ["-s"] = "-switch",
+        ["-n"] = "-new",
+        ["-c"] = "-clear",
+        ["-t"] = "-tools"
     };
 
     /// <summary>
@@ -226,19 +226,19 @@ public class ConsoleAppService
     {
         Console.WriteLine();
         Console.WriteLine("可用命令 (/ 前缀，Tab 自动完成，支持简写):");
-        Console.WriteLine("  /provider /p   - 管理 AI Provider (list/add/update/delete/switch)");
-        Console.WriteLine("  /model /m      - 管理模型 (list/add/update/delete/switch)");
-        Console.WriteLine("  /skill /sk     - 查看和执行 Skill (list/add/update/delete/switch)");
-        Console.WriteLine("  /rule /r       - 查看和管理规则 (list/add/update/delete/switch)");
-        Console.WriteLine("  /mcp /mp       - 查看 MCP 客户端 (list/add/update/delete/switch/connect/tools)");
-        Console.WriteLine("  /session /se   - 管理对话会话 (list/new/clear/switch)");
+        Console.WriteLine("  /provider /p   - 管理 AI Provider (-list/-add/-update/-delete/-switch)");
+        Console.WriteLine("  /model /m      - 管理模型 (-list/-add/-update/-delete/-switch)");
+        Console.WriteLine("  /skill /sk     - 查看和执行 Skill (-list/-add/-update/-delete/-switch)");
+        Console.WriteLine("  /rule /r       - 查看和管理规则 (-list/-add/-update/-delete/-switch)");
+        Console.WriteLine("  /mcp /mp       - 查看 MCP 客户端 (-list/-add/-update/-delete/-switch/-connect/-tools)");
+        Console.WriteLine("  /session /se   - 管理对话会话 (-list/-new/-clear/-switch)");
         Console.WriteLine("  /agi /a        - 通用 Agent 对话");
         Console.WriteLine("  /browse /b     - 针对网站操作特异化 Agent");
-        Console.WriteLine("  /stats /st     - 会话与 Token 统计 (days N)");
+        Console.WriteLine("  /stats /st     - 会话与 Token 统计 (-days N)");
         Console.WriteLine("  /exit          - 退出程序");
         Console.WriteLine();
-        Console.WriteLine("子命令简写: -l=list, -a=add, -u=update, -d=delete, -s=switch, -n=new, -c=clear, -t=tools");
-        Console.WriteLine("示例: /p -l (= /provider list), /se -n 标题 (= /session new 标题)");
+        Console.WriteLine("子命令简写: -l=-list, -a=-add, -u=-update, -d=-delete, -s=-switch, -n=-new, -c=-clear, -t=-tools");
+        Console.WriteLine("示例: /p -l (= /provider -list), /st -d 10 (= /stats -days 10)");
     }
 
     /// <summary>

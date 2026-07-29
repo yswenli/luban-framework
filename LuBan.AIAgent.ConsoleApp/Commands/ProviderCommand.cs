@@ -25,7 +25,7 @@ public class ProviderCommand : CommandBase
 {
     public override string Name => "provider";
 
-    public override string Description => "管理 AI Provider（list/add/update/delete/switch）";
+    public override string Description => "管理 AI Provider（-list/-add/-update/-delete/-switch）";
 
     public ProviderCommand(ConfigManager configManager, IConfiguration configuration)
         : base(configManager, configuration)
@@ -36,11 +36,12 @@ public class ProviderCommand : CommandBase
     {
         Console.WriteLine();
         Console.WriteLine("Provider 管理命令:");
-        Console.WriteLine("  provider list    - 列出所有 Provider");
-        Console.WriteLine("  provider add     - 添加 Provider");
-        Console.WriteLine("  provider update  - 更新 Provider");
-        Console.WriteLine("  provider delete  - 删除 Provider");
-        Console.WriteLine("  provider switch  - 切换当前 Provider");
+        Console.WriteLine("  provider -list    - 列出所有 Provider");
+        Console.WriteLine("  provider -add     - 添加 Provider");
+        Console.WriteLine("  provider -update  - 更新 Provider");
+        Console.WriteLine("  provider -delete  - 删除 Provider");
+        Console.WriteLine("  provider -switch  - 切换当前 Provider");
+        Console.WriteLine("  简写: /p -l, /p -a, /p -u, /p -d, /p -s");
         return Task.CompletedTask;
     }
 
@@ -54,11 +55,11 @@ public class ProviderCommand : CommandBase
         var subCommand = args[0].ToLower();
         return subCommand switch
         {
-            "list" => ExecuteListAsync(),
-            "add" => ExecuteAddAsync(args[1..]),
-            "update" => ExecuteUpdateAsync(args[1..]),
-            "delete" => ExecuteDeleteAsync(args[1..]),
-            "switch" => ExecuteSwitchAsync(args[1..]),
+            "-list" or "list" => ExecuteListAsync(),
+            "-add" or "add" => ExecuteAddAsync(args[1..]),
+            "-update" or "update" => ExecuteUpdateAsync(args[1..]),
+            "-delete" or "delete" => ExecuteDeleteAsync(args[1..]),
+            "-switch" or "switch" => ExecuteSwitchAsync(args[1..]),
             _ => Task.FromResult(false)
         };
     }

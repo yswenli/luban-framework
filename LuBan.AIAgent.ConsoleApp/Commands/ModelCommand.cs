@@ -25,7 +25,7 @@ public class ModelCommand : CommandBase
 {
     public override string Name => "model";
 
-    public override string Description => "管理模型（list/add/update/delete/switch）";
+    public override string Description => "管理模型（-list/-add/-update/-delete/-switch）";
 
     public ModelCommand(ConfigManager configManager, IConfiguration configuration)
         : base(configManager, configuration)
@@ -36,11 +36,12 @@ public class ModelCommand : CommandBase
     {
         Console.WriteLine();
         Console.WriteLine("模型管理命令:");
-        Console.WriteLine("  model list                 - 列出所有可用模型");
-        Console.WriteLine("  model add                  - 为 Provider 添加自定义模型");
-        Console.WriteLine("  model update               - 更新自定义模型名称");
-        Console.WriteLine("  model delete               - 删除自定义模型");
-        Console.WriteLine("  model switch [provider:model] - 切换当前使用的模型");
+        Console.WriteLine("  model -list                 - 列出所有可用模型");
+        Console.WriteLine("  model -add                  - 为 Provider 添加自定义模型");
+        Console.WriteLine("  model -update               - 更新自定义模型名称");
+        Console.WriteLine("  model -delete               - 删除自定义模型");
+        Console.WriteLine("  model -switch [provider:model] - 切换当前使用的模型");
+        Console.WriteLine("  简写: /m -l, /m -a, /m -u, /m -d, /m -s");
         return Task.CompletedTask;
     }
 
@@ -54,11 +55,11 @@ public class ModelCommand : CommandBase
         var subCommand = args[0].ToLower();
         return subCommand switch
         {
-            "list" => ExecuteListAsync(),
-            "add" => ExecuteAddAsync(args[1..]),
-            "update" => ExecuteUpdateAsync(args[1..]),
-            "delete" => ExecuteDeleteAsync(args[1..]),
-            "switch" => ExecuteSwitchAsync(args[1..]),
+            "-list" or "list" => ExecuteListAsync(),
+            "-add" or "add" => ExecuteAddAsync(args[1..]),
+            "-update" or "update" => ExecuteUpdateAsync(args[1..]),
+            "-delete" or "delete" => ExecuteDeleteAsync(args[1..]),
+            "-switch" or "switch" => ExecuteSwitchAsync(args[1..]),
             _ => Task.FromResult(false)
         };
     }

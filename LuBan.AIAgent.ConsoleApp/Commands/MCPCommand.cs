@@ -33,7 +33,7 @@ public class MCPCommand : CommandBase
 
     public override string Name => "mcp";
 
-    public override string Description => "查看 MCP 客户端 (list/add/update/delete/switch/connect/tools)";
+    public override string Description => "查看 MCP 客户端（-list/-add/-update/-delete/-switch/-connect/-tools）";
 
     public MCPCommand(ConfigManager configManager, IConfiguration configuration, MCPRegistry mcpRegistry)
         : base(configManager, configuration)
@@ -45,13 +45,14 @@ public class MCPCommand : CommandBase
     {
         Console.WriteLine();
         Console.WriteLine("MCP 管理命令:");
-        Console.WriteLine("  mcp list              - 列出所有 MCP 客户端");
-        Console.WriteLine("  mcp add               - 添加外部 MCP 服务器");
-        Console.WriteLine("  mcp update            - 更新外部 MCP 服务器");
-        Console.WriteLine("  mcp delete            - 删除外部 MCP 服务器");
-        Console.WriteLine("  mcp switch            - 启用/禁用 MCP 客户端");
-        Console.WriteLine("  mcp connect <name>    - 连接 MCP 客户端");
-        Console.WriteLine("  mcp tools <name>      - 查看客户端可用工具");
+        Console.WriteLine("  mcp -list              - 列出所有 MCP 客户端");
+        Console.WriteLine("  mcp -add               - 添加外部 MCP 服务器");
+        Console.WriteLine("  mcp -update            - 更新外部 MCP 服务器");
+        Console.WriteLine("  mcp -delete            - 删除外部 MCP 服务器");
+        Console.WriteLine("  mcp -switch            - 启用/禁用 MCP 客户端");
+        Console.WriteLine("  mcp -connect <name>    - 连接 MCP 客户端");
+        Console.WriteLine("  mcp -tools <name>      - 查看客户端可用工具");
+        Console.WriteLine("  简写: /mp -l, /mp -a, /mp -u, /mp -d, /mp -s, /mp -c, /mp -t");
         return Task.CompletedTask;
     }
 
@@ -60,19 +61,36 @@ public class MCPCommand : CommandBase
         if (args.Length == 0)
             return false;
 
-        switch (args[0].ToLower())
+        var subCmd = args[0].ToLower();
+        switch (subCmd)
         {
-            case "list": await ListClientsAsync(); return true;
-            case "add": await AddServerAsync(); return true;
-            case "update": await UpdateServerAsync(); return true;
-            case "delete": await DeleteServerAsync(); return true;
-            case "switch": await SwitchServerAsync(); return true;
-            case "connect" when args.Length > 1: await ConnectAsync(args[1]); return true;
-            case "tools" when args.Length > 1: await ListToolsAsync(args[1]); return true;
-            default:
-                Console.WriteLine($"未知子命令或缺少参数: {string.Join(' ', args)}");
-                return true;
+            case "-list":
+            case "list":
+                await ListClientsAsync(); return true;
+            case "-add":
+            case "add":
+                await AddServerAsync(); return true;
+            case "-update":
+            case "update":
+                await UpdateServerAsync(); return true;
+            case "-delete":
+            case "delete":
+                await DeleteServerAsync(); return true;
+            case "-switch":
+            case "switch":
+                await SwitchServerAsync(); return true;
+            case "-connect":
+            case "connect":
+                if (args.Length > 1) { await ConnectAsync(args[1]); return true; }
+                break;
+            case "-tools":
+            case "tools":
+                if (args.Length > 1) { await ListToolsAsync(args[1]); return true; }
+                break;
         }
+
+        Console.WriteLine($"未知子命令或缺少参数: {string.Join(' ', args)}");
+        return true;
     }
 
     private Task ListClientsAsync()
