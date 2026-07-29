@@ -39,4 +39,25 @@ public class LuBanAgentOptions
     /// 外部插件程序集列表
     /// </summary>
     public List<string> ExternalPlugins { get; set; } = new();
+
+    /// <summary>
+    /// Session 历史与压缩配置
+    /// </summary>
+    public SessionOptions Session { get; set; } = new();
+}
+
+/// <summary>
+/// Session 历史与压缩配置
+/// </summary>
+public class SessionOptions
+{
+    /// <summary>
+    /// 压缩后保留的消息数（默认 20）
+    /// </summary>
+    public int CompactTargetMessages { get; set; } = 20;
+
+    /// <summary>
+    /// 超出保留数多少条后触发压缩（默认 10，即超过 30 条触发）
+    /// </summary>
+    public int CompactThreshold { get; set; } = 10;
 }
