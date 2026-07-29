@@ -95,7 +95,7 @@ public class RuleCommand : CommandBase
 
             if (isCustom)
             {
-                var cfg = ConfigManager.CustomRules.First(c => c.Id == rule.Id);
+                var cfg = ConfigManager.CustomRules.First(c => c.Id.Equals(rule.Id, StringComparison.OrdinalIgnoreCase));
                 Console.WriteLine($"     ActionTypePattern: {cfg.ActionTypePattern}  TargetPattern: {cfg.TargetPattern}  Action: {cfg.Action}");
             }
             else
