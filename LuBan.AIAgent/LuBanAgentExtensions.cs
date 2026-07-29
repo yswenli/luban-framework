@@ -48,6 +48,7 @@ public static class LuBanAgentExtensions
         services.AddSingleton<ILuBanToolPlugin, Tools.Redis.RedisToolPlugin>();
         services.AddSingleton<ILuBanToolPlugin, Tools.Web.WebToolPlugin>();
         services.AddSingleton<ILuBanToolPlugin, Tools.Retrieval.RetrievalToolPlugin>();
+        services.AddSingleton<ILuBanToolPlugin, MCP.MCPToolPlugin>();
 
         LoadExternalPlugins(services, configuration);
 

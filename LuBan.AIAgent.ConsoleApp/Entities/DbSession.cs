@@ -106,4 +106,10 @@ public class DbSessionMessage : EntityBase
     /// </summary>
     [SugarColumn(ColumnDescription = "工具调用", ColumnDataType = "text", IsNullable = true)]
     public string? ToolCalls { get; set; }
+
+    /// <summary>
+    /// 是否已被压缩并入摘要
+    /// </summary>
+    [SugarColumn(ColumnDescription = "已压缩", IsNullable = false)]
+    public bool IsCompacted { get; set; } = false;
 }

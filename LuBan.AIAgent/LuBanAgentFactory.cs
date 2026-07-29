@@ -34,12 +34,14 @@ public interface ILuBanAgentFactory
     /// <param name="modelName">模型名称，格式 "provider:model"</param>
     /// <param name="systemPrompt">自定义系统提示词</param>
     /// <param name="toolGroups">指定启用的工具组，null 表示全部启用</param>
+    /// <param name="useSessionHistory">是否启用 Session 历史</param>
     /// <param name="cancellationToken">取消令牌</param>
     /// <returns>LuBanAgent 实例</returns>
     Task<LuBanAgent> CreateAsync(
         string? modelName = null,
         string? systemPrompt = null,
         IEnumerable<string>? toolGroups = null,
+        bool useSessionHistory = false,
         CancellationToken cancellationToken = default);
 }
 
@@ -79,6 +81,7 @@ public class LuBanAgentFactory : ILuBanAgentFactory, IScoped
         string? modelName = null,
         string? systemPrompt = null,
         IEnumerable<string>? toolGroups = null,
+        bool useSessionHistory = false,
         CancellationToken cancellationToken = default)
     {
         var opts = _options.Value;
@@ -91,20 +94,48 @@ public class LuBanAgentFactory : ILuBanAgentFactory, IScoped
             .Cast<AITool>()
             .ToList();
 
-        // 输出工具信息
+        var ruleEngine = _serviceProvider.GetService<Rules.RuleEngine>();
+        if (ruleEngine != null)
+        {
+            tools = tools
+                .Select(t => t is AIFunction f ? new Rules.RuleCheckedAIFunction(f, ruleEngine) : t)
+                .ToList();
+        }
+
         Console.WriteLine($"已加载 {plugins.Count} 个工具插件，共 {tools.Count} 个工具:");
         foreach (var tool in tools)
         {
             Console.WriteLine($"  - {tool.Name}: {tool.Description}");
         }
 
+        ChatHistoryProvider? historyProvider = null;
+        if (useSessionHistory
+            && _serviceProvider.GetService<Sessions.ISessionManager>() is { } sessionManager)
+        {
+            historyProvider = new Sessions.SessionChatHistoryProvider(
+                sessionManager,
+                _chatClient,
+                opts.Session.CompactTargetMessages,
+                opts.Session.CompactThreshold);
+        }
+
         var agent = new ChatClientAgent(
             _chatClient,
-            instructions: instructions,
-            name: "LuBanAgent",
-            description: opts.Description ?? "LuBan AI Agent",
-            tools: tools,
-            services: _serviceProvider);
+            new ChatClientAgentOptions
+            {
+                Name = "LuBanAgent",
+                Description = opts.Description ?? "LuBan AI Agent",
+                ChatOptions = new ChatOptions
+                {
+                    Instructions = instructions,
+                    Tools = tools
+                },
+                ChatHistoryProvider = historyProvider,
+                ThrowOnChatHistoryProviderConflict = false,
+                WarnOnChatHistoryProviderConflict = false
+            },
+            null,
+            _serviceProvider);
 
         return Task.FromResult(new LuBanAgent(agent));
     }

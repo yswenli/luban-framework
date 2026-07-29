@@ -134,6 +134,7 @@ public abstract class CommandBase : ICommand
     {
         var services = new ServiceCollection();
         services.AddSingleton<IConfiguration>(Configuration);
+        services.AddSingleton(ConfigManager);
         services.AddSingleton<IChatClient>(sp => ConfigManager.CreateChatClient());
         services.AddLuBanAgent(Configuration);
         return services.BuildServiceProvider();
