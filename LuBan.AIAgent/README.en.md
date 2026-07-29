@@ -88,6 +88,7 @@ npx playwright@1.61.0 install chromium
 | **Database Tools** | `database` | Execute SQL statements via sqlcmd |
 | **Redis Tools** | `redis` | Execute Redis commands via redis-cli |
 | **Web Tools** | `web` | Send HTTP requests to fetch web content |
+| **Retrieval Tools** | `retrieval` | Index local code/documents, semantic search |
 
 ### Skill System
 
@@ -119,9 +120,25 @@ npx playwright@1.61.0 install chromium
 | Component | Description |
 |-----------|-------------|
 | `IMCPClient` | MCP client interface, interacts with MCP servers |
-| `MCPClientBase` | MCP client base class |
-| `MCPRegistry` | MCP registry |
+| `StdioMCPClient` | stdio JSON-RPC based external MCP client |
+| `MCPRegistry` | MCP registry, manages built-in and external clients |
+| `MCPToolPlugin` | MCP tool plugin, exposes MCP tools to Agent |
 | `FileSystemMCPClient` | Built-in file system MCP client |
+
+### Session System
+
+| Component | Description |
+|-----------|-------------|
+| `ISessionManager` | Session manager interface, supports create/switch/clear |
+| `SessionChatHistoryProvider` | Session history provider, auto-persists conversation history |
+| `SessionOptions` | Session config, supports compression thresholds |
+
+### Rule Interception
+
+| Component | Description |
+|-----------|-------------|
+| `RuleCheckedAIFunction` | Rule-checking decorator, intercepts tool calls |
+| `CustomRule` | Custom rule adapter, supports wildcard matching |
 
 ### Security & Confirmation
 
@@ -141,13 +158,14 @@ npx playwright@1.61.0 install chromium
     "DefaultModel": "openai:gpt-4o",
     "SystemPrompt": "You are a helpful assistant.",
     "MaxToolLoopIterations": 10,
-    "Models": {
-      "openai": { "BaseUrl": "https://api.openai.com/v1", "ApiKey": "sk-xxx" },
-      "qwen": { "BaseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1", "ApiKey": "sk-xxx" }
+    "Session": {
+      "CompactTargetMessages": 20,
+      "CompactThreshold": 10
     },
     "Tools": {
       "Browser": { "Enabled": true, "Headless": false },
-      "FileSystem": { "Enabled": true, "AllowedRoots": ["C:\\Work"] }
+      "FileSystem": { "Enabled": true, "AllowedRoots": ["C:\\Work"] },
+      "Retrieval": { "Enabled": true, "ModelId": "bge-small-zh-v1.5" }
     }
   }
 }
@@ -158,8 +176,10 @@ npx playwright@1.61.0 install chromium
 services.AddSingleton<IChatClient>(sp => CreateChatClient());
 services.AddLuBanAgent(configuration);
 
-// Or register with factory method
-services.AddLuBanAgent(configuration, sp => new LuBanChatClient(providers, "openai"));
+// Configure Provider (via ConfigManager)
+var configManager = serviceProvider.GetRequiredService<ConfigManager>();
+configManager.AddProvider("openai", "sk-xxx");
+configManager.Save();
 ```
 
 ### 2. Multi-Model Routing
@@ -311,17 +331,13 @@ LuBan.AIAgent/
 │   ├── Storage/
 │   │   ├── ProviderConfig.cs          # Provider configuration
 │   │   ├── AppConfig.cs               # Application configuration
-│   │   ├── ConfigManager.cs           # Configuration manager
-│   │   └── ProviderModels.cs          # Predefined model list
+│   │   ├── ConfigManager.cs           # Configuration manager (with CRUD)
+│   │   ├── CustomSkillConfig.cs       # Custom skill configuration
+│   │   ├── CustomRuleConfig.cs        # Custom rule configuration
+│   │   └── McpServerConfig.cs         # External MCP server config
 │   ├── LuBanAgentOptions.cs           # Agent configuration options
-│   ├── ModelEndpointOptions.cs        # Model endpoint configuration
-│   ├── ToolGroupOptions.cs            # Tool group configuration
-│   ├── BrowserToolOptions.cs          # Browser tool configuration
-│   ├── FileSystemToolOptions.cs       # File system tool configuration
-│   ├── ScriptToolOptions.cs           # Script tool configuration
-│   ├── DatabaseToolOptions.cs         # Database tool configuration
-│   ├── RedisToolOptions.cs            # Redis tool configuration
-│   └── WebToolOptions.cs              # Web tool configuration
+│   ├── SessionOptions.cs              # Session configuration options
+│   └── ToolGroupOptions.cs            # Tool group configuration
 ├── Infrastructure/
 │   ├── PlaywrightSession.cs           # Playwright session management
 │   ├── ProcessRunner.cs               # Process executor
@@ -332,11 +348,13 @@ LuBan.AIAgent/
 │   ├── Script/ScriptToolPlugin.cs     # Script execution tools
 │   ├── Database/DatabaseToolPlugin.cs # Database tools
 │   ├── Redis/RedisToolPlugin.cs       # Redis tools
-│   └── Web/WebToolPlugin.cs          # Web tools
+│   ├── Web/WebToolPlugin.cs           # Web tools
+│   └── Retrieval/RetrievalToolPlugin.cs # Semantic retrieval tools
 ├── Skills/
 │   ├── ISkill.cs                      # Skill interface
 │   ├── SkillBase.cs                   # Skill base class
 │   ├── SkillRegistry.cs               # Skill registry
+│   ├── CustomSkill.cs                 # Custom skill adapter
 │   └── BuiltIn/
 │       ├── BrainstormingSkill.cs      # Brainstorming
 │       ├── CodeReviewSkill.cs         # Code review
@@ -345,19 +363,28 @@ LuBan.AIAgent/
 │   ├── IRule.cs                       # Rule interface
 │   ├── RuleBase.cs                    # Rule base class
 │   ├── RuleEngine.cs                  # Rule engine
+│   ├── RuleCheckedAIFunction.cs       # Rule-checking decorator
+│   ├── CustomRule.cs                  # Custom rule adapter
 │   └── BuiltIn/
 │       └── PathAccessRule.cs          # Path access rule
 ├── MCP/
 │   ├── IMCPClient.cs                  # MCP client interface
-│   ├── MCPClientBase.cs               # MCP client base class
+│   ├── StdioMCPClient.cs              # stdio JSON-RPC client
 │   ├── MCPRegistry.cs                 # MCP registry
+│   ├── MCPToolPlugin.cs               # MCP tool plugin
 │   └── BuiltIn/
 │       └── FileSystemMCPClient.cs     # File system MCP client
+├── Sessions/
+│   ├── ISessionManager.cs             # Session manager interface
+│   └── SessionChatHistoryProvider.cs  # Session history provider
+├── Retrieval/
+│   ├── IRetrievalService.cs           # Semantic retrieval interface
+│   ├── RetrievalService.cs            # Retrieval service
+│   └── Chunkers/                     # Code chunkers
 ├── Providers/
 │   └── LuBanChatClient.cs             # Provider router
 ├── Abstractions/
-│   ├── ILuBanToolPlugin.cs            # Tool plugin interface
-│   └── ToolAttribute.cs              # Tool annotation attribute
+│   └── ILuBanToolPlugin.cs            # Tool plugin interface
 ├── Plugins/
 │   └── ToolPluginRegistry.cs          # Plugin registry
 ├── Services/
@@ -369,12 +396,14 @@ LuBan.AIAgent/
 
 ## Tips
 
-- Model routing uses `provider:model` format; adding new providers only requires implementing `IChatModelProvider` or adding endpoints in configuration
-- 6 built-in tool groups cover browser automation, file operations, script execution, database, Redis, and web requests
+- Model routing uses `provider:model` format; add providers via `ConfigManager.AddProvider()`
+- **7 built-in tool groups** cover browser automation, file operations, script execution, database, Redis, web requests, and semantic retrieval
 - `ToolConfirmationService` automatically requires user confirmation for dangerous operations (write, delete, execute)
 - `FileSystemToolOptions.AllowedRoots` restricts file access scope to prevent Agent overreach
-- Skill system supports custom extensions — inherit `SkillBase` for quick implementation
-- Rule system supports priority ordering, enabling permission checks and parameter modification before tool execution
+- **Session history auto-persistence** with compression (SummarizingChatReducer), context never lost
+- **Custom Skill/Rule/MCP persistence**, configs saved locally and auto-loaded on restart
+- **Rule interception** checks before tool execution, supports deny/allow/modify
+- **MCP tool integration**, external MCP server tools exposed to Agent
 - External tool plugin assemblies can be hot-loaded via `ExternalPlugins` configuration
 - Combine with LuBan.AIFlow to connect to RagFlow / Dify / Coze and other AI platforms
 

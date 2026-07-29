@@ -88,6 +88,7 @@ npx playwright@1.61.0 install chromium
 | **数据库工具** | `database` | 通过 sqlcmd 执行 SQL 语句 |
 | **Redis 工具** | `redis` | 通过 redis-cli 执行 Redis 命令 |
 | **Web 工具** | `web` | 发送 HTTP 请求获取网页内容 |
+| **语义检索工具** | `retrieval` | 索引本地代码/文档，按语义搜索相关片段 |
 
 ### Skill 系统
 
@@ -119,9 +120,25 @@ npx playwright@1.61.0 install chromium
 | 组件 | 说明 |
 |------|------|
 | `IMCPClient` | MCP 客户端接口，与 MCP 服务器交互 |
-| `MCPClientBase` | MCP 客户端基类 |
-| `MCPRegistry` | MCP 注册表 |
+| `StdioMCPClient` | 基于 stdio JSON-RPC 的外部 MCP 客户端 |
+| `MCPRegistry` | MCP 注册表，管理内置和外部客户端 |
+| `MCPToolPlugin` | MCP 工具插件，将 MCP 工具暴露给 Agent |
 | `FileSystemMCPClient` | 内置文件系统 MCP 客户端 |
+
+### 会话系统
+
+| 组件 | 说明 |
+|------|------|
+| `ISessionManager` | 会话管理接口，支持创建、切换、清除会话 |
+| `SessionChatHistoryProvider` | 会话历史提供者，自动持久化对话历史 |
+| `SessionOptions` | 会话配置，支持压缩阈值设置 |
+
+### 规则拦截
+
+| 组件 | 说明 |
+|------|------|
+| `RuleCheckedAIFunction` | 规则检查装饰器，工具执行前自动拦截检查 |
+| `CustomRule` | 自定义规则适配器，支持通配符匹配 |
 
 ### 安全与确认
 
@@ -141,13 +158,14 @@ npx playwright@1.61.0 install chromium
     "DefaultModel": "openai:gpt-4o",
     "SystemPrompt": "你是一个智能助手。",
     "MaxToolLoopIterations": 10,
-    "Models": {
-      "openai": { "BaseUrl": "https://api.openai.com/v1", "ApiKey": "sk-xxx" },
-      "qwen": { "BaseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1", "ApiKey": "sk-xxx" }
+    "Session": {
+      "CompactTargetMessages": 20,
+      "CompactThreshold": 10
     },
     "Tools": {
       "Browser": { "Enabled": true, "Headless": false },
-      "FileSystem": { "Enabled": true, "AllowedRoots": ["C:\\Work"] }
+      "FileSystem": { "Enabled": true, "AllowedRoots": ["C:\\Work"] },
+      "Retrieval": { "Enabled": true, "ModelId": "bge-small-zh-v1.5" }
     }
   }
 }
@@ -158,8 +176,10 @@ npx playwright@1.61.0 install chromium
 services.AddSingleton<IChatClient>(sp => CreateChatClient());
 services.AddLuBanAgent(configuration);
 
-// 或使用工厂方法注册
-services.AddLuBanAgent(configuration, sp => new LuBanChatClient(providers, "openai"));
+// 配置 Provider（通过 ConfigManager）
+var configManager = serviceProvider.GetRequiredService<ConfigManager>();
+configManager.AddProvider("openai", "sk-xxx");
+configManager.Save();
 ```
 
 ### 2. 多模型路由
@@ -312,17 +332,13 @@ LuBan.AIAgent/
 │   ├── Storage/
 │   │   ├── ProviderConfig.cs          # Provider 配置
 │   │   ├── AppConfig.cs               # 应用配置
-│   │   ├── ConfigManager.cs           # 配置管理器
-│   │   └── ProviderModels.cs          # 预定义模型列表
+│   │   ├── ConfigManager.cs           # 配置管理器（含 CRUD）
+│   │   ├── CustomSkillConfig.cs       # 自定义 Skill 配置
+│   │   ├── CustomRuleConfig.cs        # 自定义规则配置
+│   │   └── McpServerConfig.cs         # 外部 MCP 服务器配置
 │   ├── LuBanAgentOptions.cs           # Agent 配置选项
-│   ├── ModelEndpointOptions.cs        # 模型端点配置
-│   ├── ToolGroupOptions.cs            # 工具组配置
-│   ├── BrowserToolOptions.cs          # 浏览器工具配置
-│   ├── FileSystemToolOptions.cs       # 文件系统工具配置
-│   ├── ScriptToolOptions.cs           # 脚本工具配置
-│   ├── DatabaseToolOptions.cs         # 数据库工具配置
-│   ├── RedisToolOptions.cs            # Redis 工具配置
-│   └── WebToolOptions.cs              # Web 工具配置
+│   ├── SessionOptions.cs              # 会话配置选项
+│   └── ToolGroupOptions.cs            # 工具组配置
 ├── Infrastructure/
 │   ├── PlaywrightSession.cs           # Playwright 会话管理
 │   ├── ProcessRunner.cs               # 进程执行器
@@ -333,11 +349,13 @@ LuBan.AIAgent/
 │   ├── Script/ScriptToolPlugin.cs     # 脚本执行工具
 │   ├── Database/DatabaseToolPlugin.cs # 数据库工具
 │   ├── Redis/RedisToolPlugin.cs       # Redis 工具
-│   └── Web/WebToolPlugin.cs          # Web 工具
+│   ├── Web/WebToolPlugin.cs           # Web 工具
+│   └── Retrieval/RetrievalToolPlugin.cs # 语义检索工具
 ├── Skills/
 │   ├── ISkill.cs                      # Skill 接口
 │   ├── SkillBase.cs                   # Skill 基类
 │   ├── SkillRegistry.cs               # Skill 注册表
+│   ├── CustomSkill.cs                 # 自定义 Skill 适配器
 │   └── BuiltIn/
 │       ├── BrainstormingSkill.cs      # 头脑风暴
 │       ├── CodeReviewSkill.cs         # 代码审查
@@ -346,19 +364,28 @@ LuBan.AIAgent/
 │   ├── IRule.cs                       # 规则接口
 │   ├── RuleBase.cs                    # 规则基类
 │   ├── RuleEngine.cs                  # 规则引擎
+│   ├── RuleCheckedAIFunction.cs       # 规则检查装饰器
+│   ├── CustomRule.cs                  # 自定义规则适配器
 │   └── BuiltIn/
 │       └── PathAccessRule.cs          # 路径访问规则
 ├── MCP/
 │   ├── IMCPClient.cs                  # MCP 客户端接口
-│   ├── MCPClientBase.cs               # MCP 客户端基类
+│   ├── StdioMCPClient.cs              # stdio JSON-RPC 客户端
 │   ├── MCPRegistry.cs                 # MCP 注册表
+│   ├── MCPToolPlugin.cs               # MCP 工具插件
 │   └── BuiltIn/
 │       └── FileSystemMCPClient.cs     # 文件系统 MCP 客户端
+├── Sessions/
+│   ├── ISessionManager.cs             # 会话管理接口
+│   └── SessionChatHistoryProvider.cs  # 会话历史提供者
+├── Retrieval/
+│   ├── IRetrievalService.cs           # 语义检索接口
+│   ├── RetrievalService.cs            # 检索服务实现
+│   └── Chunkers/                     # 代码切块器
 ├── Providers/
 │   └── LuBanChatClient.cs             # Provider 路由器
 ├── Abstractions/
-│   ├── ILuBanToolPlugin.cs            # 工具插件接口
-│   └── ToolAttribute.cs              # 工具标注特性
+│   └── ILuBanToolPlugin.cs            # 工具插件接口
 ├── Plugins/
 │   └── ToolPluginRegistry.cs          # 插件注册表
 ├── Services/
@@ -370,12 +397,14 @@ LuBan.AIAgent/
 
 ## 小贴士
 
-- 模型路由使用 `provider:model` 格式，新增 Provider 只需实现 `IChatModelProvider` 或在配置中添加端点
-- 6 大内置工具组覆盖浏览器自动化、文件操作、脚本执行、数据库、Redis、Web 请求等常见场景
+- 模型路由使用 `provider:model` 格式，新增 Provider 只需通过 `ConfigManager.AddProvider()` 添加
+- **7 大内置工具组**覆盖浏览器自动化、文件操作、脚本执行、数据库、Redis、Web 请求、语义检索等场景
 - `ToolConfirmationService` 对写入、删除、执行等危险操作自动要求用户确认
 - `FileSystemToolOptions.AllowedRoots` 限制文件访问范围，防止 Agent 越权操作
-- Skill 系统支持自定义扩展，继承 `SkillBase` 即可快速实现
-- Rule 系统支持优先级排序，可在工具执行前进行权限检查和参数修改
+- **会话历史自动持久化**，支持长对话压缩（SummarizingChatReducer），上下文永不丢失
+- **自定义 Skill/Rule/MCP 持久化**，配置保存到本地文件，重启后自动加载
+- **规则拦截**在工具执行前自动检查，支持 deny/allow/modify
+- **MCP 工具集成**，外部 MCP 服务器工具自动暴露给 Agent
 - 通过 `ExternalPlugins` 配置可热加载外部工具插件程序集
 - 结合 LuBan.AIFlow 可对接 RagFlow / Dify / Coze 等 AI 平台
 
