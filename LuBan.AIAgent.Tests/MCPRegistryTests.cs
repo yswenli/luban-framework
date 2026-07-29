@@ -86,6 +86,36 @@ public class MCPRegistryTests
     }
 
     [TestMethod]
+    public void GetAll_ConfigChange_RecyclesExternalInstance()
+    {
+        var cm = new ConfigManager(_tempPath);
+        cm.AddMcpServer(new McpServerConfig { Name = "ext1", Command = "npx", Args = new List<string> { "-y", "v1" } });
+        var registry = new MCPRegistry(Array.Empty<IMCPClient>(), cm);
+
+        var before = registry.Get("ext1");
+        Assert.IsNotNull(before);
+
+        cm.UpdateMcpServer(new McpServerConfig { Name = "ext1", Command = "npx", Args = new List<string> { "-y", "v2" } });
+
+        var after = registry.Get("ext1");
+        Assert.IsNotNull(after);
+        Assert.AreNotSame(before, after);
+    }
+
+    [TestMethod]
+    public void GetAll_ConfigUnchanged_KeepsExternalInstance()
+    {
+        var cm = new ConfigManager(_tempPath);
+        cm.AddMcpServer(new McpServerConfig { Name = "ext1", Command = "npx" });
+        var registry = new MCPRegistry(Array.Empty<IMCPClient>(), cm);
+
+        var before = registry.Get("ext1");
+        var after = registry.Get("ext1");
+
+        Assert.AreSame(before, after);
+    }
+
+    [TestMethod]
     public void IsBuiltin_DistinguishesExternal()
     {
         var cm = new ConfigManager(_tempPath);

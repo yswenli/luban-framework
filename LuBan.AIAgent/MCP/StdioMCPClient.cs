@@ -30,6 +30,8 @@ public class StdioMCPClient : IMCPClient, IDisposable, IAsyncDisposable
     private Process? _process;
     private int _nextId;
 
+    private static readonly TimeSpan RpcTimeout = TimeSpan.FromSeconds(30);
+
     /// <summary>
     /// 创建 StdioMCPClient 实例
     /// </summary>
@@ -70,6 +72,17 @@ public class StdioMCPClient : IMCPClient, IDisposable, IAsyncDisposable
 
             _process = Process.Start(psi);
             if (_process == null) return false;
+
+            // 后台持续读取 stderr，避免管道缓冲区写满导致子进程阻塞
+            var process = _process;
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    while (await process.StandardError.ReadLineAsync() != null) { }
+                }
+                catch { }
+            });
 
             var initResult = await SendRequestAsync("initialize", new JsonObject
             {
@@ -212,7 +225,11 @@ public class StdioMCPClient : IMCPClient, IDisposable, IAsyncDisposable
     {
         if (!IsConnected) return null;
 
-        await _rpcLock.WaitAsync(cancellationToken);
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeoutCts.CancelAfter(RpcTimeout);
+        var ct = timeoutCts.Token;
+
+        await _rpcLock.WaitAsync(ct);
         try
         {
             var id = Interlocked.Increment(ref _nextId);
@@ -227,9 +244,9 @@ public class StdioMCPClient : IMCPClient, IDisposable, IAsyncDisposable
             await _process!.StandardInput.WriteLineAsync(request.ToJsonString());
             await _process.StandardInput.FlushAsync();
 
-            while (!cancellationToken.IsCancellationRequested)
+            while (!ct.IsCancellationRequested)
             {
-                var line = await _process.StandardOutput.ReadLineAsync(cancellationToken);
+                var line = await _process.StandardOutput.ReadLineAsync(ct);
                 if (line == null) return null;
 
                 JsonNode? message;
@@ -244,7 +261,7 @@ public class StdioMCPClient : IMCPClient, IDisposable, IAsyncDisposable
             }
             return null;
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             throw;
         }

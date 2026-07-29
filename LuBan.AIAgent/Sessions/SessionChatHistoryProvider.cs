@@ -26,7 +26,6 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
     private readonly IChatClient _chatClient;
     private readonly int _targetCount;
     private readonly int _threshold;
-    private string? _lastPersistedUserText;
 
     public SessionChatHistoryProvider(
         ISessionManager sessionManager,
@@ -96,13 +95,13 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
         if (string.IsNullOrEmpty(sessionId))
             return;
 
-        foreach (var message in context.RequestMessages)
+        // RequestMessages 包含历史消息 + 本轮新输入，历史已在之前轮次持久化，
+        // 仅持久化最后一条 user 消息（本轮新输入）
+        var newUserText = context.RequestMessages
+            .LastOrDefault(m => m.Role == ChatRole.User)?.Text;
+        if (!string.IsNullOrWhiteSpace(newUserText))
         {
-            if (message.Role != ChatRole.User) continue;
-            var text = message.Text;
-            if (string.IsNullOrWhiteSpace(text) || text == _lastPersistedUserText) continue;
-            await _sessionManager.AddMessageAsync(sessionId, "user", text, EstimateTokens(text));
-            _lastPersistedUserText = text;
+            await _sessionManager.AddMessageAsync(sessionId, "user", newUserText, EstimateTokens(newUserText));
         }
 
         if (context.ResponseMessages == null) return;

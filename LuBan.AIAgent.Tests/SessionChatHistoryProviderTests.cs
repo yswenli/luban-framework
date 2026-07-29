@@ -135,6 +135,45 @@ public class SessionChatHistoryProviderTests
     }
 
     [TestMethod]
+    public async Task Store_ConsecutiveDuplicateUserMessages_BothPersisted()
+    {
+        var sm = new FakeSessionManager();
+        await sm.CreateSessionAsync();
+        var agent = CreateAgent(new StubChatClient());
+        var provider = new TestableProvider(sm, new StubChatClient());
+
+        await provider.PublicStore(Invoked(agent, "继续", "好的"));
+        await provider.PublicStore(Invoked(agent, "继续", "好的"));
+
+        var userMessages = (await sm.GetActiveMessagesAsync("s1")).Where(m => m.Role == "user").ToList();
+        Assert.AreEqual(2, userMessages.Count);
+    }
+
+    [TestMethod]
+    public async Task Store_RequestIncludesHistory_OnlyNewInputPersisted()
+    {
+        var sm = new FakeSessionManager();
+        await sm.CreateSessionAsync();
+        sm.Seed(("user", "历史问题"), ("assistant", "历史回答"));
+        var agent = CreateAgent(new StubChatClient());
+        var provider = new TestableProvider(sm, new StubChatClient());
+
+        var ctx = new ChatHistoryProvider.InvokedContext(agent, session: null,
+            new[]
+            {
+                new ChatMessage(ChatRole.User, "历史问题"),
+                new ChatMessage(ChatRole.Assistant, "历史回答"),
+                new ChatMessage(ChatRole.User, "新问题")
+            },
+            new[] { new ChatMessage(ChatRole.Assistant, "新回答") });
+        await provider.PublicStore(ctx);
+
+        var userMessages = (await sm.GetActiveMessagesAsync("s1")).Where(m => m.Role == "user").ToList();
+        Assert.AreEqual(2, userMessages.Count);
+        Assert.AreEqual("新问题", userMessages[1].Content);
+    }
+
+    [TestMethod]
     public async Task Provide_OverThreshold_CompactsAndPersistsSummary()
     {
         var sm = new FakeSessionManager();

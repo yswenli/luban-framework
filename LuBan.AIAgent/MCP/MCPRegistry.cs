@@ -25,7 +25,7 @@ namespace LuBan.AIAgent.MCP;
 public class MCPRegistry
 {
     private readonly Dictionary<string, IMCPClient> _builtinClients = new();
-    private readonly Dictionary<string, StdioMCPClient> _externalPool = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, (StdioMCPClient Client, string Fingerprint)> _externalPool = new(StringComparer.OrdinalIgnoreCase);
     private readonly Configuration.ConfigManager? _configManager;
 
     /// <summary>
@@ -42,21 +42,25 @@ public class MCPRegistry
         _configManager = configManager;
     }
 
+    private static string FingerprintOf(Configuration.McpServerConfig cfg)
+        => cfg.Command + "\0" + string.Join("\0", cfg.Args);
+
     private void SyncExternalPool()
     {
         if (_configManager == null) return;
 
-        var enabledNames = _configManager.McpServers
+        var enabledServers = _configManager.McpServers
             .Where(s => s.Enabled)
-            .Select(s => s.Name)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            .ToList();
+        var enabledByName = enabledServers.ToDictionary(s => s.Name, StringComparer.OrdinalIgnoreCase);
 
-        // 移除已删除或禁用的实例（先断开）
+        // 移除已删除/禁用/配置已变更的实例（先断开，配置变更的在下方重建）
         foreach (var name in _externalPool.Keys.ToList())
         {
-            if (!enabledNames.Contains(name))
+            if (!enabledByName.TryGetValue(name, out var cfg)
+                || FingerprintOf(cfg) != _externalPool[name].Fingerprint)
             {
-                var client = _externalPool[name];
+                var (client, _) = _externalPool[name];
                 _externalPool.Remove(name);
                 if (client.IsConnected)
                 {
@@ -66,12 +70,12 @@ public class MCPRegistry
         }
 
         // 新增缺失的实例（跳过与内置同名的，内置优先）
-        foreach (var cfg in _configManager.McpServers.Where(s => s.Enabled))
+        foreach (var cfg in enabledServers)
         {
             if (!_externalPool.ContainsKey(cfg.Name)
                 && !_builtinClients.ContainsKey(cfg.Name.ToLowerInvariant()))
             {
-                _externalPool[cfg.Name] = new StdioMCPClient(cfg);
+                _externalPool[cfg.Name] = (new StdioMCPClient(cfg), FingerprintOf(cfg));
             }
         }
     }
@@ -89,7 +93,7 @@ public class MCPRegistry
             .Select(kv => kv.Value)
             .ToList();
 
-        result.AddRange(_externalPool.Values);
+        result.AddRange(_externalPool.Values.Select(v => v.Client));
         return result;
     }
 
@@ -107,7 +111,7 @@ public class MCPRegistry
             return builtin;
         }
 
-        return _externalPool.TryGetValue(key, out var external) ? external : null;
+        return _externalPool.TryGetValue(key, out var external) ? external.Client : null;
     }
 
     /// <summary>
