@@ -114,7 +114,6 @@ public class MCPCommand : CommandBase
             }
         }
 
-        var disabledBuiltin = ConfigManager.DisabledBuiltinMcpClients;
         if (disabledBuiltin.Count > 0)
         {
             Console.ForegroundColor = ConsoleColor.Cyan;

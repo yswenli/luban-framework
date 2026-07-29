@@ -4,14 +4,14 @@
 *机器名称：WALLE
 *Author：yswenli
 *命名空间：LuBan.AIAgent.ConsoleApp.Commands
-*文件名： ChatCommand
+*文件名： AgiCommand
 *版本号： V1.0.0.0
 *唯一标识：新建
 *当前的用户域：WALLE
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2026/7/27
-*描述：智能对话命令，支持工具调用和 thinking 显示
+*描述：通用 Agent 对话命令，支持工具调用和 thinking 显示
 *
 *****************************************************************************/
 using System;
@@ -30,9 +30,9 @@ using Spectre.Console;
 namespace LuBan.AIAgent.ConsoleApp.Commands;
 
 /// <summary>
-/// 智能对话命令，支持工具调用和 thinking 显示
+/// 通用 Agent 对话命令，支持工具调用和 thinking 显示
 /// </summary>
-public class ChatCommand : CommandBase
+public class AgiCommand : CommandBase
 {
     private readonly ISessionManager _sessionManager;
     private readonly IServiceProvider _serviceProvider;
@@ -41,17 +41,17 @@ public class ChatCommand : CommandBase
     /// <summary>
     /// 命令名称
     /// </summary>
-    public override string Name => "chat";
+    public override string Name => "agi";
 
     /// <summary>
     /// 命令描述
     /// </summary>
-    public override string Description => "智能对话（支持工具调用）";
+    public override string Description => "通用 Agent 对话";
 
     /// <summary>
     /// 创建命令实例
     /// </summary>
-    public ChatCommand(ConfigManager configManager, IConfiguration configuration, ISessionManager sessionManager, IServiceProvider serviceProvider, Func<string, Task<bool>>? executeCommandAsync = null)
+    public AgiCommand(ConfigManager configManager, IConfiguration configuration, ISessionManager sessionManager, IServiceProvider serviceProvider, Func<string, Task<bool>>? executeCommandAsync = null)
         : base(configManager, configuration)
     {
         _sessionManager = sessionManager;
@@ -128,6 +128,7 @@ public class ChatCommand : CommandBase
             // 创建 Agent 时不指定 toolGroups，启用所有工具
             var agent = await agentFactory.CreateAsync(
                 modelName: ConfigManager.SelectedModel,
+                useSessionHistory: true,
                 systemPrompt: @"你是一个智能助手，拥有以下工具能力：
 
 1. **文件系统操作**：可以读取文件、写入文件、列出目录内容
@@ -168,8 +169,6 @@ public class ChatCommand : CommandBase
     /// </summary>
     private async Task RunChatLoop(LuBanAgent agent)
     {
-        var currentSession = _sessionManager.CurrentSession;
-        
         while (true)
         {
             Console.Write("👶 ");
@@ -289,16 +288,6 @@ public class ChatCommand : CommandBase
                 
                 var finalResponse = finalResponseBuilder.ToString();
                 
-                // 保存消息到 Session
-                if (currentSession != null)
-                {
-                    await _sessionManager.AddMessageAsync(currentSession.SessionId, "user", input);
-                    if (!string.IsNullOrEmpty(finalResponse))
-                    {
-                        await _sessionManager.AddMessageAsync(currentSession.SessionId, "assistant", finalResponse);
-                    }
-                }
-                
                 if (!hasAnswerContent && string.IsNullOrEmpty(finalResponse))
                 {
                     Console.ForegroundColor = ConsoleColor.DarkGray;
@@ -371,63 +360,6 @@ public class ChatCommand : CommandBase
         
         // 默认返回原始错误信息
         return ex.Message;
-    }
-
-    /// <summary>
-    /// 显示对话过程，包括工具调用
-    /// </summary>
-    private static void DisplayConversation(IEnumerable<ChatMessage> messages, Action<string> updateStatus)
-    {
-        foreach (var message in messages)
-        {
-            if (message.Role == ChatRole.Assistant)
-            {
-                // 检查是否有工具调用
-                var functionCalls = message.Contents?
-                    .OfType<FunctionCallContent>()
-                    .ToList() ?? new List<FunctionCallContent>();
-                
-                var textContents = message.Contents?
-                    .OfType<TextContent>()
-                    .ToList() ?? new List<TextContent>();
-
-                // 显示 thinking 文本（如果有）
-                foreach (var text in textContents)
-                {
-                    if (!string.IsNullOrWhiteSpace(text.Text))
-                    {
-                        // 检查是否是 thinking 内容
-                        if (text.Text.Contains("thinking") || 
-                            text.Text.Contains("考虑") ||
-                            text.Text.Contains("分析"))
-                        {
-                            updateStatus("正在思考...");
-                        }
-                    }
-                }
-
-                // 显示工具调用
-                if (functionCalls.Count > 0)
-                {
-                    foreach (var call in functionCalls)
-                    {
-                        updateStatus($"正在调用工具: {call.Name}");
-                    }
-                }
-            }
-            else if (message.Role == ChatRole.Tool)
-            {
-                // 工具返回结果
-                var functionResults = message.Contents?
-                    .OfType<FunctionResultContent>()
-                    .ToList() ?? new List<FunctionResultContent>();
-
-                if (functionResults.Count > 0)
-                {
-                    updateStatus("工具执行完成，正在生成回答...");
-                }
-            }
-        }
     }
 
     private static string TruncateValue(object? value, int maxLength = 50)
