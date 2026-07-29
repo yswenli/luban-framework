@@ -188,13 +188,15 @@ public class AgiCommand : CommandBase
                     continue;
             }
 
+            var hasToolCalls = false;
+
             try
             {
                 var finalResponseBuilder = new System.Text.StringBuilder();
                 var cancelled = false;
                 var toolCalls = new System.Collections.Generic.List<string>();
                 var hasThinkingContent = false;
-                var hasToolCalls = false;
+                // var hasToolCalls = false; // moved outside
                 var hasAnswerContent = false;
 
                 using var cts = new CancellationTokenSource();
@@ -306,7 +308,8 @@ public class AgiCommand : CommandBase
             }
             catch (Exception ex)
             {
-                WriteError(GetFriendlyErrorMessage(ex));
+                var errorType = hasToolCalls ? "工具执行后模型处理" : "模型调用";
+                WriteError($"[{errorType}失败] {GetFriendlyErrorMessage(ex)}");
             }
         }
     }
