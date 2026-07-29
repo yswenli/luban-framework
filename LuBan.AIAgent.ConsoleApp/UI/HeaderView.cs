@@ -14,7 +14,7 @@ public class HeaderView : View
     {
         Height = 6;
         CanFocus = false;
-        _lines = ConsoleUtil.GetLBFName().Split('\n');
+        _lines = ConsoleUtil.GetTitle().Split('\n');
     }
 
     public override void Redraw(Rect bounds)
