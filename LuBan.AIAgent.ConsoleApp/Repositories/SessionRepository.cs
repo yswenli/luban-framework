@@ -46,7 +46,7 @@ public class SessionRepository : BaseRepository<DbSession>
     {
         return await AsQueryable()
             .Where(s => s.UserId == userId && !s.IsDelete)
-            .OrderByDescending(s => s.UpdateTime ?? s.CreateTime)
+            .OrderByDescending(s => s.CreateTime)
             .ToListAsync();
     }
 

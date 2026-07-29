@@ -15,6 +15,7 @@
 *
 *****************************************************************************/
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using LuBan.AIAgent.Configuration;
 using LuBan.AIAgent.Sessions;
@@ -37,7 +38,7 @@ public class SessionCommand : CommandBase
     /// <summary>
     /// 命令描述
     /// </summary>
-    public override string Description => "管理对话会话";
+    public override string Description => "管理对话会话 (list/new/clear/switch)";
 
     /// <summary>
     /// 创建命令实例
@@ -49,44 +50,17 @@ public class SessionCommand : CommandBase
     }
 
     /// <summary>
-    /// 执行命令
+    /// 执行命令（无参数时显示帮助）
     /// </summary>
-    public override async Task ExecuteAsync()
+    public override Task ExecuteAsync()
     {
         Console.WriteLine();
-        Console.WriteLine("会话管理：");
-        Console.WriteLine();
-
-        var currentSession = _sessionManager.CurrentSession;
-        if (currentSession != null)
-        {
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine($"当前会话: {currentSession.Title ?? "未命名"}");
-            Console.ResetColor();
-            Console.WriteLine($"  ID: {currentSession.SessionId}");
-            Console.WriteLine($"  消息数: {currentSession.MessageCount}");
-            Console.WriteLine($"  Token数: {currentSession.TotalTokens}");
-            Console.WriteLine($"  创建时间: {currentSession.CreatedAt:yyyy-MM-dd HH:mm:ss}");
-            Console.WriteLine();
-        }
-
-        Console.WriteLine("操作:");
-        Console.WriteLine("  1. new      - 创建新会话");
-        Console.WriteLine("  2. list     - 列出所有会话");
-        Console.WriteLine("  3. switch   - 切换到历史会话");
-        Console.WriteLine("  4. title    - 修改当前会话标题");
-        Console.WriteLine("  5. clear    - 清除当前会话消息");
-        Console.WriteLine("  6. delete   - 删除当前会话");
-        Console.WriteLine("  7. stats    - 查看会话统计");
-        Console.WriteLine();
-
-        Console.Write("请输入操作: ");
-        var input = Console.ReadLine()?.Trim().ToLower();
-
-        if (string.IsNullOrEmpty(input))
-            return;
-
-        await ExecuteSubCommand(input);
+        Console.WriteLine("会话管理用法：");
+        Console.WriteLine("  /session list           - 列出全部会话（创建时间倒序）");
+        Console.WriteLine("  /session new <标题>     - 创建新会话并切换（标题必填）");
+        Console.WriteLine("  /session switch <标题>  - 按标题切换到会话");
+        Console.WriteLine("  /session clear          - 物理删除全部会话及消息（需确认）");
+        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -98,248 +72,112 @@ public class SessionCommand : CommandBase
             return false;
 
         var subCommand = args[0].ToLower();
-        var restArgs = args.Length > 1 ? string.Join(' ', args[1..]) : null;
-        await ExecuteSubCommand(subCommand, restArgs);
-        return true;
-    }
+        var rest = args.Length > 1 ? string.Join(' ', args[1..]).Trim() : null;
 
-    /// <summary>
-    /// 执行子命令
-    /// </summary>
-    private async Task ExecuteSubCommand(string input, string? extraArg = null)
-    {
-        switch (input)
+        switch (subCommand)
         {
-            case "1":
-            case "new":
-                await CreateNewSessionAsync();
-                break;
-
-            case "2":
             case "list":
                 await ListSessionsAsync();
                 break;
-
-            case "3":
+            case "new":
+                await CreateNewSessionAsync(rest);
+                break;
             case "switch":
-                await SwitchSessionAsync(extraArg);
+                await SwitchSessionAsync(rest);
                 break;
-
-            case "4":
-            case "title":
-                await UpdateTitleAsync();
-                break;
-
-            case "5":
             case "clear":
-                await ClearMessagesAsync();
+                await ClearAllSessionsAsync();
                 break;
-
-            case "6":
-            case "delete":
-                await DeleteSessionAsync();
-                break;
-
-            case "7":
-            case "stats":
-                await ShowStatsAsync();
-                break;
-
             default:
-                Console.WriteLine($"未知操作: {input}");
+                Console.WriteLine($"未知子命令: {subCommand}");
+                await ExecuteAsync();
                 break;
         }
-    }
-
-    private async Task CreateNewSessionAsync()
-    {
-        Console.Write("请输入会话标题（可选）: ");
-        var title = Console.ReadLine()?.Trim();
-
-        var session = await _sessionManager.CreateSessionAsync(userId: "default", title: title);
-        
-        Console.ForegroundColor = ConsoleColor.Green;
-        Console.WriteLine($"✓ 已创建新会话: {session.Title}");
-        Console.ResetColor();
-        Console.WriteLine($"  ID: {session.SessionId}");
+        return true;
     }
 
     private async Task ListSessionsAsync()
     {
-        var sessions = await _sessionManager.GetUserSessionsAsync("default");
-        
-        Console.WriteLine();
-        Console.WriteLine("历史会话：");
+        var sessions = (await _sessionManager.GetUserSessionsAsync("default")).ToList();
 
-        int index = 1;
+        Console.WriteLine();
+        Console.WriteLine("历史会话（创建时间倒序）：");
+
+        if (sessions.Count == 0)
+        {
+            Console.WriteLine("  （无历史会话）");
+            return;
+        }
+
         foreach (var session in sessions)
         {
             var isCurrent = _sessionManager.CurrentSession?.SessionId == session.SessionId;
             var marker = isCurrent ? " (当前)" : "";
-            
-            Console.WriteLine($"  {index}. {session.Title ?? "未命名"}{marker}");
-            Console.WriteLine($"     消息: {session.MessageCount} | Token: {session.TotalTokens} | {session.CreatedAt:yyyy-MM-dd HH:mm}");
-            index++;
-        }
-
-        if (index == 1)
-        {
-            Console.WriteLine("  （无历史会话）");
+            Console.WriteLine($"  {session.CreatedAt:yyyy-MM-dd HH:mm}  {session.Title ?? "未命名"}{marker}");
+            Console.WriteLine($"     消息: {session.MessageCount} | Token: {session.TotalTokens}");
         }
     }
 
-    private async Task SwitchSessionAsync(string? extraArg = null)
+    private async Task CreateNewSessionAsync(string? title)
     {
-        var sessions = (await _sessionManager.GetUserSessionsAsync("default")).ToList();
-        
-        if (sessions.Count == 0)
+        if (string.IsNullOrWhiteSpace(title))
         {
-            Console.WriteLine("没有可切换的会话");
+            WriteError("用法: /session new <标题>");
             return;
         }
 
-        // 如果直接传了序号，尝试直接切换
-        if (!string.IsNullOrEmpty(extraArg) && int.TryParse(extraArg, out int directIndex))
-        {
-            if (directIndex < 1 || directIndex > sessions.Count)
-            {
-                Console.WriteLine($"无效的序号: {directIndex}，有效范围: 1-{sessions.Count}");
-                return;
-            }
-
-            var selected = sessions[directIndex - 1];
-            await _sessionManager.SetCurrentSessionAsync(selected.SessionId);
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine($"✓ 已切换到会话: {selected.Title}");
-            Console.ResetColor();
-            return;
-        }
-
-        // 交互式选择
-        Console.WriteLine();
-        Console.WriteLine("选择要切换的会话：");
-        Console.WriteLine();
-
-        for (int i = 0; i < sessions.Count; i++)
-        {
-            var session = sessions[i];
-            var isCurrent = _sessionManager.CurrentSession?.SessionId == session.SessionId;
-            var marker = isCurrent ? " (当前)" : "";
-            
-            Console.WriteLine($"  {i + 1}. {session.Title ?? "未命名"}{marker}");
-            Console.WriteLine($"     消息: {session.MessageCount} | Token: {session.TotalTokens}");
-        }
-
-        Console.WriteLine();
-        Console.Write("请输入序号 (或 0 取消): ");
-        var input = Console.ReadLine()?.Trim();
-
-        if (!int.TryParse(input, out int index) || index < 0 || index > sessions.Count)
-        {
-            Console.WriteLine("无效的选择");
-            return;
-        }
-
-        if (index == 0)
-        {
-            Console.WriteLine("已取消");
-            return;
-        }
-
-        var selectedSession = sessions[index - 1];
-        await _sessionManager.SetCurrentSessionAsync(selectedSession.SessionId);
-        
+        var session = await _sessionManager.CreateSessionAsync(userId: "default", title: title);
         Console.ForegroundColor = ConsoleColor.Green;
-        Console.WriteLine($"✓ 已切换到会话: {selectedSession.Title}");
+        Console.WriteLine($"✓ 已创建并切换到新会话: {session.Title}");
         Console.ResetColor();
     }
 
-    private async Task UpdateTitleAsync()
+    private async Task SwitchSessionAsync(string? title)
     {
-        var currentSession = _sessionManager.CurrentSession;
-        if (currentSession == null)
+        if (string.IsNullOrWhiteSpace(title))
         {
-            Console.WriteLine("当前没有活动会话");
+            WriteError("用法: /session switch <标题>");
             return;
         }
 
-        Console.WriteLine($"当前标题: {currentSession.Title}");
-        Console.Write("请输入新标题: ");
-        var title = Console.ReadLine()?.Trim();
+        var sessions = (await _sessionManager.GetUserSessionsAsync("default")).ToList();
+        var matched = sessions
+            .Where(s => string.Equals(s.Title, title, StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(s => s.CreatedAt)
+            .FirstOrDefault();
 
-        if (string.IsNullOrEmpty(title))
+        if (matched == null)
         {
-            Console.WriteLine("已取消");
+            WriteError($"找不到标题为 \"{title}\" 的会话");
+            Console.WriteLine("可用会话：");
+            foreach (var s in sessions)
+            {
+                Console.WriteLine($"  - {s.Title ?? "未命名"}");
+            }
             return;
         }
 
-        await _sessionManager.UpdateSessionTitleAsync(currentSession.SessionId, title);
-        Console.WriteLine("✓ 标题已更新");
+        await _sessionManager.SetCurrentSessionAsync(matched.SessionId);
+        Console.ForegroundColor = ConsoleColor.Green;
+        Console.WriteLine($"✓ 已切换到会话: {matched.Title}（下一轮对话自动加载该会话历史）");
+        Console.ResetColor();
     }
 
-    private async Task ClearMessagesAsync()
+    private async Task ClearAllSessionsAsync()
     {
-        var currentSession = _sessionManager.CurrentSession;
-        if (currentSession == null)
-        {
-            Console.WriteLine("当前没有活动会话");
-            return;
-        }
-
-        Console.Write("确认清除所有消息？(y/N): ");
+        Console.Write("确认物理删除全部会话及消息数据？此操作不可恢复 (y/N): ");
         var confirm = Console.ReadLine()?.Trim().ToLower();
 
-        if (confirm == "y")
+        if (confirm == "y" || confirm == "yes")
         {
-            await _sessionManager.ClearMessagesAsync(currentSession.SessionId);
-            Console.WriteLine("✓ 已清除消息");
+            await _sessionManager.ClearAllSessionsAsync();
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("✓ 已删除全部会话数据");
+            Console.ResetColor();
         }
         else
         {
             Console.WriteLine("已取消");
         }
-    }
-
-    private async Task DeleteSessionAsync()
-    {
-        var currentSession = _sessionManager.CurrentSession;
-        if (currentSession == null)
-        {
-            Console.WriteLine("当前没有活动会话");
-            return;
-        }
-
-        Console.Write($"确认删除会话 \"{currentSession.Title}\"？(y/N): ");
-        var confirm = Console.ReadLine()?.Trim().ToLower();
-
-        if (confirm == "y")
-        {
-            await _sessionManager.DeleteSessionAsync(currentSession.SessionId);
-            Console.WriteLine("✓ 会话已删除");
-        }
-        else
-        {
-            Console.WriteLine("已取消");
-        }
-    }
-
-    private async Task ShowStatsAsync()
-    {
-        var currentSession = _sessionManager.CurrentSession;
-        if (currentSession == null)
-        {
-            Console.WriteLine("当前没有活动会话");
-            return;
-        }
-
-        var stats = await _sessionManager.GetSessionStatsAsync(currentSession.SessionId);
-        
-        Console.WriteLine();
-        Console.WriteLine("会话统计：");
-        Console.WriteLine($"  总消息数: {stats.TotalMessages}");
-        Console.WriteLine($"  用户消息: {stats.UserMessages}");
-        Console.WriteLine($"  AI 消息: {stats.AssistantMessages}");
-        Console.WriteLine($"  总 Token: {stats.TotalTokens}");
-        Console.WriteLine($"  平均长度: {stats.AverageMessageLength:F1}");
     }
 }
