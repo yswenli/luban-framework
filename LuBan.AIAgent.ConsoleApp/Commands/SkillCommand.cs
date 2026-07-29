@@ -256,7 +256,7 @@ public class SkillCommand : CommandBase
             Console.WriteLine($"  {i + 1}. {s.Name} ({s.Id}){enabledTag}");
         }
 
-        Console.Write("请选择 (1-{0}) 或输入内置 Skill ID: ", customSkills.Count);
+        Console.Write("请选择 (1-{0}) 或输入 Skill ID: ", customSkills.Count);
         var input = Console.ReadLine()?.Trim();
         if (string.IsNullOrEmpty(input))
         {
