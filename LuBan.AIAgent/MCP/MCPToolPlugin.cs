@@ -17,7 +17,7 @@
 using LuBan.AIAgent.Abstractions;
 using LuBan.AIAgent.Configuration;
 using Microsoft.Extensions.AI;
-using Microsoft.Extensions.DependencyInjection;
+using System.Text.Json;
 
 namespace LuBan.AIAgent.MCP;
 
@@ -81,6 +81,18 @@ public class MCPToolPlugin : ILuBanToolPlugin
         public override string Name => _name;
 
         public override string Description => _tool.Description;
+
+        public override JsonElement JsonSchema
+        {
+            get
+            {
+                if (string.IsNullOrWhiteSpace(_tool.InputSchema))
+                {
+                    return JsonDocument.Parse("{}").RootElement.Clone();
+                }
+                return JsonDocument.Parse(_tool.InputSchema).RootElement.Clone();
+            }
+        }
 
         protected override async ValueTask<object?> InvokeCoreAsync(
             AIFunctionArguments arguments, CancellationToken cancellationToken)
