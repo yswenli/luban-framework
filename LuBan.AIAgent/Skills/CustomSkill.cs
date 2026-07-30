@@ -86,6 +86,7 @@ public class CustomSkill : ISkill
         }
         catch (Exception ex)
         {
+            Logger.Error("CustomSkill 执行失败", ex, _config.Name, _config.Id);
             return SkillResult.Fail($"执行失败: {ex.Message}");
         }
     }

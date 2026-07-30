@@ -166,6 +166,7 @@ public class StdioMCPClient : IMCPClient, IDisposable, IAsyncDisposable
 
         if (result == null)
         {
+            Logger.Error("MCP 调用返回空结果", new Exception("MCP 调用失败或无响应"), toolName);
             return new MCPToolResult { Success = false, Error = "MCP 调用失败或无响应" };
         }
 

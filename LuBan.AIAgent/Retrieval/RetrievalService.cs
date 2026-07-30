@@ -53,6 +53,7 @@ public class RetrievalService : IRetrievalService
         }
         catch (Exception ex)
         {
+            Logger.Error("枚举索引目录文件失败", ex, path, glob ?? "");
             report.Errors.Add($"枚举文件失败: {ex.Message}");
             return report;
         }
@@ -85,6 +86,7 @@ public class RetrievalService : IRetrievalService
             }
             catch (Exception ex)
             {
+                Logger.Error("索引单个文件失败", ex, file);
                 report.Errors.Add($"{file}: {ex.Message}");
             }
         }

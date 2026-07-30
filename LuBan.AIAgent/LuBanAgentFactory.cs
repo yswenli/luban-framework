@@ -21,6 +21,9 @@
 *描述：LuBan Agent 工厂接口
 *
 *****************************************************************************/
+using LuBan.AIAgent.Core;
+using Microsoft.Extensions.Logging;
+
 namespace LuBan.AIAgent;
 
 /// <summary>
@@ -108,6 +111,14 @@ public class LuBanAgentFactory : ILuBanAgentFactory, IScoped
             Console.WriteLine($"  - {tool.Name}: {tool.Description}");
         }
 
+        var sanitizedClient = new SanitizingChatClient(_chatClient);
+
+        var loggerFactory = _serviceProvider.GetService<ILoggerFactory>();
+        var functionClient = new FunctionInvokingChatClient(sanitizedClient, loggerFactory, _serviceProvider)
+        {
+            MaximumIterationsPerRequest = Math.Max(1, opts.MaxToolLoopIterations)
+        };
+
         ChatHistoryProvider? historyProvider = null;
         if (useSessionHistory
             && _serviceProvider.GetService<Sessions.ISessionManager>() is { } sessionManager)
@@ -120,7 +131,7 @@ public class LuBanAgentFactory : ILuBanAgentFactory, IScoped
         }
 
         var agent = new ChatClientAgent(
-            _chatClient,
+            functionClient,
             new ChatClientAgentOptions
             {
                 Name = "LuBanAgent",

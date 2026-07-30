@@ -93,10 +93,12 @@ public class BrowserToolGroup
         }
         catch (Microsoft.Playwright.PlaywrightException ex)
         {
+            Logger.Error("浏览器导航 Playwright 异常", ex, url);
             return $"导航失败: {ex.Message}\n\n请安装 Playwright 浏览器:\n  npx playwright@1.61.0 install chromium";
         }
         catch (Exception ex)
         {
+            Logger.Error("浏览器导航异常", ex, url);
             return $"导航失败: {ex.Message}";
         }
     }
@@ -120,10 +122,12 @@ public class BrowserToolGroup
         }
         catch (Microsoft.Playwright.PlaywrightException ex)
         {
+            Logger.Error("浏览器点击 Playwright 异常", ex, selector);
             return $"点击失败: {ex.Message}\n元素选择器: {selector}";
         }
         catch (Exception ex)
         {
+            Logger.Error("浏览器点击异常", ex, selector);
             return $"点击失败: {ex.Message}";
         }
     }
@@ -148,10 +152,12 @@ public class BrowserToolGroup
         }
         catch (Microsoft.Playwright.PlaywrightException ex)
         {
+            Logger.Error("浏览器输入 Playwright 异常", ex, selector, text);
             return $"输入失败: {ex.Message}\n元素选择器: {selector}";
         }
         catch (Exception ex)
         {
+            Logger.Error("浏览器输入异常", ex, selector, text);
             return $"输入失败: {ex.Message}";
         }
     }
@@ -187,10 +193,12 @@ public class BrowserToolGroup
         }
         catch (Microsoft.Playwright.PlaywrightException ex)
         {
+            Logger.Error("浏览器截图 Playwright 异常", ex, path ?? "");
             return $"截图失败: {ex.Message}";
         }
         catch (Exception ex)
         {
+            Logger.Error("浏览器截图异常", ex, path ?? "");
             return $"截图失败: {ex.Message}";
         }
     }
@@ -232,10 +240,12 @@ public class BrowserToolGroup
         }
         catch (Microsoft.Playwright.PlaywrightException ex)
         {
+            Logger.Error("浏览器获取内容 Playwright 异常", ex, selector ?? "");
             return $"获取内容失败: {ex.Message}";
         }
         catch (Exception ex)
         {
+            Logger.Error("浏览器获取内容异常", ex, selector ?? "");
             return $"获取内容失败: {ex.Message}";
         }
     }
@@ -260,10 +270,12 @@ public class BrowserToolGroup
         }
         catch (Microsoft.Playwright.PlaywrightException ex)
         {
+            Logger.Error("浏览器等待元素 Playwright 异常", ex, selector, timeout);
             return $"等待元素超时: {ex.Message}\n元素选择器: {selector}";
         }
         catch (Exception ex)
         {
+            Logger.Error("浏览器等待元素异常", ex, selector, timeout);
             return $"等待元素失败: {ex.Message}";
         }
     }
@@ -283,6 +295,7 @@ public class BrowserToolGroup
         }
         catch (Exception ex)
         {
+            Logger.Error("浏览器获取URL异常", ex);
             return $"获取 URL 失败: {ex.Message}";
         }
     }

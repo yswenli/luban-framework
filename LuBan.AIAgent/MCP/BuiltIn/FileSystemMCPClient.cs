@@ -149,6 +149,7 @@ public class FileSystemMCPClient : MCPClientBase
         }
         catch (Exception ex)
         {
+            Logger.Error("FileSystemMCPClient 执行工具失败", ex, toolName);
             return Task.FromResult(Fail(ex.Message));
         }
     }

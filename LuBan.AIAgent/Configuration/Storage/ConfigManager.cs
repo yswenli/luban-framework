@@ -87,6 +87,7 @@ public class ConfigManager
         }
         catch (Exception ex)
         {
+            Logger.Error("ConfigManager.Load 加载配置失败", ex, _configPath);
             System.Diagnostics.Debug.WriteLine($"ConfigManager.Load 异常: {ex}");
             Providers = new List<ProviderConfig>();
         }
@@ -126,6 +127,7 @@ public class ConfigManager
         }
         catch (Exception ex)
         {
+            Logger.Error("ConfigManager.Save 保存配置失败", ex, _configPath);
             throw new InvalidOperationException($"保存配置失败: {ex.Message}", ex);
         }
     }

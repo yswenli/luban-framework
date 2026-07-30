@@ -52,6 +52,7 @@ public sealed class PlaywrightSession : IAsyncDisposable, IDisposable
             }
             catch (Exception ex)
             {
+                Logger.Error("Playwright 初始化失败", ex);
                 throw new InvalidOperationException(
                     $"Playwright 初始化失败: {ex.Message}\n\n请安装 Playwright 浏览器:\n  npx playwright@1.61.0 install chromium", ex);
             }
@@ -73,6 +74,7 @@ public sealed class PlaywrightSession : IAsyncDisposable, IDisposable
             }
             catch (PlaywrightException ex)
             {
+                Logger.Error("浏览器启动失败", ex, _options.Engine);
                 throw new InvalidOperationException(
                     $"浏览器启动失败: {ex.Message}\n\n请安装 Playwright 浏览器:\n  npx playwright@1.61.0 install chromium", ex);
             }

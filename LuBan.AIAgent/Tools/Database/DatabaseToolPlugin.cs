@@ -125,6 +125,7 @@ public class DatabaseToolGroup
         }
         catch (Exception ex)
         {
+            Logger.Error("数据库查询执行失败", ex, sql);
             return JsonSerializer.Serialize(new
             {
                 success = false,
@@ -164,6 +165,7 @@ public class DatabaseToolGroup
         }
         catch (Exception ex)
         {
+            Logger.Error("数据库非查询执行失败", ex, sql);
             return JsonSerializer.Serialize(new
             {
                 success = false,

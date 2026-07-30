@@ -113,6 +113,7 @@ public static class LuBanAgentExtensions
             }
             catch (Exception ex)
             {
+                Logger.Error("加载外部插件程序集失败", ex, assemblyName);
                 System.Diagnostics.Debug.WriteLine($"加载外部插件程序集 '{assemblyName}' 失败: {ex.Message}");
             }
         }
