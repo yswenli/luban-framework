@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net8.0
 *机器名称：WALLE
@@ -58,7 +58,7 @@ public class TempFile : IDisposable
     /// <summary>
     /// 临时文件
     /// </summary>
-    public TempFile() : this(Path.GetTempFileName())
+    public TempFile() : this(TempDirectory.GetTempFilePath())
     {
 
     }

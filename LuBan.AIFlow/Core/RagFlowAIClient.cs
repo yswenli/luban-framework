@@ -1,4 +1,5 @@
-﻿using FileInfo = LuBan.AIFlow.Models.File.FileInfo;
+﻿using LuBan.Common.IO;
+using FileInfo = LuBan.AIFlow.Models.File.FileInfo;
 
 namespace LuBan.AIFlow.Core;
 
@@ -396,7 +397,7 @@ public class RagFlowAIClient : IAIClient
     {
         try
         {
-            var tempFile = Path.GetTempFileName();
+            var tempFile = TempDirectory.GetTempFilePath("ragflow", ".tmp");
             var headers = GetHeaders();
             await _httpClient.DownLoadFileAsync($"/api/v1/files/{fileId}/download", tempFile, headers, 30);
             var memoryStream = new MemoryStream();
