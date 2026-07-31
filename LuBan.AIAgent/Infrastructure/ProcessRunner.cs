@@ -62,51 +62,95 @@ public sealed class ProcessRunner
         };
 
         var startedAt = DateTimeOffset.UtcNow;
-        process.Start();
 
-        if (stdin != null)
-        {
-            await process.StandardInput.WriteAsync(stdin);
-            process.StandardInput.Close();
-        }
-
-        var stdOutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
-        var stdErrTask = process.StandardError.ReadToEndAsync(cancellationToken);
-
-        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeoutCts.CancelAfter(timeoutMs);
-
-        var timedOut = false;
+        // 进程启动失败（如可执行文件不存在）会抛 Win32Exception，需捕获避免终止 agent 循环
         try
         {
-            await process.WaitForExitAsync(timeoutCts.Token);
+            process.Start();
         }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        catch (Win32Exception ex)
         {
-            timedOut = true;
+            Logger.Error("进程启动失败：可执行文件不存在或无法启动", ex, executable, arguments);
+            return new ProcessResult(
+                Executable: executable,
+                Arguments: arguments,
+                ExitCode: -1,
+                StandardOutput: "",
+                StandardError: $"可执行文件不存在或无法启动: {executable}（{ex.Message}）",
+                DurationMs: 0,
+                TimedOut: false);
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("进程启动失败", ex, executable, arguments);
+            return new ProcessResult(
+                Executable: executable,
+                Arguments: arguments,
+                ExitCode: -1,
+                StandardOutput: "",
+                StandardError: $"进程启动失败: {ex.Message}",
+                DurationMs: 0,
+                TimedOut: false);
+        }
+
+        try
+        {
+            if (stdin != null)
+            {
+                await process.StandardInput.WriteAsync(stdin);
+                process.StandardInput.Close();
+            }
+
+            var stdOutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
+            var stdErrTask = process.StandardError.ReadToEndAsync(cancellationToken);
+
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(timeoutMs);
+
+            var timedOut = false;
             try
             {
-                if (!process.HasExited)
-                {
-                    process.Kill(true);
-                    await process.WaitForExitAsync(cancellationToken);
-                }
+                await process.WaitForExitAsync(timeoutCts.Token);
             }
-            catch { }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                timedOut = true;
+                try
+                {
+                    if (!process.HasExited)
+                    {
+                        process.Kill(true);
+                        await process.WaitForExitAsync(cancellationToken);
+                    }
+                }
+                catch { }
+            }
+
+            var stdout = await stdOutTask;
+            var stderr = await stdErrTask;
+            var completedAt = DateTimeOffset.UtcNow;
+
+            return new ProcessResult(
+                Executable: executable,
+                Arguments: arguments,
+                ExitCode: timedOut ? -1 : process.ExitCode,
+                StandardOutput: Normalize(stdout),
+                StandardError: Normalize(stderr),
+                DurationMs: (int)(completedAt - startedAt).TotalMilliseconds,
+                TimedOut: timedOut);
         }
-
-        var stdout = await stdOutTask;
-        var stderr = await stdErrTask;
-        var completedAt = DateTimeOffset.UtcNow;
-
-        return new ProcessResult(
-            Executable: executable,
-            Arguments: arguments,
-            ExitCode: timedOut ? -1 : process.ExitCode,
-            StandardOutput: Normalize(stdout),
-            StandardError: Normalize(stderr),
-            DurationMs: (int)(completedAt - startedAt).TotalMilliseconds,
-            TimedOut: timedOut);
+        catch (Exception ex)
+        {
+            Logger.Error("进程执行失败", ex, executable, arguments);
+            return new ProcessResult(
+                Executable: executable,
+                Arguments: arguments,
+                ExitCode: -1,
+                StandardOutput: "",
+                StandardError: $"进程执行失败: {ex.Message}",
+                DurationMs: 0,
+                TimedOut: false);
+        }
     }
 
     private static string Normalize(string value) => value.Replace("\r\n", "\n");

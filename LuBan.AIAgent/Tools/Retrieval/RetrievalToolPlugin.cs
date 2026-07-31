@@ -94,12 +94,20 @@ public class RetrievalToolGroup
         [Description("强制全部重建索引")] bool force = false)
     {
         if (!Directory.Exists(path)) return $"错误：目录不存在 {path}";
-        var r = await _service.IndexDirectoryAsync(path, glob, force);
-        var sb = new StringBuilder();
-        sb.AppendLine($"索引完成：扫描 {r.ScannedFiles}，新增 {r.NewFiles}，更新 {r.UpdatedFiles}，跳过 {r.SkippedFiles}，删除 {r.DeletedFiles}");
-        sb.AppendLine($"切块 {r.TotalChunks}（新嵌入 {r.EmbeddedChunks}，复用 {r.ReusedChunks}）");
-        if (r.Errors.Count > 0) sb.AppendLine($"错误 {r.Errors.Count}：{string.Join("；", r.Errors.Take(3))}");
-        return sb.ToString();
+        try
+        {
+            var r = await _service.IndexDirectoryAsync(path, glob, force);
+            var sb = new StringBuilder();
+            sb.AppendLine($"索引完成：扫描 {r.ScannedFiles}，新增 {r.NewFiles}，更新 {r.UpdatedFiles}，跳过 {r.SkippedFiles}，删除 {r.DeletedFiles}");
+            sb.AppendLine($"切块 {r.TotalChunks}（新嵌入 {r.EmbeddedChunks}，复用 {r.ReusedChunks}）");
+            if (r.Errors.Count > 0) sb.AppendLine($"错误 {r.Errors.Count}：{string.Join("；", r.Errors.Take(3))}");
+            return sb.ToString();
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("索引目录失败", ex, path);
+            return $"错误：索引目录失败 - {ex.Message}";
+        }
     }
 
     /// <summary>
@@ -113,8 +121,16 @@ public class RetrievalToolGroup
     {
         if (string.IsNullOrWhiteSpace(content)) return "错误：内容为空";
         if (content.Length > 2_000_000) return "错误：内容过大（>2MB），请分段索引";
-        var r = await _service.IndexContentAsync(content, language, sourceName);
-        return $"索引完成：{sourceName}，切块 {r.TotalChunks}（新嵌入 {r.EmbeddedChunks}）";
+        try
+        {
+            var r = await _service.IndexContentAsync(content, language, sourceName);
+            return $"索引完成：{sourceName}，切块 {r.TotalChunks}（新嵌入 {r.EmbeddedChunks}）";
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("索引内容失败", ex, sourceName);
+            return $"错误：索引内容失败 - {ex.Message}";
+        }
     }
 
     /// <summary>
@@ -127,19 +143,27 @@ public class RetrievalToolGroup
         [Description("限定路径前缀（可选）")] string? pathPrefix = null,
         [Description("限定语言（可选），如 csharp、html")] string? language = null)
     {
-        var results = await _service.SearchAsync(query, topK, pathPrefix, language);
-        if (results.Count == 0) return "未找到相关内容。请先用 IndexDirectoryAsync 或 IndexContentAsync 建立索引。";
-        var sb = new StringBuilder();
-        int budget = _options.MaxResultChars;
-        foreach (var r in results)
+        try
         {
-            var symbol = r.SymbolName != null ? $" {r.SymbolName}" : "";
-            sb.AppendLine($"--- {r.FilePath}:{r.StartLine}-{r.EndLine} [{r.ChunkType}]{symbol} (相关度 {r.Score:F2}) ---");
-            var content = r.Content.Length > 1500 ? r.Content[..1500] + "\n…(截断)" : r.Content;
-            if (sb.Length + content.Length > budget) { sb.AppendLine("…(结果超出预算，已截断，可缩小 topK 或追加 pathPrefix 重试)"); break; }
-            sb.AppendLine(content);
+            var results = await _service.SearchAsync(query, topK, pathPrefix, language);
+            if (results.Count == 0) return "未找到相关内容。请先用 IndexDirectoryAsync 或 IndexContentAsync 建立索引。";
+            var sb = new StringBuilder();
+            int budget = _options.MaxResultChars;
+            foreach (var r in results)
+            {
+                var symbol = r.SymbolName != null ? $" {r.SymbolName}" : "";
+                sb.AppendLine($"--- {r.FilePath}:{r.StartLine}-{r.EndLine} [{r.ChunkType}]{symbol} (相关度 {r.Score:F2}) ---");
+                var content = r.Content.Length > 1500 ? r.Content[..1500] + "\n…(截断)" : r.Content;
+                if (sb.Length + content.Length > budget) { sb.AppendLine("…(结果超出预算，已截断，可缩小 topK 或追加 pathPrefix 重试)"); break; }
+                sb.AppendLine(content);
+            }
+            return sb.ToString();
         }
-        return sb.ToString();
+        catch (Exception ex)
+        {
+            Logger.Error("语义检索失败", ex, query);
+            return $"错误：语义检索失败 - {ex.Message}";
+        }
     }
 
     /// <summary>
@@ -148,7 +172,15 @@ public class RetrievalToolGroup
     [Description("获取语义检索索引的统计信息")]
     public async Task<string> GetIndexStatsAsync()
     {
-        var s = await _service.GetStatsAsync();
-        return $"已索引文件 {s.TotalFiles} 个，切块 {s.TotalChunks} 个，模型 {s.ModelId ?? "未知"}，向量维度 {s.VectorDimension}";
+        try
+        {
+            var s = await _service.GetStatsAsync();
+            return $"已索引文件 {s.TotalFiles} 个，切块 {s.TotalChunks} 个，模型 {s.ModelId ?? "未知"}，向量维度 {s.VectorDimension}";
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("获取索引统计失败", ex);
+            return $"错误：获取索引统计失败 - {ex.Message}";
+        }
     }
 }

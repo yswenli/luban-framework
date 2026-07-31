@@ -131,6 +131,30 @@ public class RedisToolGroup
                 timedOut = result.TimedOut
             });
         }
+        catch (System.ComponentModel.Win32Exception ex)
+        {
+            Logger.Error("Redis 执行失败：redis-cli 不存在", ex, "redis-cli");
+            return JsonSerializer.Serialize(new
+            {
+                exitCode = -1,
+                stdout = "",
+                stderr = "可执行文件不存在: redis-cli。请确保已安装 Redis 并将 redis-cli 配置到 PATH 环境变量。",
+                durationMs = 0,
+                timedOut = false
+            });
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("Redis 执行异常", ex, sanitizedCommand);
+            return JsonSerializer.Serialize(new
+            {
+                exitCode = -1,
+                stdout = "",
+                stderr = $"执行失败: {ex.Message}",
+                durationMs = 0,
+                timedOut = false
+            });
+        }
         finally
         {
             Environment.SetEnvironmentVariable("REDISCLI_AUTH", envBackup);

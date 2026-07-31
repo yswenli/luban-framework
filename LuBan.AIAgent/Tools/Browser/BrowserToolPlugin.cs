@@ -104,26 +104,90 @@ public class BrowserToolGroup
         if (!IsValidHttpUrl(url))
             return $"无效的 URL: {url}。仅支持 http:// 和 https:// 协议。";
 
+        // 第一次尝试：NetworkIdle（等待网络完全空闲），失败时不记录错误日志（降级重试会决定是否记录）
+        var (ok, msg) = await TryNavigateAsync(url, 30000, Microsoft.Playwright.WaitUntilState.NetworkIdle, logOnError: false);
+        if (ok) return msg!;
+
+        // NetworkIdle 失败时降级为 DOMContentLoaded（仅等待 DOM 加载完成）
+        Logger.Warn($"浏览器导航 NetworkIdle 失败，降级为 DOMContentLoaded 重试: {url}");
+        (ok, msg) = await TryNavigateAsync(url, 15000, Microsoft.Playwright.WaitUntilState.DOMContentLoaded);
+        if (ok) return msg!;
+
+        return msg!;
+    }
+
+    /// <summary>
+    /// 尝试导航到指定 URL，返回是否成功及结果消息。
+    /// </summary>
+    /// <param name="url">目标 URL</param>
+    /// <param name="timeoutMs">超时时间（毫秒）</param>
+    /// <param name="waitUntil">等待策略</param>
+    /// <param name="logOnError">是否记录错误日志（降级重试场景下由调用方统一记录）</param>
+    /// <returns>(是否成功, 结果消息)</returns>
+    private async Task<(bool ok, string? msg)> TryNavigateAsync(
+        string url, int timeoutMs, Microsoft.Playwright.WaitUntilState waitUntil, bool logOnError = true)
+    {
         try
         {
             var page = await _session.GetPageAsync();
             await page.GotoAsync(url, new Microsoft.Playwright.PageGotoOptions
             {
-                Timeout = 30000,
-                WaitUntil = Microsoft.Playwright.WaitUntilState.NetworkIdle
+                Timeout = timeoutMs,
+                WaitUntil = waitUntil
             });
-            return $"已成功导航到 {url}";
+            return (true, $"已成功导航到 {url}（等待策略: {waitUntil}）");
         }
         catch (Microsoft.Playwright.PlaywrightException ex)
         {
-            Logger.Error("浏览器导航 Playwright 异常", ex, url);
-            return $"导航失败: {ex.Message}\n\n请安装 Playwright 浏览器:\n  npx playwright@1.61.0 install chromium";
+            if (logOnError) Logger.Error("浏览器导航 Playwright 异常", ex, url);
+            return (false, BuildNavigateErrorMessage(ex, url));
         }
         catch (Exception ex)
         {
-            Logger.Error("浏览器导航异常", ex, url);
-            return $"导航失败: {ex.Message}";
+            if (logOnError) Logger.Error("浏览器导航异常", ex, url);
+            return (false, $"导航失败: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// 根据 Playwright 异常类型构建可操作的错误消息。
+    /// </summary>
+    /// <param name="ex">Playwright 异常</param>
+    /// <param name="url">目标 URL</param>
+    /// <returns>错误消息</returns>
+    private static string BuildNavigateErrorMessage(Microsoft.Playwright.PlaywrightException ex, string url)
+    {
+        var msg = ex.Message;
+
+        // 浏览器未安装
+        if (msg.Contains("Executable doesn't exist") || msg.Contains("playwright install"))
+        {
+            return $"导航失败: 浏览器未安装。\n\n请运行以下命令安装:\n  npx playwright@1.61.0 install chromium";
+        }
+
+        // 网络超时 / 连接失败
+        if (msg.Contains("ERR_CONNECTION_TIMED_OUT") ||
+            msg.Contains("ERR_TIMED_OUT") ||
+            msg.Contains("ERR_NAME_NOT_RESOLVED") ||
+            msg.Contains("ERR_CONNECTION_REFUSED") ||
+            msg.Contains("ERR_CONNECTION_RESET") ||
+            msg.Contains("ERR_INTERNET_DISCONNECTED"))
+        {
+            return $"导航失败: 无法连接到 {url}\n" +
+                   $"错误: {msg.Split('\n')[0]}\n\n" +
+                   $"可能原因: 网络不通、目标站点不可达、DNS 解析失败或被防火墙拦截。\n" +
+                   $"建议: 请尝试更换 URL、使用搜索引擎获取信息，或直接告知用户该站点无法访问。";
+        }
+
+        // 导航超时（页面加载太慢）
+        if (msg.Contains("Timeout") || msg.Contains("timeout"))
+        {
+            return $"导航失败: 页面加载超时（{url}）\n" +
+                   $"建议: 该站点响应过慢或可能有反爬虫保护。可尝试使用 GetContentAsync 获取已加载的部分内容，或更换目标 URL。";
+        }
+
+        // 其他错误
+        return $"导航失败: {msg}";
     }
 
     /// <summary>

@@ -106,11 +106,49 @@ public class FileSystemToolGroup
         if (!_pathGuard.IsAllowed(path))
             return $"错误：路径 {path} 不在允许访问的范围内";
 
-        var fileInfo = new FileInfo(path);
-        if (fileInfo.Length > 50 * 1024 * 1024)
-            return $"错误：文件过大 ({fileInfo.Length / 1024 / 1024}MB)，最大支持 50MB";
+        try
+        {
+            var fileInfo = new FileInfo(path);
+            if (fileInfo.Length > 50 * 1024 * 1024)
+                return $"错误：文件过大 ({fileInfo.Length / 1024 / 1024}MB)，最大支持 50MB";
 
-        return await File.ReadAllTextAsync(path);
+            return await File.ReadAllTextAsync(path);
+        }
+        catch (FileNotFoundException ex)
+        {
+            Logger.Error("文件读取异常：文件不存在", ex, path);
+            return $"读取文件失败: 文件不存在 ({path})。请确认路径是否正确。";
+        }
+        catch (DirectoryNotFoundException ex)
+        {
+            Logger.Error("文件读取异常：目录不存在", ex, path);
+            return $"读取文件失败: 目录不存在 ({path})。请确认路径是否正确。";
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            Logger.Error("文件读取异常：权限不足", ex, path);
+            return $"读取文件失败: 权限不足，无法访问 ({path})。请检查文件权限或选择其他文件。";
+        }
+        catch (PathTooLongException ex)
+        {
+            Logger.Error("文件读取异常：路径过长", ex, path);
+            return $"读取文件失败: 路径过长 ({path})。请缩短路径或使用其他路径。";
+        }
+        catch (ArgumentException ex)
+        {
+            Logger.Error("文件读取异常：路径无效", ex, path);
+            return $"读取文件失败: 路径无效 ({path})。{ex.Message}";
+        }
+        catch (IOException ex)
+        {
+            Logger.Error("文件读取异常：IO 错误", ex, path);
+            return $"读取文件失败: IO 错误 ({path})。{ex.Message}";
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("文件读取异常", ex, path);
+            return $"读取文件失败: {ex.Message}";
+        }
     }
 
     /// <summary>
@@ -126,14 +164,47 @@ public class FileSystemToolGroup
             return $"错误：路径 {path} 不在允许访问的范围内";
 
         // 确认执行
-        if (!ToolConfirmationService.RequestConfirmation("WriteFileAsync", 
+        if (!ToolConfirmationService.RequestConfirmation("WriteFileAsync",
             new Dictionary<string, object?> { ["path"] = path, ["content"] = content }))
         {
             return "操作已被用户取消";
         }
 
-        await File.WriteAllTextAsync(path, content);
-        return $"已写入文件 {path}";
+        try
+        {
+            await File.WriteAllTextAsync(path, content);
+            return $"已写入文件 {path}";
+        }
+        catch (DirectoryNotFoundException ex)
+        {
+            Logger.Error("文件写入异常：目录不存在", ex, path);
+            return $"写入文件失败: 目录不存在 ({path})。请确认路径是否正确或先创建目录。";
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            Logger.Error("文件写入异常：权限不足", ex, path);
+            return $"写入文件失败: 权限不足，无法访问 ({path})。请检查文件权限或选择其他路径。";
+        }
+        catch (PathTooLongException ex)
+        {
+            Logger.Error("文件写入异常：路径过长", ex, path);
+            return $"写入文件失败: 路径过长 ({path})。请缩短路径或使用其他路径。";
+        }
+        catch (ArgumentException ex)
+        {
+            Logger.Error("文件写入异常：路径无效", ex, path);
+            return $"写入文件失败: 路径无效 ({path})。{ex.Message}";
+        }
+        catch (IOException ex)
+        {
+            Logger.Error("文件写入异常：IO 错误", ex, path);
+            return $"写入文件失败: IO 错误 ({path})。{ex.Message}";
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("文件写入异常", ex, path);
+            return $"写入文件失败: {ex.Message}";
+        }
     }
 
     /// <summary>
@@ -147,7 +218,40 @@ public class FileSystemToolGroup
         if (!_pathGuard.IsAllowed(path))
             return Task.FromResult($"错误：路径 {path} 不在允许访问的范围内");
 
-        var entries = Directory.EnumerateFileSystemEntries(path);
-        return Task.FromResult(string.Join("\n", entries));
+        try
+        {
+            var entries = Directory.EnumerateFileSystemEntries(path);
+            return Task.FromResult(string.Join("\n", entries));
+        }
+        catch (DirectoryNotFoundException ex)
+        {
+            Logger.Error("列出目录异常：目录不存在", ex, path);
+            return Task.FromResult($"列出目录失败: 目录不存在 ({path})。请确认路径是否正确。");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            Logger.Error("列出目录异常：权限不足", ex, path);
+            return Task.FromResult($"列出目录失败: 权限不足，无法访问 ({path})。请检查目录权限或选择其他目录。");
+        }
+        catch (PathTooLongException ex)
+        {
+            Logger.Error("列出目录异常：路径过长", ex, path);
+            return Task.FromResult($"列出目录失败: 路径过长 ({path})。请缩短路径或使用其他路径。");
+        }
+        catch (ArgumentException ex)
+        {
+            Logger.Error("列出目录异常：路径无效", ex, path);
+            return Task.FromResult($"列出目录失败: 路径无效 ({path})。{ex.Message}");
+        }
+        catch (IOException ex)
+        {
+            Logger.Error("列出目录异常：IO 错误", ex, path);
+            return Task.FromResult($"列出目录失败: IO 错误 ({path})。{ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("列出目录异常", ex, path);
+            return Task.FromResult($"列出目录失败: {ex.Message}");
+        }
     }
 }

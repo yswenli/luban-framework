@@ -115,12 +115,6 @@ public static class Logger
             return;
         }
 
-        if (_loginfo is NullLogger)
-        {
-            try { OnLogged?.Invoke(logInfo); } catch { }
-            return;
-        }
-
         try
         {
             string text = _serializer(logInfo);
@@ -197,12 +191,6 @@ public static class Logger
                 return;
             }
 
-            if (_logdebug is NullLogger)
-            {
-                try { OnDebug?.Invoke(obj); } catch { }
-                return;
-            }
-
             try
             {
                 string text = _serializer(obj);
@@ -259,12 +247,6 @@ public static class Logger
                 return;
             }
 
-            if (_logdebug is NullLogger)
-            {
-                try { OnDebug?.Invoke(obj); } catch { }
-                return;
-            }
-
             try
             {
                 string text = _serializer(obj);
@@ -315,12 +297,6 @@ public static class Logger
         }
         catch
         {
-            return;
-        }
-
-        if (_logwarn is NullLogger)
-        {
-            try { OnLogged?.Invoke(obj); } catch { }
             return;
         }
 
@@ -459,12 +435,6 @@ public static class Logger
             return;
         }
 
-        if (_logerror is NullLogger)
-        {
-            try { OnError?.Invoke(obj); } catch { }
-            return;
-        }
-
         try
         {
             string text = _serializer(obj);
@@ -510,8 +480,6 @@ public static class Logger
         {
             return;
         }
-
-        if (_logerror is NullLogger) return;
 
         try
         {
@@ -603,19 +571,6 @@ public static class Logger
     /// <param name="apiLogModel"></param>
     public static void ApiCallLog(ApiLogInfo apiLogModel)
     {
-        if (_logcall is NullLogger)
-        {
-            try
-            {
-                if (apiLogModel.Exception == null)
-                    OnCalled?.Invoke(apiLogModel);
-                else
-                    OnError?.Invoke(apiLogModel);
-            }
-            catch { }
-            return;
-        }
-
         try
         {
             var text = _serializer(apiLogModel);

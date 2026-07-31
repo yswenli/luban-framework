@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net8.0
 *机器名称：YSWENLI
@@ -54,6 +54,9 @@ public static class StartupUtil
             //设置全局读写配置工具
             configuration.InitConfigUtil();
 
+            //注册LuBan文件日志服务
+            services.AddLuBanFileLogger();
+
             //设置全局文化信息
             services.SetCurrentCulture();
 
@@ -108,6 +111,9 @@ public static class StartupUtil
 
             //正在初始化全局DI集合
             services.BuildProvider();
+
+            //注入ILoggerFactory和STJ序列化器给static Logger
+            services.InitLuBanLogger();
 
         }
         catch (Exception ex)

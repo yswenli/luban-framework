@@ -108,27 +108,54 @@ public class ScriptToolGroup
     public async Task<string> RunShellAsync(string command, string? workingDirectory = null)
     {
         // 确认执行
-        if (!ToolConfirmationService.RequestConfirmation("RunShellAsync", 
+        if (!ToolConfirmationService.RequestConfirmation("RunShellAsync",
             new Dictionary<string, object?> { ["command"] = command, ["workingDirectory"] = workingDirectory }))
         {
             return "操作已被用户取消";
         }
 
-        var result = await _processRunner.RunAsync(
-            _options.Shell,
-            "-c",
-            workingDirectory,
-            stdin: command,
-            timeoutMs: _options.DefaultTimeout);
-
-        return JsonSerializer.Serialize(new
+        try
         {
-            exitCode = result.ExitCode,
-            stdout = result.StandardOutput,
-            stderr = result.StandardError,
-            durationMs = result.DurationMs,
-            timedOut = result.TimedOut
-        });
+            var result = await _processRunner.RunAsync(
+                _options.Shell,
+                "-c",
+                workingDirectory,
+                stdin: command,
+                timeoutMs: _options.DefaultTimeout);
+
+            return JsonSerializer.Serialize(new
+            {
+                exitCode = result.ExitCode,
+                stdout = result.StandardOutput,
+                stderr = result.StandardError,
+                durationMs = result.DurationMs,
+                timedOut = result.TimedOut
+            });
+        }
+        catch (System.ComponentModel.Win32Exception ex)
+        {
+            Logger.Error("Shell 执行失败：可执行文件不存在", ex, _options.Shell);
+            return JsonSerializer.Serialize(new
+            {
+                exitCode = -1,
+                stdout = "",
+                stderr = $"可执行文件不存在: {_options.Shell}。请确保已安装并配置到 PATH 环境变量。",
+                durationMs = 0,
+                timedOut = false
+            });
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("Shell 执行异常", ex, command);
+            return JsonSerializer.Serialize(new
+            {
+                exitCode = -1,
+                stdout = "",
+                stderr = $"执行失败: {ex.Message}",
+                durationMs = 0,
+                timedOut = false
+            });
+        }
     }
 
     /// <summary>
@@ -141,27 +168,54 @@ public class ScriptToolGroup
     public async Task<string> RunLuaAsync(string script, string? workingDirectory = null)
     {
         // 确认执行
-        if (!ToolConfirmationService.RequestConfirmation("RunLuaAsync", 
+        if (!ToolConfirmationService.RequestConfirmation("RunLuaAsync",
             new Dictionary<string, object?> { ["script"] = script, ["workingDirectory"] = workingDirectory }))
         {
             return "操作已被用户取消";
         }
 
-        var result = await _processRunner.RunAsync(
-            _options.LuaPath,
-            "-e",
-            workingDirectory,
-            stdin: script,
-            timeoutMs: _options.DefaultTimeout);
-
-        return JsonSerializer.Serialize(new
+        try
         {
-            exitCode = result.ExitCode,
-            stdout = result.StandardOutput,
-            stderr = result.StandardError,
-            durationMs = result.DurationMs,
-            timedOut = result.TimedOut
-        });
+            var result = await _processRunner.RunAsync(
+                _options.LuaPath,
+                "-e",
+                workingDirectory,
+                stdin: script,
+                timeoutMs: _options.DefaultTimeout);
+
+            return JsonSerializer.Serialize(new
+            {
+                exitCode = result.ExitCode,
+                stdout = result.StandardOutput,
+                stderr = result.StandardError,
+                durationMs = result.DurationMs,
+                timedOut = result.TimedOut
+            });
+        }
+        catch (System.ComponentModel.Win32Exception ex)
+        {
+            Logger.Error("Lua 执行失败：可执行文件不存在", ex, _options.LuaPath);
+            return JsonSerializer.Serialize(new
+            {
+                exitCode = -1,
+                stdout = "",
+                stderr = $"可执行文件不存在: {_options.LuaPath}。请确保已安装并配置到 PATH 环境变量。",
+                durationMs = 0,
+                timedOut = false
+            });
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("Lua 执行异常", ex, script);
+            return JsonSerializer.Serialize(new
+            {
+                exitCode = -1,
+                stdout = "",
+                stderr = $"执行失败: {ex.Message}",
+                durationMs = 0,
+                timedOut = false
+            });
+        }
     }
 
     /// <summary>
@@ -174,26 +228,53 @@ public class ScriptToolGroup
     public async Task<string> RunPythonAsync(string script, string? workingDirectory = null)
     {
         // 确认执行
-        if (!ToolConfirmationService.RequestConfirmation("RunPythonAsync", 
+        if (!ToolConfirmationService.RequestConfirmation("RunPythonAsync",
             new Dictionary<string, object?> { ["script"] = script, ["workingDirectory"] = workingDirectory }))
         {
             return "操作已被用户取消";
         }
 
-        var result = await _processRunner.RunAsync(
-            _options.PythonPath,
-            "-c",
-            workingDirectory,
-            stdin: script,
-            timeoutMs: _options.DefaultTimeout);
-
-        return JsonSerializer.Serialize(new
+        try
         {
-            exitCode = result.ExitCode,
-            stdout = result.StandardOutput,
-            stderr = result.StandardError,
-            durationMs = result.DurationMs,
-            timedOut = result.TimedOut
-        });
+            var result = await _processRunner.RunAsync(
+                _options.PythonPath,
+                "-c",
+                workingDirectory,
+                stdin: script,
+                timeoutMs: _options.DefaultTimeout);
+
+            return JsonSerializer.Serialize(new
+            {
+                exitCode = result.ExitCode,
+                stdout = result.StandardOutput,
+                stderr = result.StandardError,
+                durationMs = result.DurationMs,
+                timedOut = result.TimedOut
+            });
+        }
+        catch (System.ComponentModel.Win32Exception ex)
+        {
+            Logger.Error("Python 执行失败：可执行文件不存在", ex, _options.PythonPath);
+            return JsonSerializer.Serialize(new
+            {
+                exitCode = -1,
+                stdout = "",
+                stderr = $"可执行文件不存在: {_options.PythonPath}。请确保已安装并配置到 PATH 环境变量。",
+                durationMs = 0,
+                timedOut = false
+            });
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("Python 执行异常", ex, script);
+            return JsonSerializer.Serialize(new
+            {
+                exitCode = -1,
+                stdout = "",
+                stderr = $"执行失败: {ex.Message}",
+                durationMs = 0,
+                timedOut = false
+            });
+        }
     }
 }

@@ -16,9 +16,10 @@ internal sealed class AssemblyJsonConverter : JsonConverter<Assembly>
     /// <inheritdoc/>
     public override void Write(Utf8JsonWriter writer, Assembly value, JsonSerializerOptions options)
     {
+        // 与原 AssemblyConverter 保持一致：手动写入的属性名不受 camelCase 策略影响
         writer.WriteStartObject();
-        writer.WriteString("assemblyName", value.GetName().Name);
-        writer.WriteString("location", value.Location);
+        writer.WriteString("AssemblyName", value.FullName);
+        writer.WriteString("Location", value.Location);
         writer.WriteEndObject();
     }
 }

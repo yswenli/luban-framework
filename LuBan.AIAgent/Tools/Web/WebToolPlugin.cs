@@ -106,19 +106,100 @@ public class WebToolGroup : IDisposable
             return JsonSerializer.Serialize(new { statusCode = 0, content = $"无效的 URL: {url}。仅支持 http:// 和 https:// 协议，且不允许访问内网地址。" });
 
         using var cts = new CancellationTokenSource(30000);
-        var response = await _httpClient.GetAsync(url, cts.Token);
-        var content = await response.Content.ReadAsStringAsync(cts.Token);
-
-        if (content.Length > _options.MaxCharacters)
+        try
         {
-            content = content.Substring(0, _options.MaxCharacters) + "\n\n[内容已截断]";
+            var response = await _httpClient.GetAsync(url, cts.Token);
+            var content = await response.Content.ReadAsStringAsync(cts.Token);
+
+            if (content.Length > _options.MaxCharacters)
+            {
+                content = content.Substring(0, _options.MaxCharacters) + "\n\n[内容已截断]";
+            }
+
+            return JsonSerializer.Serialize(new
+            {
+                statusCode = (int)response.StatusCode,
+                content = content
+            });
+        }
+        catch (OperationCanceledException ex)
+        {
+            Logger.Error("获取 URL 异常：请求超时", ex, url);
+            return JsonSerializer.Serialize(new
+            {
+                statusCode = 0,
+                content = $"请求超时（30 秒）: {url}\n建议: 该站点响应过慢或不可达，请尝试更换 URL 或使用搜索引擎获取信息。"
+            });
+        }
+        catch (HttpRequestException ex)
+        {
+            Logger.Error("获取 URL 异常：HTTP 请求失败", ex, url);
+            return JsonSerializer.Serialize(new
+            {
+                statusCode = 0,
+                content = BuildHttpRequestErrorMessage(ex, url)
+            });
+        }
+        catch (IOException ex)
+        {
+            Logger.Error("获取 URL 异常：内容读取失败", ex, url);
+            return JsonSerializer.Serialize(new
+            {
+                statusCode = 0,
+                content = $"读取 URL 内容失败: {url}\n错误: {ex.Message}\n建议: 请尝试更换 URL 或使用搜索引擎获取信息。"
+            });
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("获取 URL 异常", ex, url);
+            return JsonSerializer.Serialize(new
+            {
+                statusCode = 0,
+                content = $"获取 URL 失败: {url}\n错误: {ex.Message}"
+            });
+        }
+    }
+
+    /// <summary>
+    /// 根据 HttpRequestException 构建可操作的网络错误消息。
+    /// </summary>
+    /// <param name="ex">HTTP 请求异常</param>
+    /// <param name="url">目标 URL</param>
+    /// <returns>错误消息</returns>
+    private static string BuildHttpRequestErrorMessage(HttpRequestException ex, string url)
+    {
+        var msg = ex.Message ?? string.Empty;
+
+        // DNS 解析失败
+        if (msg.Contains("No such host is known", StringComparison.OrdinalIgnoreCase) ||
+            msg.Contains("name or service not known", StringComparison.OrdinalIgnoreCase) ||
+            msg.Contains("Name resolution", StringComparison.OrdinalIgnoreCase) ||
+            msg.Contains("resolve", StringComparison.OrdinalIgnoreCase) ||
+            msg.Contains("DNS", StringComparison.OrdinalIgnoreCase))
+        {
+            return $"DNS 解析失败: {url}\n错误: {msg}\n建议: 域名无法解析，请确认 URL 是否正确，或尝试使用搜索引擎获取信息。";
         }
 
-        return JsonSerializer.Serialize(new
+        // 连接失败 / 拒绝 / 重置
+        if (msg.Contains("connection refused", StringComparison.OrdinalIgnoreCase) ||
+            msg.Contains("connection reset", StringComparison.OrdinalIgnoreCase) ||
+            msg.Contains("connection denied", StringComparison.OrdinalIgnoreCase) ||
+            msg.Contains("unable to connect", StringComparison.OrdinalIgnoreCase) ||
+            msg.Contains("Connection forcibly closed", StringComparison.OrdinalIgnoreCase))
         {
-            statusCode = (int)response.StatusCode,
-            content = content
-        });
+            return $"连接失败: {url}\n错误: {msg}\n建议: 目标站点不可达或拒绝连接，请尝试更换 URL 或使用搜索引擎获取信息。";
+        }
+
+        // SSL/TLS 错误
+        if (msg.Contains("SSL", StringComparison.OrdinalIgnoreCase) ||
+            msg.Contains("TLS", StringComparison.OrdinalIgnoreCase) ||
+            msg.Contains("certificate", StringComparison.OrdinalIgnoreCase))
+        {
+            return $"SSL/TLS 错误: {url}\n错误: {msg}\n建议: 证书验证失败或加密协议不兼容，请尝试更换 URL 或使用搜索引擎获取信息。";
+        }
+
+        // 其他 HTTP 错误
+        return $"HTTP 请求失败: {url}\n错误: {msg}\n建议: 请尝试更换 URL 或使用搜索引擎获取信息。";
     }
 
     /// <summary>

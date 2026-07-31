@@ -14,16 +14,17 @@ internal sealed class ExceptionJsonConverter : JsonConverter<Exception>
     /// <inheritdoc/>
     public override void Write(Utf8JsonWriter writer, Exception value, JsonSerializerOptions options)
     {
+        // 与原 NewtonsoftExceptionConverter 保持一致：手动写入的属性名不受 camelCase 策略影响
         writer.WriteStartObject();
-        writer.WriteString("exceptionType", value.GetType().FullName);
-        writer.WriteString("message", value.Message);
-        writer.WriteString("stackTrace", value.StackTrace);
+        writer.WriteString("ExceptionType", value.GetType().FullName);
+        writer.WriteString("Message", value.Message);
+        writer.WriteString("StackTrace", value.StackTrace);
         if (value.InnerException != null)
         {
-            writer.WritePropertyName("innerException");
+            writer.WritePropertyName("InnerException");
             Write(writer, value.InnerException, options);
         }
-        writer.WriteString("source", value.Source);
+        writer.WriteString("Source", value.Source);
         writer.WriteEndObject();
     }
 }
