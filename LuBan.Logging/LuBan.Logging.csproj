@@ -5,7 +5,29 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
+    <Version>2026.7.31.1</Version>
+    <PackageId>$(AssemblyName)</PackageId>
+    <Title>$(AssemblyName)</Title>
+    <Authors>yswenli</Authors>
+    <Description>LuBan Framework日志组件，基于Microsoft.Extensions.Logging封装的文件日志Provider，支持100MB/跨天滚动</Description>
+    <Copyright>$(Authors)</Copyright>
+    <PackageIcon>favicon.png</PackageIcon>
+    <PackageTags>$(AssemblyName);web;api;aspnet;aspnetcore;LuBan;yswenli;logging</PackageTags>
+    <PackageReleaseNotes>LuBan Framework日志组件，基于Microsoft.Extensions.Logging封装的文件日志Provider，支持100MB/跨天滚动</PackageReleaseNotes>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\favicon.png">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <None Include="README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.10" />
