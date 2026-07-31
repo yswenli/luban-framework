@@ -8,7 +8,7 @@
 
 ---
 
-**Related Projects**: [LuBan.Framework](../README.md) | [LuBan.Common](../LuBan.Common/README.md) | [LuBan.Orm](../LuBan.Orm/README.md) | [LuBan.Redis](../LuBan.Redis/README.md) | [LuBan.Service](../LuBan.Service/README.md) | [LuBan.EventBus](../LuBan.EventBus/README.md) | [LuBan.ApprovalFlow](../LuBan.ApprovalFlow/README.md) | [LuBan.Wechat](../LuBan.Wechat/README.md) | [LuBan.AIAgent](../LuBan.AIAgent/README.md) | [LuBan.AIFlow](../LuBan.AIFlow/README.md)
+**Related Projects**: [LuBan.Framework](../README.md) | [LuBan.Common](../LuBan.Common/README.md) | [LuBan.Logging](../LuBan.Logging/README.md) | [LuBan.Orm](../LuBan.Orm/README.md) | [LuBan.Redis](../LuBan.Redis/README.md) | [LuBan.Service](../LuBan.Service/README.md) | [LuBan.EventBus](../LuBan.EventBus/README.md) | [LuBan.ApprovalFlow](../LuBan.ApprovalFlow/README.md) | [LuBan.Wechat](../LuBan.Wechat/README.md) | [LuBan.AIAgent](../LuBan.AIAgent/README.md) | [LuBan.AIFlow](../LuBan.AIFlow/README.md)
 
 ---
 
@@ -43,7 +43,7 @@ await WebApp.RunWebHostAsync(args);
 | 审批流 | LuBan.ApprovalFlow | 内置审批流引擎 |
 | 报表导出 | LuBan.Reporting | Excel/CSV 导出 |
 | 云存储 | LuBan.CloudStorage | 对象存储集成 |
-| 日志 | LuBan.LogLib | 统一日志库 |
+| 日志 | LuBan.Logging | 基于 Microsoft.Extensions.Logging 的文件日志 Provider，支持 100MB/跨天滚动 |
 
 ---
 

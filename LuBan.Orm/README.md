@@ -7,7 +7,7 @@
 > 一站式 ORM 解决方案，从建表到查询，从单库到多租户，一个库全搞定。
 
 ---
-**Related Projects**: [LuBan.Framework](../README.md) | [LuBan.Common](../LuBan.Common/README.md) | [LuBan.DI](../LuBan.DI/README.md) | [LuBan.Linq](../LuBan.Linq/README.md) | [LuBan.Service](../LuBan.Service/README.md) | [LuBan.Web.Core](../LuBan.Web.Core/README.md) | [LuBan.Redis](../LuBan.Redis/README.md)
+**Related Projects**: [LuBan.Framework](../README.md) | [LuBan.Common](../LuBan.Common/README.md) | [LuBan.DI](../LuBan.DI/README.md) | [LuBan.Linq](../LuBan.Linq/README.md) | [LuBan.Service](../LuBan.Service/README.md) | [LuBan.Web.Core](../LuBan.Web.Core/README.md) | [LuBan.Redis](../LuBan.Redis/README.md) | [LuBan.Logging](../LuBan.Logging/README.md)
 ---
 
 ## 为什么需要它？
@@ -109,6 +109,17 @@ EntityTenantId        → 独立租户标识实体
 - **10 个自定义属性** — 表路由、日志标记、租户标记等
 - **7 个接口** — 仓储、工作单元、映射等核心契约
 - **17 个枚举** — 业务状态、数据类型等常用枚举
+
+### 日志收集
+
+| 组件 | 说明 |
+|------|------|
+| `LoggerCollector` | 订阅 `Logger.OnLogged`/`OnCalled`/`OnError` 事件，将日志批量写入数据库 |
+| `DbLogCleaner` | 定时清理过期的数据库日志记录 |
+| `DbLogError` | 错误日志实体（异常类型、堆栈、请求信息） |
+| `DbLogApi` | API 调用日志实体（TraceId、URL、请求/响应、耗时） |
+
+> 日志收集器通过订阅 `LuBan.Common.Logger` 的静态事件实现，启动时调用 `LoggerCollector.Instance.Start()` 即可自动收集日志到数据库。
 
 ## 使用指南
 

@@ -134,6 +134,8 @@ dotnet add package LuBan.Common
 `Logger`（命名空间 `System`）、`LogInfo`、`ApiLogInfo`
 
 > 静态调用：`Logger.Info`、`Logger.Error`、`Logger.Debug`，省事到离谱。
+>
+> Logger 基于 `Microsoft.Extensions.Logging.ILogger` 抽象，通过 `SetLogger(ILoggerFactory)` 和 `SetSerializer(Func<object,string>)` 在启动时注入。日志文件由 LuBan.Logging 项目提供的文件日志 Provider 自动生成（默认在 `logs/` 目录下，100MB 或跨天滚动）。
 
 ### 系统与进程
 
@@ -305,7 +307,7 @@ Logger.Error("支付模块", exception, "支付回调处理失败");
 Logger.Debug("调试", $"耗时 {elapsedMs}ms");
 ```
 
-> 使用前请确保项目根目录有日志配置文件。
+> Logger 基于 `Microsoft.Extensions.Logging.ILogger` 抽象，需在启动时通过 `LuBan.Logging` 项目注册文件日志 Provider 并调用 `Logger.SetLogger(ILoggerFactory)` 注入。日志文件默认输出到 `logs/` 目录，按 100MB 或跨天滚动。
 
 ### 日期时间：告别手撕时间逻辑
 
@@ -386,7 +388,7 @@ if (RandomUtil.ValideWFACode(userCode, secret))
 ## 使用小贴士
 
 1. **命名空间别搞错**：`LuBan.Common` 是根命名空间，但具体工具分散在 `LuBan.Common.Data`、`LuBan.Common.IO`、`LuBan.Common.Http`、`LuBan.Common.Sms`、`LuBan.Common.Errors`、`LuBan.Common.EventBus`、`LuBan.Common.Calendar`、`LuBan.Common.Consts`、`LuBan.Common.IPToRegion`、`LuBan.Common.AntiReplayAttacks`、`LuBan.Common.NPinyin` 等子命名空间；`MemoryCache<T>`、`IServiceCache`、`Logger` 位于 `System`。
-2. **日志先配置**：`Logger` 依赖日志配置文件，否则可能找不到输出目标。
+2. **日志需注入**：`Logger` 基于 `Microsoft.Extensions.Logging.ILogger`，需在启动时通过 `LuBan.Logging` 注册文件日志 Provider 并调用 `Logger.SetLogger(ILoggerFactory)` 注入，否则日志仅输出到控制台。
 3. **线程安全要选型**：多线程场景优先 `ThreadSafeList`、并发字典或 `MemoryCache<T>`。
 4. **缓存设过期**：缓存不是无限内存，请按业务设置合理过期时间。
 5. **配置走 Nacos**：经常变化的配置用 `NacosConfigUtil`，避免改配置就发版。

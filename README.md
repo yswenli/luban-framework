@@ -10,7 +10,7 @@ LuBan.Framework 是基于 ASP.NET Core 封装的企业级 API 框架，集成了
 
 ---
 
-**Related Projects**: [LuBan.Common](LuBan.Common/README.md) | [LuBan.Threading](LuBan.Threading/README.md) | [LuBan.DI](LuBan.DI/README.md) | [LuBan.Linq](LuBan.Linq/README.md) | [LuBan.Orm](LuBan.Orm/README.md) | [LuBan.EventBus](LuBan.EventBus/README.md) | [LuBan.Service](LuBan.Service/README.md) | [LuBan.Redis](LuBan.Redis/README.md) | [LuBan.LogLib](LuBan.LogLib/README.md) | [LuBan.CloudStorage](LuBan.CloudStorage/README.md) | [LuBan.E邮件处理库](LuBan.E邮件处理库/README.md) | [LuBan.PdfKit](LuBan.PdfKit/README.md) | [LuBan.Office](LuBan.Office/README.md) | [LuBan.VideoKit](LuBan.VideoKit/README.md) | [LuBan.Lives](LuBan.Lives/README.md) | [LuBan.Speech](LuBan.Speech/README.md) | [LuBan.Wechat](LuBan.Wechat/README.md) | [LuBan.Qingflow](LuBan.Qingflow/README.md) | [LuBan.Web.Core](LuBan.Web.Core/README.md) | [LuBan.ApprovalFlow](LuBan.ApprovalFlow/README.md) | [LuBan.Reporting](LuBan.Reporting/README.md) | [LuBan.AIFlow](LuBan.AIFlow/README.md) | [LuBan.AIAgent](LuBan.AIAgent/README.md)
+**Related Projects**: [LuBan.Common](LuBan.Common/README.md) | [LuBan.Threading](LuBan.Threading/README.md) | [LuBan.DI](LuBan.DI/README.md) | [LuBan.Linq](LuBan.Linq/README.md) | [LuBan.Orm](LuBan.Orm/README.md) | [LuBan.EventBus](LuBan.EventBus/README.md) | [LuBan.Service](LuBan.Service/README.md) | [LuBan.Redis](LuBan.Redis/README.md) | [LuBan.Logging](LuBan.Logging/README.md) | [LuBan.CloudStorage](LuBan.CloudStorage/README.md) | [LuBan.E邮件处理库](LuBan.E邮件处理库/README.md) | [LuBan.PdfKit](LuBan.PdfKit/README.md) | [LuBan.Office](LuBan.Office/README.md) | [LuBan.VideoKit](LuBan.VideoKit/README.md) | [LuBan.Lives](LuBan.Lives/README.md) | [LuBan.Speech](LuBan.Speech/README.md) | [LuBan.Wechat](LuBan.Wechat/README.md) | [LuBan.Qingflow](LuBan.Qingflow/README.md) | [LuBan.Web.Core](LuBan.Web.Core/README.md) | [LuBan.ApprovalFlow](LuBan.ApprovalFlow/README.md) | [LuBan.Reporting](LuBan.Reporting/README.md) | [LuBan.AIFlow](LuBan.AIFlow/README.md) | [LuBan.AIAgent](LuBan.AIAgent/README.md)
 
 ---
 
@@ -45,11 +45,11 @@ LuBan.Framework 是基于 ASP.NET Core 封装的企业级 API 框架，集成了
 
 | 组件 | 说明 |
 |------|------|
-| **LuBan.Orm** | 多租户 ORM：CodeFirst 建表、雪花 ID、软删除、审计字段、数据 Diff 日志、代码生成器、27 个内置系统实体 |
+| **LuBan.Orm** | 多租户 ORM：CodeFirst 建表、雪花 ID、软删除、审计字段、数据 Diff 日志、代码生成器、27 个内置系统实体、日志收集器（LoggerCollector/DbLogCleaner） |
 | **LuBan.EventBus** | 进程内事件总线：发布/订阅、一次性订阅、Channel 驱动 |
 | **LuBan.Service** | 业务服务基类 + 后台任务调度（间隔/定时） |
 | **LuBan.Redis** | Redis 全功能 SDK：分布式锁（Lua 可重入）、缓存、发布订阅、Stream 队列、过期监听 |
-| **LuBan.LogLib** | 数据库日志：批量写入 API 日志和错误日志，自动过期清理 |
+| **LuBan.Logging** | 文件日志 Provider：基于 Microsoft.Extensions.Logging，100MB/跨天滚动，按 category 路由到 5 个文件，STJ 序列化 |
 
 ### 功能集成层
 
@@ -88,9 +88,9 @@ LuBan.DI ──── LuBan.Linq                                    │
       ↑           ↑                                         │
 LuBan.Orm ────────┘                                         │
       ↑                                                     │
-LuBan.EventBus ── LuBan.Service ── LuBan.LogLib             │
+LuBan.EventBus ── LuBan.Service                             │
                         ↑                                   │
-LuBan.Redis ── LuBan.CloudStorage ── LuBan.EMailKit        │
+LuBan.Logging ── LuBan.Redis ── LuBan.CloudStorage ── LuBan.EMailKit
 LuBan.PdfKit ── LuBan.Office ── LuBan.VideoKit             │
 LuBan.Lives ── LuBan.Speech ── LuBan.Wechat ── LuBan.Qingflow
                         ↑                                   │
