@@ -37,13 +37,21 @@ public static class TempDirectory
         var dir = Resolver?.Invoke();
         if (string.IsNullOrEmpty(dir))
         {
-            dir = Path.GetTempPath();
+            return Path.GetTempPath();
         }
-        if (!Directory.Exists(dir))
+        try
         {
-            Directory.CreateDirectory(dir);
+            if (!Directory.Exists(dir))
+            {
+                Directory.CreateDirectory(dir);
+            }
+            return dir!;
         }
-        return dir!;
+        catch
+        {
+            // 自定义目录不可用（如工作区在只读/网络驱动器），回退到系统临时目录
+            return Path.GetTempPath();
+        }
     }
 
     /// <summary>

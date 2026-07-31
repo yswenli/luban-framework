@@ -50,7 +50,7 @@ public class TempFile : IDisposable
         _filePath = filePath;
         if (_filePath.IsNullOrEmpty())
         {
-            _filePath = Path.GetTempFileName();
+            _filePath = TempDirectory.GetTempFilePath();
         }
         PathUtil.Create(_filePath);
     }
