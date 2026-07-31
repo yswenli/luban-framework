@@ -364,3 +364,4 @@ FodyWeavers.xsd
 .vscode/launch.json
 /docs
 *.db
+/WebApplication1/LuBan.db
