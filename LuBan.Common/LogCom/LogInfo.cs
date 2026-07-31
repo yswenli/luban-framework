@@ -28,6 +28,11 @@ namespace LuBan.Common.LogCom;
 [JsonObject]
 public class LogInfo
 {
+    /// <summary>
+    /// 服务名在运行期不变，缓存为静态字段避免每条日志都查配置。
+    /// </summary>
+    private static readonly string _cachedServiceName = ConfigUtil.GetServiceName();
+
     [JsonProperty(Order = 0)]
     [JsonPropertyOrder(0)]
     public DateTime Created { get; set; } = DateTimeUtil.Now;
@@ -35,7 +40,7 @@ public class LogInfo
 
     [JsonProperty(Order = 0)]
     [JsonPropertyOrder(0)]
-    public string ServiceName { get; set; } = ConfigUtil.GetServiceName();
+    public string ServiceName { get; set; } = _cachedServiceName;
 
 
     [JsonProperty(Order = 1)]

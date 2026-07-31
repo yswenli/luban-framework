@@ -299,18 +299,27 @@ public class AIAgentTests
     }
 }
 
-internal class MockChatClient : IChatClient
+public class MockChatClient : IChatClient
 {
     public string Name { get; }
+
+    private readonly Func<IEnumerable<ChatMessage>, string>? _responder;
 
     public MockChatClient(string name)
     {
         Name = name;
     }
 
+    public MockChatClient(string name, Func<IEnumerable<ChatMessage>, string> responder)
+    {
+        Name = name;
+        _responder = responder;
+    }
+
     public Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default)
     {
-        return Task.FromResult(new ChatResponse(new ChatMessage(ChatRole.Assistant, $"Response from {Name}")));
+        var response = _responder != null ? _responder(messages) : $"Response from {Name}";
+        return Task.FromResult(new ChatResponse(new ChatMessage(ChatRole.Assistant, response)));
     }
 
     public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(

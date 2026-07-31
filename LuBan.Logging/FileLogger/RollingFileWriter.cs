@@ -2,6 +2,7 @@ namespace LuBan.Logging.FileLogger;
 
 /// <summary>
 /// 滚动文件写入器，按 100MB 或跨天滚动，UTF-8 编码，最多保留指定数量的备份。
+/// 复用常驻 StreamWriter 并定时 Flush，避免每行日志开关文件句柄。
 /// </summary>
 internal sealed class RollingFileWriter : IDisposable
 {
@@ -13,6 +14,10 @@ internal sealed class RollingFileWriter : IDisposable
     private DateTime _currentFileDate = DateTime.MinValue;
     private string _currentFilePath;
     private long _currentFileSize;
+    private StreamWriter? _streamWriter;
+    private DateTime _lastFlushTime;
+    private static readonly TimeSpan _flushInterval = TimeSpan.FromSeconds(1);
+    private static int _firstErrorLogged;
 
     /// <summary>
     /// 初始化滚动文件写入器。
@@ -49,8 +54,9 @@ internal sealed class RollingFileWriter : IDisposable
                 _currentFileDate = DateTime.Now.Date;
             }
         }
-        catch
+        catch (Exception ex)
         {
+            LogFirstError("EnsureDirectoryAndProbeSize", ex);
             _currentFileSize = 0;
             _currentFileDate = DateTime.Now.Date;
         }
@@ -83,23 +89,41 @@ internal sealed class RollingFileWriter : IDisposable
                     RollFile(now.Date);
                 }
 
+                EnsureWriterOpen();
+
                 var line = text + Environment.NewLine;
-                using (var fs = new FileStream(_currentFilePath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite))
-                using (var sw = new StreamWriter(fs, System.Text.Encoding.UTF8))
-                {
-                    sw.Write(line);
-                }
+                _streamWriter!.Write(line);
                 _currentFileSize += System.Text.Encoding.UTF8.GetByteCount(line);
                 _currentFileDate = now.Date;
+
+                // 定时 Flush，平衡性能与崩溃时的数据丢失风险
+                if (now - _lastFlushTime >= _flushInterval)
+                {
+                    _streamWriter.Flush();
+                    _lastFlushTime = now;
+                }
             }
-            catch
+            catch (Exception ex)
             {
+                LogFirstError("WriteLine", ex);
             }
         }
     }
 
+    private void EnsureWriterOpen()
+    {
+        if (_streamWriter != null) return;
+
+        var fs = new FileStream(_currentFilePath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
+        _streamWriter = new StreamWriter(fs, System.Text.Encoding.UTF8);
+        _lastFlushTime = DateTime.Now;
+    }
+
     private void RollFile(DateTime today)
     {
+        // 先关闭现有 writer，确保缓冲区落盘
+        CloseWriter();
+
         try
         {
             if (!File.Exists(_currentFilePath))
@@ -130,11 +154,34 @@ internal sealed class RollingFileWriter : IDisposable
             _currentFileSize = 0;
             _currentFileDate = today;
         }
+        catch (Exception ex)
+        {
+            LogFirstError("RollFile", ex);
+            // 滚动失败时：重置日期避免当天重复尝试，但重新探测实际大小
+            _currentFileDate = today;
+            try
+            {
+                var fi = new FileInfo(_currentFilePath);
+                _currentFileSize = fi.Exists ? fi.Length : 0;
+            }
+            catch
+            {
+                _currentFileSize = 0;
+            }
+        }
+    }
+
+    private void CloseWriter()
+    {
+        try
+        {
+            _streamWriter?.Flush();
+            _streamWriter?.Dispose();
+        }
         catch
         {
-            _currentFileSize = 0;
-            _currentFileDate = today;
         }
+        _streamWriter = null;
     }
 
     private void CleanupOldBackups(string baseName, string ext)
@@ -159,8 +206,29 @@ internal sealed class RollingFileWriter : IDisposable
         }
     }
 
+    /// <summary>
+    /// 仅在首次错误时输出到 Console.Error，避免错误刷屏，同时保留可观测性。
+    /// </summary>
+    private static void LogFirstError(string context, Exception ex)
+    {
+        if (Interlocked.Exchange(ref _firstErrorLogged, 1) == 0)
+        {
+            try
+            {
+                Console.Error.WriteLine($"[LuBan.Logging] 文件日志写入失败 ({context})，后续错误将不再提示: {ex}");
+            }
+            catch
+            {
+            }
+        }
+    }
+
     /// <inheritdoc/>
     public void Dispose()
     {
+        lock (_lock)
+        {
+            CloseWriter();
+        }
     }
 }

@@ -45,8 +45,16 @@ internal sealed class FileLoggerProvider : ILoggerProvider
             return;
         }
 
-        var writer = _writers.GetOrAdd(fileName, fn => new RollingFileWriter(fn, _options));
-        writer.WriteLine(message);
+        // GetOrAddValueRef 模式：避免竞态下重复构造 RollingFileWriter
+        if (_writers.TryGetValue(fileName, out var existing))
+        {
+            existing.WriteLine(message);
+            return;
+        }
+
+        var newWriter = new RollingFileWriter(fileName, _options);
+        var actual = _writers.GetOrAdd(fileName, newWriter);
+        actual.WriteLine(message);
     }
 
     /// <inheritdoc/>

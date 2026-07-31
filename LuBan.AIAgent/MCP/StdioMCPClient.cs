@@ -2,15 +2,22 @@
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net8.0
 *机器名称：WALLE
-*Author：yswenli
+*公司名称：Walle
 *命名空间：LuBan.AIAgent.MCP
 *文件名： StdioMCPClient
 *版本号： V1.0.0.0
-*唯一标识：新建
+*唯一标识：5be2a761-b305-4e81-8d47-6db6a575b3de
 *当前的用户域：WALLE
-*创建人：yswenli
+*创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2026/7/28
+*描述：基于 stdio JSON-RPC 的外部 MCP 客户端
+*
+*=================================================
+*修改标记
+*修改时间：2026/7/28
+*修改人： yswenli
+*版本号： V1.0.0.0
 *描述：基于 stdio JSON-RPC 的外部 MCP 客户端
 *
 *****************************************************************************/

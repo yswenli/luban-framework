@@ -1,3 +1,26 @@
+/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net8.0
+*机器名称：WALLE
+*公司名称：Walle
+*命名空间：LuBan.AIAgent.Configuration
+*文件名： ConfigManager
+*版本号： V1.0.0.0
+*唯一标识：09abd62a-0127-4a0c-928f-625327d2c508
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/7/31
+*描述：配置管理服务
+*
+*=================================================
+*修改标记
+*修改时间：2026/7/31
+*修改人： yswenli
+*版本号： V1.0.0.0
+*描述：配置管理服务
+*
+*****************************************************************************/
 namespace LuBan.AIAgent.Configuration;
 
 /// <summary>
@@ -559,6 +582,10 @@ public class ConfigManager
 
         var credential = new System.ClientModel.ApiKeyCredential(apiKey);
         var openAIClient = new OpenAI.OpenAIClient(credential, clientOptions);
+        
+        var effectiveUrl = baseUrl ?? "https://api.openai.com/v1 (默认)";
+        Logger.Info($"创建 ChatClient: model={modelName}, endpoint={effectiveUrl}");
+        
         return openAIClient.GetChatClient(modelName).AsIChatClient();
     }
 

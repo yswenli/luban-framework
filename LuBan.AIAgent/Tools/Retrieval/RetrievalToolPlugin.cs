@@ -1,3 +1,26 @@
+/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net8.0
+*机器名称：WALLE
+*公司名称：Walle
+*命名空间：LuBan.AIAgent.Tools.Retrieval
+*文件名： RetrievalToolPlugin
+*版本号： V1.0.0.0
+*唯一标识：cde77c24-d326-47bc-ac75-557ebec5b92b
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/7/31
+*描述：检索工具插件
+*
+*=================================================
+*修改标记
+*修改时间：2026/7/31
+*修改人： yswenli
+*版本号： V1.0.0.0
+*描述：检索工具插件
+*
+*****************************************************************************/
 using System.ComponentModel;
 using System.Reflection;
 using System.Text;

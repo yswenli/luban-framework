@@ -2,15 +2,22 @@
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net8.0
 *机器名称：WALLE
-*Author：yswenli
+*公司名称：Walle
 *命名空间：LuBan.AIAgent.Rules
 *文件名： RuleCheckedAIFunction
 *版本号： V1.0.0.0
-*唯一标识：新建
+*唯一标识：cddeaf29-da7e-469d-bf9d-d0ecf4201843
 *当前的用户域：WALLE
-*创建人：yswenli
+*创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2026/7/29
+*描述：规则检查装饰器，工具调用前先经 RuleEngine 评估
+*
+*=================================================
+*修改标记
+*修改时间：2026/7/29
+*修改人： yswenli
+*版本号： V1.0.0.0
 *描述：规则检查装饰器，工具调用前先经 RuleEngine 评估
 *
 *****************************************************************************/

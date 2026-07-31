@@ -1,5 +1,31 @@
+/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net8.0
+*机器名称：WALLE
+*公司名称：Walle
+*命名空间：LuBan.AIAgent.Core
+*文件名： SanitizingChatClient
+*版本号： V1.0.0.0
+*唯一标识：e2811310-57da-479d-bb83-7b7ec92040a3
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/7/31
+*描述：聊天消息清洗与循环防护客户端
+*
+*=================================================
+*修改标记
+*修改时间：2026/7/31
+*修改人： yswenli
+*版本号： V1.0.0.0
+*描述：聊天消息清洗与循环防护客户端
+*
+*****************************************************************************/
 namespace LuBan.AIAgent.Core;
 
+/// <summary>
+/// 聊天消息清洗与循环防护客户端
+/// </summary>
 public class SanitizingChatClient : IChatClient
 {
     private readonly IChatClient _inner;
@@ -11,6 +37,9 @@ public class SanitizingChatClient : IChatClient
         _maxConsecutiveToolOnly = maxConsecutiveToolOnly;
     }
 
+    /// <summary>
+    /// 获取聊天响应（同步）
+    /// </summary>
     public async Task<ChatResponse> GetResponseAsync(
         IEnumerable<ChatMessage> messages,
         ChatOptions? options = null,
@@ -29,6 +58,9 @@ public class SanitizingChatClient : IChatClient
         }
     }
 
+    /// <summary>
+    /// 获取聊天响应（流式）
+    /// </summary>
     public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
         IEnumerable<ChatMessage> messages,
         ChatOptions? options = null,
@@ -63,6 +95,9 @@ public class SanitizingChatClient : IChatClient
     public object? GetService(Type serviceType, object? key = null)
         => _inner.GetService(serviceType, key);
 
+    /// <summary>
+    /// 释放资源
+    /// </summary>
     public void Dispose()
     {
         _inner.Dispose();

@@ -74,6 +74,42 @@ public static class LuBanAgentExtensions
         services.AddSingleton<ProcessRunner>();
         services.AddSingleton<PathGuard>();
 
+        // ===== Orchestration 子系统注册 =====
+        // ContextStore 纯内存线程安全字典，可 Singleton
+        services.AddSingleton<Orchestration.ContextStore>();
+
+        // SubAgentFactory / DagScheduler / Orchestrator 依赖 Scoped 的 LuBanAgentFactory，必须 Scoped
+        services.AddScoped<Orchestration.SubAgentFactory>();
+        services.AddScoped<Orchestration.DagScheduler>();
+
+        // 规划器：LlmTaskPlanner 依赖 IChatClient（通常 Scoped），TemplateTaskPlanner 无状态可 Singleton
+        services.AddScoped<Orchestration.Planner.LlmTaskPlanner>();
+        services.AddSingleton<Orchestration.Planner.TemplateTaskPlanner>();
+        services.AddScoped<Orchestration.Planner.ITaskPlanner>(sp =>
+        {
+            var opts = sp.GetRequiredService<IOptions<LuBanAgentOptions>>().Value;
+            return opts.Orchestration?.PlannerType switch
+            {
+                "llm"      => sp.GetRequiredService<Orchestration.Planner.LlmTaskPlanner>(),
+                "template" => sp.GetRequiredService<Orchestration.Planner.TemplateTaskPlanner>(),
+                _          => new Orchestration.Planner.CompositeTaskPlanner(
+                                sp.GetRequiredService<Orchestration.Planner.TemplateTaskPlanner>(),
+                                sp.GetRequiredService<Orchestration.Planner.LlmTaskPlanner>())
+            };
+        });
+
+        services.AddScoped<Orchestration.IOrchestrator, Orchestration.Orchestrator>();
+
+        // 暴露为工具（按配置开关）
+        var orchestrationEnabled = configuration
+            .GetSection("LuBanAgent:Orchestration:Enabled").Get<bool>();
+        var exposeAsTool = configuration
+            .GetSection("LuBanAgent:Orchestration:ExposeAsTool").Get<bool>();
+        if (orchestrationEnabled && exposeAsTool)
+        {
+            services.AddSingleton<ILuBanToolPlugin, Tools.Orchestration.OrchestrationToolPlugin>();
+        }
+
         return services;
     }
 

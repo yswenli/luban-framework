@@ -2,15 +2,22 @@
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net8.0
 *机器名称：WALLE
-*Author：yswenli
+*公司名称：Walle
 *命名空间：LuBan.AIAgent.Skills
 *文件名： CustomSkill
 *版本号： V1.0.0.0
-*唯一标识：新建
+*唯一标识：917b7227-2b43-4ee8-b8af-b2b9f705db7e
 *当前的用户域：WALLE
-*创建人：yswenli
+*创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2026/7/28
+*描述：自定义 Skill 适配器，将 CustomSkillConfig 包装为 ISkill（提示词模板型）
+*
+*=================================================
+*修改标记
+*修改时间：2026/7/28
+*修改人： yswenli
+*版本号： V1.0.0.0
 *描述：自定义 Skill 适配器，将 CustomSkillConfig 包装为 ISkill（提示词模板型）
 *
 *****************************************************************************/

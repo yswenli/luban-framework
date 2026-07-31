@@ -96,15 +96,29 @@ public static class Logger
     /// <param name="params"></param>
     public static void Info(string name, string des, ConsoleColor console, params object[] @params)
     {
-        var logInfo = new LogInfo
+        LogInfo logInfo;
+        try
         {
-            Description = des,
-            Exception = null,
-            Params = @params
-        };
-        if (name.IsNotNullOrEmpty())
+            logInfo = new LogInfo
+            {
+                Description = des,
+                Exception = null,
+                Params = @params
+            };
+            if (name.IsNotNullOrEmpty())
+            {
+                logInfo.Description = name + "\t" + des;
+            }
+        }
+        catch
         {
-            logInfo.Description = name + "\t" + des;
+            return;
+        }
+
+        if (_loginfo is NullLogger)
+        {
+            try { OnLogged?.Invoke(logInfo); } catch { }
+            return;
         }
 
         try
@@ -167,13 +181,28 @@ public static class Logger
     {
         if (enableDebug)
         {
-            LogInfo obj = new LogInfo
+            LogInfo obj;
+            try
             {
-                Description = description,
-                Exception = ex,
-                Params = @params,
-                EnableDebug = enableDebug
-            };
+                obj = new LogInfo
+                {
+                    Description = description,
+                    Exception = ex,
+                    Params = @params,
+                    EnableDebug = enableDebug
+                };
+            }
+            catch
+            {
+                return;
+            }
+
+            if (_logdebug is NullLogger)
+            {
+                try { OnDebug?.Invoke(obj); } catch { }
+                return;
+            }
+
             try
             {
                 string text = _serializer(obj);
@@ -215,12 +244,27 @@ public static class Logger
     {
         if (enableDebug)
         {
-            LogInfo obj = new LogInfo
+            LogInfo obj;
+            try
             {
-                Description = description,
-                Params = @params,
-                EnableDebug = enableDebug
-            };
+                obj = new LogInfo
+                {
+                    Description = description,
+                    Params = @params,
+                    EnableDebug = enableDebug
+                };
+            }
+            catch
+            {
+                return;
+            }
+
+            if (_logdebug is NullLogger)
+            {
+                try { OnDebug?.Invoke(obj); } catch { }
+                return;
+            }
+
             try
             {
                 string text = _serializer(obj);
@@ -259,12 +303,27 @@ public static class Logger
     /// <param name="params"></param>
     public static void Warn(string description, Exception? ex = null, params object[] @params)
     {
-        var obj = new LogInfo
+        LogInfo obj;
+        try
         {
-            Description = description,
-            Exception = ex,
-            Params = @params
-        };
+            obj = new LogInfo
+            {
+                Description = description,
+                Exception = ex,
+                Params = @params
+            };
+        }
+        catch
+        {
+            return;
+        }
+
+        if (_logwarn is NullLogger)
+        {
+            try { OnLogged?.Invoke(obj); } catch { }
+            return;
+        }
+
         try
         {
             string text = _serializer(obj);
@@ -384,13 +443,28 @@ public static class Logger
     /// <param name="params"></param>
     public static void Error(int level, string description, Exception ex, params object[] @params)
     {
-        var obj = new LogInfo
+        LogInfo obj;
+        try
         {
-            Description = description,
-            Exception = ex,
-            Params = @params,
-            Level = level
-        };
+            obj = new LogInfo
+            {
+                Description = description,
+                Exception = ex,
+                Params = @params,
+                Level = level
+            };
+        }
+        catch
+        {
+            return;
+        }
+
+        if (_logerror is NullLogger)
+        {
+            try { OnError?.Invoke(obj); } catch { }
+            return;
+        }
+
         try
         {
             string text = _serializer(obj);
@@ -421,13 +495,24 @@ public static class Logger
     /// <param name="params"></param>
     public static void ErrorWithOutEvent(string description, Exception ex, params object[] @params)
     {
-        LogInfo obj = new LogInfo
+        LogInfo obj;
+        try
         {
-            Description = description,
-            Exception = ex,
-            Params = @params,
-            Level = 1
-        };
+            obj = new LogInfo
+            {
+                Description = description,
+                Exception = ex,
+                Params = @params,
+                Level = 1
+            };
+        }
+        catch
+        {
+            return;
+        }
+
+        if (_logerror is NullLogger) return;
+
         try
         {
             string text = _serializer(obj);
@@ -478,34 +563,38 @@ public static class Logger
     /// <param name="ex"></param>
     public static void ApiCallLog(string traceId, string ip, string url, string method, string header, string input, long cost, int statusCode, string result, string userID, Exception? ex)
     {
-        string userAgent = "";
+        ApiLogInfo apiLogModel;
         try
         {
+            string userAgent = "";
             if (!string.IsNullOrEmpty(header))
             {
                 var jObject = JsonNode.Parse(header);
                 userAgent = jObject?["User-Agent"]?.GetValue<string>() ?? "";
             }
+
+            apiLogModel = new ApiLogInfo
+            {
+                TraceId = traceId,
+                CallIp = ip,
+                Url = url,
+                RequestMethod = method,
+                Header = header,
+                UserAgent = userAgent,
+                Input = input,
+                Cost = cost,
+                StatusCode = statusCode,
+                Output = result,
+                UserID = userID,
+                Exception = ex
+            };
         }
         catch
         {
+            return;
         }
 
-        ApiCallLog(new ApiLogInfo
-        {
-            TraceId = traceId,
-            CallIp = ip,
-            Url = url,
-            RequestMethod = method,
-            Header = header,
-            UserAgent = userAgent,
-            Input = input,
-            Cost = cost,
-            StatusCode = statusCode,
-            Output = result,
-            UserID = userID,
-            Exception = ex
-        });
+        ApiCallLog(apiLogModel);
     }
 
     /// <summary>
@@ -514,6 +603,19 @@ public static class Logger
     /// <param name="apiLogModel"></param>
     public static void ApiCallLog(ApiLogInfo apiLogModel)
     {
+        if (_logcall is NullLogger)
+        {
+            try
+            {
+                if (apiLogModel.Exception == null)
+                    OnCalled?.Invoke(apiLogModel);
+                else
+                    OnError?.Invoke(apiLogModel);
+            }
+            catch { }
+            return;
+        }
+
         try
         {
             var text = _serializer(apiLogModel);
@@ -562,33 +664,37 @@ public static class Logger
     /// <param name="ex"></param>
     public static void ApiErrorLog(string traceId, string ip, string url, string method, string header, string input, long cost, int statusCode, string result, string userId, Exception ex)
     {
-        string userAgent = "";
+        ApiLogInfo apiLogModel;
         try
         {
+            string userAgent = "";
             if (header.IsNotNullOrEmpty())
             {
                 var jObject = JsonNode.Parse(header);
                 userAgent = jObject?["User-Agent"]?.GetValue<string>() ?? "";
             }
+
+            apiLogModel = new ApiLogInfo
+            {
+                TraceId = traceId,
+                CallIp = ip,
+                Url = url,
+                RequestMethod = method,
+                Header = header,
+                Input = input,
+                Cost = cost,
+                StatusCode = statusCode,
+                Output = result,
+                UserID = userId,
+                UserAgent = userAgent,
+                Exception = ex
+            };
         }
         catch
         {
+            return;
         }
 
-        ApiCallLog(new ApiLogInfo
-        {
-            TraceId = traceId,
-            CallIp = ip,
-            Url = url,
-            RequestMethod = method,
-            Header = header,
-            Input = input,
-            Cost = cost,
-            StatusCode = statusCode,
-            Output = result,
-            UserID = userId,
-            UserAgent = userAgent,
-            Exception = ex
-        });
+        ApiCallLog(apiLogModel);
     }
 }

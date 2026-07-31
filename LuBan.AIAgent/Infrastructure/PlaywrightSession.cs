@@ -1,3 +1,26 @@
+/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net8.0
+*机器名称：WALLE
+*公司名称：Walle
+*命名空间：LuBan.AIAgent.Infrastructure
+*文件名： PlaywrightSession
+*版本号： V1.0.0.0
+*唯一标识：06a6c714-07d4-4a84-ab08-c9bc0f625ed9
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/7/31
+*描述：Playwright 浏览器会话封装
+*
+*=================================================
+*修改标记
+*修改时间：2026/7/31
+*修改人： yswenli
+*版本号： V1.0.0.0
+*描述：Playwright 浏览器会话封装
+*
+*****************************************************************************/
 namespace LuBan.AIAgent.Infrastructure;
 
 /// <summary>

@@ -2,15 +2,22 @@
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net8.0
 *机器名称：WALLE
-*Author：yswenli
+*公司名称：Walle
 *命名空间：LuBan.AIAgent.Skills.BuiltIn
 *文件名： BrainstormingSkill
 *版本号： V1.0.0.0
-*唯一标识：新建
+*唯一标识：82801bf2-910f-46b1-ab68-fb5200067bea
 *当前的用户域：WALLE
-*创建人：yswenli
+*创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2026/7/27
+*描述：头脑风暴 Skill - 在实现功能前探索需求和设计
+*
+*=================================================
+*修改标记
+*修改时间：2026/7/27
+*修改人： yswenli
+*版本号： V1.0.0.0
 *描述：头脑风暴 Skill - 在实现功能前探索需求和设计
 *
 *****************************************************************************/

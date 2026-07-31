@@ -148,6 +148,23 @@ npx playwright@1.61.0 install chromium
 | `PathGuard` | Path security guard, prevents unauthorized access |
 | `RuleEngine` | Rule engine, performs permission checks and parameter modification before tool execution |
 
+### Multi-Agent Orchestration
+
+Main Agent parses composite tasks → decomposes into DAG task graph → dispatches SubAgents for serial/parallel execution.
+
+| Component | Description |
+|-----------|-------------|
+| `IOrchestrator` / `Orchestrator` | Orchestrator entry, chains planning, scheduling, and result aggregation |
+| `ITaskPlanner` | Task planner interface, converts natural language tasks to TaskGraph |
+| `LlmTaskPlanner` | LLM-based planner, generates DAG via prompt engineering |
+| `TemplateTaskPlanner` | Template-based planner, fast generation when matching predefined templates |
+| `CompositeTaskPlanner` | Composite planner, template-first with LLM fallback |
+| `DagScheduler` | DAG scheduler, layer-based parallel execution via topological sort |
+| `SubAgentFactory` | SubAgent factory, wraps LuBanAgentFactory for child agent creation |
+| `ContextStore` | Cross-node context store, isolated by graph ID, thread-safe |
+| `TaskGraph` / `TaskNode` | DAG data models, support dependency declaration, placeholder references, critical nodes |
+| `OrchestrationToolPlugin` | Tool plugin, exposes orchestration capability to main Agent |
+
 ## Usage Guide
 
 ### 1. Configuration & Registration
@@ -307,6 +324,54 @@ services.AddSingleton<IRule, MyRule>();
 ```
 
 Specify assembly names via `ExternalPlugins` configuration — the framework auto-scans and registers types implementing `ILuBanToolPlugin`.
+
+### 9. Multi-Agent Task Orchestration
+
+```json
+{
+  "LuBanAgent": {
+    "Orchestration": {
+      "Enabled": true,
+      "PlannerType": "composite",
+      "MaxNodes": 10,
+      "MaxParallelism": 4,
+      "DefaultNodeTimeoutSeconds": 120,
+      "ExposeAsTool": true
+    }
+  }
+}
+```
+
+```csharp
+// Invoke orchestrator directly
+var orchestrator = serviceProvider.GetRequiredService<IOrchestrator>();
+var result = await orchestrator.RunAsync("Research LuBan framework and generate a comparison report");
+
+Console.WriteLine($"Overall status: {result.OverallStatus}");
+Console.WriteLine($"Final output:\n{result.FinalOutput}");
+
+// Subscribe to streaming progress events
+await foreach (var progress in orchestrator.RunStreamingAsync("..."))
+{
+    Console.WriteLine($"{progress.EventType}: {progress.Message}");
+}
+```
+
+**Orchestration Flow**:
+
+1. **Planning**: `ITaskPlanner` decomposes natural language task into DAG (template-first, LLM fallback)
+2. **Validation**: `TaskGraph.Validate` checks for acyclicity, dependency existence, no duplicate IDs
+3. **Scheduling**: `DagScheduler` executes layers via Kahn topological sort, parallel within same layer
+4. **Context Passing**: `{dep:xxx}` placeholders in node prompts are replaced with predecessor outputs by `ContextStore`
+5. **Error Handling**: Critical node failure skips successors; non-critical failure continues execution
+6. **Result Aggregation**: Terminal nodes (no successors) outputs are aggregated into `FinalOutput`
+
+**Key Concepts**:
+
+- **Critical Node** (`IsCritical = true`): Failure blocks successor execution, overall status is `failed`
+- **Non-Critical Node**: Failure allows successors to continue, overall status is `partial`
+- **Placeholder**: `{dep:node-id}` references predecessor output, auto-replaced at runtime
+- **Parallelism**: `MaxParallelism` limits max parallel nodes per layer, 0 means unlimited
 
 ## Supported AI Providers
 

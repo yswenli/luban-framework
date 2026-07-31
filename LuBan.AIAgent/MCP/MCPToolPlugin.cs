@@ -2,15 +2,22 @@
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net8.0
 *机器名称：WALLE
-*Author：yswenli
+*公司名称：Walle
 *命名空间：LuBan.AIAgent.MCP
-文件名： MCPToolPlugin
+*文件名： MCPToolPlugin
 *版本号： V1.0.0.0
-*唯一标识：新建
+*唯一标识：c815034e-eda2-40a8-aed7-16a667718d17
 *当前的用户域：WALLE
-*创建人：yswenli
+*创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2026/7/29
+*描述：将已连接 MCP 客户端的工具并入 Agent 工具注册表
+*
+*=================================================
+*修改标记
+*修改时间：2026/7/29
+*修改人： yswenli
+*版本号： V1.0.0.0
 *描述：将已连接 MCP 客户端的工具并入 Agent 工具注册表
 *
 *****************************************************************************/

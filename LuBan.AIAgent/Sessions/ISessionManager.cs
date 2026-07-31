@@ -2,15 +2,22 @@
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net8.0
 *机器名称：WALLE
-*Author：yswenli
+*公司名称：Walle
 *命名空间：LuBan.AIAgent.Sessions
 *文件名： ISessionManager
 *版本号： V1.0.0.0
-*唯一标识：新建
+*唯一标识：16dd929d-87db-4a59-ab7e-1ee9d434caad
 *当前的用户域：WALLE
-*创建人：yswenli
+*创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2026/7/27
+*描述：Session 管理接口（在库中定义，不包含具体实现）
+*
+*=================================================
+*修改标记
+*修改时间：2026/7/27
+*修改人： yswenli
+*版本号： V1.0.0.0
 *描述：Session 管理接口（在库中定义，不包含具体实现）
 *
 *****************************************************************************/

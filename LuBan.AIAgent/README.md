@@ -148,6 +148,23 @@ npx playwright@1.61.0 install chromium
 | `PathGuard` | 路径安全守卫，防止越权访问 |
 | `RuleEngine` | 规则引擎，工具执行前进行权限检查和参数修改 |
 
+### 多 Agent 编排系统
+
+主 Agent 解析复合任务 → 拆解 DAG 任务图谱 → 分发 SubAgent 执行（串行 / 并行混合编排）。
+
+| 组件 | 说明 |
+|------|------|
+| `IOrchestrator` / `Orchestrator` | 编排器入口，串联规划、调度与结果聚合 |
+| `ITaskPlanner` | 任务规划器接口，将自然语言任务转换为 TaskGraph |
+| `LlmTaskPlanner` | 基于 LLM 的规划器，通过提示词引导模型生成 DAG |
+| `TemplateTaskPlanner` | 基于模板匹配的规划器，命中预定义模板时快速生成图谱 |
+| `CompositeTaskPlanner` | 组合式规划器，模板优先匹配，未命中回退到 LLM |
+| `DagScheduler` | DAG 调度器，基于拓扑分层实现同层并行、跨层串行 |
+| `SubAgentFactory` | SubAgent 工厂，封装 LuBanAgentFactory 的子 Agent 创建 |
+| `ContextStore` | 跨节点上下文存储，按图谱 ID 隔离，线程安全 |
+| `TaskGraph` / `TaskNode` | DAG 数据模型，支持依赖声明、占位符引用、关键节点 |
+| `OrchestrationToolPlugin` | 工具插件，将编排能力暴露给主 Agent 自动调用 |
+
 ## 使用指南
 
 ### 1. 配置与注册
@@ -309,6 +326,54 @@ services.AddSingleton<IRule, MyRule>();
 
 通过配置 `ExternalPlugins` 指定程序集名称，框架会自动扫描并注册其中实现了 `ILuBanToolPlugin` 的类型。
 
+### 9. 多 Agent 任务编排
+
+```json
+{
+  "LuBanAgent": {
+    "Orchestration": {
+      "Enabled": true,
+      "PlannerType": "composite",
+      "MaxNodes": 10,
+      "MaxParallelism": 4,
+      "DefaultNodeTimeoutSeconds": 120,
+      "ExposeAsTool": true
+    }
+  }
+}
+```
+
+```csharp
+// 直接调用编排器
+var orchestrator = serviceProvider.GetRequiredService<IOrchestrator>();
+var result = await orchestrator.RunAsync("调研 LuBan 框架并生成对比报告");
+
+Console.WriteLine($"整体状态: {result.OverallStatus}");
+Console.WriteLine($"最终输出:\n{result.FinalOutput}");
+
+// 流式订阅进度事件
+await foreach (var progress in orchestrator.RunStreamingAsync("..."))
+{
+    Console.WriteLine($"{progress.EventType}: {progress.Message}");
+}
+```
+
+**编排执行流程**：
+
+1. **规划阶段**：`ITaskPlanner` 将自然语言任务拆解为 DAG 任务图谱（模板优先，LLM 回退）
+2. **校验阶段**：`TaskGraph.Validate` 检查无环、依赖存在、无重复 ID
+3. **调度阶段**：`DagScheduler` 基于 Kahn 拓扑排序分层执行，同层节点并行
+4. **上下文传递**：节点 prompt 中的 `{dep:xxx}` 占位符由 `ContextStore` 替换为前驱输出
+5. **错误处理**：关键节点失败时跳过后继节点；非关键节点失败时继续执行
+6. **结果聚合**：终点节点（无后继）的输出聚合为 `FinalOutput`
+
+**关键概念**：
+
+- **关键节点**（`IsCritical = true`）：失败时阻止后继节点执行，整体状态为 `failed`
+- **非关键节点**：失败时后继节点继续执行，整体状态为 `partial`
+- **占位符**：`{dep:节点id}` 引用前驱节点输出，运行时自动替换
+- **并行度**：`MaxParallelism` 限制同层最大并行节点数，0 表示不限制
+
 ## 支持的 AI Provider
 
 | Provider | 显示名称 | 支持的模型 |
@@ -390,6 +455,33 @@ LuBan.AIAgent/
 │   └── ToolPluginRegistry.cs          # 插件注册表
 ├── Services/
 │   └── ToolConfirmationService.cs     # 工具执行确认服务
+├── Orchestration/                     # 多 Agent 编排子系统
+│   ├── IOrchestrator.cs               # 编排器接口
+│   ├── Orchestrator.cs                # 编排器默认实现
+│   ├── DagScheduler.cs                # DAG 调度器（拓扑分层并行）
+│   ├── SubAgentFactory.cs             # SubAgent 工厂
+│   ├── ContextStore.cs                # 跨节点上下文存储
+│   ├── Models/                        # 数据模型
+│   │   ├── TaskGraph.cs               # 任务图谱
+│   │   ├── TaskNode.cs                # 任务节点
+│   │   ├── TaskNodeStatus.cs          # 节点状态枚举
+│   │   ├── SubAgentSpec.cs            # SubAgent 规格
+│   │   ├── NodeResult.cs              # 节点结果
+│   │   ├── OrchestrationResult.cs     # 编排结果
+│   │   ├── OrchestrationProgress.cs   # 进度事件
+│   │   └── ProgressEventType.cs       # 进度事件类型
+│   ├── Planner/                       # 任务规划器
+│   │   ├── ITaskPlanner.cs            # 规划器接口
+│   │   ├── LlmTaskPlanner.cs          # LLM 规划器
+│   │   ├── TemplateTaskPlanner.cs     # 模板规划器
+│   │   ├── CompositeTaskPlanner.cs    # 组合式规划器
+│   │   └── TaskGraphTemplate.cs       # 图谱模板
+│   └── Exceptions/                    # 异常定义
+│       ├── TaskPlanningException.cs   # 规划异常
+│       └── NodeExecutionException.cs  # 节点执行异常
+├── Tools/Orchestration/               # 编排工具插件
+│   ├── OrchestrationToolPlugin.cs     # 工具插件
+│   └── OrchestrationToolGroup.cs      # 工具组
 ├── LuBanAgent.cs                      # Agent 实例
 ├── LuBanAgentFactory.cs               # Agent 工厂
 └── LuBanAgentExtensions.cs            # DI 扩展方法
@@ -407,6 +499,7 @@ LuBan.AIAgent/
 - **MCP 工具集成**，外部 MCP 服务器工具自动暴露给 Agent
 - 通过 `ExternalPlugins` 配置可热加载外部工具插件程序集
 - 结合 LuBan.AIFlow 可对接 RagFlow / Dify / Coze 等 AI 平台
+- **多 Agent 编排**：复合任务自动拆解为 DAG，SubAgent 串行/并行混合执行，支持关键节点失败跳过、超时控制、上下文传递
 
 ## 许可证
 

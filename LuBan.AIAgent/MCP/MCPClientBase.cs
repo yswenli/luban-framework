@@ -2,15 +2,22 @@
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net8.0
 *机器名称：WALLE
-*Author：yswenli
+*公司名称：Walle
 *命名空间：LuBan.AIAgent.MCP
 *文件名： MCPClientBase
 *版本号： V1.0.0.0
-*唯一标识：新建
+*唯一标识：636a055c-c914-434c-a3e3-95307cc449bb
 *当前的用户域：WALLE
-*创建人：yswenli
+*创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2026/7/27
+*描述：MCP 客户端基类
+*
+*=================================================
+*修改标记
+*修改时间：2026/7/27
+*修改人： yswenli
+*版本号： V1.0.0.0
 *描述：MCP 客户端基类
 *
 *****************************************************************************/

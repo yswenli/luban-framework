@@ -2,15 +2,22 @@
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net8.0
 *机器名称：WALLE
-*Author：yswenli
+*公司名称：Walle
 *命名空间：LuBan.AIAgent.Plugins
 *文件名： ToolPluginRegistry
 *版本号： V1.0.0.0
-*唯一标识：新建
+*唯一标识：bf136e57-5cd7-488c-8e34-bcdafb06e937
 *当前的用户域：WALLE
-*创建人：yswenli
+*创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2026/7/27
+*描述：工具插件注册表
+*
+*=================================================
+*修改标记
+*修改时间：2026/7/27
+*修改人： yswenli
+*版本号： V1.0.0.0
 *描述：工具插件注册表
 *
 *****************************************************************************/

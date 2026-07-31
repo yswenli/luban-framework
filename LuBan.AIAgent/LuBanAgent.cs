@@ -4,7 +4,7 @@
 *机器名称：WALLE
 *公司名称：Walle
 *命名空间：LuBan.AIAgent
-*文件名： GloabUsing
+*文件名： LuBanAgent
 *版本号： V1.0.0.0
 *唯一标识：5ecf6fa5-aa2a-4957-8be1-bddf447ca821
 *当前的用户域：WALLE

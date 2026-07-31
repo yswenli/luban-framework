@@ -1,3 +1,26 @@
+/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net8.0
+*机器名称：WALLE
+*公司名称：Walle
+*命名空间：LuBan.AIAgent.Configuration
+*文件名： LuBanAgentOptions
+*版本号： V1.0.0.0
+*唯一标识：fde975de-ebb3-461b-b27c-bd1c7851c625
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/7/31
+*描述：LuBan Agent 配置选项
+*
+*=================================================
+*修改标记
+*修改时间：2026/7/31
+*修改人： yswenli
+*版本号： V1.0.0.0
+*描述：LuBan Agent 配置选项
+*
+*****************************************************************************/
 namespace LuBan.AIAgent.Configuration;
 
 /// <summary>
@@ -44,6 +67,11 @@ public class LuBanAgentOptions
     /// Session 历史与压缩配置
     /// </summary>
     public SessionOptions Session { get; set; } = new();
+
+    /// <summary>
+    /// 获取或设置编排子系统配置。
+    /// </summary>
+    public OrchestrationOptions? Orchestration { get; set; }
 }
 
 /// <summary>

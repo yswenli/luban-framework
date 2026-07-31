@@ -1,9 +1,9 @@
 using LuBan.Logging.Configuration;
 using LuBan.Logging.FileLogger;
+
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Microsoft.Extensions.Options;
 
 namespace LuBan.Logging;
 

@@ -176,8 +176,8 @@ internal static class ServiceHost
 
         service.ConfigureServices(builder.Configuration);
 
-        //移除ms日志
-        service.Remove((s) => s.ImplementationType == typeof(Microsoft.Extensions.Logging.Console.ConsoleLoggerProvider));
+        //移除ms console日志
+        //service.Remove((s) => s.ImplementationType == typeof(Microsoft.Extensions.Logging.Console.ConsoleLoggerProvider));
 
         var webApp = builder.Build();
         webApp.Configure(webApp.Environment, null);
