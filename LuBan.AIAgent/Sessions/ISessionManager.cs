@@ -102,6 +102,11 @@ public interface ISessionManager
     Task SetCurrentSessionAsync(string sessionId);
 
     /// <summary>
+    /// 清除当前会话（切换到无会话状态）
+    /// </summary>
+    void ClearCurrentSession();
+
+    /// <summary>
     /// 当前活动会话
     /// </summary>
     SessionInfo? CurrentSession { get; }

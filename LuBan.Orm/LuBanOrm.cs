@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net8.0
 *机器名称：WALLE
@@ -363,8 +363,7 @@ public static class LuBanOrm
     public static void InitDatabase(SqlSugarScopeProvider dbProvider, DbConnectionConfig dbConfig)
     {
         using var locker = LockerBuilder.Default.Create("SqlSugarOrm.InitTableAndSeeds");
-        if (IsInitTableAndDataComplete == true) return;
-        IsInitTableAndDataComplete = false;
+        if (IsInitTableAndDataComplete) return;
         InitDb(dbProvider, dbConfig);
         var configId = dbConfig.ConfigId?.ToString() ?? "";
         InitTables(dbProvider, dbConfig, configId);
