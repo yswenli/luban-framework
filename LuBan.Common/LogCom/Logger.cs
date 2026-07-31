@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net8.0
 *机器名称：WALLE
@@ -21,23 +21,22 @@
 *描述：LuBan.Framework 日志组件
 *
 *****************************************************************************/
+using System.Text.Json.Nodes;
 
 namespace System;
 
 /// <summary>
-/// LuBan.Framework 日志组件
+/// LuBan.Framework 日志组件。
 /// </summary>
 public static class Logger
 {
-    private static readonly ILog _loginfo;
-
-    private static readonly ILog _logdebug;
-
-    private static readonly ILog _logwarn;
-
-    private static readonly ILog _logerror;
-
-    private static readonly ILog _logcall;
+    private static ILogger _loginfo = NullLogger.Instance;
+    private static ILogger _logdebug = NullLogger.Instance;
+    private static ILogger _logwarn = NullLogger.Instance;
+    private static ILogger _logerror = NullLogger.Instance;
+    private static ILogger _logcall = NullLogger.Instance;
+    private static Func<object, string> _serializer = obj => obj?.ToString() ?? "";
+    private static readonly object _gate = new();
 
     public static event Action<LogInfo> OnLogged;
 
@@ -48,33 +47,48 @@ public static class Logger
     public static event Action<LogInfo> OnDebug;
 
     /// <summary>
-    /// 日志信息
+    /// 由 LuBan.Logging 在启动时注入 ILoggerFactory（线程安全）。
+    /// 内部按原 log4net 的 5 个 logger name 创建 5 个 category logger。
     /// </summary>
-    static Logger()
+    /// <param name="factory"></param>
+    public static void SetLogger(ILoggerFactory factory)
     {
-        XmlConfigurator.Configure(new FileInfo(PathUtil.GetRootFullName("log4net.config")));
-        _loginfo = LogManager.GetLogger("loginfo");
-        _logdebug = LogManager.GetLogger("logdebug");
-        _logwarn = LogManager.GetLogger("logwarn");
-        _logerror = LogManager.GetLogger("logerror");
-        _logcall = LogManager.GetLogger("logcall");
+        lock (_gate)
+        {
+            if (factory == null)
+            {
+                _loginfo = _logdebug = _logwarn = _logerror = _logcall = NullLogger.Instance;
+                return;
+            }
+            _loginfo = factory.CreateLogger("loginfo");
+            _logdebug = factory.CreateLogger("logdebug");
+            _logwarn = factory.CreateLogger("logwarn");
+            _logerror = factory.CreateLogger("logerror");
+            _logcall = factory.CreateLogger("logcall");
+        }
     }
+
     /// <summary>
-    /// 设置控制台输出
+    /// 由 LuBan.Logging 在启动时注入 STJ 序列化器（线程安全）。
+    /// </summary>
+    /// <param name="serializer"></param>
+    public static void SetSerializer(Func<object, string> serializer)
+    {
+        lock (_gate)
+        {
+            _serializer = serializer ?? (obj => obj?.ToString() ?? "");
+        }
+    }
+
+    /// <summary>
+    /// 设置控制台输出（保留兼容性，目前为空实现）。
     /// </summary>
     public static void SetConsoleAppender()
     {
-        PatternLayout layout = new("%m%n");
-        ConsoleAppender appender = new()
-        {
-            Layout = layout
-        };
-        BasicConfigurator.Configure(appender);
     }
 
-
     /// <summary>
-    /// 记录日志
+    /// 记录日志。
     /// </summary>
     /// <param name="name"></param>
     /// <param name="des"></param>
@@ -95,8 +109,8 @@ public static class Logger
 
         try
         {
-            string text = SerializeUtil.Serialize(logInfo, true, false, true, true);
-            _loginfo.Info(text);
+            string text = _serializer(logInfo);
+            _loginfo.LogInformation(text);
             des.WriteLine(color: console);
         }
         catch
@@ -112,9 +126,8 @@ public static class Logger
         }
     }
 
-
     /// <summary>
-    /// 记录日志
+    /// 记录日志。
     /// </summary>
     /// <param name="msg"></param>
     public static void Info(string msg)
@@ -122,9 +135,8 @@ public static class Logger
         Info(msg, []);
     }
 
-
     /// <summary>
-    /// 记录日志
+    /// 记录日志。
     /// </summary>
     /// <param name="des"></param>
     /// <param name="params"></param>
@@ -134,7 +146,7 @@ public static class Logger
     }
 
     /// <summary>
-    /// 记录日志
+    /// 记录日志。
     /// </summary>
     /// <param name="des"></param>
     /// <param name="consoleColor"></param>
@@ -145,7 +157,7 @@ public static class Logger
     }
 
     /// <summary>
-    /// 记录调试日志
+    /// 记录调试日志。
     /// </summary>
     /// <param name="enableDebug"></param>
     /// <param name="description"></param>
@@ -164,8 +176,8 @@ public static class Logger
             };
             try
             {
-                string text = SerializeUtil.Serialize(obj, true, false, true, true);
-                _logdebug.Info(text);
+                string text = _serializer(obj);
+                _logdebug.LogDebug(text);
                 text.WriteLine(withTime: true, "HH:mm:ss.fff", ConsoleColor.DarkYellow);
             }
             catch
@@ -174,15 +186,16 @@ public static class Logger
 
             try
             {
-                Logger.OnDebug?.Invoke(obj);
+                OnDebug?.Invoke(obj);
             }
             catch
             {
             }
         }
     }
+
     /// <summary>
-    /// 记录调试日志
+    /// 记录调试日志。
     /// </summary>
     /// <param name="description"></param>
     /// <param name="ex"></param>
@@ -191,8 +204,9 @@ public static class Logger
     {
         Debug(NacosConfigUtil.EnabelDebug, description, ex, @params);
     }
+
     /// <summary>
-    /// 记录调试日志
+    /// 记录调试日志。
     /// </summary>
     /// <param name="enableDebug"></param>
     /// <param name="description"></param>
@@ -209,8 +223,8 @@ public static class Logger
             };
             try
             {
-                string text = SerializeUtil.Serialize(obj, true, false, true, true);
-                _logdebug.Info(text);
+                string text = _serializer(obj);
+                _logdebug.LogDebug(text);
                 text.WriteLine(withTime: true, "HH:mm:ss.fff", ConsoleColor.DarkYellow);
             }
             catch
@@ -219,15 +233,16 @@ public static class Logger
 
             try
             {
-                Logger.OnDebug?.Invoke(obj);
+                OnDebug?.Invoke(obj);
             }
             catch
             {
             }
         }
     }
+
     /// <summary>
-    /// 记录调试日志
+    /// 记录调试日志。
     /// </summary>
     /// <param name="description"></param>
     /// <param name="params"></param>
@@ -235,8 +250,9 @@ public static class Logger
     {
         Debug(NacosConfigUtil.EnabelDebug, description, @params);
     }
+
     /// <summary>
-    /// 记录警告信息
+    /// 记录警告信息。
     /// </summary>
     /// <param name="description"></param>
     /// <param name="ex"></param>
@@ -251,8 +267,8 @@ public static class Logger
         };
         try
         {
-            string text = SerializeUtil.Serialize(obj, true, false, true, true);
-            _logwarn.Info(text);
+            string text = _serializer(obj);
+            _logwarn.LogWarning(text);
             text.WriteLine(withTime: true, "HH:mm:ss.fff", ConsoleColor.DarkYellow);
         }
         catch
@@ -261,14 +277,15 @@ public static class Logger
 
         try
         {
-            Logger.OnLogged?.Invoke(obj);
+            OnLogged?.Invoke(obj);
         }
         catch
         {
         }
     }
+
     /// <summary>
-    /// 记录异常信息
+    /// 记录异常信息。
     /// </summary>
     /// <param name="description"></param>
     /// <param name="ex"></param>
@@ -277,8 +294,9 @@ public static class Logger
     {
         Error(1, description, ex, @params);
     }
+
     /// <summary>
-    /// 记录异常信息
+    /// 记录异常信息。
     /// </summary>
     /// <param name="name"></param>
     /// <param name="msg"></param>
@@ -288,7 +306,7 @@ public static class Logger
     }
 
     /// <summary>
-    /// 记录异常信息
+    /// 记录异常信息。
     /// </summary>
     /// <param name="ex"></param>
     public static void Error(Exception ex)
@@ -311,7 +329,7 @@ public static class Logger
     }
 
     /// <summary>
-    /// 记录异常信息
+    /// 记录异常信息。
     /// </summary>
     /// <param name="error"></param>
     public static void Error(string error)
@@ -333,8 +351,9 @@ public static class Logger
         {
         }
     }
+
     /// <summary>
-    /// 记录异常信息
+    /// 记录异常信息。
     /// </summary>
     /// <param name="ex"></param>
     /// <param name="params"></param>
@@ -355,8 +374,9 @@ public static class Logger
         {
         }
     }
+
     /// <summary>
-    /// 记录异常信息
+    /// 记录异常信息。
     /// </summary>
     /// <param name="level"></param>
     /// <param name="description"></param>
@@ -373,16 +393,15 @@ public static class Logger
         };
         try
         {
-            string text = SerializeUtil.Serialize(obj, true, false, true, true);
+            string text = _serializer(obj);
             if (text.IsNotNullOrEmpty())
             {
-                _logerror.Info(text);
+                _logerror.LogError(text);
                 text.WriteLine(withTime: true, "HH:mm:ss.fff", ConsoleColor.Red);
             }
         }
         catch
         {
-
         }
 
         try
@@ -395,7 +414,7 @@ public static class Logger
     }
 
     /// <summary>
-    /// 记录异常信息,但不触发事件
+    /// 记录异常信息,但不触发事件。
     /// </summary>
     /// <param name="description"></param>
     /// <param name="ex"></param>
@@ -411,16 +430,17 @@ public static class Logger
         };
         try
         {
-            string text = SerializeUtil.Serialize(obj, true, false, true, true);
-            _logerror.Info(text);
+            string text = _serializer(obj);
+            _logerror.LogError(text);
             text.WriteLine(color: ConsoleColor.Red);
         }
         catch
         {
         }
     }
+
     /// <summary>
-    /// 记录异常信息,但不触发事件(不入库)
+    /// 记录异常信息,但不触发事件(不入库)。
     /// </summary>
     /// <param name="ex"></param>
     /// <param name="params"></param>
@@ -443,7 +463,7 @@ public static class Logger
     }
 
     /// <summary>
-    /// 记录API调用日志
+    /// 记录API调用日志。
     /// </summary>
     /// <param name="traceId"></param>
     /// <param name="ip"></param>
@@ -463,8 +483,8 @@ public static class Logger
         {
             if (!string.IsNullOrEmpty(header))
             {
-                JObject jObject = JObject.Parse(header);
-                userAgent = jObject.GetValue("User-Agent")?.ToString() ?? "";
+                var jObject = JsonNode.Parse(header);
+                userAgent = jObject?["User-Agent"]?.GetValue<string>() ?? "";
             }
         }
         catch
@@ -487,15 +507,16 @@ public static class Logger
             Exception = ex
         });
     }
+
     /// <summary>
-    /// 记录API调用日志
+    /// 记录API调用日志。
     /// </summary>
     /// <param name="apiLogModel"></param>
     public static void ApiCallLog(ApiLogInfo apiLogModel)
     {
         try
         {
-            var text = apiLogModel.ToJson();
+            var text = _serializer(apiLogModel);
             if (text.IsNotNullOrEmpty())
             {
                 if (apiLogModel.Exception == null)
@@ -506,20 +527,19 @@ public static class Logger
                 {
                     text.WriteLine(withTime: true, "HH:mm:ss.fff", ConsoleColor.Red);
                 }
-                _logcall.Info(text);
+                _logcall.LogInformation(text);
             }
         }
         catch
         {
-
         }
 
         try
         {
             if (apiLogModel.Exception == null)
-                Logger.OnCalled?.Invoke(apiLogModel);
+                OnCalled?.Invoke(apiLogModel);
             else
-                Logger.OnError?.Invoke(apiLogModel);
+                OnError?.Invoke(apiLogModel);
         }
         catch
         {
@@ -527,7 +547,7 @@ public static class Logger
     }
 
     /// <summary>
-    /// 记录API调用日志
+    /// 记录API调用日志。
     /// </summary>
     /// <param name="traceId"></param>
     /// <param name="ip"></param>
@@ -547,8 +567,8 @@ public static class Logger
         {
             if (header.IsNotNullOrEmpty())
             {
-                var jObject = JObject.Parse(header);
-                userAgent = jObject?.GetValue("User-Agent")?.ToString() ?? "";
+                var jObject = JsonNode.Parse(header);
+                userAgent = jObject?["User-Agent"]?.GetValue<string>() ?? "";
             }
         }
         catch
@@ -572,4 +592,3 @@ public static class Logger
         });
     }
 }
-

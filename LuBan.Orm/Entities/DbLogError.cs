@@ -1,9 +1,9 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net8.0
 *机器名称：WALLE
 *Author：yswenli
-*命名空间：LuBan.LogLib.Models
+*命名空间：LuBan.Orm.Entities
 *文件名： SysLog
 *版本号： V1.0.0.0
 *唯一标识：fa2b6f79-ab06-4ac8-9b8a-69b5e41e2060
@@ -22,7 +22,7 @@
 *
 *****************************************************************************/
 
-namespace LuBan.LogLib.Models;
+namespace LuBan.Orm.Entities;
 
 
 /// <summary>

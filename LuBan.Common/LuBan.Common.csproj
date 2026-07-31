@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
@@ -9,10 +9,10 @@
     <Title>$(AssemblyName)</Title>
     <Version>2026.7.30.1</Version>
     <Authors>yswenli</Authors>
-    <Description>LuBan Framework工具类项目，三方引用包主要有：Encrypt.Library、HtmlAgilityPack、ICSharpCode.SharpZipLib、log4net、Newtonsoft.Json、NPOI、SkiaSharp、ZXing等</Description>
+    <Description>LuBan Framework工具类项目，三方引用包主要有：Encrypt.Library、HtmlAgilityPack、ICSharpCode.SharpZipLib、Newtonsoft.Json、NPOI、SkiaSharp、ZXing等</Description>
     <PackageIcon>favicon.png</PackageIcon>
     <PackageTags>$(AssemblyName);web;api;aspnet;aspnetcore;LuBan;yswenli</PackageTags>
-    <PackageReleaseNotes>LuBan Framework工具类项目，三方引用包主要有：Encrypt.Library、HtmlAgilityPack、ICSharpCode.SharpZipLib、log4net、Newtonsoft.Json、NPOI、SkiaSharp、ZXing等</PackageReleaseNotes>
+    <PackageReleaseNotes>LuBan Framework工具类项目，三方引用包主要有：Encrypt.Library、HtmlAgilityPack、ICSharpCode.SharpZipLib、Newtonsoft.Json、NPOI、SkiaSharp、ZXing等</PackageReleaseNotes>
     <PackageId>$(AssemblyName)</PackageId>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <Copyright>$(Authors)</Copyright>
@@ -33,7 +33,7 @@
     <PackageReference Include="Encrypt.Library" Version="2026.6.21.1" />
     <PackageReference Include="Otp.NET" Version="1.4.1" />
     <PackageReference Include="HtmlAgilityPack" Version="1.12.4" />
-    <PackageReference Include="log4net" Version="3.3.2" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.10" />
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.10" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.10" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.10" />

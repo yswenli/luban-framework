@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c) YSWenli All Rights Reserved.
 *CLR版本： .net8.0
 *机器名称：WALLE
@@ -170,6 +170,10 @@ internal static class ServiceHost
         VideoUtil.SetFFmpegPath(args);
         var builder = WebApplication.CreateBuilder(args);
         var service = builder.Services;
+
+        // 注册 LuBan 文件日志 Provider（必须在 ConfigureServices 之前，确保 ServiceProviderUtil 能解析 ILoggerFactory）
+        builder.Logging.AddLuBanFileLogger();
+
         service.ConfigureServices(builder.Configuration);
 
         //移除ms日志
@@ -177,6 +181,10 @@ internal static class ServiceHost
 
         var webApp = builder.Build();
         webApp.Configure(webApp.Environment, null);
+
+        // 注入 ILoggerFactory 和 STJ 序列化器给 static Logger（必须在 Started 事件触发之前）
+        Logger.SetLogger(ServiceProviderUtil.GetRequiredService<ILoggerFactory>());
+        Logger.SetSerializer(LuBanLoggingServiceExtensions.CreateLuBanSerializer());
 
         //注册事件        
         webApp.Lifetime.ApplicationStarted.Register(() => Started(args));

@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 		<TargetFramework>net8.0</TargetFramework>
@@ -57,7 +57,7 @@
 		<ProjectReference Include="..\LuBan.Reporting\LuBan.Reporting.csproj" />
 		<ProjectReference Include="..\LuBan.Service\LuBan.Service.csproj" />
 		<ProjectReference Include="..\LuBan.Common\LuBan.Common.csproj" />
-		<ProjectReference Include="..\LuBan.LogLib\LuBan.LogLib.csproj" />
+		<ProjectReference Include="..\LuBan.Logging\LuBan.Logging.csproj" />
 		<ProjectReference Include="..\LuBan.Orm\LuBan.Orm.csproj" />
 		<ProjectReference Include="..\LuBan.Redis\LuBan.Redis.csproj" />
 		<ProjectReference Include="..\LuBan.Speech\LuBan.Speech.csproj" />

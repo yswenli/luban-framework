@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net8.0
 *机器名称：WALLE
@@ -25,6 +25,7 @@ global using LuBan.Common;
 global using LuBan.Common.Consts;
 global using LuBan.Common.Data;
 global using LuBan.Common.IO;
+global using LuBan.Common.LogCom;
 global using LuBan.Common.Models;
 global using LuBan.DI;
 global using LuBan.Orm.Attributes;

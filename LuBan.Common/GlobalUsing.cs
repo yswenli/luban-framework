@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net8.0
 *机器名称：WALLE
@@ -39,14 +39,11 @@ global using HtmlAgilityPack;
 global using ICSharpCode.SharpZipLib.GZip;
 global using ICSharpCode.SharpZipLib.Zip;
 
-global using log4net;
-global using log4net.Appender;
-global using log4net.Config;
-global using log4net.Layout;
-
 global using Microsoft.Extensions.Configuration;
 global using Microsoft.Extensions.DependencyInjection.Extensions;
 global using Microsoft.Extensions.DependencyModel;
+global using Microsoft.Extensions.Logging;
+global using Microsoft.Extensions.Logging.Abstractions;
 
 global using Newtonsoft.Json;
 global using Newtonsoft.Json.Linq;

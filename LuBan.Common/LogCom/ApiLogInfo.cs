@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net8.0
 *机器名称：WALLE
@@ -21,6 +21,8 @@
 *描述：
 *
 *****************************************************************************/
+using System.Text.Json.Serialization;
+
 namespace LuBan.Common.LogCom;
 
 
@@ -32,65 +34,76 @@ public class ApiLogInfo : LogInfo
     /// 请求跟踪标识，用于唯一标识一个请求的全流程跟踪
     /// </summary>
     [JsonProperty(Order = 3)]
+    [JsonPropertyOrder(3)]
     public string TraceId { get; set; }
 
     /// <summary>
     /// 调用方的IP地址
     /// </summary>
     [JsonProperty(Order = 4)]
+    [JsonPropertyOrder(4)]
     public string CallIp { get; set; }
 
     /// <summary>
     /// 请求的URL地址
     /// </summary>
     [JsonProperty(Order = 5)]
+    [JsonPropertyOrder(5)]
     public string Url { get; set; }
 
     /// <summary>
     /// 请求的方法，如GET、POST等
     /// </summary>
     [JsonProperty(Order = 6)]
+    [JsonPropertyOrder(6)]
     public string RequestMethod { get; set; }
 
     /// <summary>
     /// 请求头信息，可记录请求的header内容
     /// </summary>
     [JsonProperty(Order = 7)]
+    [JsonPropertyOrder(7)]
     public string Header { get; set; }
 
     /// <summary>
     /// 用户代理信息，例如浏览器信息等
     /// </summary>
     [JsonProperty(Order = 7)]
+    [JsonPropertyOrder(7)]
     public string UserAgent { get; set; }
 
     /// <summary>
     /// 请求的输入数据，通常用于记录请求参数或者请求体
     /// </summary>
     [JsonProperty(Order = 8)]
+    [JsonPropertyOrder(8)]
     public string Input { get; set; }
 
     /// <summary>
     /// 响应的输出数据，记录返回给客户端的内容
     /// </summary>
     [JsonProperty(Order = 10)]
+    [JsonPropertyOrder(10)]
     public string Output { get; set; }
 
     /// <summary>
     /// HTTP状态码，记录请求响应的状态
     /// </summary>
     [JsonProperty(Order = 11)]
+    [JsonPropertyOrder(11)]
     public int StatusCode { get; set; }
 
     /// <summary>
     /// 用户标识，标记操作对应的用户ID
     /// </summary>
     [JsonProperty(Order = 13)]
+    [JsonPropertyOrder(13)]
     public string UserID { get; set; }
 
     /// <summary>
     /// 请求耗时，以毫秒为单位记录请求处理所花费的时间
     /// </summary>
     [JsonProperty(Order = 14)]
+    [JsonPropertyOrder(14)]
     public long Cost { get; set; }
 }

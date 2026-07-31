@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net8.0
 *机器名称：WALLE
@@ -32,7 +32,7 @@ global using LuBan.Common.IPToRegion;
 global using LuBan.Common.Models;
 global using LuBan.DI;
 global using LuBan.EventBus.Extensions;
-global using LuBan.LogLib;
+global using LuBan.Logging;
 global using LuBan.Orm;
 global using LuBan.Orm.Attributes;
 global using LuBan.Orm.Entities;
@@ -96,6 +96,7 @@ global using Microsoft.Extensions.DependencyInjection;
 global using Microsoft.Extensions.DependencyInjection.Extensions;
 global using Microsoft.Extensions.FileProviders;
 global using Microsoft.Extensions.Hosting;
+global using Microsoft.Extensions.Logging;
 global using Microsoft.Extensions.Primitives;
 global using Microsoft.IdentityModel.Tokens;
 global using Microsoft.Net.Http.Headers;

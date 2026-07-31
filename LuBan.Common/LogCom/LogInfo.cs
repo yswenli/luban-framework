@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net8.0
 *机器名称：WALLE
@@ -21,32 +21,40 @@
 *描述：
 *
 *****************************************************************************/
+using System.Text.Json.Serialization;
+
 namespace LuBan.Common.LogCom;
 
 [JsonObject]
 public class LogInfo
 {
     [JsonProperty(Order = 0)]
+    [JsonPropertyOrder(0)]
     public DateTime Created { get; set; } = DateTimeUtil.Now;
 
 
     [JsonProperty(Order = 0)]
+    [JsonPropertyOrder(0)]
     public string ServiceName { get; set; } = ConfigUtil.GetServiceName();
 
 
     [JsonProperty(Order = 1)]
+    [JsonPropertyOrder(1)]
     public int Level { get; set; } = 0;
 
 
     [JsonProperty(Order = 2)]
+    [JsonPropertyOrder(2)]
     public string Description { get; set; }
 
     [JsonProperty(Order = 9)]
+    [JsonPropertyOrder(9)]
     public object[] Params { get; set; }
 
     [JsonProperty(Order = 12)]
+    [JsonPropertyOrder(12)]
     public Exception? Exception { get; set; }
 
-    [JsonIgnore]
+    [Newtonsoft.Json.JsonIgnore]
     public bool EnableDebug { get; set; }
 }

@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
@@ -96,7 +96,6 @@
     <ProjectReference Include="..\LuBan.ApprovalFlow\LuBan.ApprovalFlow.csproj" />
     <ProjectReference Include="..\LuBan.Common\LuBan.Common.csproj" />
     <ProjectReference Include="..\LuBan.Lives\LuBan.Lives.csproj" />
-    <ProjectReference Include="..\LuBan.LogLib\LuBan.LogLib.csproj" />
     <ProjectReference Include="..\LuBan.Office\LuBan.Office.csproj" />
     <ProjectReference Include="..\LuBan.Orm\LuBan.Orm.csproj" />
     <ProjectReference Include="..\LuBan.PdfKit\LuBan.PdfKit.csproj" />

@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net8.0
 *机器名称：YSWENLI
@@ -64,7 +64,6 @@ public static class RuntimeUtil
         "MySqlConnector",
         "MathNet",
         "Lazy",
-        "log4net",
         "Nacos",
         "nacos-sdk-csharp",
         "Nito",
