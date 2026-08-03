@@ -116,9 +116,12 @@ public class ScriptToolGroup
 
         try
         {
+            // Windows cmd 使用 /c 参数（执行后退出），Unix shell 使用 -c
+            var shellName = Path.GetFileNameWithoutExtension(_options.Shell);
+            var shellArgs = shellName.Equals("cmd", StringComparison.OrdinalIgnoreCase) ? "/c" : "-c";
             var result = await _processRunner.RunAsync(
                 _options.Shell,
-                "-c",
+                shellArgs,
                 workingDirectory,
                 stdin: command,
                 timeoutMs: _options.DefaultTimeout);

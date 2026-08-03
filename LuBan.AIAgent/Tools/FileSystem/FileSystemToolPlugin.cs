@@ -106,6 +106,13 @@ public class FileSystemToolGroup
         if (!_pathGuard.IsAllowed(path))
             return $"错误：路径 {path} 不在允许访问的范围内";
 
+        // 工作区外读取需确认
+        if (!ToolConfirmationService.TryConfirmByPath("ReadFileAsync", path,
+            new Dictionary<string, object?> { ["path"] = path }))
+        {
+            return "操作已被用户取消";
+        }
+
         try
         {
             var fileInfo = new FileInfo(path);
@@ -163,8 +170,8 @@ public class FileSystemToolGroup
         if (!_pathGuard.IsAllowed(path))
             return $"错误：路径 {path} 不在允许访问的范围内";
 
-        // 确认执行
-        if (!ToolConfirmationService.RequestConfirmation("WriteFileAsync",
+        // 工作区内写入免确认，工作区外需确认
+        if (!ToolConfirmationService.TryConfirmByPath("WriteFileAsync", path,
             new Dictionary<string, object?> { ["path"] = path, ["content"] = content }))
         {
             return "操作已被用户取消";
@@ -218,6 +225,13 @@ public class FileSystemToolGroup
         if (!_pathGuard.IsAllowed(path))
             return Task.FromResult($"错误：路径 {path} 不在允许访问的范围内");
 
+        // 工作区外列目录需确认
+        if (!ToolConfirmationService.TryConfirmByPath("ListDirectoryAsync", path,
+            new Dictionary<string, object?> { ["path"] = path }))
+        {
+            return Task.FromResult("操作已被用户取消");
+        }
+
         try
         {
             var entries = Directory.EnumerateFileSystemEntries(path);
@@ -252,6 +266,122 @@ public class FileSystemToolGroup
         {
             Logger.Error("列出目录异常", ex, path);
             return Task.FromResult($"列出目录失败: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// 删除文件
+    /// </summary>
+    /// <param name="path">文件路径</param>
+    /// <returns>删除结果</returns>
+    [Description("删除文件（无论是否在工作区内，都必须确认）")]
+    public Task<string> DeleteFileAsync(string path)
+    {
+        if (!_pathGuard.IsAllowed(path))
+            return Task.FromResult($"错误：路径 {path} 不在允许访问的范围内");
+
+        // 删除操作：始终需要确认
+        if (!ToolConfirmationService.TryConfirmByPath("DeleteFileAsync", path,
+            new Dictionary<string, object?> { ["path"] = path }))
+        {
+            return Task.FromResult("操作已被用户取消");
+        }
+
+        try
+        {
+            if (!File.Exists(path))
+                return Task.FromResult($"错误：文件不存在 ({path})");
+
+            File.Delete(path);
+            return Task.FromResult($"已删除文件 {path}");
+        }
+        catch (FileNotFoundException ex)
+        {
+            Logger.Error("文件删除异常：文件不存在", ex, path);
+            return Task.FromResult($"删除文件失败: 文件不存在 ({path})。请确认路径是否正确。");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            Logger.Error("文件删除异常：权限不足", ex, path);
+            return Task.FromResult($"删除文件失败: 权限不足，无法删除 ({path})。请检查文件权限。");
+        }
+        catch (PathTooLongException ex)
+        {
+            Logger.Error("文件删除异常：路径过长", ex, path);
+            return Task.FromResult($"删除文件失败: 路径过长 ({path})。请缩短路径或使用其他路径。");
+        }
+        catch (ArgumentException ex)
+        {
+            Logger.Error("文件删除异常：路径无效", ex, path);
+            return Task.FromResult($"删除文件失败: 路径无效 ({path})。{ex.Message}");
+        }
+        catch (IOException ex)
+        {
+            Logger.Error("文件删除异常：IO 错误", ex, path);
+            return Task.FromResult($"删除文件失败: IO 错误 ({path})。{ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("文件删除异常", ex, path);
+            return Task.FromResult($"删除文件失败: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// 删除目录（递归删除所有子项）
+    /// </summary>
+    /// <param name="path">目录路径</param>
+    /// <returns>删除结果</returns>
+    [Description("删除目录及其所有内容（无论是否在工作区内，都必须确认）")]
+    public Task<string> DeleteDirectoryAsync(string path)
+    {
+        if (!_pathGuard.IsAllowed(path))
+            return Task.FromResult($"错误：路径 {path} 不在允许访问的范围内");
+
+        // 删除操作：始终需要确认
+        if (!ToolConfirmationService.TryConfirmByPath("DeleteDirectoryAsync", path,
+            new Dictionary<string, object?> { ["path"] = path }))
+        {
+            return Task.FromResult("操作已被用户取消");
+        }
+
+        try
+        {
+            if (!Directory.Exists(path))
+                return Task.FromResult($"错误：目录不存在 ({path})");
+
+            Directory.Delete(path, recursive: true);
+            return Task.FromResult($"已删除目录 {path}");
+        }
+        catch (DirectoryNotFoundException ex)
+        {
+            Logger.Error("目录删除异常：目录不存在", ex, path);
+            return Task.FromResult($"删除目录失败: 目录不存在 ({path})。请确认路径是否正确。");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            Logger.Error("目录删除异常：权限不足", ex, path);
+            return Task.FromResult($"删除目录失败: 权限不足，无法删除 ({path})。请检查目录权限。");
+        }
+        catch (PathTooLongException ex)
+        {
+            Logger.Error("目录删除异常：路径过长", ex, path);
+            return Task.FromResult($"删除目录失败: 路径过长 ({path})。请缩短路径或使用其他路径。");
+        }
+        catch (ArgumentException ex)
+        {
+            Logger.Error("目录删除异常：路径无效", ex, path);
+            return Task.FromResult($"删除目录失败: 路径无效 ({path})。{ex.Message}");
+        }
+        catch (IOException ex)
+        {
+            Logger.Error("目录删除异常：IO 错误", ex, path);
+            return Task.FromResult($"删除目录失败: IO 错误 ({path})。{ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("目录删除异常", ex, path);
+            return Task.FromResult($"删除目录失败: {ex.Message}");
         }
     }
 }

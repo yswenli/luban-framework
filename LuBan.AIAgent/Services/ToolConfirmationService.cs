@@ -29,6 +29,7 @@ namespace LuBan.AIAgent.Services;
 public static class ToolConfirmationService
 {
     private static readonly AsyncLocal<Func<string, IReadOnlyDictionary<string, object?>, bool>?> _callback = new();
+    private static readonly AsyncLocal<Func<string, bool>?> _workspacePathChecker = new();
 
     /// <summary>
     /// 获取或设置工具调用确认回调函数。
@@ -40,6 +41,17 @@ public static class ToolConfirmationService
         set => _callback.Value = value;
     }
 
+    /// <summary>
+    /// 获取或设置工作区路径检查回调函数。
+    /// 回调接收路径，返回该路径是否在当前工作区内。
+    /// 由宿主层（如 luban-agent）注册，用于判断文件操作是否需要确认。
+    /// </summary>
+    public static Func<string, bool>? WorkspacePathChecker
+    {
+        get => _workspacePathChecker.Value;
+        set => _workspacePathChecker.Value = value;
+    }
+
     private static readonly HashSet<string> DangerousTools = new()
     {
         "WriteFileAsync", "DeleteFileAsync", "MoveFileAsync", "CopyFileAsync",
@@ -47,6 +59,14 @@ public static class ToolConfirmationService
         "RunShellAsync", "RunLuaAsync", "RunPythonAsync",
         "ExecuteNonQueryAsync", "ExecuteInsertAsync", "ExecuteUpdateAsync", "ExecuteDeleteAsync",
         "SetAsync", "DeleteAsync", "FlushDatabaseAsync",
+    };
+
+    /// <summary>
+    /// 删除类工具集合，无论路径是否在工作区内都必须确认。
+    /// </summary>
+    private static readonly HashSet<string> AlwaysConfirmTools = new()
+    {
+        "DeleteFileAsync", "DeleteDirectoryAsync",
     };
 
     /// <summary>
@@ -70,6 +90,51 @@ public static class ToolConfirmationService
         if (callback == null)
             return false;
         return callback(toolName, arguments);
+    }
+
+    /// <summary>
+    /// 判断路径是否在当前工作区内。
+    /// </summary>
+    /// <param name="path">要检查的路径。</param>
+    /// <returns>若在工作区内返回 true，否则返回 false。</returns>
+    public static bool IsWithinWorkspace(string path)
+    {
+        var checker = WorkspacePathChecker;
+        if (checker == null)
+            return false;
+        try
+        {
+            return checker(path);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 基于路径的工具调用确认。
+    /// 规则：
+    ///   1. 删除类工具（DeleteFileAsync/DeleteDirectoryAsync）——无论路径是否在工作区内，都必须确认。
+    ///   2. 非删除类工具——路径在工作区内时免确认，工作区外时必须确认。
+    ///   3. 未设置确认回调时默认拒绝（返回 false）。
+    /// </summary>
+    /// <param name="toolName">工具名称。</param>
+    /// <param name="path">操作目标路径。</param>
+    /// <param name="arguments">工具参数。</param>
+    /// <returns>是否允许执行该工具调用。</returns>
+    public static bool TryConfirmByPath(string toolName, string path, IReadOnlyDictionary<string, object?> arguments)
+    {
+        // 删除类工具：始终需要确认
+        if (AlwaysConfirmTools.Contains(toolName))
+            return RequestConfirmation(toolName, arguments);
+
+        // 非删除类工具：工作区内免确认
+        if (!string.IsNullOrEmpty(path) && IsWithinWorkspace(path))
+            return true;
+
+        // 工作区外：需要确认
+        return RequestConfirmation(toolName, arguments);
     }
 
     /// <summary>
