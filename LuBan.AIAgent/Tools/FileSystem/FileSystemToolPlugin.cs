@@ -509,4 +509,76 @@ public class FileSystemToolGroup
             return Task.FromResult($"删除目录失败: {ex.Message}");
         }
     }
+
+    /// <summary>
+    /// 按文件名模式搜索文件
+    /// </summary>
+    /// <param name="rootPath">搜索根目录</param>
+    /// <param name="pattern">glob 模式</param>
+    /// <param name="maxResults">最大返回数量</param>
+    /// <returns>匹配的文件列表</returns>
+    [Description("按文件名模式搜索文件，支持 glob 通配符（如 *.cs、**/*.cs）")]
+    public Task<string> SearchFilesAsync(string rootPath, string pattern, int maxResults = 100)
+    {
+        if (!_pathGuard.IsAllowed(rootPath))
+            return Task.FromResult($"错误：路径 {rootPath} 不在允许访问的范围内");
+
+        try
+        {
+            var results = new List<string>();
+            foreach (var file in EnumerateFilesSafe(rootPath))
+            {
+                var ext = Path.GetExtension(file);
+                if (!string.IsNullOrEmpty(ext) && BinaryFileExtensions.Contains(ext))
+                    continue;
+
+                if (GlobMatcher.IsMatch(file, pattern, rootPath))
+                {
+                    results.Add(file);
+                    if (results.Count >= maxResults)
+                        break;
+                }
+            }
+
+            if (results.Count == 0)
+                return Task.FromResult("未找到匹配的文件");
+
+            var output = new StringBuilder();
+            output.AppendLine($"找到 {results.Count} 个匹配文件：");
+            foreach (var file in results)
+                output.AppendLine(file);
+
+            return Task.FromResult(output.ToString().TrimEnd());
+        }
+        catch (DirectoryNotFoundException ex)
+        {
+            Logger.Error("搜索文件异常：目录不存在", ex, rootPath);
+            return Task.FromResult($"搜索文件失败: 目录不存在 ({rootPath})。请确认路径是否正确。");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            Logger.Error("搜索文件异常：权限不足", ex, rootPath);
+            return Task.FromResult($"搜索文件失败: 权限不足，无法访问 ({rootPath})。请检查目录权限。");
+        }
+        catch (PathTooLongException ex)
+        {
+            Logger.Error("搜索文件异常：路径过长", ex, rootPath);
+            return Task.FromResult($"搜索文件失败: 路径过长 ({rootPath})。请缩短路径或使用其他路径。");
+        }
+        catch (ArgumentException ex)
+        {
+            Logger.Error("搜索文件异常：路径无效", ex, rootPath);
+            return Task.FromResult($"搜索文件失败: 路径无效 ({rootPath})。{ex.Message}");
+        }
+        catch (IOException ex)
+        {
+            Logger.Error("搜索文件异常：IO 错误", ex, rootPath);
+            return Task.FromResult($"搜索文件失败: IO 错误 ({rootPath})。{ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("搜索文件异常", ex, rootPath);
+            return Task.FromResult($"搜索文件失败: {ex.Message}");
+        }
+    }
 }

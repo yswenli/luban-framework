@@ -17,6 +17,8 @@ public class SessionChatHistoryProviderTests
 
         public SessionInfo? CurrentSession { get; private set; }
 
+        public void ClearCurrentSession() => CurrentSession = null;
+
         public List<long> CompactedIds { get; } = new();
 
         public Task<SessionInfo> CreateSessionAsync(string? userId = null, string? title = null)
