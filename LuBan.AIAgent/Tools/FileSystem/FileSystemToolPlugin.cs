@@ -150,23 +150,26 @@ public class FileSystemToolGroup
 
     private static class GlobMatcher
     {
-        public static bool IsMatch(string path, string pattern, string rootPath)
+        public static bool IsMatch(string path, Regex regex, string rootPath, bool matchFullPath)
         {
-            if (!pattern.Contains('/') && !pattern.Contains('\\'))
+            if (!matchFullPath)
             {
                 var fileName = Path.GetFileName(path);
-                return MatchGlob(fileName, pattern);
+                return regex.IsMatch(fileName);
             }
 
             var relativePath = Path.GetRelativePath(rootPath, path).Replace('\\', '/');
-            return MatchGlob(relativePath, pattern);
+            return regex.IsMatch(relativePath);
         }
 
-        private static bool MatchGlob(string text, string pattern)
+        public static Regex CompileGlobPattern(string pattern)
         {
             var regexPattern = GlobToRegex(pattern);
-            return Regex.IsMatch(text, regexPattern, RegexOptions.IgnoreCase);
+            return new Regex(regexPattern, RegexOptions.IgnoreCase | RegexOptions.Compiled);
         }
+
+        public static bool IsFileNameOnly(string pattern)
+            => !pattern.Contains('/') && !pattern.Contains('\\');
 
         private static string GlobToRegex(string glob)
         {
@@ -525,6 +528,8 @@ public class FileSystemToolGroup
 
         try
         {
+            var globRegex = GlobMatcher.CompileGlobPattern(pattern);
+            var matchFullPath = !GlobMatcher.IsFileNameOnly(pattern);
             var results = new List<string>();
             foreach (var file in EnumerateFilesSafe(rootPath))
             {
@@ -532,7 +537,7 @@ public class FileSystemToolGroup
                 if (!string.IsNullOrEmpty(ext) && BinaryFileExtensions.Contains(ext))
                     continue;
 
-                if (GlobMatcher.IsMatch(file, pattern, rootPath))
+                if (GlobMatcher.IsMatch(file, globRegex, rootPath, matchFullPath))
                 {
                     results.Add(file);
                     if (results.Count >= maxResults)
@@ -599,6 +604,14 @@ public class FileSystemToolGroup
         try
         {
             var regex = new Regex(pattern, RegexOptions.IgnoreCase, TimeSpan.FromSeconds(5));
+            Regex? filePatternRegex = null;
+            bool matchFullPath = false;
+            if (filePattern != null)
+            {
+                filePatternRegex = GlobMatcher.CompileGlobPattern(filePattern);
+                matchFullPath = !GlobMatcher.IsFileNameOnly(filePattern);
+            }
+
             var results = new List<string>();
 
             foreach (var file in EnumerateFilesSafe(rootPath))
@@ -607,7 +620,7 @@ public class FileSystemToolGroup
                 if (!string.IsNullOrEmpty(ext) && BinaryFileExtensions.Contains(ext))
                     continue;
 
-                if (filePattern != null && !GlobMatcher.IsMatch(file, filePattern, rootPath))
+                if (filePatternRegex != null && !GlobMatcher.IsMatch(file, filePatternRegex, rootPath, matchFullPath))
                     continue;
 
                 var fileInfo = new FileInfo(file);
