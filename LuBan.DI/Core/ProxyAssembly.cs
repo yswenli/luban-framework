@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c) YSWenli All Rights Reserved.
 *CLR版本： .net8.0
 *机器名称：WALLE
@@ -24,8 +24,10 @@
 namespace LuBan.DI.Core;
 
 /// <summary>
-/// 代理组件集
+/// 代理组件集（内部 Emit 实现，由 [RequiresUnreferencedCode] 入口调用）
 /// </summary>
+[UnconditionalSuppressMessage("ReflectionAnalysis", "IL2026:RequiresUnreferencedCode",
+    Justification = "ProxyAssembly 是内部 Emit 实现类，仅由已标注 [RequiresUnreferencedCode] 的入口方法调用。")]
 internal class ProxyAssembly
 {
     internal AssemblyBuilder _ab;

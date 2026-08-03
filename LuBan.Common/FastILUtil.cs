@@ -1,8 +1,9 @@
-﻿namespace LuBan.Common;
+namespace LuBan.Common;
 
 /// <summary>
 /// 基于IL实现的高性能反射工具类
 /// </summary>
+[UnconditionalSuppressMessage("ReflectionAnalysis", "IL2xxx", Justification = "FastILUtil uses DynamicMethod + ILGenerator. Public APIs are annotated with [RequiresUnreferencedCode].")]
 public static class FastILUtil
 {
     // 缓存已生成的委托，提高性能
@@ -17,6 +18,7 @@ public static class FastILUtil
     /// <param name="args">方法参数数组（无参数传 null）</param>
     /// <returns>方法执行结果（null 表示方法未找到或执行返回 null）</returns>
     /// <exception cref="ArgumentNullException">当 type 或 methodName 为 null 时抛出</exception>
+    [RequiresUnreferencedCode("FastILUtil.MethodInvoke uses DynamicMethod + ILGenerator with Type.GetMethod by string name.")]
     public static object MethodInvoke(Type type, string methodName, object? obj, object[] args)
     {
         // 参数验证
@@ -104,6 +106,7 @@ public static class FastILUtil
     /// <param name="obj">实例（静态属性传 null）</param>
     /// <returns>属性值（null 表示属性未找到、无 get 方法或属性值为 null）</returns>
     /// <exception cref="ArgumentNullException">当 type 或 propertyName 为 null 时抛出</exception>
+    [RequiresUnreferencedCode("FastILUtil.GetProperty uses DynamicMethod + ILGenerator with Type.GetProperty by string name.")]
     public static object GetProperty(Type type, string propertyName, object? obj)
     {
         // 参数验证
@@ -203,6 +206,7 @@ public static class FastILUtil
     /// <param name="value">待写入的属性值（需与属性类型兼容）</param>
     /// <returns>是否写入成功（false 表示属性未找到、无 set 方法或类型不兼容）</returns>
     /// <exception cref="ArgumentNullException">当 type 或 propertyName 为 null 时抛出</exception>
+    [RequiresUnreferencedCode("FastILUtil.SetProperty uses DynamicMethod + ILGenerator with Type.GetProperty by string name.")]
     public static bool SetProperty(Type type, string propertyName, object? obj, object value)
     {
         // 参数验证

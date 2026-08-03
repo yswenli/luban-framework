@@ -1,9 +1,12 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace LuBan.Logging.Serialization;
 
 /// <summary>
 /// LuBan 日志 JSON 序列化器，使用 System.Text.Json。
 /// 输出格式与 SerializeUtil.Serialize(obj, indented:true, defalutVal:false, nullValue:true, camelCase:true) 一致。
 /// </summary>
+[RequiresUnreferencedCode("LuBanJsonSerializer uses JsonSerializer.Serialize(object, Type, JsonSerializerOptions) which is not trim-safe.")]
 internal static class LuBanJsonSerializer
 {
     private static readonly JsonSerializerOptions _options = new()

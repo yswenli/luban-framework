@@ -21,6 +21,8 @@
 *
 *****************************************************************************/
 
+using System.Diagnostics.CodeAnalysis;
+
 namespace System.Linq.Dynamic;
 
 /// <summary>
@@ -39,6 +41,7 @@ public static class TreeListExtensions
     /// <param name="rootValue"></param>
     /// <param name="maxLevel"></param>
     /// <returns></returns>
+    [RequiresUnreferencedCode("ToTreeList(string) uses GetPropertyValue/SetPropertyValue by string name which is not trim-safe.")]
     public static List<TreeNode>? ToTreeList<TreeNode>(this IEnumerable<TreeNode> source,
         [NotNull] string idName,
         [NotNull] string childListName,
@@ -149,6 +152,7 @@ public static class TreeListExtensions
     /// <param name="maxLevel">最大层级</param>
     /// <returns></returns>
     /// <exception cref="ArgumentException"></exception>
+    [RequiresUnreferencedCode("ToTreeList(Expression) delegates to the string-based overload which is not trim-safe.")]
     public static List<TreeNode>? ToTreeList<TreeNode>(this IEnumerable<TreeNode> source,
         Expression<Func<TreeNode, object>> idExpression,
         Expression<Func<TreeNode, IEnumerable<object>>> childListExpression,
@@ -178,6 +182,7 @@ public static class TreeListExtensions
     /// <param name="maxLevel">最大层级</param>
     /// <returns></returns>
     /// <exception cref="ArgumentException"></exception>
+    [RequiresUnreferencedCode("ToTreeList(Expression) delegates to the string-based overload which is not trim-safe.")]
     public static List<TreeNode>? ToTreeList<TreeNode>(this IEnumerable<TreeNode> source,
         Expression<Func<TreeNode, IEnumerable<object>>> childListExpression,
         Expression<Func<TreeNode, object?>> parentIdExpression,

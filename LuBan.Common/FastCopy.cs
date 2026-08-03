@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net8.0
 *机器名称：WALLE
@@ -31,6 +31,9 @@ namespace LuBan.Common;
 /// </summary>
 /// <typeparam name="TIn"></typeparam>
 /// <typeparam name="TOut"></typeparam>
+[RequiresUnreferencedCode("FastCopy uses Expression trees with reflection to copy properties. TIn and TOut must be rooted.")]
+[UnconditionalSuppressMessage("ReflectionAnalysis", "IL2060:MakeGenericMethod",
+    Justification = "FastCopy 内部使用 Expression trees，由 [RequiresUnreferencedCode] 类级注解覆盖。")]
 public static class FastCopy<TIn, TOut>
 {
     private static readonly Func<TIn, TOut> cache = GetFunc();

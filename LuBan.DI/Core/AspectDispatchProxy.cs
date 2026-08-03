@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net8.0
 *机器名称：WALLE
@@ -45,6 +45,7 @@ public abstract class AspectDispatchProxy : IDispatchProxy
     /// <typeparam name="T"></typeparam>
     /// <typeparam name="TProxy"></typeparam>
     /// <returns></returns>
+    [RequiresUnreferencedCode("Create uses AspectDispatchProxyGenerator.CreateProxyInstance which relies on Reflection.Emit and Activator.CreateInstance for dynamic proxy generation.")]
     public static T Create<T, TProxy>() where TProxy : AspectDispatchProxy
     {
         return (T)AspectDispatchProxyGenerator.CreateProxyInstance(typeof(TProxy), typeof(T));

@@ -1,4 +1,4 @@
-﻿/*Copyright @ yswenli All Rights Reserved.
+/*Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net8.0
 *机器名称：WALLE
 *公司名称：Walle
@@ -25,6 +25,7 @@ namespace System.Linq.Dynamic;
 /// <summary>
 /// 描述：IQueryable 拓展
 /// </summary>
+[RequiresUnreferencedCode("QueryableExtensions uses reflection (GetProperty, GetMethods, MakeGenericMethod, Invoke) to dynamically build and execute Linq expressions at runtime.")]
 public static class QueryableExtensions
 {
     /// <summary>

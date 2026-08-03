@@ -1,4 +1,4 @@
-﻿/*Copyright @ yswenli All Rights Reserved.
+/*Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net8.0
 *机器名称：WALLE
 *公司名称：Walle
@@ -27,6 +27,7 @@ namespace System.Linq.Dynamic;
 /// <summary>
 /// Enumerable集合扩展方法
 /// </summary>
+[RequiresUnreferencedCode("EnumerableExtensions delegates to QueryableExtensions which uses reflection (GetProperty, MakeGenericMethod, Invoke) for dynamic Linq operations.")]
 public static class EnumerableExtensions
 {
     /// <summary>

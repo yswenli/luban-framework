@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c) YSWenli All Rights Reserved.
 *CLR版本： .net8.0
 *机器名称：WALLE
@@ -67,7 +67,13 @@ public static class ServiceDescriptorUtil
     /// <param name="proxyType">代理类型</param>
     /// <param name="inter">代理接口</param>
     /// <param name="hasTarget">是否有实现类</param>
-    public static void AddDispatchProxy(IServiceCollection services, Type dependencyType, Type type, Type? proxyType, Type inter, bool hasTarget = true)
+    [RequiresUnreferencedCode("AddDispatchProxy uses MakeGenericMethod and Invoke to create dynamic proxy instances, which cannot be statically analyzed by the trimmer.")]
+    public static void AddDispatchProxy(IServiceCollection services,
+        Type dependencyType,
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type,
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] Type? proxyType,
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces)] Type inter,
+        bool hasTarget = true)
     {
         if (proxyType == null || type == null || type.IsDefined(typeof(SuppressProxyAttribute), true)) return;
 
@@ -103,6 +109,7 @@ public static class ServiceDescriptorUtil
     /// <param name="type">类型</param>
     /// <param name="injectionAttribute">注入特性</param>
     /// <param name="inter">接口</param>
+    [RequiresUnreferencedCode("Register calls AddDispatchProxy which uses MakeGenericMethod and Invoke for dynamic proxy creation.")]
     public static void Register(IServiceCollection services, Type dependencyType, Type type, InjectionAttribute injectionAttribute, Type? inter = null)
     {
         // 修复泛型注册类型
@@ -143,6 +150,7 @@ public static class ServiceDescriptorUtil
     /// <param name="dependencyType"></param>
     /// <param name="type">类型</param>
     /// <param name="injectionAttribute">注入特性</param>
+    [RequiresUnreferencedCode("RegisterService calls Register which uses AddDispatchProxy for dynamic proxy creation.")]
     public static void RegisterService(IServiceCollection services, Type dependencyType, Type type, InjectionAttribute injectionAttribute)
     {
         // 注册自己
@@ -166,6 +174,7 @@ public static class ServiceDescriptorUtil
     /// 全局自动注入di，带InjectionAttribute的IScoped，ISingleton，ITransient
     /// </summary>
     /// <param name="services"></param>
+    [RequiresUnreferencedCode("AutoInjectAllCustomerServices uses RuntimeUtil.GetTypes and reflection to dynamically discover and register services.")]
     public static IServiceCollection AutoInjectAllCustomerServices(IServiceCollection services)
     {
         // 查找所有需要依赖注入的类型

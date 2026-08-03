@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c) YSWenli All Rights Reserved.
 *CLR版本： .net8.0
 *机器名称：WALLE
@@ -26,6 +26,7 @@ namespace LuBan.Common;
 /// <summary>
 /// 动态工具
 /// </summary>
+[RequiresUnreferencedCode("DynamicUtil uses assembly scanning and type loading which are not trim-safe.")]
 public static class DynamicUtil
 {
 

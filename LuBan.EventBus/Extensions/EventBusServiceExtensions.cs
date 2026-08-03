@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net8.0
 *机器名称：WALLE
@@ -21,6 +21,7 @@
 *描述：EventBus DI 扩展方法
 *
 *****************************************************************************/
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 
 namespace LuBan.EventBus.Extensions;
@@ -61,6 +62,7 @@ public static class EventBusServiceExtensions
     /// <param name="services">服务集合</param>
     /// <param name="assemblies">程序集列表</param>
     /// <returns>服务集合</returns>
+    [RequiresUnreferencedCode("AddEventHandlers uses assembly.GetTypes() and reflection to dynamically discover IEventHandler implementations, which is incompatible with Native AOT trimming.")]
     public static IServiceCollection AddEventHandlers(
         this IServiceCollection services,
         params Assembly[] assemblies)

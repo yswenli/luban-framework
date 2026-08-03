@@ -25,6 +25,7 @@ namespace System.Linq.Dynamic;
 /// <summary>
 /// 泛型IQueryable集合扩展方法
 /// </summary>
+[RequiresUnreferencedCode("QueryableTExtensions uses GetProperty, GetMethods, MakeGenericMethod, and Invoke for dynamic Linq operations at runtime.")]
 public static class QueryableTExtensions
 {
     /// <summary>

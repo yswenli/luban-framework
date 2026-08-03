@@ -21,6 +21,9 @@
 *描述：LuBan Agent 服务集合扩展
 *
 *****************************************************************************/
+using System.Diagnostics.CodeAnalysis;
+using System.Reflection;
+
 namespace LuBan.AIAgent;
 
 /// <summary>
@@ -34,6 +37,7 @@ public static class LuBanAgentExtensions
     /// <param name="services">服务集合</param>
     /// <param name="configuration">配置</param>
     /// <returns>服务集合</returns>
+    [RequiresUnreferencedCode("AddLuBanAgent loads external plugins via Assembly.Load and GetTypes, which is incompatible with Native AOT trimming.")]
     public static IServiceCollection AddLuBanAgent(
         this IServiceCollection services,
         IConfiguration configuration)
@@ -66,6 +70,12 @@ public static class LuBanAgentExtensions
         services.AddSingleton<ISkill, BrainstormingSkill>();
         services.AddSingleton<ISkill, CodeReviewSkill>();
         services.AddSingleton<ISkill, DocumentationSkill>();
+        services.AddSingleton<ISkill, CodeRefactorSkill>();
+        services.AddSingleton<ISkill, TestGenerationSkill>();
+        services.AddSingleton<ISkill, CodeExplainSkill>();
+        services.AddSingleton<ISkill, DebugAssistantSkill>();
+        services.AddSingleton<ISkill, GitCommitSkill>();
+        services.AddSingleton<ISkill, FindSkillsSkill>();
         services.AddSingleton<SkillRegistry>();
 
         services.AddScoped<ILuBanAgentFactory, LuBanAgentFactory>();
@@ -140,7 +150,17 @@ public static class LuBanAgentExtensions
             {
                 var assembly = Assembly.Load(assemblyName);
                 var pluginTypes = assembly.GetTypes()
-                    .Where(t => typeof(ILuBanToolPlugin).IsAssignableFrom(t) && !t.IsAbstract);
+                    .Where(t => typeof(ILuBanToolPlugin).IsAssignableFrom(t) && !t.IsAbstract)
+                    .ToList();
+
+                // 诊断：当外部插件程序集中未找到任何 ILuBanToolPlugin 实现时，
+                // 提示消费方可能需要在 PublishTrimmed=true 场景下配置 TrimmerRootAssembly
+                if (pluginTypes.Count == 0)
+                {
+                    Logger.Warn($"外部插件程序集 '{assemblyName}' 中未找到任何 ILuBanToolPlugin 实现。"
+                        + "若已启用 PublishTrimmed，请确保为该程序集配置 TrimmerRootAssembly 或 "
+                        + "使用 [DynamicDependency] 注解以防止类型被裁剪。");
+                }
 
                 foreach (var type in pluginTypes)
                 {

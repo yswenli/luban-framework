@@ -27,6 +27,7 @@ namespace LuBan.Common;
 /// <summary>
 /// 程序集相关工具类
 /// </summary>
+[RequiresUnreferencedCode("RuntimeUtil uses assembly scanning which is not trim-safe. Consumers must root assemblies.")]
 public static class RuntimeUtil
 {
     static readonly HashSet<string> _exceptSet = new(StringComparer.OrdinalIgnoreCase)

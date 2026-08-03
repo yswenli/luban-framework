@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+
+    <!-- trimmer 分析的关键开关 -->
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimMode>partial</TrimMode>
+    <!-- 可选：更严格的 AOT 分析器，测试项目可启用 -->
+    <!-- 注意：本期目标为 Trimmed JIT，不加 IsAotCompatible -->
+    <ServerGarbage>false</ServerGarbage>
+
+    <!-- 警告视为错误，CI 卡控 -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningsAsErrors>$(WarningsAsErrors);IL2xxx;IL3xxx</WarningsAsErrors>
+
+    <!-- 测试项目不发布 NuGet 包 -->
+    <IsPackable>false</IsPackable>
+    <!-- 抑制已知的 NuGet 漏洞警告（非 trimming 相关问题） -->
+    <NoWarn>$(NoWarn);NU1903</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LuBan.Common\LuBan.Common.csproj" />
+    <ProjectReference Include="..\LuBan.DI\LuBan.DI.csproj" />
+    <ProjectReference Include="..\LuBan.Logging\LuBan.Logging.csproj" />
+    <ProjectReference Include="..\LuBan.Threading\LuBan.Threading.csproj" />
+    <ProjectReference Include="..\LuBan.AIAgent\LuBan.AIAgent.csproj" />
+    <ProjectReference Include="..\LuBan.EventBus\LuBan.EventBus.csproj" />
+    <ProjectReference Include="..\LuBan.Linq\LuBan.Linq.csproj" />
+  </ItemGroup>
+
+</Project>

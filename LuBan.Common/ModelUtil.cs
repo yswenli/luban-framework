@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net8.0
 *机器名称：YSWENLI
@@ -38,7 +38,7 @@ namespace LuBan.Common
         /// <param name="targetType"></param>
         /// <param name="convertMatchType"></param>
         /// <returns></returns>
-        public static object? To(this object source, Type targetType, EnumConvertMatchType convertMatchType = EnumConvertMatchType.IgnoreCase)
+        public static object? To(this object source, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type targetType, EnumConvertMatchType convertMatchType = EnumConvertMatchType.IgnoreCase)
         {
             if (source != null && source.GetType().IsClass)
             {
@@ -1054,7 +1054,7 @@ namespace LuBan.Common
         /// <param name="targetType"></param>
         /// <param name="convertMatchType"></param>
         /// <returns></returns>
-        public static IList? ToEntityList(this object source, Type targetType, EnumConvertMatchType convertMatchType = EnumConvertMatchType.IgnoreCase)
+        public static IList? ToEntityList(this object source, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type targetType, EnumConvertMatchType convertMatchType = EnumConvertMatchType.IgnoreCase)
         {
             if (source != null)
             {

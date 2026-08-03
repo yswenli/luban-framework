@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c) YSWenli All Rights Reserved.
 *CLR版本： .net8.0
 *机器名称：WALLE
@@ -27,6 +27,8 @@ namespace LuBan.Common;
 /// <summary>
 /// 匿名类创建器
 /// </summary>
+[RequiresUnreferencedCode("AnonymousTypeUtil uses reflection and Emit to create types dynamically.")]
+[UnconditionalSuppressMessage("ReflectionAnalysis", "IL2xxx", Justification = "AnonymousTypeUtil uses dynamic assembly building and reflection. The class is annotated with [RequiresUnreferencedCode].")]
 public static class AnonymousTypeUtil
 {
     /// <summary>

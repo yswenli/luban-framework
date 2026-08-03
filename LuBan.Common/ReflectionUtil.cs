@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net8.0
 *机器名称：YSWENLI
@@ -43,7 +43,7 @@ public static class ReflectionUtil
     /// </summary>
     /// <param name="type"></param>
     /// <returns></returns>
-    public static dynamic? Create(this Type type)
+    public static dynamic? Create([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] this Type type)
     {
         return Activator.CreateInstance(type);
     }
@@ -56,6 +56,7 @@ public static class ReflectionUtil
     /// <param name="obj"></param>
     /// <param name="index"></param>
     /// <returns></returns>
+    [RequiresUnreferencedCode("CreateOnGenericType accesses GenericTypeArguments which may be trimmed.")]
     public static T? CreateOnGenericType<T>(this object obj, int index = 0)
     {
         if (obj == null) return default;
@@ -100,7 +101,7 @@ public static class ReflectionUtil
     /// <param name="isValNull"></param>
     /// <returns></returns>
     /// <exception cref="ArgumentException"></exception>
-    public static Func<object, bool> CreateEqualityChecker(Type elementType, dynamic val, bool isValNull)
+    public static Func<object, bool> CreateEqualityChecker([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods | DynamicallyAccessedMemberTypes.PublicProperties)] Type elementType, dynamic val, bool isValNull)
     {
         if (isValNull)
         {
@@ -150,7 +151,7 @@ public static class ReflectionUtil
     static ConcurrentDictionary<string, dynamic> _instanceCache = [];
     static readonly ConcurrentDictionary<(Type, string), PropertyInfo?> _propertyCache = new();
 
-    public static PropertyInfo? GetCachedProperty(this Type type, string propertyName)
+    public static PropertyInfo? GetCachedProperty([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] this Type type, string propertyName)
     {
         return _propertyCache.GetOrAdd((type, propertyName),
             key => key.Item1.GetProperty(key.Item2, BindingFlags.Public | BindingFlags.Instance));
@@ -161,6 +162,7 @@ public static class ReflectionUtil
     /// </summary>
     /// <param name="assemblyQualifiedName"></param>
     /// <returns></returns>
+    [RequiresUnreferencedCode("GetInstanceByAssemblyQualifiedName uses Assembly.Load and CreateInstance by string which are not trim-safe.")]
     public static dynamic GetInstanceByAssemblyQualifiedName(this string assemblyQualifiedName)
     {
         return _instanceCache.GetOrAdd(assemblyQualifiedName, (k) =>
@@ -180,6 +182,7 @@ public static class ReflectionUtil
     /// <param name="methodName"></param>
     /// <param name="args"></param>
     /// <returns></returns>
+    [RequiresUnreferencedCode("ExecuteByAssemblyQualifiedName delegates to GetInstanceByAssemblyQualifiedName which is not trim-safe.")]
     public static dynamic ExecuteByAssemblyQualifiedName(this string assemblyQualifiedName, string methodName, params object[] args)
     {
         var instance = assemblyQualifiedName.GetInstanceByAssemblyQualifiedName();
@@ -197,6 +200,7 @@ public static class ReflectionUtil
     /// <param name="className"></param>
     /// <returns></returns>
     /// <exception cref="Exception"></exception>
+    [RequiresUnreferencedCode("CreateList uses Assembly.CreateInstance and MakeGenericType which are not trim-safe.")]
     public static IList CreateList(string namespaceStr, string className)
     {
         var model = Assembly.GetExecutingAssembly().CreateInstance(string.Join(".", new object[] { namespaceStr, className }));
@@ -211,7 +215,7 @@ public static class ReflectionUtil
     /// </summary>
     /// <param name="type"></param>
     /// <returns></returns>
-    public static IList CreateList(this Type type)
+    public static IList CreateList([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] this Type type)
     {
         var ilist = Activator.CreateInstance(typeof(List<>).MakeGenericType([type])) ?? null;
         if (ilist is IList list && list != null) return list;
@@ -255,7 +259,7 @@ public static class ReflectionUtil
     /// <typeparam name="Attr"></typeparam>
     /// <param name="type"></param>
     /// <returns></returns>
-    public static bool HasAttribute<Attr>(this Type type) where Attr : Attribute
+    public static bool HasAttribute<Attr>([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] this Type type) where Attr : Attribute
     {
         return type.IsDefined(typeof(Attr), true);
     }
@@ -266,7 +270,7 @@ public static class ReflectionUtil
     /// <param name="type"></param>
     /// <param name="attrName"></param>
     /// <returns></returns>
-    public static bool HasAttribute(this Type? type, string attrName)
+    public static bool HasAttribute([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] this Type? type, string attrName)
     {
         if (type == null || attrName.IsNullOrEmpty()) return false;
         foreach (var attr in Attribute.GetCustomAttributes(type, inherit: true))
@@ -297,6 +301,7 @@ public static class ReflectionUtil
     /// <param name="obj"></param>
     /// <param name="methodName"></param>
     /// <returns></returns>
+    [RequiresUnreferencedCode("MethodHasAttribute uses GetMethod by string name which is not trim-safe.")]
     public static bool MethodHasAttribute<T>(this object obj, string methodName) where T : Attribute
     {
         if (obj == null || methodName.IsNullOrEmpty()) return false;
@@ -311,6 +316,7 @@ public static class ReflectionUtil
     /// <param name="obj"></param>
     /// <param name="methodName"></param>
     /// <returns></returns>
+    [RequiresUnreferencedCode("GetMethodAttributes uses GetMethod by string name which is not trim-safe.")]
     public static List<string?>? GetMethodAttributes(this object obj, string methodName)
         => obj?.GetType().GetMethod(methodName)?.CustomAttributes?.Select(q => q.AttributeType.FullName)?.ToList();
 
@@ -323,6 +329,7 @@ public static class ReflectionUtil
     /// <param name="methodName"></param>
     /// <param name="parameters"></param>
     /// <returns></returns>
+    [RequiresUnreferencedCode("MethodParametersHasAttribute uses GetMethod by string name which is not trim-safe.")]
     public static bool MethodParametersHasAttribute<T>(this object obj, string methodName, out List<string> parameters) where T : Attribute
     {
         parameters = [];
@@ -347,6 +354,7 @@ public static class ReflectionUtil
     /// <param name="obj"></param>
     /// <param name="methodName"></param>
     /// <returns></returns>
+    [RequiresUnreferencedCode("GetMethodParametersAttributes uses GetMethod by string name which is not trim-safe.")]
     public static List<string?>? GetMethodParametersAttributes(this object obj, string methodName) => obj?.GetType().GetMethod(methodName)?.GetParameters()?.SelectMany(q => q.CustomAttributes)?.Select(q => q.AttributeType.FullName)?.ToList() ?? null;
 
 
@@ -357,6 +365,7 @@ public static class ReflectionUtil
     /// <typeparam name="TAttr"></typeparam>
     /// <param name="callBack"></param>
     /// <exception cref="Exception"></exception>
+    [RequiresUnreferencedCode("GetTypesByAttribute uses assembly scanning which is not trim-safe.")]
     public static void GetTypesByAttribute<TAttr>(Action<KeyValuePair<Type, TAttr>> callBack) where TAttr : Attribute
     {
         var assemblies = RuntimeUtil.GetAssemblies();
@@ -402,7 +411,7 @@ public static class ReflectionUtil
         return AttributeHasEffectCore<Attr1, Attr2>(methodInfo);
     }
 
-    public static bool AttributeHasEffect<Attr1, Attr2>(this Type instanceType)
+    public static bool AttributeHasEffect<Attr1, Attr2>([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] this Type instanceType)
         where Attr1 : Attribute where Attr2 : Attribute
     {
         return AttributeHasEffectCore<Attr1, Attr2>(instanceType);
@@ -430,6 +439,7 @@ public static class ReflectionUtil
     /// <param name="obj"></param>
     /// <param name="propertyName"></param>
     /// <param name="value"></param>
+    [RequiresUnreferencedCode("SetPropertyValue(string) uses GetProperty by string name which is not trim-safe.")]
     public static void SetPropertyValue(this object obj, string propertyName, object value)
     {
         if (obj == null) return;
@@ -454,7 +464,7 @@ public static class ReflectionUtil
     /// <param name="type"></param>
     /// <param name="bindingFlags"></param>
     /// <returns></returns>
-    public static List<PropertyInfo> GetProperties([DisallowNull] this Type type, BindingFlags bindingFlags = BindingFlags.Instance | BindingFlags.Public)
+    public static List<PropertyInfo> GetProperties([DisallowNull] [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.NonPublicProperties)] this Type type, BindingFlags bindingFlags = BindingFlags.Instance | BindingFlags.Public)
     {
         try
         {
@@ -497,7 +507,7 @@ public static class ReflectionUtil
     /// <param name="model"></param>
     /// <param name="attrType"></param>
     /// <returns></returns>
-    public static List<Attribute> GetCustomAttributes<T>([DisallowNull] this Type type, Type? attrType) where T : class, new()
+    public static List<Attribute> GetCustomAttributes<T>([DisallowNull] [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] this Type type, Type? attrType) where T : class, new()
     {
         if (attrType == null)
             return Attribute.GetCustomAttributes(type, inherit: true).ToList();
@@ -524,7 +534,7 @@ public static class ReflectionUtil
     /// <typeparam name="T"></typeparam>
     /// <param name="type"></param>
     /// <returns></returns>
-    public static T? GetCustomAttribute<T>([DisallowNull] this Type type) where T : Attribute
+    public static T? GetCustomAttribute<T>([DisallowNull] [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] this Type type) where T : Attribute
     {
         return Attribute.GetCustomAttribute(type, typeof(T)) as T;
     }
@@ -607,7 +617,7 @@ public static class ReflectionUtil
     /// <typeparam name="T"></typeparam>
     /// <param name="type"></param>
     /// <returns></returns>
-    public static List<string> GetPropertyNames<T>(this Type type)
+    public static List<string> GetPropertyNames<T>([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] this Type type)
        where T : Attribute
     {
         return type.GetProperties()
@@ -623,7 +633,7 @@ public static class ReflectionUtil
     /// <param name="type"></param>
     /// <param name="value"></param>
     /// <returns></returns>
-    public static object? ConvertValue(Type type, object value)
+    public static object? ConvertValue([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type, object value)
     {
         if (Convert.IsDBNull(value) || value == null)
         {
@@ -808,6 +818,7 @@ public static class ReflectionUtil
     /// <param name="obj"></param>
     /// <param name="interfaceName"></param>
     /// <returns></returns>
+    [RequiresUnreferencedCode("HasInterface(string) uses GetInterfaces and name matching which is not trim-safe.")]
     public static bool HasInterface(this Object obj, string interfaceName)
     {
         if (obj == null || interfaceName.IsNullOrEmpty()) return false;
@@ -824,7 +835,7 @@ public static class ReflectionUtil
     /// <typeparam name="T"></typeparam>
     /// <param name="type"></param>
     /// <returns></returns>
-    public static bool HasInterface<T>(this Type type)
+    public static bool HasInterface<T>([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces)] this Type type)
     {
         return typeof(T).IsAssignableFrom(type);
     }
@@ -865,7 +876,7 @@ public static class ReflectionUtil
     /// <param name="str"></param>
     /// <param name="type"></param>
     /// <returns></returns>
-    public static Object? ConvertToType(this String str, Type type)
+    public static Object? ConvertToType(this String str, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type)
     {
         if (String.IsNullOrEmpty(str))
             return null;
@@ -958,6 +969,7 @@ public static class ReflectionUtil
     /// <param name="obj"></param>
     /// <param name="propertyName"></param>
     /// <returns></returns>
+    [RequiresUnreferencedCode("GetPropertyValue(string) uses GetCachedProperty which is not trim-safe.")]
     public static dynamic? GetPropertyValue(this object obj, string propertyName)
     {
         if (obj == null) return null;
@@ -974,6 +986,7 @@ public static class ReflectionUtil
     /// <param name="propertyName"></param>
     /// <param name="bindingFlags"></param>
     /// <returns></returns>
+    [RequiresUnreferencedCode("GetPropertyValue(string, BindingFlags) uses GetProperty by string name which is not trim-safe.")]
     public static dynamic? GetPropertyValue(this object obj, string propertyName, BindingFlags bindingFlags)
     {
         if (obj == null) return null;
@@ -990,6 +1003,7 @@ public static class ReflectionUtil
     /// <param name="type">待修复的类型（可能是开放泛型/闭合泛型）</param>
     /// <returns>修复后的有效 Type 对象，若无法修复则返回原类型</returns>
     /// <exception cref="ArgumentNullException">当输入 type 为 null 时抛出</exception>
+    [RequiresUnreferencedCode("FixedGenericType uses Assembly.GetType by constructed name string which is not trim-safe.")]
     public static Type FixedGenericType(Type type)
     {
         if (type == null)

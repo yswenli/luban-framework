@@ -90,7 +90,7 @@ public static class ExpressionExtensions
     /// <param name="type"></param>
     /// <param name="owners"></param>
     /// <returns></returns>
-    public static LambdaExpression GetConditionExpression<T>(this Type type, List<long> owners) where T : Attribute
+    public static LambdaExpression GetConditionExpression<T>([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] this Type type, List<long> owners) where T : Attribute
     {
         var fieldNames = type.GetPropertyNames<T>();
         ParameterExpression parameter = Expression.Parameter(type, "c");

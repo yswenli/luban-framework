@@ -45,7 +45,7 @@
 		<PackageReference Include="nacos-sdk-csharp" Version="1.3.10" />
 		<PackageReference Include="nacos-sdk-csharp.AspNetCore" Version="1.3.10" />
 		<PackageReference Include="nacos-sdk-csharp.Extensions.Configuration" Version="1.3.10" />
-		<PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.150.1" />
+		<PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.151.0" />
 		<PackageReference Include="SKIT.FlurlHttpClient.Wechat.TenpayV3" Version="3.16.0" />
 		<PackageReference Include="Swashbuckle.AspNetCore" Version="9.0.1" />
 		<PackageReference Include="Swashbuckle.AspNetCore.Newtonsoft" Version="9.0.1" />

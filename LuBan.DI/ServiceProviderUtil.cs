@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net8.0
 *机器名称：WALLE
@@ -132,7 +132,7 @@ public static class ServiceProviderUtil
     /// </summary>
     /// <param name="type"></param>
     /// <returns></returns>
-    public static object? GetService(this Type type)
+    public static object? GetService([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] this Type type)
     {
         return _serviceProvider?.GetService(type);
     }
@@ -163,7 +163,7 @@ public static class ServiceProviderUtil
     /// </summary>
     /// <param name="type"></param>
     /// <returns></returns>
-    public static object GetRequiredService(this Type type)
+    public static object GetRequiredService([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] this Type type)
     {
         return (_serviceProvider ?? throw new InvalidOperationException("ServiceProvider has not been built. Call BuildProvider first.")).GetRequiredService(type);
     }
