@@ -581,4 +581,111 @@ public class FileSystemToolGroup
             return Task.FromResult($"搜索文件失败: {ex.Message}");
         }
     }
+
+    /// <summary>
+    /// 按正则表达式搜索文件内容
+    /// </summary>
+    /// <param name="rootPath">搜索根目录</param>
+    /// <param name="pattern">正则表达式</param>
+    /// <param name="filePattern">文件名 glob 过滤</param>
+    /// <param name="maxResults">最大返回匹配行数</param>
+    /// <returns>匹配的文件路径、行号和行内容</returns>
+    [Description("按正则表达式搜索文件内容，返回匹配的文件路径、行号和行内容")]
+    public async Task<string> GrepAsync(string rootPath, string pattern, string? filePattern = null, int maxResults = 100)
+    {
+        if (!_pathGuard.IsAllowed(rootPath))
+            return $"错误：路径 {rootPath} 不在允许访问的范围内";
+
+        try
+        {
+            var regex = new Regex(pattern, RegexOptions.IgnoreCase, TimeSpan.FromSeconds(5));
+            var results = new List<string>();
+
+            foreach (var file in EnumerateFilesSafe(rootPath))
+            {
+                var ext = Path.GetExtension(file);
+                if (!string.IsNullOrEmpty(ext) && BinaryFileExtensions.Contains(ext))
+                    continue;
+
+                if (filePattern != null && !GlobMatcher.IsMatch(file, filePattern, rootPath))
+                    continue;
+
+                var fileInfo = new FileInfo(file);
+                if (fileInfo.Length > 1024 * 1024)
+                    continue;
+
+                try
+                {
+                    using var reader = new StreamReader(file);
+                    var lineNumber = 0;
+                    string? line;
+                    while ((line = await reader.ReadLineAsync()) != null)
+                    {
+                        lineNumber++;
+                        if (regex.IsMatch(line))
+                        {
+                            results.Add($"{file}:{lineNumber}: {line.Trim()}");
+                            if (results.Count >= maxResults)
+                                break;
+                        }
+                    }
+                }
+                catch (IOException)
+                {
+                    continue;
+                }
+
+                if (results.Count >= maxResults)
+                    break;
+            }
+
+            if (results.Count == 0)
+                return "未找到匹配的内容";
+
+            var output = new StringBuilder();
+            output.AppendLine($"找到 {results.Count} 处匹配：");
+            foreach (var match in results)
+                output.AppendLine(match);
+
+            if (results.Count >= maxResults)
+                output.AppendLine($"\n结果已截断，当前显示前 {maxResults} 处匹配。缩小搜索范围或增大 maxResults 参数查看更多。");
+
+            return output.ToString().TrimEnd();
+        }
+        catch (RegexMatchTimeoutException ex)
+        {
+            Logger.Error("搜索内容异常：正则匹配超时", ex, pattern);
+            return $"搜索内容失败: 正则表达式匹配超时，请简化正则表达式 ({pattern})。";
+        }
+        catch (ArgumentException ex)
+        {
+            Logger.Error("搜索内容异常：正则表达式无效", ex, pattern);
+            return $"搜索内容失败: 正则表达式无效 ({pattern})。{ex.Message}";
+        }
+        catch (DirectoryNotFoundException ex)
+        {
+            Logger.Error("搜索内容异常：目录不存在", ex, rootPath);
+            return $"搜索内容失败: 目录不存在 ({rootPath})。请确认路径是否正确。";
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            Logger.Error("搜索内容异常：权限不足", ex, rootPath);
+            return $"搜索内容失败: 权限不足，无法访问 ({rootPath})。请检查目录权限。";
+        }
+        catch (PathTooLongException ex)
+        {
+            Logger.Error("搜索内容异常：路径过长", ex, rootPath);
+            return $"搜索内容失败: 路径过长 ({rootPath})。请缩短路径或使用其他路径。";
+        }
+        catch (IOException ex)
+        {
+            Logger.Error("搜索内容异常：IO 错误", ex, rootPath);
+            return $"搜索内容失败: IO 错误 ({rootPath})。{ex.Message}";
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("搜索内容异常", ex, rootPath);
+            return $"搜索内容失败: {ex.Message}";
+        }
+    }
 }
