@@ -1,5 +1,6 @@
 using LuBan.AIAgent.Configuration;
 using LuBan.AIAgent.Infrastructure;
+using LuBan.AIAgent.Services;
 using LuBan.AIAgent.Tools.FileSystem;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -23,6 +24,7 @@ public class FileSystemToolPluginTests
             }
         };
         var pathGuard = new PathGuard(Options.Create(options));
+        ToolConfirmationService.WorkspacePathChecker = path => true;
         return new FileSystemToolGroup(pathGuard);
     }
 
@@ -204,5 +206,263 @@ public class FileSystemToolPluginTests
 
         Assert.IsTrue(result.Contains("错误"));
         Assert.IsTrue(result.Contains("不在允许访问的范围内"));
+    }
+
+    [TestMethod]
+    public async Task CreateDirectoryAsync_NewDirectory_CreatesSuccessfully()
+    {
+        var testDir = Path.Combine(Path.GetTempPath(), $"create-dir-test-{Guid.NewGuid()}");
+        try
+        {
+            var toolGroup = CreateToolGroup(new List<string> { Path.GetTempPath() });
+            var result = await toolGroup.CreateDirectoryAsync(Path.Combine(testDir, "sub", "deep"));
+
+            Assert.IsTrue(result.Contains("已创建目录"));
+            Assert.IsTrue(Directory.Exists(Path.Combine(testDir, "sub", "deep")));
+        }
+        finally
+        {
+            if (Directory.Exists(testDir))
+                Directory.Delete(testDir, true);
+        }
+    }
+
+    [TestMethod]
+    public async Task CreateDirectoryAsync_ExistingDirectory_ReturnsAlreadyExists()
+    {
+        var testDir = Path.Combine(Path.GetTempPath(), $"create-dir-test-{Guid.NewGuid()}");
+        Directory.CreateDirectory(testDir);
+        try
+        {
+            var toolGroup = CreateToolGroup(new List<string> { testDir });
+            var result = await toolGroup.CreateDirectoryAsync(testDir);
+
+            Assert.IsTrue(result.Contains("目录已存在"));
+        }
+        finally
+        {
+            Directory.Delete(testDir, true);
+        }
+    }
+
+    [TestMethod]
+    public async Task CreateDirectoryAsync_PathNotAllowed_ReturnsError()
+    {
+        var toolGroup = CreateToolGroup(new List<string> { @"C:\Allowed" });
+        var result = await toolGroup.CreateDirectoryAsync(@"C:\NotAllowed\dir");
+
+        Assert.IsTrue(result.Contains("错误"));
+        Assert.IsTrue(result.Contains("不在允许访问的范围内"));
+    }
+
+    [TestMethod]
+    public async Task CopyFileAsync_ValidPaths_CopiesSuccessfully()
+    {
+        var testDir = Path.Combine(Path.GetTempPath(), $"copy-test-{Guid.NewGuid()}");
+        Directory.CreateDirectory(testDir);
+        try
+        {
+            var source = Path.Combine(testDir, "source.txt");
+            var dest = Path.Combine(testDir, "dest.txt");
+            File.WriteAllText(source, "test content");
+
+            var toolGroup = CreateToolGroup(new List<string> { testDir });
+            var result = await toolGroup.CopyFileAsync(source, dest);
+
+            Assert.IsTrue(result.Contains("已复制文件"));
+            Assert.IsTrue(File.Exists(dest));
+            Assert.AreEqual("test content", File.ReadAllText(dest));
+        }
+        finally
+        {
+            Directory.Delete(testDir, true);
+        }
+    }
+
+    [TestMethod]
+    public async Task CopyFileAsync_SourceNotExists_ReturnsError()
+    {
+        var testDir = Path.Combine(Path.GetTempPath(), $"copy-test-{Guid.NewGuid()}");
+        Directory.CreateDirectory(testDir);
+        try
+        {
+            var source = Path.Combine(testDir, "notexist.txt");
+            var dest = Path.Combine(testDir, "dest.txt");
+
+            var toolGroup = CreateToolGroup(new List<string> { testDir });
+            var result = await toolGroup.CopyFileAsync(source, dest);
+
+            Assert.IsTrue(result.Contains("错误"));
+        }
+        finally
+        {
+            Directory.Delete(testDir, true);
+        }
+    }
+
+    [TestMethod]
+    public async Task CopyFileAsync_PathNotAllowed_ReturnsError()
+    {
+        var toolGroup = CreateToolGroup(new List<string> { @"C:\Allowed" });
+        var result = await toolGroup.CopyFileAsync(@"C:\NotAllowed\source.txt", @"C:\Allowed\dest.txt");
+
+        Assert.IsTrue(result.Contains("错误"));
+        Assert.IsTrue(result.Contains("不在允许访问的范围内"));
+    }
+
+    [TestMethod]
+    public async Task MoveFileAsync_ValidPaths_MovesSuccessfully()
+    {
+        var testDir = Path.Combine(Path.GetTempPath(), $"move-test-{Guid.NewGuid()}");
+        Directory.CreateDirectory(testDir);
+        try
+        {
+            var source = Path.Combine(testDir, "source.txt");
+            var dest = Path.Combine(testDir, "dest.txt");
+            File.WriteAllText(source, "test content");
+
+            var toolGroup = CreateToolGroup(new List<string> { testDir });
+            var result = await toolGroup.MoveFileAsync(source, dest);
+
+            Assert.IsTrue(result.Contains("已移动文件"));
+            Assert.IsFalse(File.Exists(source));
+            Assert.IsTrue(File.Exists(dest));
+            Assert.AreEqual("test content", File.ReadAllText(dest));
+        }
+        finally
+        {
+            Directory.Delete(testDir, true);
+        }
+    }
+
+    [TestMethod]
+    public async Task MoveFileAsync_DestExists_ReturnsError()
+    {
+        var testDir = Path.Combine(Path.GetTempPath(), $"move-test-{Guid.NewGuid()}");
+        Directory.CreateDirectory(testDir);
+        try
+        {
+            var source = Path.Combine(testDir, "source.txt");
+            var dest = Path.Combine(testDir, "dest.txt");
+            File.WriteAllText(source, "source content");
+            File.WriteAllText(dest, "dest content");
+
+            var toolGroup = CreateToolGroup(new List<string> { testDir });
+            var result = await toolGroup.MoveFileAsync(source, dest);
+
+            Assert.IsTrue(result.Contains("错误"));
+        }
+        finally
+        {
+            Directory.Delete(testDir, true);
+        }
+    }
+
+    [TestMethod]
+    public async Task MoveFileAsync_PathNotAllowed_ReturnsError()
+    {
+        var toolGroup = CreateToolGroup(new List<string> { @"C:\Allowed" });
+        var result = await toolGroup.MoveFileAsync(@"C:\NotAllowed\source.txt", @"C:\Allowed\dest.txt");
+
+        Assert.IsTrue(result.Contains("错误"));
+        Assert.IsTrue(result.Contains("不在允许访问的范围内"));
+    }
+
+    [TestMethod]
+    public async Task GetFileInfoAsync_File_ReturnsFileInfo()
+    {
+        var testDir = Path.Combine(Path.GetTempPath(), $"info-test-{Guid.NewGuid()}");
+        Directory.CreateDirectory(testDir);
+        try
+        {
+            var file = Path.Combine(testDir, "test.cs");
+            File.WriteAllText(file, "test content");
+
+            var toolGroup = CreateToolGroup(new List<string> { testDir });
+            var result = await toolGroup.GetFileInfoAsync(file);
+
+            Assert.IsTrue(result.Contains("文件:"));
+            Assert.IsTrue(result.Contains("大小:"));
+            Assert.IsTrue(result.Contains(".cs"));
+        }
+        finally
+        {
+            Directory.Delete(testDir, true);
+        }
+    }
+
+    [TestMethod]
+    public async Task GetFileInfoAsync_Directory_ReturnsDirInfo()
+    {
+        var testDir = Path.Combine(Path.GetTempPath(), $"info-test-{Guid.NewGuid()}");
+        Directory.CreateDirectory(testDir);
+        try
+        {
+            File.WriteAllText(Path.Combine(testDir, "a.cs"), "");
+            File.WriteAllText(Path.Combine(testDir, "b.cs"), "");
+            Directory.CreateDirectory(Path.Combine(testDir, "sub"));
+
+            var toolGroup = CreateToolGroup(new List<string> { testDir });
+            var result = await toolGroup.GetFileInfoAsync(testDir);
+
+            Assert.IsTrue(result.Contains("目录:"));
+            Assert.IsTrue(result.Contains("文件数:"));
+            Assert.IsTrue(result.Contains("子目录数:"));
+        }
+        finally
+        {
+            Directory.Delete(testDir, true);
+        }
+    }
+
+    [TestMethod]
+    public async Task GetFileInfoAsync_PathNotExists_ReturnsError()
+    {
+        var testDir = Path.Combine(Path.GetTempPath(), $"info-test-{Guid.NewGuid()}");
+        Directory.CreateDirectory(testDir);
+        try
+        {
+            var toolGroup = CreateToolGroup(new List<string> { testDir });
+            var result = await toolGroup.GetFileInfoAsync(Path.Combine(testDir, "notexist"));
+
+            Assert.IsTrue(result.Contains("错误") || result.Contains("不存在"));
+        }
+        finally
+        {
+            Directory.Delete(testDir, true);
+        }
+    }
+
+    [TestMethod]
+    public async Task GetFileInfoAsync_PathNotAllowed_ReturnsError()
+    {
+        var toolGroup = CreateToolGroup(new List<string> { @"C:\Allowed" });
+        var result = await toolGroup.GetFileInfoAsync(@"C:\NotAllowed\file.txt");
+
+        Assert.IsTrue(result.Contains("错误"));
+        Assert.IsTrue(result.Contains("不在允许访问的范围内"));
+    }
+
+    [TestMethod]
+    public void FileSystemToolPlugin_GetTools_Returns11Functions()
+    {
+        var options = new LuBanAgentOptions
+        {
+            Tools = new ToolGroupOptions
+            {
+                FileSystem = new FileSystemToolOptions
+                {
+                    Enabled = true,
+                    AllowedRoots = new List<string>()
+                }
+            }
+        };
+        var pathGuard = new PathGuard(Options.Create(options));
+        var plugin = new FileSystemToolPlugin(Options.Create(options), pathGuard);
+        var sp = new ServiceCollection().BuildServiceProvider();
+
+        var tools = plugin.GetTools(sp);
+
+        Assert.AreEqual(11, tools.Count);
     }
 }

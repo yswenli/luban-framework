@@ -688,4 +688,273 @@ public class FileSystemToolGroup
             return $"搜索内容失败: {ex.Message}";
         }
     }
+
+    /// <summary>
+    /// 创建目录
+    /// </summary>
+    /// <param name="path">目录路径</param>
+    /// <returns>创建结果</returns>
+    [Description("创建目录，支持递归创建父目录")]
+    public Task<string> CreateDirectoryAsync(string path)
+    {
+        if (!_pathGuard.IsAllowed(path))
+            return Task.FromResult($"错误：路径 {path} 不在允许访问的范围内");
+
+        if (!ToolConfirmationService.TryConfirmByPath("CreateDirectoryAsync", path,
+            new Dictionary<string, object?> { ["path"] = path }))
+        {
+            return Task.FromResult("操作已被用户取消");
+        }
+
+        try
+        {
+            if (Directory.Exists(path))
+                return Task.FromResult($"目录已存在: {path}");
+
+            Directory.CreateDirectory(path);
+            return Task.FromResult($"已创建目录 {path}");
+        }
+        catch (DirectoryNotFoundException ex)
+        {
+            Logger.Error("创建目录异常：父目录不存在", ex, path);
+            return Task.FromResult($"创建目录失败: 父目录不存在 ({path})。请确认路径是否正确。");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            Logger.Error("创建目录异常：权限不足", ex, path);
+            return Task.FromResult($"创建目录失败: 权限不足，无法访问 ({path})。请检查目录权限。");
+        }
+        catch (PathTooLongException ex)
+        {
+            Logger.Error("创建目录异常：路径过长", ex, path);
+            return Task.FromResult($"创建目录失败: 路径过长 ({path})。请缩短路径或使用其他路径。");
+        }
+        catch (ArgumentException ex)
+        {
+            Logger.Error("创建目录异常：路径无效", ex, path);
+            return Task.FromResult($"创建目录失败: 路径无效 ({path})。{ex.Message}");
+        }
+        catch (IOException ex)
+        {
+            Logger.Error("创建目录异常：IO 错误", ex, path);
+            return Task.FromResult($"创建目录失败: IO 错误 ({path})。{ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("创建目录异常", ex, path);
+            return Task.FromResult($"创建目录失败: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// 复制文件
+    /// </summary>
+    /// <param name="sourcePath">源文件路径</param>
+    /// <param name="destPath">目标路径</param>
+    /// <param name="overwrite">是否覆盖</param>
+    /// <returns>复制结果</returns>
+    [Description("复制文件到目标路径")]
+    public Task<string> CopyFileAsync(string sourcePath, string destPath, bool overwrite = false)
+    {
+        if (!_pathGuard.IsAllowed(sourcePath))
+            return Task.FromResult($"错误：源路径 {sourcePath} 不在允许访问的范围内");
+
+        if (!_pathGuard.IsAllowed(destPath))
+            return Task.FromResult($"错误：目标路径 {destPath} 不在允许访问的范围内");
+
+        if (!ToolConfirmationService.TryConfirmByPath("CopyFileAsync", sourcePath,
+            new Dictionary<string, object?> { ["sourcePath"] = sourcePath, ["destPath"] = destPath, ["overwrite"] = overwrite }))
+        {
+            return Task.FromResult("操作已被用户取消");
+        }
+
+        try
+        {
+            if (!File.Exists(sourcePath))
+                return Task.FromResult($"错误：源文件不存在 ({sourcePath})");
+
+            File.Copy(sourcePath, destPath, overwrite);
+            return Task.FromResult($"已复制文件 {sourcePath} -> {destPath}");
+        }
+        catch (FileNotFoundException ex)
+        {
+            Logger.Error("复制文件异常：源文件不存在", ex, sourcePath);
+            return Task.FromResult($"复制文件失败: 源文件不存在 ({sourcePath})。请确认路径是否正确。");
+        }
+        catch (DirectoryNotFoundException ex)
+        {
+            Logger.Error("复制文件异常：目录不存在", ex, destPath);
+            return Task.FromResult($"复制文件失败: 目标目录不存在 ({destPath})。请确认路径是否正确。");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            Logger.Error("复制文件异常：权限不足", ex, destPath);
+            return Task.FromResult($"复制文件失败: 权限不足，无法访问 ({destPath})。请检查文件权限。");
+        }
+        catch (PathTooLongException ex)
+        {
+            Logger.Error("复制文件异常：路径过长", ex, destPath);
+            return Task.FromResult($"复制文件失败: 路径过长 ({destPath})。请缩短路径或使用其他路径。");
+        }
+        catch (ArgumentException ex)
+        {
+            Logger.Error("复制文件异常：路径无效", ex, destPath);
+            return Task.FromResult($"复制文件失败: 路径无效 ({destPath})。{ex.Message}");
+        }
+        catch (IOException ex)
+        {
+            Logger.Error("复制文件异常：IO 错误", ex, destPath);
+            return Task.FromResult($"复制文件失败: IO 错误 ({destPath})。{ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("复制文件异常", ex, destPath);
+            return Task.FromResult($"复制文件失败: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// 移动或重命名文件
+    /// </summary>
+    /// <param name="sourcePath">源文件路径</param>
+    /// <param name="destPath">目标路径</param>
+    /// <returns>移动结果</returns>
+    [Description("移动或重命名文件")]
+    public Task<string> MoveFileAsync(string sourcePath, string destPath)
+    {
+        if (!_pathGuard.IsAllowed(sourcePath))
+            return Task.FromResult($"错误：源路径 {sourcePath} 不在允许访问的范围内");
+
+        if (!_pathGuard.IsAllowed(destPath))
+            return Task.FromResult($"错误：目标路径 {destPath} 不在允许访问的范围内");
+
+        if (!ToolConfirmationService.TryConfirmByPath("MoveFileAsync", sourcePath,
+            new Dictionary<string, object?> { ["sourcePath"] = sourcePath, ["destPath"] = destPath }))
+        {
+            return Task.FromResult("操作已被用户取消");
+        }
+
+        try
+        {
+            if (!File.Exists(sourcePath))
+                return Task.FromResult($"错误：源文件不存在 ({sourcePath})");
+
+            if (File.Exists(destPath))
+                return Task.FromResult($"错误：目标文件已存在 ({destPath})，无法覆盖");
+
+            File.Move(sourcePath, destPath);
+            return Task.FromResult($"已移动文件 {sourcePath} -> {destPath}");
+        }
+        catch (FileNotFoundException ex)
+        {
+            Logger.Error("移动文件异常：源文件不存在", ex, sourcePath);
+            return Task.FromResult($"移动文件失败: 源文件不存在 ({sourcePath})。请确认路径是否正确。");
+        }
+        catch (DirectoryNotFoundException ex)
+        {
+            Logger.Error("移动文件异常：目录不存在", ex, destPath);
+            return Task.FromResult($"移动文件失败: 目标目录不存在 ({destPath})。请确认路径是否正确。");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            Logger.Error("移动文件异常：权限不足", ex, destPath);
+            return Task.FromResult($"移动文件失败: 权限不足，无法访问 ({destPath})。请检查文件权限。");
+        }
+        catch (PathTooLongException ex)
+        {
+            Logger.Error("移动文件异常：路径过长", ex, destPath);
+            return Task.FromResult($"移动文件失败: 路径过长 ({destPath})。请缩短路径或使用其他路径。");
+        }
+        catch (ArgumentException ex)
+        {
+            Logger.Error("移动文件异常：路径无效", ex, destPath);
+            return Task.FromResult($"移动文件失败: 路径无效 ({destPath})。{ex.Message}");
+        }
+        catch (IOException ex)
+        {
+            Logger.Error("移动文件异常：IO 错误", ex, destPath);
+            return Task.FromResult($"移动文件失败: IO 错误 ({destPath})。{ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("移动文件异常", ex, destPath);
+            return Task.FromResult($"移动文件失败: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// 获取文件或目录信息
+    /// </summary>
+    /// <param name="path">文件或目录路径</param>
+    /// <returns>详细信息</returns>
+    [Description("获取文件或目录的详细信息，包括大小、修改时间等")]
+    public Task<string> GetFileInfoAsync(string path)
+    {
+        if (!_pathGuard.IsAllowed(path))
+            return Task.FromResult($"错误：路径 {path} 不在允许访问的范围内");
+
+        try
+        {
+            if (File.Exists(path))
+            {
+                var fileInfo = new FileInfo(path);
+                var output = new StringBuilder();
+                output.AppendLine($"文件: {fileInfo.FullName}");
+                output.AppendLine($"大小: {fileInfo.Length:N0} 字节");
+                output.AppendLine($"创建时间: {fileInfo.CreationTime:yyyy-MM-dd HH:mm:ss}");
+                output.AppendLine($"修改时间: {fileInfo.LastWriteTime:yyyy-MM-dd HH:mm:ss}");
+                output.AppendLine($"扩展名: {fileInfo.Extension}");
+                output.AppendLine($"属性: {fileInfo.Attributes}");
+                return Task.FromResult(output.ToString().TrimEnd());
+            }
+            else if (Directory.Exists(path))
+            {
+                var dirInfo = new DirectoryInfo(path);
+                var fileCount = dirInfo.EnumerateFiles().Take(10000).Count();
+                var dirCount = dirInfo.EnumerateDirectories().Take(10000).Count();
+
+                var output = new StringBuilder();
+                output.AppendLine($"目录: {dirInfo.FullName}");
+                output.AppendLine($"文件数: {(fileCount >= 10000 ? "10000+" : fileCount.ToString())}");
+                output.AppendLine($"子目录数: {(dirCount >= 10000 ? "10000+" : dirCount.ToString())}");
+                output.AppendLine($"创建时间: {dirInfo.CreationTime:yyyy-MM-dd HH:mm:ss}");
+                output.AppendLine($"修改时间: {dirInfo.LastWriteTime:yyyy-MM-dd HH:mm:ss}");
+                return Task.FromResult(output.ToString().TrimEnd());
+            }
+            else
+            {
+                return Task.FromResult($"错误：路径不存在 ({path})");
+            }
+        }
+        catch (DirectoryNotFoundException ex)
+        {
+            Logger.Error("获取信息异常：目录不存在", ex, path);
+            return Task.FromResult($"获取信息失败: 目录不存在 ({path})。请确认路径是否正确。");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            Logger.Error("获取信息异常：权限不足", ex, path);
+            return Task.FromResult($"获取信息失败: 权限不足，无法访问 ({path})。请检查文件权限。");
+        }
+        catch (PathTooLongException ex)
+        {
+            Logger.Error("获取信息异常：路径过长", ex, path);
+            return Task.FromResult($"获取信息失败: 路径过长 ({path})。请缩短路径或使用其他路径。");
+        }
+        catch (ArgumentException ex)
+        {
+            Logger.Error("获取信息异常：路径无效", ex, path);
+            return Task.FromResult($"获取信息失败: 路径无效 ({path})。{ex.Message}");
+        }
+        catch (IOException ex)
+        {
+            Logger.Error("获取信息异常：IO 错误", ex, path);
+            return Task.FromResult($"获取信息失败: IO 错误 ({path})。{ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("获取信息异常", ex, path);
+            return Task.FromResult($"获取信息失败: {ex.Message}");
+        }
+    }
 }
