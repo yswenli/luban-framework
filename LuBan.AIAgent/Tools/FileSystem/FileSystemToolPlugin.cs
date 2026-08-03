@@ -21,6 +21,8 @@
 *描述：文件系统工具插件
 *
 *****************************************************************************/
+using System.Text.RegularExpressions;
+
 namespace LuBan.AIAgent.Tools.FileSystem;
 
 /// <summary>
@@ -93,6 +95,129 @@ public class FileSystemToolGroup
     public FileSystemToolGroup(PathGuard pathGuard)
     {
         _pathGuard = pathGuard;
+    }
+
+    private static readonly HashSet<string> BinaryFileExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".dll", ".exe", ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".tif", ".tiff",
+        ".zip", ".rar", ".7z", ".tar", ".gz", ".bz2",
+        ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+        ".woff", ".woff2", ".ttf", ".eot", ".otf",
+        ".mp3", ".mp4", ".avi", ".mkv", ".mov", ".wmv", ".flv", ".wav",
+        ".bin", ".dat", ".db", ".sqlite",
+        ".so", ".dylib", ".a", ".lib", ".obj", ".o"
+    };
+
+    private static IEnumerable<string> EnumerateFilesSafe(string rootPath)
+    {
+        IEnumerable<string> files;
+        try
+        {
+            files = Directory.EnumerateFiles(rootPath);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            yield break;
+        }
+        catch (DirectoryNotFoundException)
+        {
+            yield break;
+        }
+
+        foreach (var file in files)
+            yield return file;
+
+        IEnumerable<string> dirs;
+        try
+        {
+            dirs = Directory.EnumerateDirectories(rootPath);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            yield break;
+        }
+        catch (DirectoryNotFoundException)
+        {
+            yield break;
+        }
+
+        foreach (var dir in dirs)
+        {
+            foreach (var file in EnumerateFilesSafe(dir))
+                yield return file;
+        }
+    }
+
+    private static class GlobMatcher
+    {
+        public static bool IsMatch(string path, string pattern, string rootPath)
+        {
+            if (!pattern.Contains('/') && !pattern.Contains('\\'))
+            {
+                var fileName = Path.GetFileName(path);
+                return MatchGlob(fileName, pattern);
+            }
+
+            var relativePath = Path.GetRelativePath(rootPath, path).Replace('\\', '/');
+            return MatchGlob(relativePath, pattern);
+        }
+
+        private static bool MatchGlob(string text, string pattern)
+        {
+            var regexPattern = GlobToRegex(pattern);
+            return Regex.IsMatch(text, regexPattern, RegexOptions.IgnoreCase);
+        }
+
+        private static string GlobToRegex(string glob)
+        {
+            var regex = new StringBuilder("^");
+            for (int i = 0; i < glob.Length; i++)
+            {
+                var c = glob[i];
+                switch (c)
+                {
+                    case '*':
+                        if (i + 1 < glob.Length && glob[i + 1] == '*')
+                        {
+                            regex.Append(".*");
+                            i++;
+                            if (i + 1 < glob.Length && (glob[i + 1] == '/' || glob[i + 1] == '\\'))
+                                i++;
+                        }
+                        else
+                        {
+                            regex.Append("[^/\\\\]*");
+                        }
+                        break;
+                    case '?':
+                        regex.Append("[^/\\\\]");
+                        break;
+                    case '.':
+                    case '+':
+                    case '(':
+                    case ')':
+                    case '[':
+                    case ']':
+                    case '{':
+                    case '}':
+                    case '^':
+                    case '$':
+                    case '|':
+                        regex.Append('\\');
+                        regex.Append(c);
+                        break;
+                    case '\\':
+                    case '/':
+                        regex.Append("[/\\\\]");
+                        break;
+                    default:
+                        regex.Append(c);
+                        break;
+                }
+            }
+            regex.Append("$");
+            return regex.ToString();
+        }
     }
 
     /// <summary>
