@@ -83,7 +83,7 @@ npx playwright@1.61.0 install chromium
 | Tool Group | Group Name | Core Capabilities |
 |------------|------------|-------------------|
 | **Browser Tools** | `browser` | Navigate, click, type, screenshot, get content, wait for selector, get URL (Playwright-based) |
-| **File System Tools** | `filesystem` | Read files, write files, list directories, with AllowedRoots security restrictions |
+| **File System Tools** | `filesystem` | Read files, write files, list directories, delete files, delete directories, search files (glob), content search (regex), create directories, copy files, move files, get file info, with AllowedRoots security restrictions |
 | **Script Tools** | `script` | Execute Shell, Lua, Python scripts |
 | **Database Tools** | `database` | Execute SQL statements via sqlcmd |
 | **Redis Tools** | `redis` | Execute Redis commands via redis-cli |

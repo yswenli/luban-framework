@@ -83,7 +83,7 @@ npx playwright@1.61.0 install chromium
 | 工具组 | 分组名 | 核心能力 |
 |--------|--------|----------|
 | **浏览器工具** | `browser` | 导航、点击、输入、截图、获取内容、等待元素、获取 URL（基于 Playwright） |
-| **文件系统工具** | `filesystem` | 读取文件、写入文件、列出目录，支持 AllowedRoots 安全限制 |
+| **文件系统工具** | `filesystem` | 读取文件、写入文件、列出目录、删除文件、删除目录、搜索文件（glob）、内容搜索（regex）、创建目录、复制文件、移动文件、获取文件信息，支持 AllowedRoots 安全限制 |
 | **脚本执行工具** | `script` | 执行 Shell、Lua、Python 脚本 |
 | **数据库工具** | `database` | 通过 sqlcmd 执行 SQL 语句 |
 | **Redis 工具** | `redis` | 通过 redis-cli 执行 Redis 命令 |
