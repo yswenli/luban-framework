@@ -94,9 +94,12 @@ npx playwright@1.61.0 install chromium
 
 | 组件 | 说明 |
 |------|------|
-| `ISkill` | Skill 接口定义 |
+| `ISkill` | Skill 接口定义，包含 `PromptTemplate` 属性用于对话内激活 |
 | `SkillBase` | Skill 基类，提供日志、状态更新、Agent 调用等通用功能 |
-| `SkillRegistry` | Skill 注册表 |
+| `SkillRegistry` | Skill 注册表，管理内置、文件级和自定义 Skill |
+| `SkillLoader` | Skill 文件加载器，从 SKILL.md 文件加载 Skill 定义 |
+| `FileSkill` | 文件级 Skill 适配器，将 SKILL.md 文件包装为 ISkill |
+| `CustomSkill` | 自定义 Skill 适配器，将 CustomSkillConfig 包装为 ISkill |
 
 ### 内置 Skill
 
@@ -105,6 +108,34 @@ npx playwright@1.61.0 install chromium
 | `brainstorming` | 头脑风暴 | creative | 实现功能前探索需求和设计 |
 | `code-review` | 代码审查 | development | 审查代码、发现问题、提供改进建议 |
 | `documentation` | 文档生成 | productivity | 生成代码注释、README、API 文档等 |
+| `code-refactor` | 代码重构 | development | 重构代码，提升代码质量 |
+| `test-generation` | 测试生成 | development | 自动生成单元测试 |
+| `code-explain` | 代码解释 | development | 解释复杂代码逻辑 |
+| `debug-assistant` | 调试助手 | development | 辅助调试问题 |
+| `git-commit` | Git 提交 | productivity | 生成规范的 Git 提交信息 |
+| `find-skills` | 技能发现 | meta | 自动发现和推荐合适的技能 |
+
+### 文件化 Skill
+
+支持通过 SKILL.md 文件定义自定义 Skill，兼容 OpenCode 格式：
+
+```markdown
+---
+name: my-skill
+description: "技能描述"
+category: custom
+---
+
+# Skill 指令内容
+
+这里是 Skill 的提示词模板...
+```
+
+**存储位置**（按优先级）：
+- 项目级: `<workspace>/.luban-agent/skills/<skill-id>/SKILL.md`
+- 用户级: `%LocalAppData%/LuBan/AIAgent/skills/<skill-id>/SKILL.md`
+
+**优先级**：项目级 > 用户级 > 内置 > config.json
 
 ### Rule 系统
 
@@ -269,6 +300,38 @@ services.AddSingleton<ILuBanToolPlugin, MyToolPlugin>();
 
 ### 6. 自定义 Skill
 
+**方式一：文件化 Skill（推荐）**
+
+在项目级或用户级目录创建 `SKILL.md` 文件：
+
+```bash
+# 项目级目录
+<workspace>/.luban-agent/skills/my-skill/SKILL.md
+
+# 用户级目录
+%LocalAppData%/LuBan/AIAgent/skills/my-skill/SKILL.md
+```
+
+SKILL.md 格式：
+
+```markdown
+---
+name: my-translator
+description: "将文本翻译成英文"
+category: custom
+---
+
+# 翻译助手
+
+请将用户提供的内容翻译成英文。
+
+## 要求
+- 保持原文的语气和风格
+- 使用地道的英文表达
+```
+
+**方式二：代码定义 Skill**
+
 ```csharp
 public class MyCustomSkill : SkillBase
 {
@@ -276,6 +339,7 @@ public class MyCustomSkill : SkillBase
     public override string Name => "我的自定义 Skill";
     public override string Description => "自定义 Skill 示例";
     public override string Category => "custom";
+    public override string? PromptTemplate => "自定义提示词模板...";
 
     public override async Task<SkillResult> ExecuteAsync(SkillContext context, string input)
     {
@@ -417,14 +481,22 @@ LuBan.AIAgent/
 │   ├── Web/WebToolPlugin.cs           # Web 工具
 │   └── Retrieval/RetrievalToolPlugin.cs # 语义检索工具
 ├── Skills/
-│   ├── ISkill.cs                      # Skill 接口
+│   ├── ISkill.cs                      # Skill 接口（含 PromptTemplate）
 │   ├── SkillBase.cs                   # Skill 基类
-│   ├── SkillRegistry.cs               # Skill 注册表
+│   ├── SkillRegistry.cs               # Skill 注册表（合并多来源）
+│   ├── SkillLoader.cs                 # SKILL.md 文件加载器
+│   ├── FileSkill.cs                   # 文件级 Skill 适配器
 │   ├── CustomSkill.cs                 # 自定义 Skill 适配器
 │   └── BuiltIn/
 │       ├── BrainstormingSkill.cs      # 头脑风暴
 │       ├── CodeReviewSkill.cs         # 代码审查
-│       └── DocumentationSkill.cs      # 文档生成
+│       ├── DocumentationSkill.cs      # 文档生成
+│       ├── CodeRefactorSkill.cs       # 代码重构
+│       ├── TestGenerationSkill.cs     # 测试生成
+│       ├── CodeExplainSkill.cs        # 代码解释
+│       ├── DebugAssistantSkill.cs     # 调试助手
+│       ├── GitCommitSkill.cs          # Git 提交
+│       └── FindSkillsSkill.cs         # 技能发现
 ├── Rules/
 │   ├── IRule.cs                       # 规则接口
 │   ├── RuleBase.cs                    # 规则基类
@@ -495,6 +567,7 @@ LuBan.AIAgent/
 - `FileSystemToolOptions.AllowedRoots` 限制文件访问范围，防止 Agent 越权操作
 - **会话历史自动持久化**，支持长对话压缩（SummarizingChatReducer），上下文永不丢失
 - **自定义 Skill/Rule/MCP 持久化**，配置保存到本地文件，重启后自动加载
+- **文件化 Skill**：支持通过 SKILL.md 文件定义 Skill，兼容 OpenCode 格式，项目级/用户级目录自动加载
 - **规则拦截**在工具执行前自动检查，支持 deny/allow/modify
 - **MCP 工具集成**，外部 MCP 服务器工具自动暴露给 Agent
 - 通过 `ExternalPlugins` 配置可热加载外部工具插件程序集

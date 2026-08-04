@@ -55,6 +55,12 @@ public interface ISkill
     IEnumerable<string> Examples { get; }
 
     /// <summary>
+    /// Skill 的提示词模板内容（SKILL.md 正文或内置 Skill 的系统指令）。
+    /// 用于在对话中激活时注入到 SystemPrompt。null 表示该 Skill 不支持直接注入。
+    /// </summary>
+    string? PromptTemplate => null;
+
+    /// <summary>
     /// 执行 Skill
     /// </summary>
     /// <param name="context">Skill 执行上下文</param>

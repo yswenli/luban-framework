@@ -55,6 +55,11 @@ public abstract class SkillBase : ISkill
     public virtual IEnumerable<string> Examples => Array.Empty<string>();
 
     /// <summary>
+    /// Skill 的提示词模板内容。内置 Skill 默认返回 null，派生类可覆盖。
+    /// </summary>
+    public virtual string? PromptTemplate => null;
+
+    /// <summary>
     /// 执行 Skill
     /// </summary>
     public abstract Task<SkillResult> ExecuteAsync(SkillContext context, string input);

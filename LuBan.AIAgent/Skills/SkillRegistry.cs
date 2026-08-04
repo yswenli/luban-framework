@@ -25,15 +25,17 @@
 namespace LuBan.AIAgent.Skills;
 
 /// <summary>
-/// Skill 注册表，管理所有可用的 Skill（内置 + 自定义，惰性合并）
+/// Skill 注册表，管理所有可用的 Skill（内置 + 文件级 + 自定义，惰性合并）
 /// </summary>
 /// <remarks>
-/// 内置与自定义 Id 冲突时内置优先；冲突在 /skill add 时拦截（命令层）。
+/// 优先级：文件级（项目/用户）> 内置 > 自定义（config.json）。
+/// 同名 Id 高优先级覆盖低优先级。
 /// </remarks>
 public class SkillRegistry
 {
     private readonly Dictionary<string, ISkill> _builtinSkills = new();
     private readonly Configuration.ConfigManager? _configManager;
+    private List<FileSkill> _fileSkills = new();
 
     /// <summary>
     /// 创建 SkillRegistry 实例
@@ -49,22 +51,44 @@ public class SkillRegistry
         _configManager = configManager;
     }
 
+    /// <summary>
+    /// 加载工作区级和用户级的文件 Skill。每次切换工作区时调用。
+    /// </summary>
+    /// <param name="workspaceSkillsDir">工作区级 skills 目录，可为 null</param>
+    public void LoadFileSkills(string? workspaceSkillsDir)
+    {
+        var configs = SkillLoader.LoadAll(workspaceSkillsDir);
+        _fileSkills = configs.Select(c => new FileSkill(c)).ToList();
+    }
+
     private IEnumerable<ISkill> GetMerged()
     {
+        var consumedIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        // 1. 文件级 Skill（最高优先级）
+        foreach (var fs in _fileSkills)
+        {
+            consumedIds.Add(fs.Id.ToLowerInvariant());
+            yield return fs;
+        }
+
+        // 2. 内置 Skill（过滤已禁用和被文件级覆盖的）
         var disabledBuiltin = _configManager?.DisabledBuiltinSkills;
         foreach (var (id, skill) in _builtinSkills)
         {
-            if (disabledBuiltin?.Contains(id) == true)
-                continue;
+            if (consumedIds.Contains(id)) continue;
+            if (disabledBuiltin?.Contains(id) == true) continue;
+            consumedIds.Add(id);
             yield return skill;
         }
 
+        // 3. 自定义 Skill（config.json，过滤已被覆盖的）
         if (_configManager != null)
         {
             foreach (var cfg in _configManager.CustomSkills.Where(c => c.Enabled))
             {
-                if (_builtinSkills.ContainsKey(cfg.Id.ToLowerInvariant()))
-                    continue;
+                if (consumedIds.Contains(cfg.Id.ToLowerInvariant())) continue;
+                consumedIds.Add(cfg.Id.ToLowerInvariant());
                 yield return new CustomSkill(cfg);
             }
         }
@@ -86,15 +110,22 @@ public class SkillRegistry
     /// </summary>
     public ISkill? Get(string id)
     {
-        id = id.ToLowerInvariant();
-        if (_configManager?.DisabledBuiltinSkills.Contains(id) != true
-            && _builtinSkills.TryGetValue(id, out var builtin))
+        var lowerId = id.ToLowerInvariant();
+
+        // 1. 文件级优先
+        var fileSkill = _fileSkills.FirstOrDefault(f => f.Id.Equals(lowerId, StringComparison.OrdinalIgnoreCase));
+        if (fileSkill != null) return fileSkill;
+
+        // 2. 内置
+        if (_configManager?.DisabledBuiltinSkills.Contains(lowerId) != true
+            && _builtinSkills.TryGetValue(lowerId, out var builtin))
         {
             return builtin;
         }
 
+        // 3. 自定义（config.json）
         var custom = _configManager?.CustomSkills
-            .FirstOrDefault(c => c.Id == id && c.Enabled);
+            .FirstOrDefault(c => c.Id.Equals(id, StringComparison.OrdinalIgnoreCase) && c.Enabled);
         return custom != null ? new CustomSkill(custom) : null;
     }
 

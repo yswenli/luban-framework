@@ -68,6 +68,11 @@ public class CustomSkill : ISkill
     public IEnumerable<string> Examples => _config.Examples;
 
     /// <summary>
+    /// Skill 的提示词模板内容
+    /// </summary>
+    public string? PromptTemplate => _config.PromptTemplate;
+
+    /// <summary>
     /// 执行 Skill：按提示词模板渲染输入并调用 Agent
     /// </summary>
     /// <param name="context">Skill 执行上下文</param>

@@ -94,9 +94,12 @@ npx playwright@1.61.0 install chromium
 
 | Component | Description |
 |-----------|-------------|
-| `ISkill` | Skill interface definition |
+| `ISkill` | Skill interface definition, includes `PromptTemplate` property for in-conversation activation |
 | `SkillBase` | Skill base class, provides logging, status updates, Agent invocation |
-| `SkillRegistry` | Skill registry |
+| `SkillRegistry` | Skill registry, manages built-in, file-based, and custom Skills |
+| `SkillLoader` | Skill file loader, loads Skill definitions from SKILL.md files |
+| `FileSkill` | File-based Skill adapter, wraps SKILL.md files as ISkill |
+| `CustomSkill` | Custom Skill adapter, wraps CustomSkillConfig as ISkill |
 
 ### Built-in Skills
 
@@ -105,6 +108,34 @@ npx playwright@1.61.0 install chromium
 | `brainstorming` | Brainstorming | creative | Explore requirements and design before implementing features |
 | `code-review` | Code Review | development | Review code, find issues, provide improvement suggestions |
 | `documentation` | Documentation | productivity | Generate code comments, README, API docs, etc. |
+| `code-refactor` | Code Refactoring | development | Refactor code to improve quality |
+| `test-generation` | Test Generation | development | Automatically generate unit tests |
+| `code-explain` | Code Explanation | development | Explain complex code logic |
+| `debug-assistant` | Debug Assistant | development | Assist with debugging issues |
+| `git-commit` | Git Commit | productivity | Generate standardized Git commit messages |
+| `find-skills` | Skill Discovery | meta | Automatically discover and recommend suitable skills |
+
+### File-based Skills
+
+Support defining custom Skills via SKILL.md files, compatible with OpenCode format:
+
+```markdown
+---
+name: my-skill
+description: "Skill description"
+category: custom
+---
+
+# Skill Instructions
+
+Prompt template content here...
+```
+
+**Storage Locations** (by priority):
+- Project-level: `<workspace>/.luban-agent/skills/<skill-id>/SKILL.md`
+- User-level: `%LocalAppData%/LuBan/AIAgent/skills/<skill-id>/SKILL.md`
+
+**Priority**: Project-level > User-level > Built-in > config.json
 
 ### Rule System
 
@@ -268,6 +299,38 @@ services.AddSingleton<ILuBanToolPlugin, MyToolPlugin>();
 
 ### 6. Custom Skill
 
+**Method 1: File-based Skill (Recommended)**
+
+Create `SKILL.md` files in project-level or user-level directories:
+
+```bash
+# Project-level directory
+<workspace>/.luban-agent/skills/my-skill/SKILL.md
+
+# User-level directory
+%LocalAppData%/LuBan/AIAgent/skills/my-skill/SKILL.md
+```
+
+SKILL.md format:
+
+```markdown
+---
+name: my-translator
+description: "Translate text to English"
+category: custom
+---
+
+# Translation Assistant
+
+Please translate the user's content to English.
+
+## Requirements
+- Maintain the tone and style of the original text
+- Use idiomatic English expressions
+```
+
+**Method 2: Code-defined Skill**
+
 ```csharp
 public class MyCustomSkill : SkillBase
 {
@@ -275,6 +338,7 @@ public class MyCustomSkill : SkillBase
     public override string Name => "My Custom Skill";
     public override string Description => "Custom Skill example";
     public override string Category => "custom";
+    public override string? PromptTemplate => "Custom prompt template...";
 
     public override async Task<SkillResult> ExecuteAsync(SkillContext context, string input)
     {
@@ -416,14 +480,22 @@ LuBan.AIAgent/
 │   ├── Web/WebToolPlugin.cs           # Web tools
 │   └── Retrieval/RetrievalToolPlugin.cs # Semantic retrieval tools
 ├── Skills/
-│   ├── ISkill.cs                      # Skill interface
+│   ├── ISkill.cs                      # Skill interface (with PromptTemplate)
 │   ├── SkillBase.cs                   # Skill base class
-│   ├── SkillRegistry.cs               # Skill registry
-│   ├── CustomSkill.cs                 # Custom skill adapter
+│   ├── SkillRegistry.cs               # Skill registry (merges multiple sources)
+│   ├── SkillLoader.cs                 # SKILL.md file loader
+│   ├── FileSkill.cs                   # File-based Skill adapter
+│   ├── CustomSkill.cs                 # Custom Skill adapter
 │   └── BuiltIn/
 │       ├── BrainstormingSkill.cs      # Brainstorming
 │       ├── CodeReviewSkill.cs         # Code review
-│       └── DocumentationSkill.cs      # Documentation generation
+│       ├── DocumentationSkill.cs      # Documentation generation
+│       ├── CodeRefactorSkill.cs       # Code refactoring
+│       ├── TestGenerationSkill.cs     # Test generation
+│       ├── CodeExplainSkill.cs        # Code explanation
+│       ├── DebugAssistantSkill.cs     # Debug assistant
+│       ├── GitCommitSkill.cs          # Git commit
+│       └── FindSkillsSkill.cs         # Skill discovery
 ├── Rules/
 │   ├── IRule.cs                       # Rule interface
 │   ├── RuleBase.cs                    # Rule base class
@@ -454,6 +526,33 @@ LuBan.AIAgent/
 │   └── ToolPluginRegistry.cs          # Plugin registry
 ├── Services/
 │   └── ToolConfirmationService.cs     # Tool execution confirmation service
+├── Orchestration/                     # Multi-Agent orchestration subsystem
+│   ├── IOrchestrator.cs               # Orchestrator interface
+│   ├── Orchestrator.cs                # Orchestrator default implementation
+│   ├── DagScheduler.cs                # DAG scheduler (topological layer parallel)
+│   ├── SubAgentFactory.cs             # SubAgent factory
+│   ├── ContextStore.cs                # Cross-node context store
+│   ├── Models/                        # Data models
+│   │   ├── TaskGraph.cs               # Task graph
+│   │   ├── TaskNode.cs                # Task node
+│   │   ├── TaskNodeStatus.cs          # Node status enum
+│   │   ├── SubAgentSpec.cs            # SubAgent specification
+│   │   ├── NodeResult.cs              # Node result
+│   │   ├── OrchestrationResult.cs     # Orchestration result
+│   │   ├── OrchestrationProgress.cs   # Progress event
+│   │   └── ProgressEventType.cs       # Progress event type
+│   ├── Planner/                       # Task planners
+│   │   ├── ITaskPlanner.cs            # Planner interface
+│   │   ├── LlmTaskPlanner.cs          # LLM planner
+│   │   ├── TemplateTaskPlanner.cs     # Template planner
+│   │   ├── CompositeTaskPlanner.cs    # Composite planner
+│   │   └── TaskGraphTemplate.cs       # Graph template
+│   └── Exceptions/                    # Exception definitions
+│       ├── TaskPlanningException.cs   # Planning exception
+│       └── NodeExecutionException.cs  # Node execution exception
+├── Tools/Orchestration/               # Orchestration tool plugin
+│   ├── OrchestrationToolPlugin.cs     # Tool plugin
+│   └── OrchestrationToolGroup.cs      # Tool group
 ├── LuBanAgent.cs                      # Agent instance
 ├── LuBanAgentFactory.cs               # Agent factory
 └── LuBanAgentExtensions.cs            # DI extension methods
@@ -467,10 +566,12 @@ LuBan.AIAgent/
 - `FileSystemToolOptions.AllowedRoots` restricts file access scope to prevent Agent overreach
 - **Session history auto-persistence** with compression (SummarizingChatReducer), context never lost
 - **Custom Skill/Rule/MCP persistence**, configs saved locally and auto-loaded on restart
+- **File-based Skills**: define custom Skills via SKILL.md files, compatible with OpenCode format, automatically loaded from project-level/user-level directories
 - **Rule interception** checks before tool execution, supports deny/allow/modify
 - **MCP tool integration**, external MCP server tools exposed to Agent
 - External tool plugin assemblies can be hot-loaded via `ExternalPlugins` configuration
 - Combine with LuBan.AIFlow to connect to RagFlow / Dify / Coze and other AI platforms
+- **Multi-Agent Orchestration**: composite tasks decomposed into DAG, SubAgents execute serially/parallelly with skip-on-failure, timeout, and context passing
 
 ## License
 
