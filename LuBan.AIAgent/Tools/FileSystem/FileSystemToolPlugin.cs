@@ -110,10 +110,12 @@ public class FileSystemToolGroup
 
     private static IEnumerable<string> EnumerateFilesSafe(string rootPath)
     {
-        IEnumerable<string> files;
+        // 使用 GetFiles/GetDirectories（立即执行）而非 EnumerateFiles/EnumerateDirectories（惰性枚举），
+        // 确保异常在 try-catch 中被捕获，而非在 foreach 遍历时抛出
+        string[] files;
         try
         {
-            files = Directory.EnumerateFiles(rootPath);
+            files = Directory.GetFiles(rootPath);
         }
         catch (UnauthorizedAccessException)
         {
@@ -127,10 +129,10 @@ public class FileSystemToolGroup
         foreach (var file in files)
             yield return file;
 
-        IEnumerable<string> dirs;
+        string[] dirs;
         try
         {
-            dirs = Directory.EnumerateDirectories(rootPath);
+            dirs = Directory.GetDirectories(rootPath);
         }
         catch (UnauthorizedAccessException)
         {
@@ -252,37 +254,37 @@ public class FileSystemToolGroup
         catch (FileNotFoundException ex)
         {
             Logger.Error("文件读取异常：文件不存在", ex, path);
-            return $"读取文件失败: 文件不存在 ({path})。请确认路径是否正确。";
+            return $"未找到文件: {path}。请检查路径是否正确，或尝试其他路径。";
         }
         catch (DirectoryNotFoundException ex)
         {
             Logger.Error("文件读取异常：目录不存在", ex, path);
-            return $"读取文件失败: 目录不存在 ({path})。请确认路径是否正确。";
+            return $"未找到目录: {path}。请检查路径是否正确，或尝试其他路径。";
         }
         catch (UnauthorizedAccessException ex)
         {
             Logger.Error("文件读取异常：权限不足", ex, path);
-            return $"读取文件失败: 权限不足，无法访问 ({path})。请检查文件权限或选择其他文件。";
+            return $"无法访问文件: {path}，权限不足。请检查权限或尝试其他文件。";
         }
         catch (PathTooLongException ex)
         {
             Logger.Error("文件读取异常：路径过长", ex, path);
-            return $"读取文件失败: 路径过长 ({path})。请缩短路径或使用其他路径。";
+            return $"路径过长: {path}。请缩短路径或尝试其他路径。";
         }
         catch (ArgumentException ex)
         {
             Logger.Error("文件读取异常：路径无效", ex, path);
-            return $"读取文件失败: 路径无效 ({path})。{ex.Message}";
+            return $"路径无效: {path}。{ex.Message}";
         }
         catch (IOException ex)
         {
             Logger.Error("文件读取异常：IO 错误", ex, path);
-            return $"读取文件失败: IO 错误 ({path})。{ex.Message}";
+            return $"IO 错误: {path}。{ex.Message}";
         }
         catch (Exception ex)
         {
             Logger.Error("文件读取异常", ex, path);
-            return $"读取文件失败: {ex.Message}";
+            return $"操作失败: {ex.Message}";
         }
     }
 
@@ -313,32 +315,32 @@ public class FileSystemToolGroup
         catch (DirectoryNotFoundException ex)
         {
             Logger.Error("文件写入异常：目录不存在", ex, path);
-            return $"写入文件失败: 目录不存在 ({path})。请确认路径是否正确或先创建目录。";
+            return $"未找到目录: {path}。请检查路径是否正确，或先创建目录。";
         }
         catch (UnauthorizedAccessException ex)
         {
             Logger.Error("文件写入异常：权限不足", ex, path);
-            return $"写入文件失败: 权限不足，无法访问 ({path})。请检查文件权限或选择其他路径。";
+            return $"无法写入文件: {path}，权限不足。请检查权限或尝试其他路径。";
         }
         catch (PathTooLongException ex)
         {
             Logger.Error("文件写入异常：路径过长", ex, path);
-            return $"写入文件失败: 路径过长 ({path})。请缩短路径或使用其他路径。";
+            return $"路径过长: {path}。请缩短路径或尝试其他路径。";
         }
         catch (ArgumentException ex)
         {
             Logger.Error("文件写入异常：路径无效", ex, path);
-            return $"写入文件失败: 路径无效 ({path})。{ex.Message}";
+            return $"路径无效: {path}。{ex.Message}";
         }
         catch (IOException ex)
         {
             Logger.Error("文件写入异常：IO 错误", ex, path);
-            return $"写入文件失败: IO 错误 ({path})。{ex.Message}";
+            return $"IO 错误: {path}。{ex.Message}";
         }
         catch (Exception ex)
         {
             Logger.Error("文件写入异常", ex, path);
-            return $"写入文件失败: {ex.Message}";
+            return $"操作失败: {ex.Message}";
         }
     }
 
@@ -368,32 +370,274 @@ public class FileSystemToolGroup
         catch (DirectoryNotFoundException ex)
         {
             Logger.Error("列出目录异常：目录不存在", ex, path);
-            return Task.FromResult($"列出目录失败: 目录不存在 ({path})。请确认路径是否正确。");
+            return Task.FromResult($"未找到目录: {path}。请检查路径是否正确，或尝试其他路径。");
         }
         catch (UnauthorizedAccessException ex)
         {
             Logger.Error("列出目录异常：权限不足", ex, path);
-            return Task.FromResult($"列出目录失败: 权限不足，无法访问 ({path})。请检查目录权限或选择其他目录。");
+            return Task.FromResult($"无法访问目录: {path}，权限不足。请检查权限或尝试其他目录。");
         }
         catch (PathTooLongException ex)
         {
             Logger.Error("列出目录异常：路径过长", ex, path);
-            return Task.FromResult($"列出目录失败: 路径过长 ({path})。请缩短路径或使用其他路径。");
+            return Task.FromResult($"路径过长: {path}。请缩短路径或尝试其他路径。");
         }
         catch (ArgumentException ex)
         {
             Logger.Error("列出目录异常：路径无效", ex, path);
-            return Task.FromResult($"列出目录失败: 路径无效 ({path})。{ex.Message}");
+            return Task.FromResult($"路径无效: {path}。{ex.Message}");
         }
         catch (IOException ex)
         {
             Logger.Error("列出目录异常：IO 错误", ex, path);
-            return Task.FromResult($"列出目录失败: IO 错误 ({path})。{ex.Message}");
+            return Task.FromResult($"IO 错误: {path}。{ex.Message}");
         }
         catch (Exception ex)
         {
             Logger.Error("列出目录异常", ex, path);
-            return Task.FromResult($"列出目录失败: {ex.Message}");
+            return Task.FromResult($"操作失败: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// 获取工作区概览：目录树（限 3 层）+ 文件类型统计 + 关键文件列表。
+    /// 一次调用即可让 AI 了解工作区整体结构，避免多次 ListDirectory 探索。
+    /// </summary>
+    /// <param name="rootPath">工作区根目录</param>
+    /// <returns>工作区概览信息</returns>
+    [Description("获取工作区概览：目录树（限3层）+ 文件类型统计 + 关键文件。一次调用了解工作区结构，避免多次ListDirectory。")]
+    public Task<string> GetWorkspaceOverviewAsync(string rootPath)
+    {
+        if (!_pathGuard.IsAllowed(rootPath))
+            return Task.FromResult($"错误：路径 {rootPath} 不在允许访问的范围内");
+
+        try
+        {
+            var fullPath = Path.GetFullPath(rootPath);
+            if (!Directory.Exists(fullPath))
+                return Task.FromResult($"未找到工作区: {rootPath}。请检查路径是否正确。");
+
+            var sb = new StringBuilder();
+            sb.AppendLine($"# 工作区概览: {Path.GetFileName(fullPath)}");
+            sb.AppendLine($"根目录: {fullPath}");
+            sb.AppendLine();
+
+            // 1. 目录树（限 3 层）
+            sb.AppendLine("## 目录结构（3 层）");
+            sb.AppendLine("```");
+            BuildDirectoryTree(fullPath, 0, 3, sb, fullPath);
+            sb.AppendLine("```");
+            sb.AppendLine();
+
+            // 2. 文件类型统计
+            sb.AppendLine("## 文件类型统计");
+            var extCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            var excludedDirs = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ".git", "node_modules", "target", "bin", "obj", "dist", "build",
+                ".idea", ".vs", ".vscode", "__pycache__", ".gradle"
+            };
+            CountFileTypes(fullPath, extCounts, excludedDirs);
+            var totalFiles = extCounts.Values.Sum();
+            sb.AppendLine($"总文件数: {totalFiles}");
+            sb.AppendLine();
+            sb.AppendLine("| 扩展名 | 数量 | 占比 |");
+            sb.AppendLine("|--------|------|------|");
+            foreach (var kv in extCounts.OrderByDescending(k => k.Value).Take(15))
+            {
+                var pct = totalFiles > 0 ? (kv.Value * 100.0 / totalFiles).ToString("F1") : "0";
+                sb.AppendLine($"| {kv.Key} | {kv.Value} | {pct}% |");
+            }
+            sb.AppendLine();
+
+            // 3. 关键文件
+            sb.AppendLine("## 关键文件");
+            var keyFiles = FindKeyFiles(fullPath, excludedDirs);
+            if (keyFiles.Count > 0)
+            {
+                foreach (var f in keyFiles)
+                    sb.AppendLine($"- {f}");
+            }
+            else
+            {
+                sb.AppendLine("-（未发现关键配置文件）");
+            }
+
+            return Task.FromResult(sb.ToString().TrimEnd());
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            Logger.Error("工作区概览异常：权限不足", ex, rootPath);
+            return Task.FromResult($"无法访问工作区: {rootPath}，权限不足。请检查权限。");
+        }
+        catch (DirectoryNotFoundException ex)
+        {
+            Logger.Error("工作区概览异常：目录不存在", ex, rootPath);
+            return Task.FromResult($"未找到工作区: {rootPath}。请检查路径是否正确。");
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("工作区概览异常", ex, rootPath);
+            return Task.FromResult($"操作失败: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// 递归构建目录树字符串。
+    /// </summary>
+    private static void BuildDirectoryTree(string dir, int depth, int maxDepth, StringBuilder sb, string rootPath)
+    {
+        if (depth > maxDepth) return;
+
+        var indent = depth == 0 ? "" : new string(' ', depth * 2);
+        var dirName = depth == 0 ? Path.GetFileName(rootPath) : Path.GetFileName(dir);
+        sb.AppendLine($"{indent}{dirName}/");
+
+        if (depth >= maxDepth) return;
+
+        string[] subdirs;
+        try
+        {
+            subdirs = Directory.GetDirectories(dir);
+        }
+        catch (UnauthorizedAccessException) { return; }
+        catch (DirectoryNotFoundException) { return; }
+
+        string[] files;
+        try
+        {
+            files = Directory.GetFiles(dir);
+        }
+        catch (UnauthorizedAccessException) { return; }
+        catch (DirectoryNotFoundException) { return; }
+
+        // 跳过常见无用目录
+        var excluded = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ".git", "node_modules", "target", "bin", "obj", "dist", "build",
+            ".idea", ".vs", ".vscode", "__pycache__", ".gradle"
+        };
+
+        var visibleSubdirs = subdirs
+            .Where(d => !excluded.Contains(Path.GetFileName(d)))
+            .OrderBy(d => d)
+            .Take(20)  // 限制每层最多 20 个子目录，避免输出过长
+            .ToList();
+
+        var visibleFiles = files
+            .OrderBy(f => f)
+            .Take(10)  // 限制每层最多 10 个文件
+            .ToList();
+
+        var childIndent = new string(' ', (depth + 1) * 2);
+
+        foreach (var subdir in visibleSubdirs)
+        {
+            BuildDirectoryTree(subdir, depth + 1, maxDepth, sb, rootPath);
+        }
+
+        foreach (var file in visibleFiles)
+        {
+            sb.AppendLine($"{childIndent}{Path.GetFileName(file)}");
+        }
+
+        // 如果有更多内容，显示省略提示
+        if (subdirs.Length > visibleSubdirs.Count)
+            sb.AppendLine($"{childIndent}... ({subdirs.Length - visibleSubdirs.Count} 个目录已省略)");
+        if (files.Length > visibleFiles.Count)
+            sb.AppendLine($"{childIndent}... ({files.Length - visibleFiles.Count} 个文件已省略)");
+    }
+
+    /// <summary>
+    /// 统计目录下各扩展名的文件数量。
+    /// </summary>
+    private static void CountFileTypes(string dir, Dictionary<string, int> extCounts, HashSet<string> excludedDirs)
+    {
+        string[] entries;
+        try
+        {
+            entries = Directory.GetFileSystemEntries(dir);
+        }
+        catch (UnauthorizedAccessException) { return; }
+        catch (DirectoryNotFoundException) { return; }
+
+        foreach (var entry in entries)
+        {
+            if (Directory.Exists(entry))
+            {
+                var name = Path.GetFileName(entry);
+                if (excludedDirs.Contains(name)) continue;
+                CountFileTypes(entry, extCounts, excludedDirs);
+            }
+            else
+            {
+                var ext = Path.GetExtension(entry);
+                if (string.IsNullOrEmpty(ext)) ext = "(无扩展名)";
+                if (!extCounts.ContainsKey(ext)) extCounts[ext] = 0;
+                extCounts[ext]++;
+            }
+        }
+    }
+
+    /// <summary>
+    /// 查找关键配置文件（pom.xml、package.json、*.csproj、application.yml 等）。
+    /// </summary>
+    private static List<string> FindKeyFiles(string rootPath, HashSet<string> excludedDirs)
+    {
+        var keyFileNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "pom.xml", "package.json", "build.gradle", "build.gradle.kts",
+            "Cargo.toml", "go.mod", "requirements.txt", "pyproject.toml",
+            "appsettings.json", "web.config", "app.config",
+            "application.yml", "application.yaml", "application.properties",
+            "readme.md", "readme.en.md", "readme.txt",
+            ".gitignore", "dockerfile", "docker-compose.yml",
+            "makefile", "cmakelists.txt"
+        };
+
+        var results = new List<string>();
+        FindKeyFilesRecursive(rootPath, keyFileNames, excludedDirs, results, maxDepth: 2, currentDepth: 0);
+        return results;
+    }
+
+    private static void FindKeyFilesRecursive(
+        string dir, HashSet<string> keyFileNames,
+        HashSet<string> excludedDirs, List<string> results,
+        int maxDepth, int currentDepth)
+    {
+        if (currentDepth > maxDepth) return;
+
+        string[] entries;
+        try
+        {
+            entries = Directory.GetFileSystemEntries(dir);
+        }
+        catch (UnauthorizedAccessException) { return; }
+        catch (DirectoryNotFoundException) { return; }
+
+        foreach (var entry in entries)
+        {
+            if (Directory.Exists(entry))
+            {
+                var name = Path.GetFileName(entry);
+                if (excludedDirs.Contains(name)) continue;
+                FindKeyFilesRecursive(entry, keyFileNames, excludedDirs, results, maxDepth, currentDepth + 1);
+            }
+            else
+            {
+                var fileName = Path.GetFileName(entry);
+                if (keyFileNames.Contains(fileName))
+                {
+                    var relativePath = Path.GetRelativePath(dir, entry)
+                        .Replace('\\', '/');
+                    // 显示相对路径，最多 2 层
+                    var parts = relativePath.Split('/');
+                    var displayPath = parts.Length > 3
+                        ? string.Join("/", parts.Skip(parts.Length - 3))
+                        : relativePath;
+                    results.Add(displayPath);
+                }
+            }
         }
     }
 
@@ -426,32 +670,32 @@ public class FileSystemToolGroup
         catch (FileNotFoundException ex)
         {
             Logger.Error("文件删除异常：文件不存在", ex, path);
-            return Task.FromResult($"删除文件失败: 文件不存在 ({path})。请确认路径是否正确。");
+            return Task.FromResult($"未找到文件: {path}。请检查路径是否正确。");
         }
         catch (UnauthorizedAccessException ex)
         {
             Logger.Error("文件删除异常：权限不足", ex, path);
-            return Task.FromResult($"删除文件失败: 权限不足，无法删除 ({path})。请检查文件权限。");
+            return Task.FromResult($"无法删除文件: {path}，权限不足。请检查权限。");
         }
         catch (PathTooLongException ex)
         {
             Logger.Error("文件删除异常：路径过长", ex, path);
-            return Task.FromResult($"删除文件失败: 路径过长 ({path})。请缩短路径或使用其他路径。");
+            return Task.FromResult($"路径过长: {path}。请缩短路径或尝试其他路径。");
         }
         catch (ArgumentException ex)
         {
             Logger.Error("文件删除异常：路径无效", ex, path);
-            return Task.FromResult($"删除文件失败: 路径无效 ({path})。{ex.Message}");
+            return Task.FromResult($"路径无效: {path}。{ex.Message}");
         }
         catch (IOException ex)
         {
             Logger.Error("文件删除异常：IO 错误", ex, path);
-            return Task.FromResult($"删除文件失败: IO 错误 ({path})。{ex.Message}");
+            return Task.FromResult($"IO 错误: {path}。{ex.Message}");
         }
         catch (Exception ex)
         {
             Logger.Error("文件删除异常", ex, path);
-            return Task.FromResult($"删除文件失败: {ex.Message}");
+            return Task.FromResult($"操作失败: {ex.Message}");
         }
     }
 
@@ -484,32 +728,32 @@ public class FileSystemToolGroup
         catch (DirectoryNotFoundException ex)
         {
             Logger.Error("目录删除异常：目录不存在", ex, path);
-            return Task.FromResult($"删除目录失败: 目录不存在 ({path})。请确认路径是否正确。");
+            return Task.FromResult($"未找到目录: {path}。请检查路径是否正确。");
         }
         catch (UnauthorizedAccessException ex)
         {
             Logger.Error("目录删除异常：权限不足", ex, path);
-            return Task.FromResult($"删除目录失败: 权限不足，无法删除 ({path})。请检查目录权限。");
+            return Task.FromResult($"无法删除目录: {path}，权限不足。请检查权限。");
         }
         catch (PathTooLongException ex)
         {
             Logger.Error("目录删除异常：路径过长", ex, path);
-            return Task.FromResult($"删除目录失败: 路径过长 ({path})。请缩短路径或使用其他路径。");
+            return Task.FromResult($"路径过长: {path}。请缩短路径或尝试其他路径。");
         }
         catch (ArgumentException ex)
         {
             Logger.Error("目录删除异常：路径无效", ex, path);
-            return Task.FromResult($"删除目录失败: 路径无效 ({path})。{ex.Message}");
+            return Task.FromResult($"路径无效: {path}。{ex.Message}");
         }
         catch (IOException ex)
         {
             Logger.Error("目录删除异常：IO 错误", ex, path);
-            return Task.FromResult($"删除目录失败: IO 错误 ({path})。{ex.Message}");
+            return Task.FromResult($"IO 错误: {path}。{ex.Message}");
         }
         catch (Exception ex)
         {
             Logger.Error("目录删除异常", ex, path);
-            return Task.FromResult($"删除目录失败: {ex.Message}");
+            return Task.FromResult($"操作失败: {ex.Message}");
         }
     }
 
@@ -558,32 +802,32 @@ public class FileSystemToolGroup
         catch (DirectoryNotFoundException ex)
         {
             Logger.Error("搜索文件异常：目录不存在", ex, rootPath);
-            return Task.FromResult($"搜索文件失败: 目录不存在 ({rootPath})。请确认路径是否正确。");
+            return Task.FromResult($"未找到目录: {rootPath}。请检查路径是否正确。");
         }
         catch (UnauthorizedAccessException ex)
         {
             Logger.Error("搜索文件异常：权限不足", ex, rootPath);
-            return Task.FromResult($"搜索文件失败: 权限不足，无法访问 ({rootPath})。请检查目录权限。");
+            return Task.FromResult($"无法访问目录: {rootPath}，权限不足。请检查权限。");
         }
         catch (PathTooLongException ex)
         {
             Logger.Error("搜索文件异常：路径过长", ex, rootPath);
-            return Task.FromResult($"搜索文件失败: 路径过长 ({rootPath})。请缩短路径或使用其他路径。");
+            return Task.FromResult($"路径过长: {rootPath}。请缩短路径或尝试其他路径。");
         }
         catch (ArgumentException ex)
         {
             Logger.Error("搜索文件异常：路径无效", ex, rootPath);
-            return Task.FromResult($"搜索文件失败: 路径无效 ({rootPath})。{ex.Message}");
+            return Task.FromResult($"路径无效: {rootPath}。{ex.Message}");
         }
         catch (IOException ex)
         {
             Logger.Error("搜索文件异常：IO 错误", ex, rootPath);
-            return Task.FromResult($"搜索文件失败: IO 错误 ({rootPath})。{ex.Message}");
+            return Task.FromResult($"IO 错误: {rootPath}。{ex.Message}");
         }
         catch (Exception ex)
         {
             Logger.Error("搜索文件异常", ex, rootPath);
-            return Task.FromResult($"搜索文件失败: {ex.Message}");
+            return Task.FromResult($"操作失败: {ex.Message}");
         }
     }
 
@@ -668,37 +912,37 @@ public class FileSystemToolGroup
         catch (RegexMatchTimeoutException ex)
         {
             Logger.Error("搜索内容异常：正则匹配超时", ex, pattern);
-            return $"搜索内容失败: 正则表达式匹配超时，请简化正则表达式 ({pattern})。";
+            return $"正则匹配超时: {pattern}。请简化正则表达式。";
         }
         catch (ArgumentException ex)
         {
             Logger.Error("搜索内容异常：正则表达式无效", ex, pattern);
-            return $"搜索内容失败: 正则表达式无效 ({pattern})。{ex.Message}";
+            return $"正则表达式无效: {pattern}。{ex.Message}";
         }
         catch (DirectoryNotFoundException ex)
         {
             Logger.Error("搜索内容异常：目录不存在", ex, rootPath);
-            return $"搜索内容失败: 目录不存在 ({rootPath})。请确认路径是否正确。";
+            return $"未找到目录: {rootPath}。请检查路径是否正确。";
         }
         catch (UnauthorizedAccessException ex)
         {
             Logger.Error("搜索内容异常：权限不足", ex, rootPath);
-            return $"搜索内容失败: 权限不足，无法访问 ({rootPath})。请检查目录权限。";
+            return $"无法访问目录: {rootPath}，权限不足。请检查权限。";
         }
         catch (PathTooLongException ex)
         {
             Logger.Error("搜索内容异常：路径过长", ex, rootPath);
-            return $"搜索内容失败: 路径过长 ({rootPath})。请缩短路径或使用其他路径。";
+            return $"路径过长: {rootPath}。请缩短路径或尝试其他路径。";
         }
         catch (IOException ex)
         {
             Logger.Error("搜索内容异常：IO 错误", ex, rootPath);
-            return $"搜索内容失败: IO 错误 ({rootPath})。{ex.Message}";
+            return $"IO 错误: {rootPath}。{ex.Message}";
         }
         catch (Exception ex)
         {
             Logger.Error("搜索内容异常", ex, rootPath);
-            return $"搜索内容失败: {ex.Message}";
+            return $"操作失败: {ex.Message}";
         }
     }
 
@@ -730,32 +974,32 @@ public class FileSystemToolGroup
         catch (DirectoryNotFoundException ex)
         {
             Logger.Error("创建目录异常：父目录不存在", ex, path);
-            return Task.FromResult($"创建目录失败: 父目录不存在 ({path})。请确认路径是否正确。");
+            return Task.FromResult($"父目录不存在: {path}。请检查路径是否正确。");
         }
         catch (UnauthorizedAccessException ex)
         {
             Logger.Error("创建目录异常：权限不足", ex, path);
-            return Task.FromResult($"创建目录失败: 权限不足，无法访问 ({path})。请检查目录权限。");
+            return Task.FromResult($"无法创建目录: {path}，权限不足。请检查权限。");
         }
         catch (PathTooLongException ex)
         {
             Logger.Error("创建目录异常：路径过长", ex, path);
-            return Task.FromResult($"创建目录失败: 路径过长 ({path})。请缩短路径或使用其他路径。");
+            return Task.FromResult($"路径过长: {path}。请缩短路径或尝试其他路径。");
         }
         catch (ArgumentException ex)
         {
             Logger.Error("创建目录异常：路径无效", ex, path);
-            return Task.FromResult($"创建目录失败: 路径无效 ({path})。{ex.Message}");
+            return Task.FromResult($"路径无效: {path}。{ex.Message}");
         }
         catch (IOException ex)
         {
             Logger.Error("创建目录异常：IO 错误", ex, path);
-            return Task.FromResult($"创建目录失败: IO 错误 ({path})。{ex.Message}");
+            return Task.FromResult($"IO 错误: {path}。{ex.Message}");
         }
         catch (Exception ex)
         {
             Logger.Error("创建目录异常", ex, path);
-            return Task.FromResult($"创建目录失败: {ex.Message}");
+            return Task.FromResult($"操作失败: {ex.Message}");
         }
     }
 
@@ -792,37 +1036,37 @@ public class FileSystemToolGroup
         catch (FileNotFoundException ex)
         {
             Logger.Error("复制文件异常：源文件不存在", ex, sourcePath);
-            return Task.FromResult($"复制文件失败: 源文件不存在 ({sourcePath})。请确认路径是否正确。");
+            return Task.FromResult($"未找到源文件: {sourcePath}。请检查路径是否正确。");
         }
         catch (DirectoryNotFoundException ex)
         {
             Logger.Error("复制文件异常：目录不存在", ex, destPath);
-            return Task.FromResult($"复制文件失败: 目标目录不存在 ({destPath})。请确认路径是否正确。");
+            return Task.FromResult($"未找到目标目录: {destPath}。请检查路径是否正确。");
         }
         catch (UnauthorizedAccessException ex)
         {
             Logger.Error("复制文件异常：权限不足", ex, destPath);
-            return Task.FromResult($"复制文件失败: 权限不足，无法访问 ({destPath})。请检查文件权限。");
+            return Task.FromResult($"无法访问路径: {destPath}，权限不足。请检查权限。");
         }
         catch (PathTooLongException ex)
         {
             Logger.Error("复制文件异常：路径过长", ex, destPath);
-            return Task.FromResult($"复制文件失败: 路径过长 ({destPath})。请缩短路径或使用其他路径。");
+            return Task.FromResult($"路径过长: {destPath}。请缩短路径或尝试其他路径。");
         }
         catch (ArgumentException ex)
         {
             Logger.Error("复制文件异常：路径无效", ex, destPath);
-            return Task.FromResult($"复制文件失败: 路径无效 ({destPath})。{ex.Message}");
+            return Task.FromResult($"路径无效: {destPath}。{ex.Message}");
         }
         catch (IOException ex)
         {
             Logger.Error("复制文件异常：IO 错误", ex, destPath);
-            return Task.FromResult($"复制文件失败: IO 错误 ({destPath})。{ex.Message}");
+            return Task.FromResult($"IO 错误: {destPath}。{ex.Message}");
         }
         catch (Exception ex)
         {
             Logger.Error("复制文件异常", ex, destPath);
-            return Task.FromResult($"复制文件失败: {ex.Message}");
+            return Task.FromResult($"操作失败: {ex.Message}");
         }
     }
 
@@ -861,37 +1105,37 @@ public class FileSystemToolGroup
         catch (FileNotFoundException ex)
         {
             Logger.Error("移动文件异常：源文件不存在", ex, sourcePath);
-            return Task.FromResult($"移动文件失败: 源文件不存在 ({sourcePath})。请确认路径是否正确。");
+            return Task.FromResult($"未找到源文件: {sourcePath}。请检查路径是否正确。");
         }
         catch (DirectoryNotFoundException ex)
         {
             Logger.Error("移动文件异常：目录不存在", ex, destPath);
-            return Task.FromResult($"移动文件失败: 目标目录不存在 ({destPath})。请确认路径是否正确。");
+            return Task.FromResult($"未找到目标目录: {destPath}。请检查路径是否正确。");
         }
         catch (UnauthorizedAccessException ex)
         {
             Logger.Error("移动文件异常：权限不足", ex, destPath);
-            return Task.FromResult($"移动文件失败: 权限不足，无法访问 ({destPath})。请检查文件权限。");
+            return Task.FromResult($"无法访问路径: {destPath}，权限不足。请检查权限。");
         }
         catch (PathTooLongException ex)
         {
             Logger.Error("移动文件异常：路径过长", ex, destPath);
-            return Task.FromResult($"移动文件失败: 路径过长 ({destPath})。请缩短路径或使用其他路径。");
+            return Task.FromResult($"路径过长: {destPath}。请缩短路径或尝试其他路径。");
         }
         catch (ArgumentException ex)
         {
             Logger.Error("移动文件异常：路径无效", ex, destPath);
-            return Task.FromResult($"移动文件失败: 路径无效 ({destPath})。{ex.Message}");
+            return Task.FromResult($"路径无效: {destPath}。{ex.Message}");
         }
         catch (IOException ex)
         {
             Logger.Error("移动文件异常：IO 错误", ex, destPath);
-            return Task.FromResult($"移动文件失败: IO 错误 ({destPath})。{ex.Message}");
+            return Task.FromResult($"IO 错误: {destPath}。{ex.Message}");
         }
         catch (Exception ex)
         {
             Logger.Error("移动文件异常", ex, destPath);
-            return Task.FromResult($"移动文件失败: {ex.Message}");
+            return Task.FromResult($"操作失败: {ex.Message}");
         }
     }
 
@@ -942,32 +1186,32 @@ public class FileSystemToolGroup
         catch (DirectoryNotFoundException ex)
         {
             Logger.Error("获取信息异常：目录不存在", ex, path);
-            return Task.FromResult($"获取信息失败: 目录不存在 ({path})。请确认路径是否正确。");
+            return Task.FromResult($"未找到目录: {path}。请检查路径是否正确。");
         }
         catch (UnauthorizedAccessException ex)
         {
             Logger.Error("获取信息异常：权限不足", ex, path);
-            return Task.FromResult($"获取信息失败: 权限不足，无法访问 ({path})。请检查文件权限。");
+            return Task.FromResult($"无法访问路径: {path}，权限不足。请检查权限。");
         }
         catch (PathTooLongException ex)
         {
             Logger.Error("获取信息异常：路径过长", ex, path);
-            return Task.FromResult($"获取信息失败: 路径过长 ({path})。请缩短路径或使用其他路径。");
+            return Task.FromResult($"路径过长: {path}。请缩短路径或尝试其他路径。");
         }
         catch (ArgumentException ex)
         {
             Logger.Error("获取信息异常：路径无效", ex, path);
-            return Task.FromResult($"获取信息失败: 路径无效 ({path})。{ex.Message}");
+            return Task.FromResult($"路径无效: {path}。{ex.Message}");
         }
         catch (IOException ex)
         {
             Logger.Error("获取信息异常：IO 错误", ex, path);
-            return Task.FromResult($"获取信息失败: IO 错误 ({path})。{ex.Message}");
+            return Task.FromResult($"IO 错误: {path}。{ex.Message}");
         }
         catch (Exception ex)
         {
             Logger.Error("获取信息异常", ex, path);
-            return Task.FromResult($"获取信息失败: {ex.Message}");
+            return Task.FromResult($"操作失败: {ex.Message}");
         }
     }
 }

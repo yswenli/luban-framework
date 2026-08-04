@@ -194,10 +194,10 @@ public class LuBanAgentFactory : ILuBanAgentFactory, IScoped
     /// <param name="tools">工具列表。</param>
     private static void PrintToolList(List<AITool> tools)
     {
-        ConsoleUtil.WriteLine($"已加载 {tools.Count} 个工具:", color: ConsoleColor.Gray);
+        ConsoleUtil.WriteLine($"已加载 {tools.Count} 个工具:", color: ConsoleColor.DarkGray);
         foreach (var tool in tools)
         {
-            ConsoleUtil.WriteLine($"  - {tool.Name}: {tool.Description}", color: ConsoleColor.Gray);
+            ConsoleUtil.WriteLine($"  - {tool.Name}: {tool.Description}", color: ConsoleColor.DarkGray);
         }
     }
 }

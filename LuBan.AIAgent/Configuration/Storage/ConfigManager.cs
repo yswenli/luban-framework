@@ -584,7 +584,7 @@ public class ConfigManager
         var openAIClient = new OpenAI.OpenAIClient(credential, clientOptions);
         
         var effectiveUrl = baseUrl ?? "https://api.openai.com/v1 (默认)";
-        Logger.Info($"创建 ChatClient: model={modelName}, endpoint={effectiveUrl}");
+        Logger.Info($"创建 ChatClient: model={modelName}, endpoint={effectiveUrl}", ConsoleColor.Yellow);
         
         return openAIClient.GetChatClient(modelName).AsIChatClient();
     }

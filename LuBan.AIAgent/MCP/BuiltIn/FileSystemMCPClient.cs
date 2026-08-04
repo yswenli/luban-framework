@@ -171,7 +171,7 @@ public class FileSystemMCPClient : MCPClientBase
             return Fail($"路径不在允许访问范围内: {path}");
 
         if (!File.Exists(path))
-            return Fail($"文件不存在: {path}");
+            return Fail($"未找到文件: {path}。请检查路径是否正确。");
 
         var fileInfo = new FileInfo(path);
         if (fileInfo.Length > 50 * 1024 * 1024)
@@ -208,7 +208,7 @@ public class FileSystemMCPClient : MCPClientBase
             return Task.FromResult(Fail($"路径不在允许访问范围内: {path}"));
 
         if (!Directory.Exists(path))
-            return Task.FromResult(Fail($"目录不存在: {path}"));
+            return Task.FromResult(Fail($"未找到目录: {path}。请检查路径是否正确。"));
 
         var entries = Directory.EnumerateFileSystemEntries(path)
             .Select(e => Path.GetFileName(e));
