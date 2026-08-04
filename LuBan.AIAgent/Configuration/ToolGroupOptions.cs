@@ -62,4 +62,9 @@ public class ToolGroupOptions
     /// 语义检索工具配置
     /// </summary>
     public RetrievalToolOptions Retrieval { get; set; } = new();
+
+    /// <summary>
+    /// 本地长期记忆工具配置
+    /// </summary>
+    public LocalMemoryOptions LocalMemory { get; set; } = new();
 }

@@ -132,8 +132,8 @@ public class AIAgentTests
 
         var pathGuard = new PathGuard(Options.Create(options));
 
-        Assert.IsTrue(pathGuard.IsAllowed("C:\\Any\\Path\\file.txt"));
-        Assert.IsTrue(pathGuard.IsAllowed("D:\\Any\\Path\\file.txt"));
+        Assert.IsFalse(pathGuard.IsAllowed("C:\\Any\\Path\\file.txt"));
+        Assert.IsFalse(pathGuard.IsAllowed("D:\\Any\\Path\\file.txt"));
     }
 
     [TestMethod]

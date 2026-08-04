@@ -60,6 +60,20 @@ public class DocumentationSkill : SkillBase
     };
 
     /// <summary>
+    /// 自动激活触发关键词
+    /// </summary>
+    public override IEnumerable<string> TriggerKeywords => new[]
+    {
+        "doc",
+        "文档",
+        "readme",
+        "注释",
+        "生成文档",
+        "写文档",
+        "api 文档"
+    };
+
+    /// <summary>
     /// 执行 Skill
     /// </summary>
     public override async Task<SkillResult> ExecuteAsync(SkillContext context, string input)

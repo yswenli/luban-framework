@@ -27,6 +27,7 @@ using Microsoft.Data.SqlClient;
 using MySqlConnector;
 using Npgsql;
 using System.Data.SQLite;
+using LuBan.AIAgent.Abstractions;
 
 namespace LuBan.AIAgent.Tools.Database;
 
@@ -64,15 +65,11 @@ public class DatabaseToolPlugin : ILuBanToolPlugin
     public IReadOnlyList<AIFunction> GetTools(IServiceProvider sp)
     {
         var toolGroup = new DatabaseToolGroup(_options);
-        var tools = new List<AIFunction>();
-
-        foreach (var method in typeof(DatabaseToolGroup).GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly))
+        return new List<AIFunction>
         {
-            var func = AIFunctionFactory.Create(method, toolGroup);
-            tools.Add(func);
-        }
-
-        return tools;
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(DatabaseToolGroup.ExecuteQueryAsync)),
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(DatabaseToolGroup.ExecuteNonQueryAsync))
+        };
     }
 
     /// <summary>
@@ -105,10 +102,10 @@ public class DatabaseToolGroup
     /// <param name="sql">SELECT SQL 语句</param>
     /// <returns>查询结果（JSON 格式）</returns>
     [Description("执行查询 SQL（SELECT），返回结果集")]
-    public async Task<string> ExecuteQueryAsync(string sql)
+    public async Task<ToolResult<string>> ExecuteQueryAsync(string sql)
     {
         if (string.IsNullOrEmpty(_options.ConnectionString))
-            return "错误：未配置数据库连接字符串";
+            return ToolResult.Fail<string>("错误：未配置数据库连接字符串");
 
         try
         {
@@ -138,22 +135,18 @@ public class DatabaseToolGroup
                 results.Add(row);
             }
 
-            return JsonSerializer.Serialize(new
+            return ToolResult.Ok<string>(JsonSerializer.Serialize(new
             {
                 success = true,
                 columns,
                 rows = results,
                 rowCount = results.Count
-            }, new JsonSerializerOptions { WriteIndented = true });
+            }, new JsonSerializerOptions { WriteIndented = true }));
         }
         catch (Exception ex)
         {
             Logger.Error("数据库查询执行失败", ex, sql);
-            return JsonSerializer.Serialize(new
-            {
-                success = false,
-                error = ex.Message
-            });
+            return ToolResult.Fail<string>($"数据库查询执行失败: {ex.Message}");
         }
     }
 
@@ -163,10 +156,10 @@ public class DatabaseToolGroup
     /// <param name="sql">SQL 语句</param>
     /// <returns>执行结果</returns>
     [Description("执行非查询 SQL（INSERT、UPDATE、DELETE、CREATE 等），返回受影响的行数")]
-    public async Task<string> ExecuteNonQueryAsync(string sql)
+    public async Task<ToolResult<string>> ExecuteNonQueryAsync(string sql)
     {
         if (string.IsNullOrEmpty(_options.ConnectionString))
-            return "错误：未配置数据库连接字符串";
+            return ToolResult.Fail<string>("错误：未配置数据库连接字符串");
 
         try
         {
@@ -179,21 +172,17 @@ public class DatabaseToolGroup
 
             var affectedRows = await command.ExecuteNonQueryAsync();
 
-            return JsonSerializer.Serialize(new
+            return ToolResult.Ok<string>(JsonSerializer.Serialize(new
             {
                 success = true,
                 affectedRows,
                 message = $"成功执行，受影响行数：{affectedRows}"
-            });
+            }));
         }
         catch (Exception ex)
         {
             Logger.Error("数据库非查询执行失败", ex, sql);
-            return JsonSerializer.Serialize(new
-            {
-                success = false,
-                error = ex.Message
-            });
+            return ToolResult.Fail<string>($"数据库非查询执行失败: {ex.Message}");
         }
     }
 

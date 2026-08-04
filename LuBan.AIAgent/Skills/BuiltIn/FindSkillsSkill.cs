@@ -60,6 +60,19 @@ public class FindSkillsSkill : SkillBase
     };
 
     /// <summary>
+    /// 自动激活触发关键词
+    /// </summary>
+    public override IEnumerable<string> TriggerKeywords => new[]
+    {
+        "find skill",
+        "找 skill",
+        "技能",
+        "skill",
+        "有什么 skill",
+        "列出 skill"
+    };
+
+    /// <summary>
     /// 执行 Skill
     /// </summary>
     public override async Task<SkillResult> ExecuteAsync(SkillContext context, string input)

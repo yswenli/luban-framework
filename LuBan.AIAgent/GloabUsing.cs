@@ -35,6 +35,7 @@ global using LuBan.AIAgent.Sessions;
 global using LuBan.AIAgent.Skills;
 global using LuBan.AIAgent.Skills.BuiltIn;
 global using LuBan.Common;
+global using LuBan.Common.Http;
 global using LuBan.DI;
 
 global using Microsoft.Agents.AI;
@@ -45,7 +46,9 @@ global using Microsoft.Extensions.Logging;
 global using Microsoft.Extensions.Options;
 global using Microsoft.Playwright;
 
+global using System.Collections.Concurrent;
 global using System.ComponentModel;
+global using System.Diagnostics.CodeAnalysis;
 global using System.Diagnostics;
 global using System.Reflection;
 global using System.Runtime.CompilerServices;

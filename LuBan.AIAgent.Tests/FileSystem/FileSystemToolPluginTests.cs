@@ -1,3 +1,4 @@
+using LuBan.AIAgent.Abstractions;
 using LuBan.AIAgent.Configuration;
 using LuBan.AIAgent.Infrastructure;
 using LuBan.AIAgent.Services;
@@ -40,11 +41,12 @@ public class FileSystemToolPluginTests
             File.WriteAllText(Path.Combine(testDir, "c.txt"), "");
 
             var toolGroup = CreateToolGroup(new List<string> { testDir });
-            var result = await toolGroup.SearchFilesAsync(testDir, "*.cs");
+            ToolResult<string> result = await toolGroup.SearchFilesAsync(testDir, "*.cs");
 
-            Assert.IsTrue(result.Contains("a.cs"));
-            Assert.IsTrue(result.Contains("b.cs"));
-            Assert.IsFalse(result.Contains("c.txt"));
+            Assert.IsTrue(result.IsSuccess);
+            Assert.IsTrue(result.Data!.Contains("a.cs"));
+            Assert.IsTrue(result.Data!.Contains("b.cs"));
+            Assert.IsFalse(result.Data!.Contains("c.txt"));
         }
         finally
         {
@@ -64,11 +66,12 @@ public class FileSystemToolPluginTests
             File.WriteAllText(Path.Combine(testDir, "sub1", "deep", "c.cs"), "");
 
             var toolGroup = CreateToolGroup(new List<string> { testDir });
-            var result = await toolGroup.SearchFilesAsync(testDir, "**/*.cs");
+            ToolResult<string> result = await toolGroup.SearchFilesAsync(testDir, "**/*.cs");
 
-            Assert.IsTrue(result.Contains("a.cs"));
-            Assert.IsTrue(result.Contains("b.cs"));
-            Assert.IsTrue(result.Contains("c.cs"));
+            Assert.IsTrue(result.IsSuccess);
+            Assert.IsTrue(result.Data!.Contains("a.cs"));
+            Assert.IsTrue(result.Data!.Contains("b.cs"));
+            Assert.IsTrue(result.Data!.Contains("c.cs"));
         }
         finally
         {
@@ -88,11 +91,12 @@ public class FileSystemToolPluginTests
             File.WriteAllBytes(Path.Combine(testDir, "c.png"), new byte[] { 1, 2, 3 });
 
             var toolGroup = CreateToolGroup(new List<string> { testDir });
-            var result = await toolGroup.SearchFilesAsync(testDir, "*");
+            ToolResult<string> result = await toolGroup.SearchFilesAsync(testDir, "*");
 
-            Assert.IsTrue(result.Contains("a.cs"));
-            Assert.IsFalse(result.Contains("b.dll"));
-            Assert.IsFalse(result.Contains("c.png"));
+            Assert.IsTrue(result.IsSuccess);
+            Assert.IsTrue(result.Data!.Contains("a.cs"));
+            Assert.IsFalse(result.Data!.Contains("b.dll"));
+            Assert.IsFalse(result.Data!.Contains("c.png"));
         }
         finally
         {
@@ -111,9 +115,10 @@ public class FileSystemToolPluginTests
                 File.WriteAllText(Path.Combine(testDir, $"file{i}.cs"), "");
 
             var toolGroup = CreateToolGroup(new List<string> { testDir });
-            var result = await toolGroup.SearchFilesAsync(testDir, "*.cs", maxResults: 3);
+            ToolResult<string> result = await toolGroup.SearchFilesAsync(testDir, "*.cs", maxResults: 3);
 
-            var lines = result.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            Assert.IsTrue(result.IsSuccess);
+            var lines = result.Data!.Split('\n', StringSplitOptions.RemoveEmptyEntries);
             Assert.IsTrue(lines.Length <= 4);
         }
         finally
@@ -126,10 +131,11 @@ public class FileSystemToolPluginTests
     public async Task SearchFilesAsync_PathNotAllowed_ReturnsError()
     {
         var toolGroup = CreateToolGroup(new List<string> { @"C:\Allowed" });
-        var result = await toolGroup.SearchFilesAsync(@"C:\NotAllowed", "*.cs");
+        ToolResult<string> result = await toolGroup.SearchFilesAsync(@"C:\NotAllowed", "*.cs");
 
-        Assert.IsTrue(result.Contains("错误"));
-        Assert.IsTrue(result.Contains("不在允许访问的范围内"));
+        Assert.IsFalse(result.IsSuccess);
+        Assert.IsTrue(result.Message!.Contains("错误"));
+        Assert.IsTrue(result.Message!.Contains("不在允许访问的范围内"));
     }
 
     [TestMethod]
@@ -143,11 +149,12 @@ public class FileSystemToolPluginTests
             File.WriteAllText(Path.Combine(testDir, "b.cs"), "no match here");
 
             var toolGroup = CreateToolGroup(new List<string> { testDir });
-            var result = await toolGroup.GrepAsync(testDir, "class\\s+\\w+");
+            ToolResult<string> result = await toolGroup.GrepAsync(testDir, "class\\s+\\w+");
 
-            Assert.IsTrue(result.Contains("FooBar"));
-            Assert.IsTrue(result.Contains("Baz"));
-            Assert.IsFalse(result.Contains("no match"));
+            Assert.IsTrue(result.IsSuccess);
+            Assert.IsTrue(result.Data!.Contains("FooBar"));
+            Assert.IsTrue(result.Data!.Contains("Baz"));
+            Assert.IsFalse(result.Data!.Contains("no match"));
         }
         finally
         {
@@ -166,10 +173,11 @@ public class FileSystemToolPluginTests
             File.WriteAllText(Path.Combine(testDir, "b.txt"), "TODO: fix this too");
 
             var toolGroup = CreateToolGroup(new List<string> { testDir });
-            var result = await toolGroup.GrepAsync(testDir, "TODO", filePattern: "*.cs");
+            ToolResult<string> result = await toolGroup.GrepAsync(testDir, "TODO", filePattern: "*.cs");
 
-            Assert.IsTrue(result.Contains("a.cs"));
-            Assert.IsFalse(result.Contains("b.txt"));
+            Assert.IsTrue(result.IsSuccess);
+            Assert.IsTrue(result.Data!.Contains("a.cs"));
+            Assert.IsFalse(result.Data!.Contains("b.txt"));
         }
         finally
         {
@@ -188,9 +196,10 @@ public class FileSystemToolPluginTests
                 File.WriteAllText(Path.Combine(testDir, $"file{i}.cs"), "match line 1\nmatch line 2");
 
             var toolGroup = CreateToolGroup(new List<string> { testDir });
-            var result = await toolGroup.GrepAsync(testDir, "match", maxResults: 5);
+            ToolResult<string> result = await toolGroup.GrepAsync(testDir, "match", maxResults: 5);
 
-            Assert.IsTrue(result.Contains("已截断"));
+            Assert.IsTrue(result.IsSuccess);
+            Assert.IsTrue(result.Data!.Contains("已截断"));
         }
         finally
         {
@@ -202,10 +211,11 @@ public class FileSystemToolPluginTests
     public async Task GrepAsync_PathNotAllowed_ReturnsError()
     {
         var toolGroup = CreateToolGroup(new List<string> { @"C:\Allowed" });
-        var result = await toolGroup.GrepAsync(@"C:\NotAllowed", "pattern");
+        ToolResult<string> result = await toolGroup.GrepAsync(@"C:\NotAllowed", "pattern");
 
-        Assert.IsTrue(result.Contains("错误"));
-        Assert.IsTrue(result.Contains("不在允许访问的范围内"));
+        Assert.IsFalse(result.IsSuccess);
+        Assert.IsTrue(result.Message!.Contains("错误"));
+        Assert.IsTrue(result.Message!.Contains("不在允许访问的范围内"));
     }
 
     [TestMethod]
@@ -215,9 +225,10 @@ public class FileSystemToolPluginTests
         try
         {
             var toolGroup = CreateToolGroup(new List<string> { Path.GetTempPath() });
-            var result = await toolGroup.CreateDirectoryAsync(Path.Combine(testDir, "sub", "deep"));
+            ToolResult<string> result = await toolGroup.CreateDirectoryAsync(Path.Combine(testDir, "sub", "deep"));
 
-            Assert.IsTrue(result.Contains("已创建目录"));
+            Assert.IsTrue(result.IsSuccess);
+            Assert.IsTrue(result.Data!.Contains("已创建目录"));
             Assert.IsTrue(Directory.Exists(Path.Combine(testDir, "sub", "deep")));
         }
         finally
@@ -235,9 +246,10 @@ public class FileSystemToolPluginTests
         try
         {
             var toolGroup = CreateToolGroup(new List<string> { testDir });
-            var result = await toolGroup.CreateDirectoryAsync(testDir);
+            ToolResult<string> result = await toolGroup.CreateDirectoryAsync(testDir);
 
-            Assert.IsTrue(result.Contains("目录已存在"));
+            Assert.IsTrue(result.IsSuccess);
+            Assert.IsTrue(result.Data!.Contains("目录已存在"));
         }
         finally
         {
@@ -249,10 +261,11 @@ public class FileSystemToolPluginTests
     public async Task CreateDirectoryAsync_PathNotAllowed_ReturnsError()
     {
         var toolGroup = CreateToolGroup(new List<string> { @"C:\Allowed" });
-        var result = await toolGroup.CreateDirectoryAsync(@"C:\NotAllowed\dir");
+        ToolResult<string> result = await toolGroup.CreateDirectoryAsync(@"C:\NotAllowed\dir");
 
-        Assert.IsTrue(result.Contains("错误"));
-        Assert.IsTrue(result.Contains("不在允许访问的范围内"));
+        Assert.IsFalse(result.IsSuccess);
+        Assert.IsTrue(result.Message!.Contains("错误"));
+        Assert.IsTrue(result.Message!.Contains("不在允许访问的范围内"));
     }
 
     [TestMethod]
@@ -267,9 +280,10 @@ public class FileSystemToolPluginTests
             File.WriteAllText(source, "test content");
 
             var toolGroup = CreateToolGroup(new List<string> { testDir });
-            var result = await toolGroup.CopyFileAsync(source, dest);
+            ToolResult<string> result = await toolGroup.CopyFileAsync(source, dest);
 
-            Assert.IsTrue(result.Contains("已复制文件"));
+            Assert.IsTrue(result.IsSuccess);
+            Assert.IsTrue(result.Data!.Contains("已复制文件"));
             Assert.IsTrue(File.Exists(dest));
             Assert.AreEqual("test content", File.ReadAllText(dest));
         }
@@ -290,9 +304,10 @@ public class FileSystemToolPluginTests
             var dest = Path.Combine(testDir, "dest.txt");
 
             var toolGroup = CreateToolGroup(new List<string> { testDir });
-            var result = await toolGroup.CopyFileAsync(source, dest);
+            ToolResult<string> result = await toolGroup.CopyFileAsync(source, dest);
 
-            Assert.IsTrue(result.Contains("错误"));
+            Assert.IsFalse(result.IsSuccess);
+            Assert.IsTrue(result.Message!.Contains("错误"));
         }
         finally
         {
@@ -304,10 +319,11 @@ public class FileSystemToolPluginTests
     public async Task CopyFileAsync_PathNotAllowed_ReturnsError()
     {
         var toolGroup = CreateToolGroup(new List<string> { @"C:\Allowed" });
-        var result = await toolGroup.CopyFileAsync(@"C:\NotAllowed\source.txt", @"C:\Allowed\dest.txt");
+        ToolResult<string> result = await toolGroup.CopyFileAsync(@"C:\NotAllowed\source.txt", @"C:\Allowed\dest.txt");
 
-        Assert.IsTrue(result.Contains("错误"));
-        Assert.IsTrue(result.Contains("不在允许访问的范围内"));
+        Assert.IsFalse(result.IsSuccess);
+        Assert.IsTrue(result.Message!.Contains("错误"));
+        Assert.IsTrue(result.Message!.Contains("不在允许访问的范围内"));
     }
 
     [TestMethod]
@@ -322,9 +338,10 @@ public class FileSystemToolPluginTests
             File.WriteAllText(source, "test content");
 
             var toolGroup = CreateToolGroup(new List<string> { testDir });
-            var result = await toolGroup.MoveFileAsync(source, dest);
+            ToolResult<string> result = await toolGroup.MoveFileAsync(source, dest);
 
-            Assert.IsTrue(result.Contains("已移动文件"));
+            Assert.IsTrue(result.IsSuccess);
+            Assert.IsTrue(result.Data!.Contains("已移动文件"));
             Assert.IsFalse(File.Exists(source));
             Assert.IsTrue(File.Exists(dest));
             Assert.AreEqual("test content", File.ReadAllText(dest));
@@ -348,9 +365,10 @@ public class FileSystemToolPluginTests
             File.WriteAllText(dest, "dest content");
 
             var toolGroup = CreateToolGroup(new List<string> { testDir });
-            var result = await toolGroup.MoveFileAsync(source, dest);
+            ToolResult<string> result = await toolGroup.MoveFileAsync(source, dest);
 
-            Assert.IsTrue(result.Contains("错误"));
+            Assert.IsFalse(result.IsSuccess);
+            Assert.IsTrue(result.Message!.Contains("错误"));
         }
         finally
         {
@@ -362,10 +380,11 @@ public class FileSystemToolPluginTests
     public async Task MoveFileAsync_PathNotAllowed_ReturnsError()
     {
         var toolGroup = CreateToolGroup(new List<string> { @"C:\Allowed" });
-        var result = await toolGroup.MoveFileAsync(@"C:\NotAllowed\source.txt", @"C:\Allowed\dest.txt");
+        ToolResult<string> result = await toolGroup.MoveFileAsync(@"C:\NotAllowed\source.txt", @"C:\Allowed\dest.txt");
 
-        Assert.IsTrue(result.Contains("错误"));
-        Assert.IsTrue(result.Contains("不在允许访问的范围内"));
+        Assert.IsFalse(result.IsSuccess);
+        Assert.IsTrue(result.Message!.Contains("错误"));
+        Assert.IsTrue(result.Message!.Contains("不在允许访问的范围内"));
     }
 
     [TestMethod]
@@ -379,11 +398,12 @@ public class FileSystemToolPluginTests
             File.WriteAllText(file, "test content");
 
             var toolGroup = CreateToolGroup(new List<string> { testDir });
-            var result = await toolGroup.GetFileInfoAsync(file);
+            ToolResult<string> result = await toolGroup.GetFileInfoAsync(file);
 
-            Assert.IsTrue(result.Contains("文件:"));
-            Assert.IsTrue(result.Contains("大小:"));
-            Assert.IsTrue(result.Contains(".cs"));
+            Assert.IsTrue(result.IsSuccess);
+            Assert.IsTrue(result.Data!.Contains("文件:"));
+            Assert.IsTrue(result.Data!.Contains("大小:"));
+            Assert.IsTrue(result.Data!.Contains(".cs"));
         }
         finally
         {
@@ -403,11 +423,12 @@ public class FileSystemToolPluginTests
             Directory.CreateDirectory(Path.Combine(testDir, "sub"));
 
             var toolGroup = CreateToolGroup(new List<string> { testDir });
-            var result = await toolGroup.GetFileInfoAsync(testDir);
+            ToolResult<string> result = await toolGroup.GetFileInfoAsync(testDir);
 
-            Assert.IsTrue(result.Contains("目录:"));
-            Assert.IsTrue(result.Contains("文件数:"));
-            Assert.IsTrue(result.Contains("子目录数:"));
+            Assert.IsTrue(result.IsSuccess);
+            Assert.IsTrue(result.Data!.Contains("目录:"));
+            Assert.IsTrue(result.Data!.Contains("文件数:"));
+            Assert.IsTrue(result.Data!.Contains("子目录数:"));
         }
         finally
         {
@@ -423,9 +444,10 @@ public class FileSystemToolPluginTests
         try
         {
             var toolGroup = CreateToolGroup(new List<string> { testDir });
-            var result = await toolGroup.GetFileInfoAsync(Path.Combine(testDir, "notexist"));
+            ToolResult<string> result = await toolGroup.GetFileInfoAsync(Path.Combine(testDir, "notexist"));
 
-            Assert.IsTrue(result.Contains("错误") || result.Contains("不存在"));
+            Assert.IsFalse(result.IsSuccess);
+            Assert.IsTrue(result.Message!.Contains("错误") || result.Message!.Contains("不存在"));
         }
         finally
         {
@@ -437,10 +459,11 @@ public class FileSystemToolPluginTests
     public async Task GetFileInfoAsync_PathNotAllowed_ReturnsError()
     {
         var toolGroup = CreateToolGroup(new List<string> { @"C:\Allowed" });
-        var result = await toolGroup.GetFileInfoAsync(@"C:\NotAllowed\file.txt");
+        ToolResult<string> result = await toolGroup.GetFileInfoAsync(@"C:\NotAllowed\file.txt");
 
-        Assert.IsTrue(result.Contains("错误"));
-        Assert.IsTrue(result.Contains("不在允许访问的范围内"));
+        Assert.IsFalse(result.IsSuccess);
+        Assert.IsTrue(result.Message!.Contains("错误"));
+        Assert.IsTrue(result.Message!.Contains("不在允许访问的范围内"));
     }
 
     [TestMethod]
@@ -463,6 +486,6 @@ public class FileSystemToolPluginTests
 
         var tools = plugin.GetTools(sp);
 
-        Assert.AreEqual(11, tools.Count);
+        Assert.AreEqual(12, tools.Count);
     }
 }

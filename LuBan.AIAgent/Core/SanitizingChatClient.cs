@@ -194,6 +194,7 @@ public class SanitizingChatClient : IChatClient
     {
         if (result.Result == null) return true;
         if (result.Result is string s) return string.IsNullOrWhiteSpace(s);
+        if (result.Result is ToolResult tr) return !tr.IsSuccess || tr.Message == null;
         return false;
     }
 

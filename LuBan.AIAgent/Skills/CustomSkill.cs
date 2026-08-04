@@ -68,6 +68,11 @@ public class CustomSkill : ISkill
     public IEnumerable<string> Examples => _config.Examples;
 
     /// <summary>
+    /// Skill 自动激活触发关键词
+    /// </summary>
+    public IEnumerable<string> TriggerKeywords => _config.TriggerKeywords;
+
+    /// <summary>
     /// Skill 的提示词模板内容
     /// </summary>
     public string? PromptTemplate => _config.PromptTemplate;

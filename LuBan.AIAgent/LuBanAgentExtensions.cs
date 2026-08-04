@@ -23,8 +23,11 @@
 *****************************************************************************/
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using LuBan.AIAgent.LocalMemory;
+using Microsoft.Extensions.Options;
 
 namespace LuBan.AIAgent;
+
 
 /// <summary>
 /// LuBan Agent 服务集合扩展
@@ -52,6 +55,7 @@ public static class LuBanAgentExtensions
         services.AddSingleton<ILuBanToolPlugin, Tools.Redis.RedisToolPlugin>();
         services.AddSingleton<ILuBanToolPlugin, Tools.Web.WebToolPlugin>();
         services.AddSingleton<ILuBanToolPlugin, Tools.Retrieval.RetrievalToolPlugin>();
+        services.AddSingleton<ILuBanToolPlugin, Tools.LocalMemory.LocalMemoryToolPlugin>();
         services.AddSingleton<ILuBanToolPlugin, MCP.MCPToolPlugin>();
 
         LoadExternalPlugins(services, configuration);
@@ -83,6 +87,21 @@ public static class LuBanAgentExtensions
         services.AddScoped<PlaywrightSession>();
         services.AddSingleton<ProcessRunner>();
         services.AddSingleton<PathGuard>();
+
+        // 注册本地长期记忆（SQLite + 本地 Embedding，可选依赖 IEmbeddingGenerator）
+        services.Configure<LocalMemoryOptions>(configuration.GetSection("LuBanAgent:Tools:LocalMemory"));
+        services.AddSingleton<ILocalMemoryStore>(sp =>
+        {
+            var opts = sp.GetRequiredService<IOptions<LocalMemoryOptions>>().Value;
+            var dbPath = opts.DatabasePath;
+            if (string.IsNullOrWhiteSpace(dbPath))
+            {
+                var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+                dbPath = Path.Combine(appData, "LuBan", "AIAgent", "localmemory.db");
+            }
+            return new SqliteLocalMemoryStore(dbPath);
+        });
+        services.AddSingleton<ILocalMemoryService, LocalMemoryService>();
 
         // ===== Orchestration 子系统注册 =====
         // ContextStore 纯内存线程安全字典，可 Singleton

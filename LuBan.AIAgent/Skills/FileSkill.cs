@@ -17,6 +17,7 @@ public class FileSkill : ISkill
     public string Description => _config.Description;
     public string Category => _config.Category;
     public IEnumerable<string> Examples => _config.Examples;
+    public IEnumerable<string> TriggerKeywords => _config.TriggerKeywords;
     public string? PromptTemplate => _config.PromptTemplate;
     public string SourcePath => _config.SourcePath;
 
@@ -44,5 +45,6 @@ public class FileSkillConfig
     public string Category { get; set; } = "custom";
     public string PromptTemplate { get; set; } = "";
     public List<string> Examples { get; set; } = new();
+    public List<string> TriggerKeywords { get; set; } = new();
     public string SourcePath { get; set; } = "";
 }

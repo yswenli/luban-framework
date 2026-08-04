@@ -55,6 +55,12 @@ public interface ISkill
     IEnumerable<string> Examples { get; }
 
     /// <summary>
+    /// Skill 自动激活触发关键词（可选）。当用户输入包含这些关键词时，
+    /// 系统可自动激活该 Skill，无需手动 /skill -switch。
+    /// </summary>
+    IEnumerable<string> TriggerKeywords { get; }
+
+    /// <summary>
     /// Skill 的提示词模板内容（SKILL.md 正文或内置 Skill 的系统指令）。
     /// 用于在对话中激活时注入到 SystemPrompt。null 表示该 Skill 不支持直接注入。
     /// </summary>

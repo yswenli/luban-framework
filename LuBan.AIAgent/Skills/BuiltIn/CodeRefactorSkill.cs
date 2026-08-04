@@ -61,6 +61,20 @@ public class CodeRefactorSkill : SkillBase
     };
 
     /// <summary>
+    /// 自动激活触发关键词
+    /// </summary>
+    public override IEnumerable<string> TriggerKeywords => new[]
+    {
+        "refactor",
+        "重构",
+        "优化代码",
+        "改结构",
+        "消除重复",
+        "拆分",
+        "设计模式"
+    };
+
+    /// <summary>
     /// 执行 Skill
     /// </summary>
     public override async Task<SkillResult> ExecuteAsync(SkillContext context, string input)

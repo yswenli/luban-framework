@@ -21,6 +21,8 @@
 *描述：浏览器工具插件
 *
 *****************************************************************************/
+using LuBan.AIAgent.Abstractions;
+
 namespace LuBan.AIAgent.Tools.Browser;
 
 /// <summary>
@@ -58,15 +60,16 @@ public class BrowserToolPlugin : ILuBanToolPlugin
     {
         var session = sp.GetRequiredService<PlaywrightSession>();
         var toolGroup = new BrowserToolGroup(session);
-        var tools = new List<AIFunction>();
-
-        foreach (var method in typeof(BrowserToolGroup).GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly))
+        return new List<AIFunction>
         {
-            var func = AIFunctionFactory.Create(method, toolGroup);
-            tools.Add(func);
-        }
-
-        return tools;
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(BrowserToolGroup.NavigateAsync)),
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(BrowserToolGroup.ClickAsync)),
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(BrowserToolGroup.TypeTextAsync)),
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(BrowserToolGroup.ScreenshotAsync)),
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(BrowserToolGroup.GetContentAsync)),
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(BrowserToolGroup.WaitForSelectorAsync)),
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(BrowserToolGroup.GetCurrentUrlAsync))
+        };
     }
 
     /// <summary>
@@ -99,21 +102,21 @@ public class BrowserToolGroup
     /// <param name="url">目标 URL</param>
     /// <returns>导航结果</returns>
     [Description("导航到指定 URL")]
-    public async Task<string> NavigateAsync(string url)
+    public async Task<ToolResult<string>> NavigateAsync(string url)
     {
         if (!IsValidHttpUrl(url))
-            return $"无效的 URL: {url}。仅支持 http:// 和 https:// 协议。";
+            return ToolResult.Fail<string>($"无效的 URL: {url}。仅支持 http:// 和 https:// 协议。");
 
         // 第一次尝试：NetworkIdle（等待网络完全空闲），失败时不记录错误日志（降级重试会决定是否记录）
         var (ok, msg) = await TryNavigateAsync(url, 30000, Microsoft.Playwright.WaitUntilState.NetworkIdle, logOnError: false);
-        if (ok) return msg!;
+        if (ok) return ToolResult.Ok<string>(msg!);
 
         // NetworkIdle 失败时降级为 DOMContentLoaded（仅等待 DOM 加载完成）
         Logger.Warn($"浏览器导航 NetworkIdle 失败，降级为 DOMContentLoaded 重试: {url}");
         (ok, msg) = await TryNavigateAsync(url, 15000, Microsoft.Playwright.WaitUntilState.DOMContentLoaded);
-        if (ok) return msg!;
+        if (ok) return ToolResult.Ok<string>(msg!);
 
-        return msg!;
+        return ToolResult.Fail<string>(msg!);
     }
 
     /// <summary>
@@ -196,7 +199,7 @@ public class BrowserToolGroup
     /// <param name="selector">CSS 选择器</param>
     /// <returns>点击结果</returns>
     [Description("点击页面元素，使用 CSS 选择器定位元素")]
-    public async Task<string> ClickAsync(string selector)
+    public async Task<ToolResult<string>> ClickAsync(string selector)
     {
         try
         {
@@ -205,17 +208,17 @@ public class BrowserToolGroup
             {
                 Timeout = 10000
             });
-            return $"已成功点击元素: {selector}";
+            return ToolResult.Ok<string>($"已成功点击元素: {selector}");
         }
         catch (Microsoft.Playwright.PlaywrightException ex)
         {
             Logger.Error("浏览器点击 Playwright 异常", ex, selector);
-            return $"点击失败: {ex.Message}\n元素选择器: {selector}";
+            return ToolResult.Fail<string>($"点击失败: {ex.Message}\n元素选择器: {selector}");
         }
         catch (Exception ex)
         {
             Logger.Error("浏览器点击异常", ex, selector);
-            return $"点击失败: {ex.Message}";
+            return ToolResult.Fail<string>($"点击失败: {ex.Message}");
         }
     }
 
@@ -226,7 +229,7 @@ public class BrowserToolGroup
     /// <param name="text">要输入的文本</param>
     /// <returns>输入结果</returns>
     [Description("在输入框中输入文本，使用 CSS 选择器定位输入框")]
-    public async Task<string> TypeTextAsync(string selector, string text)
+    public async Task<ToolResult<string>> TypeTextAsync(string selector, string text)
     {
         try
         {
@@ -235,17 +238,17 @@ public class BrowserToolGroup
             {
                 Timeout = 10000
             });
-            return $"已在元素 {selector} 中成功输入文本: {text}";
+            return ToolResult.Ok<string>($"已在元素 {selector} 中成功输入文本: {text}");
         }
         catch (Microsoft.Playwright.PlaywrightException ex)
         {
             Logger.Error("浏览器输入 Playwright 异常", ex, selector, text);
-            return $"输入失败: {ex.Message}\n元素选择器: {selector}";
+            return ToolResult.Fail<string>($"输入失败: {ex.Message}\n元素选择器: {selector}");
         }
         catch (Exception ex)
         {
             Logger.Error("浏览器输入异常", ex, selector, text);
-            return $"输入失败: {ex.Message}";
+            return ToolResult.Fail<string>($"输入失败: {ex.Message}");
         }
     }
 
@@ -255,10 +258,10 @@ public class BrowserToolGroup
     /// <param name="path">截图保存路径（可选）</param>
     /// <returns>截图结果（base64 编码）</returns>
     [Description("截取页面截图，返回 base64 编码的图片数据")]
-    public async Task<string> ScreenshotAsync(string? path = null)
+    public async Task<ToolResult<string>> ScreenshotAsync(string? path = null)
     {
         if (!string.IsNullOrEmpty(path) && !LuBan.AIAgent.Infrastructure.PathGuard.IsPathSafe(path))
-            return $"截图路径不安全: {path}";
+            return ToolResult.Fail<string>($"截图路径不安全: {path}");
 
         try
         {
@@ -276,17 +279,17 @@ public class BrowserToolGroup
                 base64 = base64.Substring(0, 100 * 1024) + "\n\n[截图数据已截断]";
             }
             
-            return $"截图成功，Base64 数据:\n{base64}";
+            return ToolResult.Ok<string>($"截图成功，Base64 数据:\n{base64}");
         }
         catch (Microsoft.Playwright.PlaywrightException ex)
         {
             Logger.Error("浏览器截图 Playwright 异常", ex, path ?? "");
-            return $"截图失败: {ex.Message}";
+            return ToolResult.Fail<string>($"截图失败: {ex.Message}");
         }
         catch (Exception ex)
         {
             Logger.Error("浏览器截图异常", ex, path ?? "");
-            return $"截图失败: {ex.Message}";
+            return ToolResult.Fail<string>($"截图失败: {ex.Message}");
         }
     }
 
@@ -296,7 +299,7 @@ public class BrowserToolGroup
     /// <param name="selector">CSS 选择器（可选）</param>
     /// <returns>页面内容</returns>
     [Description("获取页面 HTML 内容或指定元素的文本内容")]
-    public async Task<string> GetContentAsync(string? selector = null)
+    public async Task<ToolResult<string>> GetContentAsync(string? selector = null)
     {
         try
         {
@@ -312,7 +315,7 @@ public class BrowserToolGroup
                     content = content.Substring(0, maxContentLength) + "\n\n[页面内容已截断，请使用 CSS 选择器获取特定元素内容]";
                 }
                 
-                return $"页面内容:\n{content}";
+                return ToolResult.Ok<string>($"页面内容:\n{content}");
             }
             var text = await page.Locator(selector).TextContentAsync();
             
@@ -323,17 +326,17 @@ public class BrowserToolGroup
                 text = text.Substring(0, maxTextLength) + "\n\n[元素内容已截断]";
             }
             
-            return $"元素 {selector} 的文本内容:\n{text ?? "(空)"}";
+            return ToolResult.Ok<string>($"元素 {selector} 的文本内容:\n{text ?? "(空)"}");
         }
         catch (Microsoft.Playwright.PlaywrightException ex)
         {
             Logger.Error("浏览器获取内容 Playwright 异常", ex, selector ?? "");
-            return $"获取内容失败: {ex.Message}";
+            return ToolResult.Fail<string>($"获取内容失败: {ex.Message}");
         }
         catch (Exception ex)
         {
             Logger.Error("浏览器获取内容异常", ex, selector ?? "");
-            return $"获取内容失败: {ex.Message}";
+            return ToolResult.Fail<string>($"获取内容失败: {ex.Message}");
         }
     }
 
@@ -344,7 +347,7 @@ public class BrowserToolGroup
     /// <param name="timeout">超时时间（毫秒）</param>
     /// <returns>等待结果</returns>
     [Description("等待指定元素出现在页面上")]
-    public async Task<string> WaitForSelectorAsync(string selector, int timeout = 10000)
+    public async Task<ToolResult<string>> WaitForSelectorAsync(string selector, int timeout = 10000)
     {
         try
         {
@@ -353,17 +356,17 @@ public class BrowserToolGroup
             {
                 Timeout = timeout
             });
-            return $"元素 {selector} 已出现";
+            return ToolResult.Ok<string>($"元素 {selector} 已出现");
         }
         catch (Microsoft.Playwright.PlaywrightException ex)
         {
             Logger.Error("浏览器等待元素 Playwright 异常", ex, selector, timeout);
-            return $"等待元素超时: {ex.Message}\n元素选择器: {selector}";
+            return ToolResult.Fail<string>($"等待元素超时: {ex.Message}\n元素选择器: {selector}");
         }
         catch (Exception ex)
         {
             Logger.Error("浏览器等待元素异常", ex, selector, timeout);
-            return $"等待元素失败: {ex.Message}";
+            return ToolResult.Fail<string>($"等待元素失败: {ex.Message}");
         }
     }
 
@@ -372,18 +375,18 @@ public class BrowserToolGroup
     /// </summary>
     /// <returns>当前 URL</returns>
     [Description("获取当前页面的 URL")]
-    public async Task<string> GetCurrentUrlAsync()
+    public async Task<ToolResult<string>> GetCurrentUrlAsync()
     {
         try
         {
             var page = await _session.GetPageAsync();
             var url = page.Url;
-            return $"当前页面 URL: {url}";
+            return ToolResult.Ok<string>($"当前页面 URL: {url}");
         }
         catch (Exception ex)
         {
             Logger.Error("浏览器获取URL异常", ex);
-            return $"获取 URL 失败: {ex.Message}";
+            return ToolResult.Fail<string>($"获取 URL 失败: {ex.Message}");
         }
     }
 

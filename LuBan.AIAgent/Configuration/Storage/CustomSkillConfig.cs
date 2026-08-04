@@ -59,6 +59,11 @@ public class CustomSkillConfig
     public List<string> Examples { get; set; } = new();
 
     /// <summary>
+    /// 自动激活触发关键词列表
+    /// </summary>
+    public List<string> TriggerKeywords { get; set; } = new();
+
+    /// <summary>
     /// 是否启用
     /// </summary>
     public bool Enabled { get; set; } = true;

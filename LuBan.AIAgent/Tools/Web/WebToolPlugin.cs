@@ -57,15 +57,10 @@ public class WebToolPlugin : ILuBanToolPlugin
     public IReadOnlyList<AIFunction> GetTools(IServiceProvider sp)
     {
         var toolGroup = new WebToolGroup(_options);
-        var tools = new List<AIFunction>();
-
-        foreach (var method in typeof(WebToolGroup).GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly))
+        return new List<AIFunction>
         {
-            var func = AIFunctionFactory.Create(method, toolGroup);
-            tools.Add(func);
-        }
-
-        return tools;
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(WebToolGroup.FetchUrlAsync))
+        };
     }
 
     /// <summary>
@@ -79,10 +74,9 @@ public class WebToolPlugin : ILuBanToolPlugin
 /// <summary>
 /// Web 工具分组
 /// </summary>
-public class WebToolGroup : IDisposable
+public class WebToolGroup
 {
     private readonly WebToolOptions _options;
-    private readonly HttpClient _httpClient;
 
     /// <summary>
     /// 创建 WebToolGroup 实例
@@ -91,7 +85,6 @@ public class WebToolGroup : IDisposable
     public WebToolGroup(WebToolOptions options)
     {
         _options = options;
-        _httpClient = new HttpClient();
     }
 
     /// <summary>
@@ -100,63 +93,48 @@ public class WebToolGroup : IDisposable
     /// <param name="url">目标 URL</param>
     /// <returns>页面内容</returns>
     [Description("获取 URL 内容")]
-    public async Task<string> FetchUrlAsync(string url)
+    public async Task<ToolResult<string>> FetchUrlAsync(string url)
     {
         if (!IsValidHttpUrl(url))
-            return JsonSerializer.Serialize(new { statusCode = 0, content = $"无效的 URL: {url}。仅支持 http:// 和 https:// 协议，且不允许访问内网地址。" });
+            return ToolResult.Fail<string>($"无效的 URL: {url}。仅支持 http:// 和 https:// 协议，且不允许访问内网地址。");
 
-        using var cts = new CancellationTokenSource(30000);
         try
         {
-            var response = await _httpClient.GetAsync(url, cts.Token);
-            var content = await response.Content.ReadAsStringAsync(cts.Token);
+            var uri = new Uri(url);
+            // 使用 origin 作为 base，共享同一主机的 HttpClient；保留路径和查询作为 resource
+            var baseUri = new Uri(uri.GetLeftPart(UriPartial.Authority) + "/");
+            var resource = uri.PathAndQuery.TrimStart('/');
+
+            var proxy = HttpClientProxy.Create(baseUri, timeout: 30, useLog: true);
+            var bytes = await proxy.GetBytesAsync(resource, timeout: 30);
+            var content = Encoding.UTF8.GetString(bytes);
 
             if (content.Length > _options.MaxCharacters)
             {
                 content = content.Substring(0, _options.MaxCharacters) + "\n\n[内容已截断]";
             }
 
-            return JsonSerializer.Serialize(new
-            {
-                statusCode = (int)response.StatusCode,
-                content = content
-            });
+            return ToolResult.Ok(content, $"statusCode=200; url={url}");
         }
         catch (OperationCanceledException ex)
         {
             Logger.Error("获取 URL 异常：请求超时", ex, url);
-            return JsonSerializer.Serialize(new
-            {
-                statusCode = 0,
-                content = $"请求超时（30 秒）: {url}\n建议: 该站点响应过慢或不可达，请尝试更换 URL 或使用搜索引擎获取信息。"
-            });
+            return ToolResult.Fail<string>($"请求超时（30 秒）: {url}\n建议: 该站点响应过慢或不可达，请尝试更换 URL 或使用搜索引擎获取信息。");
         }
         catch (HttpRequestException ex)
         {
             Logger.Error("获取 URL 异常：HTTP 请求失败", ex, url);
-            return JsonSerializer.Serialize(new
-            {
-                statusCode = 0,
-                content = BuildHttpRequestErrorMessage(ex, url)
-            });
+            return ToolResult.Fail<string>(BuildHttpRequestErrorMessage(ex, url), ((int?)ex.StatusCode ?? 0).ToString());
         }
         catch (IOException ex)
         {
             Logger.Error("获取 URL 异常：内容读取失败", ex, url);
-            return JsonSerializer.Serialize(new
-            {
-                statusCode = 0,
-                content = $"读取 URL 内容失败: {url}\n错误: {ex.Message}\n建议: 请尝试更换 URL 或使用搜索引擎获取信息。"
-            });
+            return ToolResult.Fail<string>($"读取 URL 内容失败: {url}\n错误: {ex.Message}\n建议: 请尝试更换 URL 或使用搜索引擎获取信息。");
         }
         catch (Exception ex)
         {
             Logger.Error("获取 URL 异常", ex, url);
-            return JsonSerializer.Serialize(new
-            {
-                statusCode = 0,
-                content = $"获取 URL 失败: {url}\n错误: {ex.Message}"
-            });
+            return ToolResult.Fail<string>($"获取 URL 失败: {url}\n错误: {ex.Message}");
         }
     }
 
@@ -200,14 +178,6 @@ public class WebToolGroup : IDisposable
 
         // 其他 HTTP 错误
         return $"HTTP 请求失败: {url}\n错误: {msg}\n建议: 请尝试更换 URL 或使用搜索引擎获取信息。";
-    }
-
-    /// <summary>
-    /// 释放 WebToolGroup 占用的 HttpClient 资源。
-    /// </summary>
-    public void Dispose()
-    {
-        _httpClient.Dispose();
     }
 
     private static bool IsValidHttpUrl(string url)

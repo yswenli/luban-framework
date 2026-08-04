@@ -39,15 +39,9 @@ public class OrchestrationToolPlugin : ILuBanToolPlugin
     public IReadOnlyList<AIFunction> GetTools(IServiceProvider sp)
     {
         var toolGroup = new OrchestrationToolGroup(sp);
-        var tools = new List<AIFunction>();
-
-        foreach (var method in typeof(OrchestrationToolGroup).GetMethods(
-            BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly))
+        return new List<AIFunction>
         {
-            var func = AIFunctionFactory.Create(method, toolGroup);
-            tools.Add(func);
-        }
-
-        return tools;
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(OrchestrationToolGroup.OrchestrateAsync))
+        };
     }
 }

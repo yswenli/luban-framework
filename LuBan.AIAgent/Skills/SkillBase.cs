@@ -55,6 +55,11 @@ public abstract class SkillBase : ISkill
     public virtual IEnumerable<string> Examples => Array.Empty<string>();
 
     /// <summary>
+    /// Skill 自动激活触发关键词。内置 Skill 可覆盖此属性以支持自动激活。
+    /// </summary>
+    public virtual IEnumerable<string> TriggerKeywords => Array.Empty<string>();
+
+    /// <summary>
     /// Skill 的提示词模板内容。内置 Skill 默认返回 null，派生类可覆盖。
     /// </summary>
     public virtual string? PromptTemplate => null;

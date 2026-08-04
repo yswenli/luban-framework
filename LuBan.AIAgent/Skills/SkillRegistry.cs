@@ -144,8 +144,47 @@ public class SkillRegistry
     }
 
     /// <summary>
-    /// 获取所有分类
+    /// 根据用户输入自动检测可能适用的 Skill（按匹配度降序）。
+    /// 匹配规则：输入文本（忽略大小写）包含 Skill 的任意触发关键词，或包含 Skill 名称/描述中的关键词。
     /// </summary>
-    public IReadOnlyList<string> GetCategories()
-        => GetMerged().Select(s => s.Category).Distinct().ToList();
+    /// <param name="input">用户输入</param>
+    /// <param name="maxResults">最大返回数量</param>
+    /// <returns>匹配到的 Skill 列表</returns>
+    public IReadOnlyList<ISkill> DetectSkills(string input, int maxResults = 3)
+    {
+        if (string.IsNullOrWhiteSpace(input) || maxResults <= 0)
+            return Array.Empty<ISkill>();
+
+        var lowerInput = input.ToLowerInvariant();
+        var matches = new List<(ISkill Skill, int Score)>();
+
+        foreach (var skill in GetAll())
+        {
+            int score = 0;
+            foreach (var keyword in skill.TriggerKeywords)
+            {
+                if (!string.IsNullOrWhiteSpace(keyword) && lowerInput.Contains(keyword.ToLowerInvariant()))
+                {
+                    score += 10;
+                }
+            }
+
+            // 名称和描述中的词作为弱信号
+            if (lowerInput.Contains(skill.Name.ToLowerInvariant()))
+                score += 2;
+            if (lowerInput.Contains(skill.Description.ToLowerInvariant()))
+                score += 1;
+
+            if (score > 0)
+                matches.Add((skill, score));
+        }
+
+        return matches
+            .OrderByDescending(m => m.Score)
+            .ThenBy(m => m.Skill.Name)
+            .Take(maxResults)
+            .Select(m => m.Skill)
+            .ToList();
+    }
 }
+

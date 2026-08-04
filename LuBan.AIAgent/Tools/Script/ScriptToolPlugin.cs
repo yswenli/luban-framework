@@ -21,6 +21,8 @@
 *描述：脚本工具插件
 *
 *****************************************************************************/
+using LuBan.AIAgent.Abstractions;
+
 namespace LuBan.AIAgent.Tools.Script;
 
 /// <summary>
@@ -60,15 +62,12 @@ public class ScriptToolPlugin : ILuBanToolPlugin
     public IReadOnlyList<AIFunction> GetTools(IServiceProvider sp)
     {
         var toolGroup = new ScriptToolGroup(_options, _processRunner);
-        var tools = new List<AIFunction>();
-
-        foreach (var method in typeof(ScriptToolGroup).GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly))
+        return new List<AIFunction>
         {
-            var func = AIFunctionFactory.Create(method, toolGroup);
-            tools.Add(func);
-        }
-
-        return tools;
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(ScriptToolGroup.RunShellAsync)),
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(ScriptToolGroup.RunLuaAsync)),
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(ScriptToolGroup.RunPythonAsync))
+        };
     }
 
     /// <summary>
@@ -105,13 +104,13 @@ public class ScriptToolGroup
     /// <param name="workingDirectory">工作目录（可选）</param>
     /// <returns>执行结果</returns>
     [Description("执行 Shell 命令")]
-    public async Task<string> RunShellAsync(string command, string? workingDirectory = null)
+    public async Task<ToolResult<string>> RunShellAsync(string command, string? workingDirectory = null)
     {
         // 确认执行
         if (!ToolConfirmationService.RequestConfirmation("RunShellAsync",
             new Dictionary<string, object?> { ["command"] = command, ["workingDirectory"] = workingDirectory }))
         {
-            return "操作已被用户取消";
+            return ToolResult.Fail<string>("操作已被用户取消");
         }
 
         try
@@ -126,38 +125,38 @@ public class ScriptToolGroup
                 stdin: command,
                 timeoutMs: _options.DefaultTimeout);
 
-            return JsonSerializer.Serialize(new
+            return ToolResult.Ok<string>(JsonSerializer.Serialize(new
             {
                 exitCode = result.ExitCode,
                 stdout = result.StandardOutput,
                 stderr = result.StandardError,
                 durationMs = result.DurationMs,
                 timedOut = result.TimedOut
-            });
+            }));
         }
         catch (System.ComponentModel.Win32Exception ex)
         {
             Logger.Error("Shell 执行失败：可执行文件不存在", ex, _options.Shell);
-            return JsonSerializer.Serialize(new
+            return ToolResult.Fail<string>($"可执行文件不存在: {_options.Shell}。请确保已安装并配置到 PATH 环境变量。", JsonSerializer.Serialize(new
             {
                 exitCode = -1,
                 stdout = "",
                 stderr = $"可执行文件不存在: {_options.Shell}。请确保已安装并配置到 PATH 环境变量。",
                 durationMs = 0,
                 timedOut = false
-            });
+            }));
         }
         catch (Exception ex)
         {
             Logger.Error("Shell 执行异常", ex, command);
-            return JsonSerializer.Serialize(new
+            return ToolResult.Fail<string>($"执行失败: {ex.Message}", JsonSerializer.Serialize(new
             {
                 exitCode = -1,
                 stdout = "",
                 stderr = $"执行失败: {ex.Message}",
                 durationMs = 0,
                 timedOut = false
-            });
+            }));
         }
     }
 
@@ -168,13 +167,13 @@ public class ScriptToolGroup
     /// <param name="workingDirectory">工作目录（可选）</param>
     /// <returns>执行结果</returns>
     [Description("执行 Lua 脚本")]
-    public async Task<string> RunLuaAsync(string script, string? workingDirectory = null)
+    public async Task<ToolResult<string>> RunLuaAsync(string script, string? workingDirectory = null)
     {
         // 确认执行
         if (!ToolConfirmationService.RequestConfirmation("RunLuaAsync",
             new Dictionary<string, object?> { ["script"] = script, ["workingDirectory"] = workingDirectory }))
         {
-            return "操作已被用户取消";
+            return ToolResult.Fail<string>("操作已被用户取消");
         }
 
         try
@@ -186,38 +185,38 @@ public class ScriptToolGroup
                 stdin: script,
                 timeoutMs: _options.DefaultTimeout);
 
-            return JsonSerializer.Serialize(new
+            return ToolResult.Ok<string>(JsonSerializer.Serialize(new
             {
                 exitCode = result.ExitCode,
                 stdout = result.StandardOutput,
                 stderr = result.StandardError,
                 durationMs = result.DurationMs,
                 timedOut = result.TimedOut
-            });
+            }));
         }
         catch (System.ComponentModel.Win32Exception ex)
         {
             Logger.Error("Lua 执行失败：可执行文件不存在", ex, _options.LuaPath);
-            return JsonSerializer.Serialize(new
+            return ToolResult.Fail<string>($"可执行文件不存在: {_options.LuaPath}。请确保已安装并配置到 PATH 环境变量。", JsonSerializer.Serialize(new
             {
                 exitCode = -1,
                 stdout = "",
                 stderr = $"可执行文件不存在: {_options.LuaPath}。请确保已安装并配置到 PATH 环境变量。",
                 durationMs = 0,
                 timedOut = false
-            });
+            }));
         }
         catch (Exception ex)
         {
             Logger.Error("Lua 执行异常", ex, script);
-            return JsonSerializer.Serialize(new
+            return ToolResult.Fail<string>($"执行失败: {ex.Message}", JsonSerializer.Serialize(new
             {
                 exitCode = -1,
                 stdout = "",
                 stderr = $"执行失败: {ex.Message}",
                 durationMs = 0,
                 timedOut = false
-            });
+            }));
         }
     }
 
@@ -228,13 +227,13 @@ public class ScriptToolGroup
     /// <param name="workingDirectory">工作目录（可选）</param>
     /// <returns>执行结果</returns>
     [Description("执行 Python 脚本")]
-    public async Task<string> RunPythonAsync(string script, string? workingDirectory = null)
+    public async Task<ToolResult<string>> RunPythonAsync(string script, string? workingDirectory = null)
     {
         // 确认执行
         if (!ToolConfirmationService.RequestConfirmation("RunPythonAsync",
             new Dictionary<string, object?> { ["script"] = script, ["workingDirectory"] = workingDirectory }))
         {
-            return "操作已被用户取消";
+            return ToolResult.Fail<string>("操作已被用户取消");
         }
 
         try
@@ -246,38 +245,38 @@ public class ScriptToolGroup
                 stdin: script,
                 timeoutMs: _options.DefaultTimeout);
 
-            return JsonSerializer.Serialize(new
+            return ToolResult.Ok<string>(JsonSerializer.Serialize(new
             {
                 exitCode = result.ExitCode,
                 stdout = result.StandardOutput,
                 stderr = result.StandardError,
                 durationMs = result.DurationMs,
                 timedOut = result.TimedOut
-            });
+            }));
         }
         catch (System.ComponentModel.Win32Exception ex)
         {
             Logger.Error("Python 执行失败：可执行文件不存在", ex, _options.PythonPath);
-            return JsonSerializer.Serialize(new
+            return ToolResult.Fail<string>($"可执行文件不存在: {_options.PythonPath}。请确保已安装并配置到 PATH 环境变量。", JsonSerializer.Serialize(new
             {
                 exitCode = -1,
                 stdout = "",
                 stderr = $"可执行文件不存在: {_options.PythonPath}。请确保已安装并配置到 PATH 环境变量。",
                 durationMs = 0,
                 timedOut = false
-            });
+            }));
         }
         catch (Exception ex)
         {
             Logger.Error("Python 执行异常", ex, script);
-            return JsonSerializer.Serialize(new
+            return ToolResult.Fail<string>($"执行失败: {ex.Message}", JsonSerializer.Serialize(new
             {
                 exitCode = -1,
                 stdout = "",
                 stderr = $"执行失败: {ex.Message}",
                 durationMs = 0,
                 timedOut = false
-            });
+            }));
         }
     }
 }

@@ -21,6 +21,8 @@
 *描述：Redis 工具插件
 *
 *****************************************************************************/
+using LuBan.AIAgent.Abstractions;
+
 namespace LuBan.AIAgent.Tools.Redis;
 
 /// <summary>
@@ -60,15 +62,10 @@ public class RedisToolPlugin : ILuBanToolPlugin
     public IReadOnlyList<AIFunction> GetTools(IServiceProvider sp)
     {
         var toolGroup = new RedisToolGroup(_options, _processRunner);
-        var tools = new List<AIFunction>();
-
-        foreach (var method in typeof(RedisToolGroup).GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly))
+        return new List<AIFunction>
         {
-            var func = AIFunctionFactory.Create(method, toolGroup);
-            tools.Add(func);
-        }
-
-        return tools;
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(RedisToolGroup.ExecAsync))
+        };
     }
 
     /// <summary>
@@ -104,7 +101,7 @@ public class RedisToolGroup
     /// <param name="command">Redis 命令</param>
     /// <returns>执行结果</returns>
     [Description("执行 Redis 命令")]
-    public async Task<string> ExecAsync(string command)
+    public async Task<ToolResult<string>> ExecAsync(string command)
     {
         var sanitizedCommand = SanitizeRedisCommand(command);
         var args = $"-h {_options.Host} -p {_options.Port} --no-auth-warning";
@@ -122,38 +119,38 @@ public class RedisToolGroup
                 $"{args} {sanitizedCommand}",
                 timeoutMs: 30000);
 
-            return JsonSerializer.Serialize(new
+            return ToolResult.Ok<string>(JsonSerializer.Serialize(new
             {
                 exitCode = result.ExitCode,
                 stdout = result.StandardOutput,
                 stderr = result.StandardError,
                 durationMs = result.DurationMs,
                 timedOut = result.TimedOut
-            });
+            }));
         }
         catch (System.ComponentModel.Win32Exception ex)
         {
             Logger.Error("Redis 执行失败：redis-cli 不存在", ex, "redis-cli");
-            return JsonSerializer.Serialize(new
+            return ToolResult.Fail<string>("可执行文件不存在: redis-cli。请确保已安装 Redis 并将 redis-cli 配置到 PATH 环境变量。", JsonSerializer.Serialize(new
             {
                 exitCode = -1,
                 stdout = "",
                 stderr = "可执行文件不存在: redis-cli。请确保已安装 Redis 并将 redis-cli 配置到 PATH 环境变量。",
                 durationMs = 0,
                 timedOut = false
-            });
+            }));
         }
         catch (Exception ex)
         {
             Logger.Error("Redis 执行异常", ex, sanitizedCommand);
-            return JsonSerializer.Serialize(new
+            return ToolResult.Fail<string>($"执行失败: {ex.Message}", JsonSerializer.Serialize(new
             {
                 exitCode = -1,
                 stdout = "",
                 stderr = $"执行失败: {ex.Message}",
                 durationMs = 0,
                 timedOut = false
-            });
+            }));
         }
         finally
         {

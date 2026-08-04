@@ -60,6 +60,22 @@ public class DebugAssistantSkill : SkillBase
     };
 
     /// <summary>
+    /// 自动激活触发关键词
+    /// </summary>
+    public override IEnumerable<string> TriggerKeywords => new[]
+    {
+        "debug",
+        "调试",
+        "bug",
+        "报错",
+        "异常",
+        "堆栈",
+        "stackoverflow",
+        "nullreference",
+        "怎么解决"
+    };
+
+    /// <summary>
     /// 执行 Skill
     /// </summary>
     public override async Task<SkillResult> ExecuteAsync(SkillContext context, string input)

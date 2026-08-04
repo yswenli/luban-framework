@@ -27,6 +27,7 @@ public class SkillRegistryTests
         public string Description => "测试用";
         public string Category => "builtin";
         public IEnumerable<string> Examples => Array.Empty<string>();
+        public IEnumerable<string> TriggerKeywords => Array.Empty<string>();
         public Task<SkillResult> ExecuteAsync(SkillContext context, string input)
             => Task.FromResult(SkillResult.Ok("ok"));
     }
@@ -34,14 +35,20 @@ public class SkillRegistryTests
     private sealed class ConfigurableBuiltinSkill : ISkill
     {
         private readonly string _id;
+        private readonly IEnumerable<string> _triggers;
 
-        public ConfigurableBuiltinSkill(string id) => _id = id;
+        public ConfigurableBuiltinSkill(string id, IEnumerable<string>? triggers = null)
+        {
+            _id = id;
+            _triggers = triggers ?? Array.Empty<string>();
+        }
 
         public string Id => _id;
         public string Name => "内置技能";
         public string Description => "测试用";
         public string Category => "builtin";
         public IEnumerable<string> Examples => Array.Empty<string>();
+        public IEnumerable<string> TriggerKeywords => _triggers;
         public Task<SkillResult> ExecuteAsync(SkillContext context, string input)
             => Task.FromResult(SkillResult.Ok("ok"));
     }
@@ -104,18 +111,6 @@ public class SkillRegistryTests
     }
 
     [TestMethod]
-    public void GetCategories_IncludesCustomCategory()
-    {
-        var cm = new ConfigManager(_tempPath);
-        cm.AddCustomSkill(new CustomSkillConfig { Id = "c1", Name = "n", Category = "custom" });
-        var registry = new SkillRegistry(new ISkill[] { new FakeBuiltinSkill() }, cm);
-
-        var cats = registry.GetCategories();
-        Assert.IsTrue(cats.Contains("builtin"));
-        Assert.IsTrue(cats.Contains("custom"));
-    }
-
-    [TestMethod]
     public void GetAll_DuplicateId_BuiltinWins()
     {
         var cm = new ConfigManager(_tempPath);
@@ -136,5 +131,47 @@ public class SkillRegistryTests
         var registry = new SkillRegistry(new ISkill[] { new FakeBuiltinSkill() }, cm);
 
         Assert.IsNull(registry.Get("builtin1"));
+    }
+
+    [TestMethod]
+    public void DetectSkills_MatchesTriggerKeyword_ReturnsOrderedByScore()
+    {
+        var cm = new ConfigManager(_tempPath);
+        var skill1 = new ConfigurableBuiltinSkill("s1", new[] { "test", "unit" });
+        var skill2 = new ConfigurableBuiltinSkill("s2", new[] { "unit" });
+        var registry = new SkillRegistry(new ISkill[] { skill1, skill2 }, cm);
+
+        var matches = registry.DetectSkills("Write a unit test for this code").ToList();
+
+        Assert.AreEqual(2, matches.Count);
+        Assert.AreEqual("s1", matches[0].Id);
+        Assert.AreEqual("s2", matches[1].Id);
+    }
+
+    [TestMethod]
+    public void DetectSkills_CustomSkillWithTriggers_IsIncluded()
+    {
+        var cm = new ConfigManager(_tempPath);
+        cm.AddCustomSkill(new CustomSkillConfig
+        {
+            Id = "custom1",
+            Name = "自定义",
+            TriggerKeywords = new List<string> { "deploy" }
+        });
+        var registry = new SkillRegistry(Array.Empty<ISkill>(), cm);
+
+        var matches = registry.DetectSkills("deploy to production").ToList();
+
+        Assert.AreEqual(1, matches.Count);
+        Assert.AreEqual("custom1", matches[0].Id);
+    }
+
+    [TestMethod]
+    public void DetectSkills_NoMatch_ReturnsEmpty()
+    {
+        var cm = new ConfigManager(_tempPath);
+        var registry = new SkillRegistry(new ISkill[] { new ConfigurableBuiltinSkill("s1", new[] { "foo" }) }, cm);
+
+        Assert.AreEqual(0, registry.DetectSkills("hello world").Count());
     }
 }

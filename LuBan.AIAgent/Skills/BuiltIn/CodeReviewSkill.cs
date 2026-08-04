@@ -60,6 +60,19 @@ public class CodeReviewSkill : SkillBase
     };
 
     /// <summary>
+    /// 自动激活触发关键词
+    /// </summary>
+    public override IEnumerable<string> TriggerKeywords => new[]
+    {
+        "review",
+        "审查",
+        "代码审查",
+        "code review",
+        "检查一下代码",
+        "帮我 review"
+    };
+
+    /// <summary>
     /// 执行 Skill
     /// </summary>
     public override async Task<SkillResult> ExecuteAsync(SkillContext context, string input)

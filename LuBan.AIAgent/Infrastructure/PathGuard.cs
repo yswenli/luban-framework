@@ -46,8 +46,9 @@ public sealed class PathGuard
     /// <returns>是否允许</returns>
     public bool IsAllowed(string path)
     {
+        // 默认拒绝：未配置 AllowedRoots 时禁止任何文件访问，防止越权
         if (_options.AllowedRoots == null || _options.AllowedRoots.Count == 0)
-            return true;
+            return false;
 
         try
         {

@@ -14,6 +14,7 @@
 *描述：编排工具组，将 orchestrate 能力作为工具方法暴露
 *
 *****************************************************************************/
+using LuBan.AIAgent.Abstractions;
 using LuBan.AIAgent.Orchestration;
 using LuBan.AIAgent.Orchestration.Models;
 
@@ -42,18 +43,18 @@ public class OrchestrationToolGroup
     /// <param name="task">复合任务描述。</param>
     /// <returns>编排结果字符串。</returns>
     [Description("将复合任务拆解为 DAG 任务图谱，并调度多个子 Agent 串行/并行执行。适用于：多步骤任务、需要不同工具组合的任务、可并行的独立子任务。")]
-    public async Task<string> OrchestrateAsync(string task)
+    public async Task<ToolResult<string>> OrchestrateAsync(string task)
     {
         try
         {
             var orchestrator = _serviceProvider.GetRequiredService<IOrchestrator>();
             var result = await orchestrator.RunAsync(task);
-            return FormatResult(result);
+            return ToolResult.Ok<string>(FormatResult(result));
         }
         catch (Exception ex)
         {
             Logger.Error("编排执行失败", ex);
-            return $"编排失败: {ex.Message}";
+            return ToolResult.Fail<string>($"编排失败: {ex.Message}");
         }
     }
 

@@ -114,6 +114,10 @@ public class SkillLoader
                         case "category":
                             config.Category = value;
                             break;
+                        case "triggers":
+                            config.TriggerKeywords = value.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                                .Select(t => t.Trim()).ToList();
+                            break;
                     }
                 }
 

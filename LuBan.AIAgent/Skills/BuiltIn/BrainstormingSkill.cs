@@ -60,6 +60,20 @@ public class BrainstormingSkill : SkillBase
     };
 
     /// <summary>
+    /// 自动激活触发关键词
+    /// </summary>
+    public override IEnumerable<string> TriggerKeywords => new[]
+    {
+        "brainstorm",
+        "头脑风暴",
+        "设计",
+        "方案",
+        "如何实现",
+        "帮我设计",
+        "设计一下"
+    };
+
+    /// <summary>
     /// 执行 Skill
     /// </summary>
     public override async Task<SkillResult> ExecuteAsync(SkillContext context, string input)

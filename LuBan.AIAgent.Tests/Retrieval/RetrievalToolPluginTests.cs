@@ -1,3 +1,4 @@
+using LuBan.AIAgent.Abstractions;
 using LuBan.AIAgent.Configuration;
 using LuBan.AIAgent.Retrieval;
 using LuBan.AIAgent.Tests.Retrieval.Fakes;

@@ -60,6 +60,20 @@ public class TestGenerationSkill : SkillBase
     };
 
     /// <summary>
+    /// 自动激活触发关键词
+    /// </summary>
+    public override IEnumerable<string> TriggerKeywords => new[]
+    {
+        "test",
+        "测试",
+        "单元测试",
+        "生成测试",
+        "写测试",
+        "xunit",
+        "nunit"
+    };
+
+    /// <summary>
     /// 执行 Skill
     /// </summary>
     public override async Task<SkillResult> ExecuteAsync(SkillContext context, string input)

@@ -60,6 +60,20 @@ public class CodeExplainSkill : SkillBase
     };
 
     /// <summary>
+    /// 自动激活触发关键词
+    /// </summary>
+    public override IEnumerable<string> TriggerKeywords => new[]
+    {
+        "explain",
+        "解释",
+        "讲解",
+        "什么意思",
+        "这段代码",
+        "怎么理解",
+        "数据流"
+    };
+
+    /// <summary>
     /// 执行 Skill
     /// </summary>
     public override async Task<SkillResult> ExecuteAsync(SkillContext context, string input)
