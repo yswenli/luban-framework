@@ -252,4 +252,78 @@ public class ReplanningTests
         Assert.IsFalse(result.ShouldRetry);
         Assert.AreEqual(1, result.FailedNodeIds.Count);
     }
+
+    [TestMethod]
+    public async Task LlmTaskPlanner_ReflectAsync_安全解析字符串类型布尔值()
+    {
+        var reflectionJson = """
+            {
+                "analysis": "测试字符串布尔值",
+                "fix_approach": "修复方案",
+                "should_retry": "true",
+                "new_nodes": [
+                    {
+                        "id": "node1",
+                        "description": "节点1",
+                        "prompt": "执行",
+                        "dependencies": [],
+                        "isCritical": "false"
+                    }
+                ]
+            }
+            """;
+
+        var mockClient = new MockChatClient("test", _ => reflectionJson);
+        var services = new ServiceCollection();
+        services.AddSingleton<IChatClient>(mockClient);
+        services.AddSingleton(Options.Create(new LuBanAgentOptions()));
+        services.AddSingleton<ToolPluginRegistry>();
+        services.AddScoped<LlmTaskPlanner>();
+
+        using var sp = services.BuildServiceProvider();
+        var planner = sp.GetRequiredService<LlmTaskPlanner>();
+
+        var context = new ReplanContext { UserGoal = "测试", Attempt = 1 };
+
+        var result = await planner.ReflectAsync(context);
+
+        Assert.IsTrue(result.ShouldRetry);
+        Assert.AreEqual(1, result.NewNodes.Count);
+        Assert.IsFalse(result.NewNodes[0].IsCritical);
+    }
+
+    [TestMethod]
+    public async Task LlmTaskPlanner_ReflectAsync_缺失布尔值字段返回false()
+    {
+        var reflectionJson = """
+            {
+                "analysis": "测试缺失字段",
+                "fix_approach": "修复方案",
+                "new_nodes": [
+                    {
+                        "id": "node1",
+                        "description": "节点1",
+                        "prompt": "执行"
+                    }
+                ]
+            }
+            """;
+
+        var mockClient = new MockChatClient("test", _ => reflectionJson);
+        var services = new ServiceCollection();
+        services.AddSingleton<IChatClient>(mockClient);
+        services.AddSingleton(Options.Create(new LuBanAgentOptions()));
+        services.AddSingleton<ToolPluginRegistry>();
+        services.AddScoped<LlmTaskPlanner>();
+
+        using var sp = services.BuildServiceProvider();
+        var planner = sp.GetRequiredService<LlmTaskPlanner>();
+
+        var context = new ReplanContext { UserGoal = "测试", Attempt = 1 };
+
+        var result = await planner.ReflectAsync(context);
+
+        Assert.IsFalse(result.ShouldRetry);
+        Assert.IsFalse(result.NewNodes[0].IsCritical);
+    }
 }

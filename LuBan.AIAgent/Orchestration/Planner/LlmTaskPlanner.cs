@@ -198,7 +198,7 @@ public class LlmTaskPlanner : ITaskPlanner
         {
             Analysis = root.TryGetProperty("analysis", out var a) ? a.GetString() ?? "" : "",
             FixApproach = root.TryGetProperty("fix_approach", out var f) ? f.GetString() ?? "" : "",
-            ShouldRetry = root.TryGetProperty("should_retry", out var r) && r.GetBoolean(),
+            ShouldRetry = TryGetBool(root, "should_retry"),
             FailedNodeIds = context.FailedNodes.Select(n => n.NodeId).ToList()
         };
 
@@ -212,7 +212,7 @@ public class LlmTaskPlanner : ITaskPlanner
                     Id = nodeEl.TryGetProperty("id", out var id) ? id.GetString() ?? "" : "",
                     Description = nodeEl.TryGetProperty("description", out var desc) ? desc.GetString() ?? "" : "",
                     Prompt = nodeEl.TryGetProperty("prompt", out var prompt) ? prompt.GetString() ?? "" : "",
-                    IsCritical = nodeEl.TryGetProperty("isCritical", out var crit) && crit.GetBoolean()
+                    IsCritical = TryGetBool(nodeEl, "isCritical")
                 };
 
                 if (nodeEl.TryGetProperty("dependencies", out var deps) && deps.ValueKind == JsonValueKind.Array)
@@ -237,6 +237,23 @@ public class LlmTaskPlanner : ITaskPlanner
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// 安全解析布尔值，支持布尔类型和字符串类型。
+    /// </summary>
+    private static bool TryGetBool(JsonElement element, string propertyName)
+    {
+        if (!element.TryGetProperty(propertyName, out var prop))
+            return false;
+
+        return prop.ValueKind switch
+        {
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            JsonValueKind.String => bool.TryParse(prop.GetString(), out var b) && b,
+            _ => false
+        };
     }
 
     /// <summary>

@@ -66,6 +66,7 @@ public class Orchestrator : IOrchestrator
         var attempt = 0;
         OrchestrationResult? lastResult = null;
         ReflectionResult? reflection = null;
+        Dictionary<string, string>? dependencyOutputsSnapshot = null;
 
         while (attempt <= maxReplan)
         {
@@ -73,6 +74,16 @@ public class Orchestrator : IOrchestrator
             try
             {
                 result = await _scheduler.ExecuteAsync(graph, ct);
+
+                if (result.OverallStatus == "failed" && attempt < maxReplan)
+                {
+                    var failedNodeIds = result.Nodes
+                        .Where(n => n.Status == TaskNodeStatus.Failed)
+                        .Select(n => n.NodeId)
+                        .ToHashSet();
+
+                    dependencyOutputsSnapshot = CaptureDependencyOutputs(graph, failedNodeIds);
+                }
             }
             finally
             {
@@ -96,7 +107,8 @@ public class Orchestrator : IOrchestrator
             attempt++;
             try
             {
-                reflection = await PerformReflectionAsync(graph, result, task, attempt, ct);
+                reflection = await PerformReflectionAsync(
+                    graph, result, task, attempt, dependencyOutputsSnapshot, ct);
             }
             catch (Exception ex)
             {
@@ -179,6 +191,7 @@ public class Orchestrator : IOrchestrator
         OrchestrationResult result,
         string task,
         int attempt,
+        Dictionary<string, string>? dependencyOutputsSnapshot,
         CancellationToken ct)
     {
         var orchestrationOpts = _options.Value.Orchestration ?? new();
@@ -196,7 +209,7 @@ public class Orchestrator : IOrchestrator
                 ToolGroups = n.ToolGroups,
                 Error = n.Error,
                 Output = n.Output,
-                DependencyOutputs = GetDependencyOutputs(graph, n)
+                DependencyOutputs = GetDependencyOutputsFromSnapshot(n, dependencyOutputsSnapshot)
             })
             .ToList();
 
@@ -215,15 +228,40 @@ public class Orchestrator : IOrchestrator
     }
 
     /// <summary>
-    /// 获取节点的直接依赖节点输出。
+    /// 在 ContextStore 清空前，捕获失败节点的直接依赖输出。
     /// </summary>
-    private Dictionary<string, string> GetDependencyOutputs(TaskGraph graph, TaskNode node)
+    private Dictionary<string, string> CaptureDependencyOutputs(
+        TaskGraph graph,
+        HashSet<string> failedNodeIds)
     {
         var outputs = new Dictionary<string, string>();
+        foreach (var node in graph.Nodes.Where(n => failedNodeIds.Contains(n.Id)))
+        {
+            foreach (var depId in node.Dependencies)
+            {
+                var key = $"{node.Id}:{depId}";
+                var output = _contextStore.GetOutput(graph.GraphId, depId);
+                if (output != null)
+                    outputs[key] = output;
+            }
+        }
+        return outputs;
+    }
+
+    /// <summary>
+    /// 从快照中获取节点的直接依赖输出。
+    /// </summary>
+    private static Dictionary<string, string> GetDependencyOutputsFromSnapshot(
+        TaskNode node,
+        Dictionary<string, string>? snapshot)
+    {
+        var outputs = new Dictionary<string, string>();
+        if (snapshot == null) return outputs;
+
         foreach (var depId in node.Dependencies)
         {
-            var output = _contextStore.GetOutput(graph.GraphId, depId);
-            if (output != null)
+            var key = $"{node.Id}:{depId}";
+            if (snapshot.TryGetValue(key, out var output))
                 outputs[depId] = output;
         }
         return outputs;
@@ -246,21 +284,36 @@ public class Orchestrator : IOrchestrator
 
         var succeededNodeIds = new HashSet<string>(
             originalGraph.Nodes.Where(n => n.Status == TaskNodeStatus.Succeeded).Select(n => n.Id));
+        var newNodeIds = new HashSet<string>(
+            reflection.NewNodes.Select(n => $"fix_{attempt}_{n.Id}"));
 
         foreach (var newNode in reflection.NewNodes)
         {
+            var prefixedId = $"fix_{attempt}_{newNode.Id}";
+            var resolvedDeps = new List<string>();
+
+            foreach (var dep in newNode.Dependencies)
+            {
+                if (succeededNodeIds.Contains(dep))
+                {
+                    resolvedDeps.Add(dep);
+                }
+                else if (newNodeIds.Contains($"fix_{attempt}_{dep}"))
+                {
+                    resolvedDeps.Add($"fix_{attempt}_{dep}");
+                }
+            }
+
             var prefixed = new TaskNode
             {
-                Id = $"fix_{attempt}_{newNode.Id}",
+                Id = prefixedId,
                 Description = newNode.Description,
                 Prompt = newNode.Prompt,
                 ToolGroups = newNode.ToolGroups,
                 ModelName = newNode.ModelName,
                 TimeoutSeconds = newNode.TimeoutSeconds,
                 IsCritical = newNode.IsCritical,
-                Dependencies = newNode.Dependencies
-                    .Select(d => succeededNodeIds.Contains(d) ? d : $"fix_{attempt}_{d}")
-                    .ToList()
+                Dependencies = resolvedDeps
             };
             fixGraph.Nodes.Add(prefixed);
         }
