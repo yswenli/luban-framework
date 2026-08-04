@@ -108,45 +108,57 @@ public class FileSystemToolGroup
         ".so", ".dylib", ".a", ".lib", ".obj", ".o"
     };
 
+    private static readonly HashSet<string> ExcludedDirectoryNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".git", "node_modules", "target", "bin", "obj", "dist", "build",
+        ".idea", ".vs", ".vscode", "__pycache__", ".gradle"
+    };
+
+    private static readonly HashSet<string> KeyFileNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "pom.xml", "package.json", "build.gradle", "build.gradle.kts",
+        "Cargo.toml", "go.mod", "requirements.txt", "pyproject.toml",
+        "appsettings.json", "web.config", "app.config",
+        "application.yml", "application.yaml", "application.properties",
+        "readme.md", "readme.en.md", "readme.txt",
+        ".gitignore", "dockerfile", "docker-compose.yml",
+        "makefile", "cmakelists.txt"
+    };
+
     private static IEnumerable<string> EnumerateFilesSafe(string rootPath)
     {
-        // 使用 GetFiles/GetDirectories（立即执行）而非 EnumerateFiles/EnumerateDirectories（惰性枚举），
-        // 确保异常在 try-catch 中被捕获，而非在 foreach 遍历时抛出
-        string[] files;
-        try
-        {
-            files = Directory.GetFiles(rootPath);
-        }
-        catch (UnauthorizedAccessException)
-        {
-            yield break;
-        }
-        catch (DirectoryNotFoundException)
-        {
-            yield break;
-        }
+        var dirs = new Queue<string>();
+        dirs.Enqueue(rootPath);
 
-        foreach (var file in files)
-            yield return file;
+        while (dirs.Count > 0)
+        {
+            var current = dirs.Dequeue();
 
-        string[] dirs;
-        try
-        {
-            dirs = Directory.GetDirectories(rootPath);
-        }
-        catch (UnauthorizedAccessException)
-        {
-            yield break;
-        }
-        catch (DirectoryNotFoundException)
-        {
-            yield break;
-        }
+            IEnumerable<string> files;
+            try
+            {
+                files = Directory.EnumerateFiles(current);
+            }
+            catch (UnauthorizedAccessException) { continue; }
+            catch (DirectoryNotFoundException) { continue; }
 
-        foreach (var dir in dirs)
-        {
-            foreach (var file in EnumerateFilesSafe(dir))
+            foreach (var file in files)
                 yield return file;
+
+            IEnumerable<string> subDirs;
+            try
+            {
+                subDirs = Directory.EnumerateDirectories(current);
+            }
+            catch (UnauthorizedAccessException) { continue; }
+            catch (DirectoryNotFoundException) { continue; }
+
+            foreach (var subDir in subDirs)
+            {
+                var name = Path.GetFileName(subDir);
+                if (!ExcludedDirectoryNames.Contains(name))
+                    dirs.Enqueue(subDir);
+            }
         }
     }
 
@@ -429,15 +441,12 @@ public class FileSystemToolGroup
             sb.AppendLine("```");
             sb.AppendLine();
 
-            // 2. 文件类型统计
-            sb.AppendLine("## 文件类型统计");
+            // 2. 文件类型统计 + 3. 关键文件（合并为一次遍历）
             var extCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-            var excludedDirs = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-            {
-                ".git", "node_modules", "target", "bin", "obj", "dist", "build",
-                ".idea", ".vs", ".vscode", "__pycache__", ".gradle"
-            };
-            CountFileTypes(fullPath, extCounts, excludedDirs);
+            var keyFiles = new List<string>();
+            CollectWorkspaceStats(fullPath, fullPath, extCounts, keyFiles, maxKeyDepth: 2, currentDepth: 0);
+
+            sb.AppendLine("## 文件类型统计");
             var totalFiles = extCounts.Values.Sum();
             sb.AppendLine($"总文件数: {totalFiles}");
             sb.AppendLine();
@@ -450,9 +459,7 @@ public class FileSystemToolGroup
             }
             sb.AppendLine();
 
-            // 3. 关键文件
             sb.AppendLine("## 关键文件");
-            var keyFiles = FindKeyFiles(fullPath, excludedDirs);
             if (keyFiles.Count > 0)
             {
                 foreach (var f in keyFiles)
@@ -511,22 +518,15 @@ public class FileSystemToolGroup
         catch (UnauthorizedAccessException) { return; }
         catch (DirectoryNotFoundException) { return; }
 
-        // 跳过常见无用目录
-        var excluded = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ".git", "node_modules", "target", "bin", "obj", "dist", "build",
-            ".idea", ".vs", ".vscode", "__pycache__", ".gradle"
-        };
-
         var visibleSubdirs = subdirs
-            .Where(d => !excluded.Contains(Path.GetFileName(d)))
+            .Where(d => !ExcludedDirectoryNames.Contains(Path.GetFileName(d)))
             .OrderBy(d => d)
-            .Take(20)  // 限制每层最多 20 个子目录，避免输出过长
+            .Take(20)
             .ToList();
 
         var visibleFiles = files
             .OrderBy(f => f)
-            .Take(10)  // 限制每层最多 10 个文件
+            .Take(10)
             .ToList();
 
         var childIndent = new string(' ', (depth + 1) * 2);
@@ -541,7 +541,6 @@ public class FileSystemToolGroup
             sb.AppendLine($"{childIndent}{Path.GetFileName(file)}");
         }
 
-        // 如果有更多内容，显示省略提示
         if (subdirs.Length > visibleSubdirs.Count)
             sb.AppendLine($"{childIndent}... ({subdirs.Length - visibleSubdirs.Count} 个目录已省略)");
         if (files.Length > visibleFiles.Count)
@@ -549,9 +548,12 @@ public class FileSystemToolGroup
     }
 
     /// <summary>
-    /// 统计目录下各扩展名的文件数量。
+    /// 单次遍历同时统计文件扩展名分布和收集关键配置文件。
     /// </summary>
-    private static void CountFileTypes(string dir, Dictionary<string, int> extCounts, HashSet<string> excludedDirs)
+    private static void CollectWorkspaceStats(
+        string dir, string rootPath,
+        Dictionary<string, int> extCounts, List<string> keyFiles,
+        int maxKeyDepth, int currentDepth)
     {
         string[] entries;
         try
@@ -563,79 +565,24 @@ public class FileSystemToolGroup
 
         foreach (var entry in entries)
         {
-            if (Directory.Exists(entry))
+            var attr = File.GetAttributes(entry);
+            if ((attr & FileAttributes.Directory) == FileAttributes.Directory)
             {
                 var name = Path.GetFileName(entry);
-                if (excludedDirs.Contains(name)) continue;
-                CountFileTypes(entry, extCounts, excludedDirs);
+                if (ExcludedDirectoryNames.Contains(name)) continue;
+                CollectWorkspaceStats(entry, rootPath, extCounts, keyFiles, maxKeyDepth, currentDepth + 1);
             }
             else
             {
                 var ext = Path.GetExtension(entry);
                 if (string.IsNullOrEmpty(ext)) ext = "(无扩展名)";
-                if (!extCounts.ContainsKey(ext)) extCounts[ext] = 0;
-                extCounts[ext]++;
-            }
-        }
-    }
+                extCounts.TryGetValue(ext, out var count);
+                extCounts[ext] = count + 1;
 
-    /// <summary>
-    /// 查找关键配置文件（pom.xml、package.json、*.csproj、application.yml 等）。
-    /// </summary>
-    private static List<string> FindKeyFiles(string rootPath, HashSet<string> excludedDirs)
-    {
-        var keyFileNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "pom.xml", "package.json", "build.gradle", "build.gradle.kts",
-            "Cargo.toml", "go.mod", "requirements.txt", "pyproject.toml",
-            "appsettings.json", "web.config", "app.config",
-            "application.yml", "application.yaml", "application.properties",
-            "readme.md", "readme.en.md", "readme.txt",
-            ".gitignore", "dockerfile", "docker-compose.yml",
-            "makefile", "cmakelists.txt"
-        };
-
-        var results = new List<string>();
-        FindKeyFilesRecursive(rootPath, keyFileNames, excludedDirs, results, maxDepth: 2, currentDepth: 0);
-        return results;
-    }
-
-    private static void FindKeyFilesRecursive(
-        string dir, HashSet<string> keyFileNames,
-        HashSet<string> excludedDirs, List<string> results,
-        int maxDepth, int currentDepth)
-    {
-        if (currentDepth > maxDepth) return;
-
-        string[] entries;
-        try
-        {
-            entries = Directory.GetFileSystemEntries(dir);
-        }
-        catch (UnauthorizedAccessException) { return; }
-        catch (DirectoryNotFoundException) { return; }
-
-        foreach (var entry in entries)
-        {
-            if (Directory.Exists(entry))
-            {
-                var name = Path.GetFileName(entry);
-                if (excludedDirs.Contains(name)) continue;
-                FindKeyFilesRecursive(entry, keyFileNames, excludedDirs, results, maxDepth, currentDepth + 1);
-            }
-            else
-            {
-                var fileName = Path.GetFileName(entry);
-                if (keyFileNames.Contains(fileName))
+                if (currentDepth <= maxKeyDepth && KeyFileNames.Contains(Path.GetFileName(entry)))
                 {
-                    var relativePath = Path.GetRelativePath(dir, entry)
-                        .Replace('\\', '/');
-                    // 显示相对路径，最多 2 层
-                    var parts = relativePath.Split('/');
-                    var displayPath = parts.Length > 3
-                        ? string.Join("/", parts.Skip(parts.Length - 3))
-                        : relativePath;
-                    results.Add(displayPath);
+                    var relativePath = Path.GetRelativePath(rootPath, entry).Replace('\\', '/');
+                    keyFiles.Add(relativePath);
                 }
             }
         }
@@ -867,13 +814,13 @@ public class FileSystemToolGroup
                 if (filePatternRegex != null && !GlobMatcher.IsMatch(file, filePatternRegex, rootPath, matchFullPath))
                     continue;
 
-                var fileInfo = new FileInfo(file);
-                if (fileInfo.Length > 1024 * 1024)
-                    continue;
-
                 try
                 {
-                    using var reader = new StreamReader(file);
+                    using var stream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                    if (stream.Length > 1024 * 1024)
+                        continue;
+
+                    using var reader = new StreamReader(stream);
                     var lineNumber = 0;
                     string? line;
                     while ((line = await reader.ReadLineAsync()) != null)
@@ -1167,8 +1114,28 @@ public class FileSystemToolGroup
             else if (Directory.Exists(path))
             {
                 var dirInfo = new DirectoryInfo(path);
-                var fileCount = dirInfo.EnumerateFiles().Take(10000).Count();
-                var dirCount = dirInfo.EnumerateDirectories().Take(10000).Count();
+                
+                int fileCount = 0;
+                try
+                {
+                    foreach (var _ in dirInfo.EnumerateFiles())
+                    {
+                        if (++fileCount >= 10000) break;
+                    }
+                }
+                catch (UnauthorizedAccessException) { }
+                catch (DirectoryNotFoundException) { }
+
+                int dirCount = 0;
+                try
+                {
+                    foreach (var _ in dirInfo.EnumerateDirectories())
+                    {
+                        if (++dirCount >= 10000) break;
+                    }
+                }
+                catch (UnauthorizedAccessException) { }
+                catch (DirectoryNotFoundException) { }
 
                 var output = new StringBuilder();
                 output.AppendLine($"目录: {dirInfo.FullName}");
