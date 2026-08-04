@@ -60,4 +60,14 @@ public class OrchestrationOptions
     /// 获取或设置是否自动暴露为工具供主 Agent 自动调用。
     /// </summary>
     public bool ExposeAsTool { get; set; } = true;
+
+    /// <summary>
+    /// 获取或设置关键节点失败后的最大重规划尝试次数。0 表示禁用重规划。
+    /// </summary>
+    public int MaxReplanAttempts { get; set; } = 3;
+
+    /// <summary>
+    /// 获取或设置反思阶段 LLM 调用的超时时间（秒）。
+    /// </summary>
+    public int ReflectionTimeoutSeconds { get; set; } = 60;
 }

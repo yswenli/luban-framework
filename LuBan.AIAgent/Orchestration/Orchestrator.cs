@@ -14,6 +14,7 @@
 *描述：编排器默认实现，串联规划、调度与结果聚合
 *
 *****************************************************************************/
+using LuBan.AIAgent.Configuration;
 using LuBan.AIAgent.Orchestration.Models;
 using LuBan.AIAgent.Orchestration.Planner;
 
@@ -27,6 +28,7 @@ public class Orchestrator : IOrchestrator
     private readonly ITaskPlanner _planner;
     private readonly DagScheduler _scheduler;
     private readonly ContextStore _contextStore;
+    private readonly IOptions<LuBanAgentOptions> _options;
 
     /// <summary>
     /// 创建 Orchestrator 实例。
@@ -34,11 +36,17 @@ public class Orchestrator : IOrchestrator
     /// <param name="planner">任务规划器。</param>
     /// <param name="scheduler">DAG 调度器。</param>
     /// <param name="contextStore">跨节点上下文存储。</param>
-    public Orchestrator(ITaskPlanner planner, DagScheduler scheduler, ContextStore contextStore)
+    /// <param name="options">配置选项。</param>
+    public Orchestrator(
+        ITaskPlanner planner,
+        DagScheduler scheduler,
+        ContextStore contextStore,
+        IOptions<LuBanAgentOptions> options)
     {
         _planner = planner;
         _scheduler = scheduler;
         _contextStore = contextStore;
+        _options = options;
     }
 
     /// <inheritdoc/>
@@ -47,23 +55,88 @@ public class Orchestrator : IOrchestrator
         if (string.IsNullOrWhiteSpace(task))
             throw new ArgumentException("任务描述不能为空", nameof(task));
 
+        var orchestrationOpts = _options.Value.Orchestration ?? new();
+        var maxReplan = orchestrationOpts.MaxReplanAttempts;
+
         var graph = await _planner.PlanAsync(task, ct)
             ?? throw new TaskPlanningException("规划器返回空图谱");
         if (!graph.Validate(out var errors))
             throw new TaskPlanningException("DAG 校验失败", errors);
 
-        OrchestrationResult result;
-        try
+        var attempt = 0;
+        OrchestrationResult? lastResult = null;
+        ReflectionResult? reflection = null;
+
+        while (attempt <= maxReplan)
         {
-            result = await _scheduler.ExecuteAsync(graph, ct);
-        }
-        finally
-        {
-            _contextStore.Clear(graph.GraphId);
+            OrchestrationResult result;
+            try
+            {
+                result = await _scheduler.ExecuteAsync(graph, ct);
+            }
+            finally
+            {
+                _contextStore.Clear(graph.GraphId);
+            }
+
+            result.FinalOutput = AggregateFinalOutput(graph, result);
+            result.ReplanningAttempts = attempt;
+            result.Reflection = reflection;
+            lastResult = result;
+
+            if (result.OverallStatus != "failed")
+                return result;
+
+            if (attempt >= maxReplan)
+            {
+                result.ReplanningExhausted = true;
+                return result;
+            }
+
+            attempt++;
+            try
+            {
+                reflection = await PerformReflectionAsync(graph, result, task, attempt, ct);
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"反思阶段失败: {ex.Message}", ex);
+                result.ReplanningExhausted = true;
+                result.Reflection = new ReflectionResult
+                {
+                    Analysis = $"反思失败: {ex.Message}",
+                    ShouldRetry = false,
+                    FailedNodeIds = result.Nodes
+                        .Where(n => n.Status == TaskNodeStatus.Failed)
+                        .Select(n => n.NodeId).ToList()
+                };
+                return result;
+            }
+
+            result.Reflection = reflection;
+
+            if (!reflection.ShouldRetry || reflection.NewNodes.Count == 0)
+            {
+                result.ReplanningExhausted = true;
+                return result;
+            }
+
+            graph = BuildFixGraph(graph, reflection, attempt);
+            if (!graph.Validate(out errors))
+            {
+                result.ReplanningExhausted = true;
+                result.Reflection = new ReflectionResult
+                {
+                    Analysis = $"修正图谱校验失败: {string.Join("; ", errors)}",
+                    ShouldRetry = false,
+                    FailedNodeIds = reflection.FailedNodeIds
+                };
+                return result;
+            }
         }
 
-        result.FinalOutput = AggregateFinalOutput(graph, result);
-        return result;
+        lastResult!.ReplanningExhausted = true;
+        return lastResult;
     }
 
     /// <inheritdoc/>
@@ -96,6 +169,103 @@ public class Orchestrator : IOrchestrator
         {
             _contextStore.Clear(graph.GraphId);
         }
+    }
+
+    /// <summary>
+    /// 执行反思阶段，分析失败节点并生成修正建议。
+    /// </summary>
+    private async Task<ReflectionResult> PerformReflectionAsync(
+        TaskGraph graph,
+        OrchestrationResult result,
+        string task,
+        int attempt,
+        CancellationToken ct)
+    {
+        var orchestrationOpts = _options.Value.Orchestration ?? new();
+        var failedNodeIds = result.Nodes
+            .Where(n => n.Status == TaskNodeStatus.Failed)
+            .Select(n => n.NodeId)
+            .ToHashSet();
+
+        var failedNodes = graph.Nodes
+            .Where(n => failedNodeIds.Contains(n.Id) && n.IsCritical)
+            .Select(n => new FailedNodeInfo
+            {
+                NodeId = n.Id,
+                Description = n.Description,
+                ToolGroups = n.ToolGroups,
+                Error = n.Error,
+                Output = n.Output,
+                DependencyOutputs = GetDependencyOutputs(graph, n)
+            })
+            .ToList();
+
+        var context = new ReplanContext
+        {
+            UserGoal = task,
+            FailedNodes = failedNodes,
+            OriginalGraph = graph,
+            Attempt = attempt
+        };
+
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        cts.CancelAfter(TimeSpan.FromSeconds(orchestrationOpts.ReflectionTimeoutSeconds));
+
+        return await _planner.ReflectAsync(context, cts.Token);
+    }
+
+    /// <summary>
+    /// 获取节点的直接依赖节点输出。
+    /// </summary>
+    private Dictionary<string, string> GetDependencyOutputs(TaskGraph graph, TaskNode node)
+    {
+        var outputs = new Dictionary<string, string>();
+        foreach (var depId in node.Dependencies)
+        {
+            var output = _contextStore.GetOutput(graph.GraphId, depId);
+            if (output != null)
+                outputs[depId] = output;
+        }
+        return outputs;
+    }
+
+    /// <summary>
+    /// 根据反思结果构建修正图谱。
+    /// </summary>
+    private static TaskGraph BuildFixGraph(
+        TaskGraph originalGraph,
+        ReflectionResult reflection,
+        int attempt)
+    {
+        var fixGraph = new TaskGraph
+        {
+            GraphId = originalGraph.GraphId,
+            OriginalTask = originalGraph.OriginalTask,
+            Source = "replan"
+        };
+
+        var succeededNodeIds = new HashSet<string>(
+            originalGraph.Nodes.Where(n => n.Status == TaskNodeStatus.Succeeded).Select(n => n.Id));
+
+        foreach (var newNode in reflection.NewNodes)
+        {
+            var prefixed = new TaskNode
+            {
+                Id = $"fix_{attempt}_{newNode.Id}",
+                Description = newNode.Description,
+                Prompt = newNode.Prompt,
+                ToolGroups = newNode.ToolGroups,
+                ModelName = newNode.ModelName,
+                TimeoutSeconds = newNode.TimeoutSeconds,
+                IsCritical = newNode.IsCritical,
+                Dependencies = newNode.Dependencies
+                    .Select(d => succeededNodeIds.Contains(d) ? d : $"fix_{attempt}_{d}")
+                    .ToList()
+            };
+            fixGraph.Nodes.Add(prefixed);
+        }
+
+        return fixGraph;
     }
 
     /// <summary>

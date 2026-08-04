@@ -57,6 +57,21 @@ public class OrchestrationResult
     public long TotalTokens { get; set; }
 
     /// <summary>
+    /// 获取或设置反思结果。未进行反思时为 null。
+    /// </summary>
+    public ReflectionResult? Reflection { get; set; }
+
+    /// <summary>
+    /// 获取或设置已执行的重规划尝试次数。0 表示未进行重规划。
+    /// </summary>
+    public int ReplanningAttempts { get; set; }
+
+    /// <summary>
+    /// 获取或设置重规划是否已耗尽（达到上限或 LLM 决定不再重试）。
+    /// </summary>
+    public bool ReplanningExhausted { get; set; }
+
+    /// <summary>
     /// 获取是否执行成功。
     /// </summary>
     public bool IsSuccess => OverallStatus == "completed";

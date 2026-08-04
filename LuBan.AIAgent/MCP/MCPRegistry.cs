@@ -32,7 +32,7 @@ namespace LuBan.AIAgent.MCP;
 public class MCPRegistry
 {
     private readonly Dictionary<string, IMCPClient> _builtinClients = new();
-    private readonly Dictionary<string, (StdioMCPClient Client, string Fingerprint)> _externalPool = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, (IMCPClient Client, string Fingerprint)> _externalPool = new(StringComparer.OrdinalIgnoreCase);
     private readonly Configuration.ConfigManager? _configManager;
 
     /// <summary>
@@ -86,7 +86,12 @@ public class MCPRegistry
             if (!_externalPool.ContainsKey(cfg.Name)
                 && !_builtinClients.ContainsKey(cfg.Name.ToLowerInvariant()))
             {
-                _externalPool[cfg.Name] = (new StdioMCPClient(cfg), FingerprintOf(cfg));
+                IMCPClient client = cfg.Transport.ToLowerInvariant() switch
+                {
+                    "http" or "sse" => new HttpMCPClient(cfg),
+                    _ => new StdioMCPClient(cfg)
+                };
+                _externalPool[cfg.Name] = (client, FingerprintOf(cfg));
             }
         }
     }

@@ -30,4 +30,12 @@ public interface ITaskPlanner
     /// <param name="ct">取消令牌。</param>
     /// <returns>TaskGraph 实例；模板未命中时返回 null（由 CompositeTaskPlanner 回退）。</returns>
     Task<TaskGraph?> PlanAsync(string task, CancellationToken ct = default);
+
+    /// <summary>
+    /// 分析执行失败的关键节点，决定是否重规划并生成修正节点。
+    /// </summary>
+    /// <param name="context">反思上下文。</param>
+    /// <param name="ct">取消令牌。</param>
+    /// <returns>反思结果，包含分析和修正建议。</returns>
+    Task<ReflectionResult> ReflectAsync(ReplanContext context, CancellationToken ct = default);
 }

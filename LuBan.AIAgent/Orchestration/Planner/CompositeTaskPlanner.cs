@@ -52,4 +52,8 @@ public class CompositeTaskPlanner : ITaskPlanner
 
         return await _llmPlanner.PlanAsync(task, ct);
     }
+
+    /// <inheritdoc/>
+    public Task<ReflectionResult> ReflectAsync(ReplanContext context, CancellationToken ct = default)
+        => _llmPlanner.ReflectAsync(context, ct);
 }

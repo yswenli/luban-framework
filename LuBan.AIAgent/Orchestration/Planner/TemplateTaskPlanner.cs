@@ -47,6 +47,17 @@ public class TemplateTaskPlanner : ITaskPlanner
         return Task.FromResult<TaskGraph?>(graph);
     }
 
+    /// <inheritdoc/>
+    public Task<ReflectionResult> ReflectAsync(ReplanContext context, CancellationToken ct = default)
+    {
+        return Task.FromResult(new ReflectionResult
+        {
+            Analysis = "模板规划器不支持反思重规划",
+            ShouldRetry = false,
+            FailedNodeIds = context.FailedNodes.Select(n => n.NodeId).ToList()
+        });
+    }
+
     /// <summary>
     /// 通过关键词匹配模板。
     /// </summary>

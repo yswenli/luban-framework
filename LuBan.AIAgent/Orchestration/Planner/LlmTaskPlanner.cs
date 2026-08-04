@@ -107,6 +107,138 @@ public class LlmTaskPlanner : ITaskPlanner
             lastError is TaskPlanningException tpe ? tpe.ValidationErrors : new());
     }
 
+    /// <inheritdoc/>
+    public async Task<ReflectionResult> ReflectAsync(ReplanContext context, CancellationToken ct = default)
+    {
+        var prompt = BuildReflectionPrompt(context);
+
+        var response = await _chatClient.GetResponseAsync(
+            new[] { new ChatMessage(ChatRole.System, prompt) },
+            null,
+            ct);
+
+        var json = response.Messages.Last().Text ?? "";
+        if (string.IsNullOrWhiteSpace(json))
+            throw new TaskPlanningException("LLM 反思返回空内容");
+
+        return ParseReflectionResponse(json, context);
+    }
+
+    /// <summary>
+    /// 构建反思提示词。
+    /// </summary>
+    /// <param name="context">反思上下文。</param>
+    /// <returns>提示词字符串。</returns>
+    private static string BuildReflectionPrompt(ReplanContext context)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("你是任务失败分析专家。分析失败的节点及其依赖，决定是否需要重新规划。");
+        sb.AppendLine();
+        sb.AppendLine($"## 用户任务");
+        sb.AppendLine(context.UserGoal);
+        sb.AppendLine();
+        sb.AppendLine($"## 当前尝试次数：{context.Attempt}");
+        sb.AppendLine();
+        sb.AppendLine("## 失败节点");
+
+        foreach (var failed in context.FailedNodes)
+        {
+            sb.AppendLine($"### 节点: {failed.NodeId}");
+            sb.AppendLine($"- 描述: {failed.Description}");
+            sb.AppendLine($"- 错误: {failed.Error}");
+            if (!string.IsNullOrEmpty(failed.Output))
+                sb.AppendLine($"- 输出: {failed.Output}");
+
+            if (failed.DependencyOutputs.Count > 0)
+            {
+                sb.AppendLine("- 依赖节点输出:");
+                foreach (var (depId, depOutput) in failed.DependencyOutputs)
+                {
+                    var preview = depOutput.Length > 200 ? depOutput[..200] + "..." : depOutput;
+                    sb.AppendLine($"  - {depId}: {preview}");
+                }
+            }
+            sb.AppendLine();
+        }
+
+        sb.AppendLine("## 输出格式（严格 JSON）");
+        sb.AppendLine(@"{
+  ""analysis"": ""失败原因分析"",
+  ""fix_approach"": ""修复方案"",
+  ""should_retry"": true,
+  ""new_nodes"": [
+    {
+      ""id"": ""fix_1_step1"",
+      ""description"": ""节点用途"",
+      ""prompt"": ""执行 prompt，可使用 {dep:节点id} 引用前驱输出"",
+      ""dependencies"": [""依赖的节点id""],
+      ""toolGroups"": [""web""],
+      ""isCritical"": true
+    }
+  ]
+}");
+        sb.AppendLine();
+        sb.AppendLine("请分析失败原因，决定是否重试，并生成修正节点（如果需要）。");
+
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// 解析 LLM 反思响应。
+    /// </summary>
+    /// <param name="json">LLM 返回的 JSON 字符串。</param>
+    /// <param name="context">反思上下文。</param>
+    /// <returns>解析后的反思结果。</returns>
+    private static ReflectionResult ParseReflectionResponse(string json, ReplanContext context)
+    {
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+
+        var result = new ReflectionResult
+        {
+            Analysis = root.TryGetProperty("analysis", out var a) ? a.GetString() ?? "" : "",
+            FixApproach = root.TryGetProperty("fix_approach", out var f) ? f.GetString() ?? "" : "",
+            ShouldRetry = root.TryGetProperty("should_retry", out var r) && r.GetBoolean(),
+            FailedNodeIds = context.FailedNodes.Select(n => n.NodeId).ToList()
+        };
+
+        if (root.TryGetProperty("new_nodes", out var nodesEl) && nodesEl.ValueKind == JsonValueKind.Array)
+        {
+            var nodes = new List<TaskNode>();
+            foreach (var nodeEl in nodesEl.EnumerateArray())
+            {
+                var node = new TaskNode
+                {
+                    Id = nodeEl.TryGetProperty("id", out var id) ? id.GetString() ?? "" : "",
+                    Description = nodeEl.TryGetProperty("description", out var desc) ? desc.GetString() ?? "" : "",
+                    Prompt = nodeEl.TryGetProperty("prompt", out var prompt) ? prompt.GetString() ?? "" : "",
+                    IsCritical = nodeEl.TryGetProperty("isCritical", out var crit) && crit.GetBoolean()
+                };
+
+                if (nodeEl.TryGetProperty("dependencies", out var deps) && deps.ValueKind == JsonValueKind.Array)
+                {
+                    node.Dependencies = deps.EnumerateArray()
+                        .Select(d => d.GetString() ?? "")
+                        .Where(d => !string.IsNullOrEmpty(d))
+                        .ToList();
+                }
+
+                if (nodeEl.TryGetProperty("toolGroups", out var tg) && tg.ValueKind == JsonValueKind.Array)
+                {
+                    node.ToolGroups = tg.EnumerateArray()
+                        .Select(t => t.GetString() ?? "")
+                        .Where(t => !string.IsNullOrEmpty(t))
+                        .ToList();
+                }
+
+                nodes.Add(node);
+            }
+            result.NewNodes = nodes;
+        }
+
+        return result;
+    }
+
     /// <summary>
     /// 构建规划提示词。
     /// </summary>

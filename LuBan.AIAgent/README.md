@@ -195,6 +195,7 @@ category: custom
 | `ContextStore` | 跨节点上下文存储，按图谱 ID 隔离，线程安全 |
 | `TaskGraph` / `TaskNode` | DAG 数据模型，支持依赖声明、占位符引用、关键节点 |
 | `OrchestrationToolPlugin` | 工具插件，将编排能力暴露给主 Agent 自动调用 |
+| `ReflectionResult` / `ReplanContext` | 动态重规划数据模型，关键节点失败后 LLM 分析并生成修正图谱 |
 
 ## 使用指南
 
@@ -401,11 +402,18 @@ services.AddSingleton<IRule, MyRule>();
       "MaxNodes": 10,
       "MaxParallelism": 4,
       "DefaultNodeTimeoutSeconds": 120,
+      "MaxReplanAttempts": 3,
+      "ReflectionTimeoutSeconds": 60,
       "ExposeAsTool": true
     }
   }
 }
 ```
+
+**动态重规划**：当关键节点失败导致整体状态为 `failed` 时，编排器自动触发反思阶段：
+1. **反思**：LLM 分析失败节点及其直接依赖的输出，判断是否可修复
+2. **重规划**：LLM 生成修正节点（`fix_{attempt}_` 前缀），复用已成功的节点
+3. **重试**：执行修正图谱，最多尝试 `MaxReplanAttempts` 次（默认 3）
 
 ```csharp
 // 直接调用编排器
@@ -413,6 +421,7 @@ var orchestrator = serviceProvider.GetRequiredService<IOrchestrator>();
 var result = await orchestrator.RunAsync("调研 LuBan 框架并生成对比报告");
 
 Console.WriteLine($"整体状态: {result.OverallStatus}");
+Console.WriteLine($"重规划次数: {result.ReplanningAttempts}");
 Console.WriteLine($"最终输出:\n{result.FinalOutput}");
 
 // 流式订阅进度事件
@@ -541,7 +550,8 @@ LuBan.AIAgent/
 │   │   ├── NodeResult.cs              # 节点结果
 │   │   ├── OrchestrationResult.cs     # 编排结果
 │   │   ├── OrchestrationProgress.cs   # 进度事件
-│   │   └── ProgressEventType.cs       # 进度事件类型
+│   │   ├── ProgressEventType.cs       # 进度事件类型
+│   │   └── ReflectionResult.cs        # 反思结果与重规划上下文
 │   ├── Planner/                       # 任务规划器
 │   │   ├── ITaskPlanner.cs            # 规划器接口
 │   │   ├── LlmTaskPlanner.cs          # LLM 规划器

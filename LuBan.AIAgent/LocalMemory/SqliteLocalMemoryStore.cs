@@ -45,7 +45,7 @@ public class SqliteLocalMemoryStore : ILocalMemoryStore, IDisposable
         if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
             Directory.CreateDirectory(dir);
 
-        _connectionString = $"Data Source={dbPath};Pooling=true;Foreign Keys=false;";
+        _connectionString = $"Data Source={dbPath};Pooling=false;Foreign Keys=false;";
         EnsureTableAsync().GetAwaiter().GetResult();
     }
 
@@ -198,5 +198,6 @@ public class SqliteLocalMemoryStore : ILocalMemoryStore, IDisposable
         if (_disposed) return;
         _disposed = true;
         _gate.Dispose();
+        SQLiteConnection.ClearAllPools();
     }
 }

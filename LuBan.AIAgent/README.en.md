@@ -195,6 +195,7 @@ Main Agent parses composite tasks → decomposes into DAG task graph → dispatc
 | `ContextStore` | Cross-node context store, isolated by graph ID, thread-safe |
 | `TaskGraph` / `TaskNode` | DAG data models, support dependency declaration, placeholder references, critical nodes |
 | `OrchestrationToolPlugin` | Tool plugin, exposes orchestration capability to main Agent |
+| `ReflectionResult` / `ReplanContext` | Dynamic replanning models, LLM analyzes failures and generates fix graph after critical node failure |
 
 ## Usage Guide
 
@@ -400,11 +401,18 @@ Specify assembly names via `ExternalPlugins` configuration — the framework aut
       "MaxNodes": 10,
       "MaxParallelism": 4,
       "DefaultNodeTimeoutSeconds": 120,
+      "MaxReplanAttempts": 3,
+      "ReflectionTimeoutSeconds": 60,
       "ExposeAsTool": true
     }
   }
 }
 ```
+
+**Dynamic Replanning**: When critical node failures cause overall status `failed`, the orchestrator automatically triggers reflection:
+1. **Reflect**: LLM analyzes failed nodes and their direct dependencies' outputs to determine if fixable
+2. **Replan**: LLM generates fix nodes (with `fix_{attempt}_` prefix), reusing succeeded nodes
+3. **Retry**: Executes fix graph, up to `MaxReplanAttempts` times (default: 3)
 
 ```csharp
 // Invoke orchestrator directly
@@ -412,6 +420,7 @@ var orchestrator = serviceProvider.GetRequiredService<IOrchestrator>();
 var result = await orchestrator.RunAsync("Research LuBan framework and generate a comparison report");
 
 Console.WriteLine($"Overall status: {result.OverallStatus}");
+Console.WriteLine($"Replanning attempts: {result.ReplanningAttempts}");
 Console.WriteLine($"Final output:\n{result.FinalOutput}");
 
 // Subscribe to streaming progress events
@@ -540,7 +549,8 @@ LuBan.AIAgent/
 │   │   ├── NodeResult.cs              # Node result
 │   │   ├── OrchestrationResult.cs     # Orchestration result
 │   │   ├── OrchestrationProgress.cs   # Progress event
-│   │   └── ProgressEventType.cs       # Progress event type
+│   │   ├── ProgressEventType.cs       # Progress event type
+│   │   └── ReflectionResult.cs        # Reflection result and replan context
 │   ├── Planner/                       # Task planners
 │   │   ├── ITaskPlanner.cs            # Planner interface
 │   │   ├── LlmTaskPlanner.cs          # LLM planner
