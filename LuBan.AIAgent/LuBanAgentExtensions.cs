@@ -64,6 +64,8 @@ public static class LuBanAgentExtensions
 
         // 注册 Rules
         services.AddSingleton<IRule, PathAccessRule>();
+        services.AddSingleton<IRule, Rules.BuiltIn.BaseBehaviorRule>();
+        services.AddSingleton<IRule, Rules.BuiltIn.MemoryRecallRule>();
         services.AddSingleton<RuleEngine>();
 
         // 注册 MCP
