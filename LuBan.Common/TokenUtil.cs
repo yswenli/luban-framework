@@ -20,7 +20,9 @@
 *版本号： V1.0.0.0
 *描述：token工具类
 *
-*****************************************************************************/
+ *****************************************************************************/
+using System.Text.Json.Serialization;
+
 namespace LuBan.Common
 {
     /// <summary>
@@ -122,17 +124,17 @@ namespace LuBan.Common
             /// <summary>
             /// 版本
             /// </summary>
-            [JsonProperty("v")]
+            [JsonPropertyName("v")]
             public string Version { get; set; }
             /// <summary>
             /// 时间
             /// </summary>
-            [JsonProperty("d")]
+            [JsonPropertyName("d")]
             public DateTime DateTime { get; set; }
             /// <summary>
             /// 校验码
             /// </summary>
-            [JsonProperty("c")]
+            [JsonPropertyName("c")]
             public string ComparisonCode { get; set; }
 
             /// <summary>

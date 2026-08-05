@@ -257,7 +257,10 @@ public static class TitleValueConvertor
                             ReflectionUtil.SetPropertyValue(t, property, convertedValue);
                         }
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"TitleValue.ConvertTo 属性 {property?.Name} 类型转换失败", ex);
+                    }
                 }
             }
         }

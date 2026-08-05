@@ -21,8 +21,6 @@ public static class LuBanLoggingServiceExtensions
         this IServiceCollection services,
         Action<LuBanLoggingOptions>? configure = null)
     {
-        ConsoleUtil.WriteLineWithCount("正在注册LuBan文件日志服务", color: ConsoleColor.Green);
-
         services.AddLogging(builder => builder.AddLuBanFileLogger(configure));
 
         return services;

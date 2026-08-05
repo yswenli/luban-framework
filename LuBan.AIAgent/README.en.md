@@ -70,6 +70,32 @@ npx playwright@1.61.0 install chromium
 | `LuBanChatClient` | Multi-provider router, unified `provider:model` format calls |
 | `ConfigManager` | Configuration manager for loading, saving, and managing Provider configs |
 
+### Component Registry Architecture
+
+Skills, MCPs, and Rules use a unified three-tier priority registry pattern:
+
+| Priority | Source | Behavior |
+|----------|--------|----------|
+| Highest | Hardcoded (DI) | Always present, can be disabled via `DisabledBuiltin` config |
+| Medium | Workspace files | Add new items, same-name items are ignored |
+| Lowest | config.json | Add new items, same-name items are ignored |
+
+**Loading timing**:
+- At startup: Load hardcoded components + config.json global config
+- On workspace switch: Load workspace files, auto-merge
+
+**Workspace directory structure**:
+```
+.luban-agent/
+├── skills/          # Workspace-level Skills
+│   └── my-skill/
+│       └── SKILL.md
+├── mcps/            # Workspace-level MCP servers
+│   └── my-mcp.json
+└── rules/           # Workspace-level rules
+    └── my-rule.json
+```
+
 ### Tool System
 
 | Component | Description |
@@ -135,7 +161,7 @@ Prompt template content here...
 - Project-level: `<workspace>/.luban-agent/skills/<skill-id>/SKILL.md`
 - User-level: `%LocalAppData%/LuBan/AIAgent/skills/<skill-id>/SKILL.md`
 
-**Priority**: Project-level > User-level > Built-in > config.json
+**Priority**: Hardcoded (DI) > Workspace files > config.json
 
 ### Rule System
 

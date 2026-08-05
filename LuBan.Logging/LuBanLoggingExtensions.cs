@@ -4,6 +4,7 @@ using LuBan.Logging.FileLogger;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 
 namespace LuBan.Logging;
 
@@ -23,7 +24,6 @@ public static class LuBanLoggingExtensions
         this ILoggingBuilder builder,
         Action<LuBanLoggingOptions>? configure = null)
     {
-        // 注册 IOptions<LuBanLoggingOptions>，支持从 IConfiguration 读取
         builder.Services.AddOptions<LuBanLoggingOptions>()
             .Configure<IConfiguration>((options, configuration) =>
             {
@@ -35,12 +35,19 @@ public static class LuBanLoggingExtensions
             builder.Services.Configure(configure);
         }
 
-        builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<ILoggerProvider, FileLoggerProvider>(sp =>
-        {
-            var options = sp.GetRequiredService<IOptions<LuBanLoggingOptions>>().Value;
-            var fileOptions = FileLoggerOptions.FromLuBanOptions(options);
-            return new FileLoggerProvider(fileOptions);
-        }));
+        builder.Services.TryAddEnumerable(
+            ServiceDescriptor.Singleton<ILoggerProvider, FileLoggerProvider>(sp =>
+            {
+                var options = sp.GetRequiredService<IOptions<LuBanLoggingOptions>>().Value;
+                Logger.EnableConsoleOutput = options.EnableConsole;
+
+                var fileOptions = FileLoggerOptions.FromLuBanOptions(options);
+                if (!options.Enabled)
+                {
+                    fileOptions.Categories = new Dictionary<string, bool>();
+                }
+                return new FileLoggerProvider(fileOptions);
+            }));
 
         return builder;
     }
@@ -64,12 +71,19 @@ public static class LuBanLoggingExtensions
             builder.Services.Configure(configure);
         }
 
-        builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<ILoggerProvider, FileLoggerProvider>(sp =>
-        {
-            var options = sp.GetRequiredService<IOptions<LuBanLoggingOptions>>().Value;
-            var fileOptions = FileLoggerOptions.FromLuBanOptions(options);
-            return new FileLoggerProvider(fileOptions);
-        }));
+        builder.Services.TryAddEnumerable(
+            ServiceDescriptor.Singleton<ILoggerProvider, FileLoggerProvider>(sp =>
+            {
+                var options = sp.GetRequiredService<IOptions<LuBanLoggingOptions>>().Value;
+                Logger.EnableConsoleOutput = options.EnableConsole;
+
+                var fileOptions = FileLoggerOptions.FromLuBanOptions(options);
+                if (!options.Enabled)
+                {
+                    fileOptions.Categories = new Dictionary<string, bool>();
+                }
+                return new FileLoggerProvider(fileOptions);
+            }));
 
         return builder;
     }

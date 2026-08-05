@@ -37,11 +37,6 @@ public sealed class DbConnectionOptions
     public bool EnableConsoleSql { get; set; } = false;
 
     /// <summary>
-    /// 是否启用数据库日志
-    /// </summary>
-    public bool EnableDbLogs { get; set; } = true;
-
-    /// <summary>
     /// 数据库日志配置
     /// </summary>
     public DbLogOptions DbLogOptions { get; set; } = new DbLogOptions();
@@ -115,11 +110,6 @@ public sealed class DbSettings
     /// 启用视图初始化
     /// </summary>
     public bool EnableInitView { get; set; } = false;
-
-    /// <summary>
-    /// 启用库表差异日志
-    /// </summary>
-    public bool EnableDiffLog { get; set; } = false;
 
     /// <summary>
     /// 启用驼峰转下划线

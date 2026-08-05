@@ -8,6 +8,7 @@ namespace LuBan.Logging.FileLogger;
 internal sealed class FileLoggerProvider : ILoggerProvider
 {
     private readonly FileLoggerOptions _options;
+    private readonly HashSet<string> _enabledCategories;
     private readonly ConcurrentDictionary<string, RollingFileWriter> _writers = new();
     private readonly Dictionary<string, string> _categoryToFile = new()
     {
@@ -25,6 +26,9 @@ internal sealed class FileLoggerProvider : ILoggerProvider
     public FileLoggerProvider(FileLoggerOptions options)
     {
         _options = options;
+        _enabledCategories = new HashSet<string>(
+            options.Categories.Where(kv => kv.Value).Select(kv => kv.Key),
+            StringComparer.OrdinalIgnoreCase);
     }
 
     /// <inheritdoc/>
@@ -40,12 +44,16 @@ internal sealed class FileLoggerProvider : ILoggerProvider
     /// <param name="message">日志消息。</param>
     public void Write(string categoryName, string message)
     {
+        if (!_enabledCategories.Contains(categoryName))
+        {
+            return;
+        }
+
         if (!_categoryToFile.TryGetValue(categoryName, out var fileName))
         {
             return;
         }
 
-        // GetOrAddValueRef 模式：避免竞态下重复构造 RollingFileWriter
         if (_writers.TryGetValue(fileName, out var existing))
         {
             existing.WriteLine(message);

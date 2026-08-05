@@ -17,7 +17,7 @@ internal sealed class FileLoggerOptions
             Directory = options.Directory,
             MaxFileSizeBytes = options.MaxFileSizeMB * 1024 * 1024,
             MaxRollBackups = options.MaxRollBackups,
-            IncludeScopes = options.IncludeScopes
+            Categories = options.Categories
         };
     }
 
@@ -37,7 +37,14 @@ internal sealed class FileLoggerOptions
     public int MaxRollBackups { get; set; } = 5;
 
     /// <summary>
-    /// 是否包含作用域。
+    /// 按类别控制日志输出。
     /// </summary>
-    public bool IncludeScopes { get; set; } = false;
+    public Dictionary<string, bool> Categories { get; set; } = new()
+    {
+        ["loginfo"] = true,
+        ["logdebug"] = true,
+        ["logwarn"] = true,
+        ["logerror"] = true,
+        ["logcall"] = true
+    };
 }

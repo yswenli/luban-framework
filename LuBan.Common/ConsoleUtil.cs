@@ -453,7 +453,10 @@ public static class ConsoleUtil
                                 {
                                     action?.Invoke();
                                 }
-                                catch { }
+                                catch (Exception ex)
+                                {
+                                    Logger.Error("ConsoleUtil.PrintProcess action 执行异常", ex);
+                                }
                                 task.Increment(step);
                             }
                         });
@@ -539,7 +542,10 @@ public static class ConsoleUtil
                         {
                             await action.Invoke();
                         }
-                        catch { }
+                        catch (Exception ex)
+                        {
+                            Logger.Error("ConsoleUtil.PrintProcessAsync action 执行异常", ex);
+                        }
                         task.Increment(step);
                     }
                 });
@@ -582,7 +588,10 @@ public static class ConsoleUtil
                         {
                             await action.Invoke(item);
                         }
-                        catch { }
+                        catch (Exception ex)
+                        {
+                            Logger.Error("ConsoleUtil.PrintProcessAsync<T> action 执行异常", ex);
+                        }
                         task.Increment(1);
                     }
                 });

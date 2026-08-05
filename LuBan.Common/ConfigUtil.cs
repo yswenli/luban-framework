@@ -29,7 +29,7 @@ namespace LuBan.Common;
 /// </summary>
 public static class ConfigUtil
 {
-    static IConfiguration _configuration;
+    static volatile IConfiguration? _configuration;
 
 
     /// <summary>

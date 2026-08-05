@@ -1,147 +1,174 @@
-/****************************************************************************
-*Copyright @ yswenli All Rights Reserved.
-*CLR版本： .net8.0
-*机器名称：WALLE
-*公司名称：Walle
-*命名空间：LuBan.AIAgent.MCP
-*文件名： MCPRegistry
-*版本号： V1.0.0.0
-*唯一标识：56e7a475-62df-4260-a94b-dbe87287a8eb
-*当前的用户域：WALLE
-*创建人： yswenli
-*电子邮箱：yswenli@outlook.com
-*创建时间：2026/7/27
-*描述：MCP 注册表
-*
-*=================================================
-*修改标记
-*修改时间：2026/7/27
-*修改人： yswenli
-*版本号： V1.0.0.0
-*描述：MCP 注册表
-*
-*****************************************************************************/
 namespace LuBan.AIAgent.MCP;
 
 /// <summary>
-/// MCP 注册表（内置客户端缓存 + 外部服务器实例池，按配置同步）
+/// MCP 注册表（硬编码 + 工作区 + config.json，三级优先级）
 /// </summary>
-/// <remarks>
-/// 内置与外部名称冲突时内置优先；冲突在 /mcp add 时拦截（命令层）。
-/// </remarks>
 public class MCPRegistry
 {
-    private readonly Dictionary<string, IMCPClient> _builtinClients = new();
-    private readonly Dictionary<string, (IMCPClient Client, string Fingerprint)> _externalPool = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ReaderWriterLockSlim _lock = new();
+    private readonly Dictionary<string, IMCPClient> _hardcoded = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, (IMCPClient Client, string Fingerprint)> _workspace = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, (IMCPClient Client, string Fingerprint)> _config = new(StringComparer.OrdinalIgnoreCase);
     private readonly Configuration.ConfigManager? _configManager;
+    private List<IMCPClient> _merged = new();
 
-    /// <summary>
-    /// 创建 MCPRegistry 实例
-    /// </summary>
-    /// <param name="clients">DI 注册的内置客户端</param>
-    /// <param name="configManager">配置管理器（可选）</param>
     public MCPRegistry(IEnumerable<IMCPClient> clients, Configuration.ConfigManager? configManager = null)
     {
-        foreach (var client in clients)
-        {
-            _builtinClients[client.Name.ToLowerInvariant()] = client;
-        }
         _configManager = configManager;
+        foreach (var client in clients)
+            _hardcoded[client.Name] = client;
+        RebuildMerged();
     }
 
     private static string FingerprintOf(Configuration.McpServerConfig cfg)
         => cfg.Command + "\0" + string.Join("\0", cfg.Args);
 
-    private void SyncExternalPool()
+    public void LoadFromWorkspace(string workspaceDir)
     {
-        if (_configManager == null) return;
-
-        var enabledServers = _configManager.McpServers
-            .Where(s => s.Enabled)
-            .ToList();
-        var enabledByName = enabledServers.ToDictionary(s => s.Name, StringComparer.OrdinalIgnoreCase);
-
-        // 移除已删除/禁用/配置已变更的实例（先断开，配置变更的在下方重建）
-        foreach (var name in _externalPool.Keys.ToList())
+        var temp = new Dictionary<string, (IMCPClient Client, string Fingerprint)>(StringComparer.OrdinalIgnoreCase);
+        var mcpsDir = Path.Combine(workspaceDir, ".luban-agent", "mcps");
+        
+        if (Directory.Exists(mcpsDir))
         {
-            if (!enabledByName.TryGetValue(name, out var cfg)
-                || FingerprintOf(cfg) != _externalPool[name].Fingerprint)
+            foreach (var jsonFile in Directory.GetFiles(mcpsDir, "*.json"))
             {
-                var (client, _) = _externalPool[name];
-                _externalPool.Remove(name);
-                if (client.IsConnected)
+                try
                 {
-                    try { Task.Run(() => client.DisconnectAsync()).Wait(); } catch { }
+                    var json = File.ReadAllText(jsonFile);
+                    var config = System.Text.Json.JsonSerializer.Deserialize<Configuration.McpServerConfig>(json);
+                    if (config != null && config.Enabled)
+                    {
+                        IMCPClient client = config.Transport?.ToLowerInvariant() switch
+                        {
+                            "http" or "sse" => new HttpMCPClient(config),
+                            _ => new StdioMCPClient(config)
+                        };
+                        temp[config.Name] = (client, FingerprintOf(config));
+                    }
                 }
-                else
+                catch (Exception ex)
                 {
-                    (client as IDisposable)?.Dispose();
+                    Logger.Error($"加载工作区 MCP 失败: {jsonFile}", ex);
                 }
             }
         }
 
-        // 新增缺失的实例（跳过与内置同名的，内置优先）
-        foreach (var cfg in enabledServers)
+        _lock.EnterWriteLock();
+        try
         {
-            if (!_externalPool.ContainsKey(cfg.Name)
-                && !_builtinClients.ContainsKey(cfg.Name.ToLowerInvariant()))
+            // 断开旧的连接
+            foreach (var kvp in _workspace)
             {
-                IMCPClient client = cfg.Transport.ToLowerInvariant() switch
+                if (kvp.Value.Client.IsConnected)
                 {
-                    "http" or "sse" => new HttpMCPClient(cfg),
-                    _ => new StdioMCPClient(cfg)
-                };
-                _externalPool[cfg.Name] = (client, FingerprintOf(cfg));
+                    try { Task.Run(() => kvp.Value.Client.DisconnectAsync()).Wait(); } catch { }
+                }
+                (kvp.Value.Client as IDisposable)?.Dispose();
             }
+            
+            _workspace.Clear();
+            foreach (var kvp in temp)
+                _workspace[kvp.Key] = kvp.Value;
+            RebuildMerged();
+        }
+        finally
+        {
+            _lock.ExitWriteLock();
         }
     }
 
-    /// <summary>
-    /// 获取所有客户端（内置按 DisabledBuiltinMcpClients 过滤 + 启用的外部实例）
-    /// </summary>
+    public void LoadFromConfig()
+    {
+        var temp = new Dictionary<string, (IMCPClient Client, string Fingerprint)>(StringComparer.OrdinalIgnoreCase);
+        
+        try
+        {
+            if (_configManager != null)
+            {
+                foreach (var cfg in _configManager.McpServers.Where(s => s.Enabled))
+                {
+                    IMCPClient client = cfg.Transport?.ToLowerInvariant() switch
+                    {
+                        "http" or "sse" => new HttpMCPClient(cfg),
+                        _ => new StdioMCPClient(cfg)
+                    };
+                    temp[cfg.Name] = (client, FingerprintOf(cfg));
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("加载 config.json MCPs 失败", ex);
+        }
+
+        _lock.EnterWriteLock();
+        try
+        {
+            _config.Clear();
+            foreach (var kvp in temp)
+                _config[kvp.Key] = kvp.Value;
+            RebuildMerged();
+        }
+        finally
+        {
+            _lock.ExitWriteLock();
+        }
+    }
+
+    public void Reload(string? workspaceDir = null)
+    {
+        LoadFromConfig();
+        if (workspaceDir != null)
+            LoadFromWorkspace(workspaceDir);
+    }
+
     public IReadOnlyList<IMCPClient> GetAll()
     {
-        SyncExternalPool();
-
-        var disabledBuiltin = _configManager?.DisabledBuiltinMcpClients;
-        var result = _builtinClients
-            .Where(kv => disabledBuiltin?.Contains(kv.Key) != true)
-            .Select(kv => kv.Value)
-            .ToList();
-
-        result.AddRange(_externalPool.Values.Select(v => v.Client));
-        return result;
+        _lock.EnterReadLock();
+        try
+        {
+            return _merged.ToList();
+        }
+        finally
+        {
+            _lock.ExitReadLock();
+        }
     }
 
-    /// <summary>
-    /// 根据名称获取客户端
-    /// </summary>
     public IMCPClient? Get(string name)
     {
-        SyncExternalPool();
-
-        var key = name.ToLowerInvariant();
-        if (_configManager?.DisabledBuiltinMcpClients.Contains(key) != true
-            && _builtinClients.TryGetValue(key, out var builtin))
+        _lock.EnterReadLock();
+        try
         {
-            return builtin;
+            return _merged.FirstOrDefault(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
         }
-
-        return _externalPool.TryGetValue(key, out var external) ? external.Client : null;
+        finally
+        {
+            _lock.ExitReadLock();
+        }
     }
 
-    /// <summary>
-    /// 判断指定名称是否为内置客户端
-    /// </summary>
-    public bool IsBuiltin(string name) => _builtinClients.ContainsKey(name.ToLowerInvariant());
+    public bool Contains(string name)
+    {
+        _lock.EnterReadLock();
+        try
+        {
+            return _merged.Any(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            _lock.ExitReadLock();
+        }
+    }
 
-    /// <summary>
-    /// 连接所有 MCP 客户端
-    /// </summary>
+    public bool IsBuiltin(string name) => _hardcoded.ContainsKey(name);
+
     public async Task<Dictionary<string, bool>> ConnectAllAsync(CancellationToken cancellationToken = default)
     {
         var results = new Dictionary<string, bool>();
-        foreach (var client in GetAll())
+        var clients = GetAll();
+        
+        foreach (var client in clients)
         {
             try
             {
@@ -156,13 +183,12 @@ public class MCPRegistry
         return results;
     }
 
-    /// <summary>
-    /// 获取所有可用的工具
-    /// </summary>
     public async Task<Dictionary<string, IEnumerable<MCPTool>>> GetAllToolsAsync(CancellationToken cancellationToken = default)
     {
         var tools = new Dictionary<string, IEnumerable<MCPTool>>();
-        foreach (var client in GetAll().Where(c => c.IsConnected))
+        var clients = GetAll().Where(c => c.IsConnected);
+        
+        foreach (var client in clients)
         {
             try
             {
@@ -177,9 +203,6 @@ public class MCPRegistry
         return tools;
     }
 
-    /// <summary>
-    /// 调用工具
-    /// </summary>
     public async Task<MCPToolResult> CallToolAsync(
         string clientName,
         string toolName,
@@ -194,5 +217,24 @@ public class MCPRegistry
             return new MCPToolResult { Success = false, Error = $"MCP 客户端 {clientName} 未连接" };
 
         return await client.CallToolAsync(toolName, arguments, cancellationToken);
+    }
+
+    private void RebuildMerged()
+    {
+        var merged = new Dictionary<string, IMCPClient>(StringComparer.OrdinalIgnoreCase);
+        
+        // 1. 最低优先级：config.json
+        foreach (var kvp in _config)
+            merged[kvp.Key] = kvp.Value.Client;
+        
+        // 2. 中优先级：工作区文件
+        foreach (var kvp in _workspace)
+            merged[kvp.Key] = kvp.Value.Client;
+        
+        // 3. 最高优先级：硬编码
+        foreach (var kvp in _hardcoded)
+            merged[kvp.Key] = kvp.Value;
+
+        _merged = merged.Values.ToList();
     }
 }

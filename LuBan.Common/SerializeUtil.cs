@@ -22,10 +22,6 @@
 *
 *****************************************************************************/
 
-using Newtonsoft.Json.Serialization;
-
-using System.Xml;
-using System.Xml.Serialization;
 
 namespace LuBan.Common;
 
@@ -35,7 +31,7 @@ namespace LuBan.Common;
 public static class SerializeUtil
 {
     /// <summary>
-    /// newton.json序列化
+    /// json序列化
     /// </summary>
     /// <param name="obj"></param>
     /// <param name="indented"></param>
@@ -43,29 +39,34 @@ public static class SerializeUtil
     /// <param name="nullValue"></param>
     /// <param name="camelCase"></param>
     /// <returns></returns>
+    [RequiresUnreferencedCode("json序列化")]
     public static string Serialize(object obj, bool indented = false, bool defalutVal = true, bool nullValue = false, bool camelCase = false)
     {
         if (obj == null)
         {
             return string.Empty;
         }
-        var settings = new JsonSerializerSettings
+        var options = new JsonSerializerOptions
         {
-            ObjectCreationHandling = ObjectCreationHandling.Replace,
-            DefaultValueHandling = defalutVal ? DefaultValueHandling.Include : DefaultValueHandling.Ignore,
-            NullValueHandling = nullValue ? NullValueHandling.Ignore : NullValueHandling.Include
+            WriteIndented = indented,
+            PropertyNamingPolicy = camelCase ? JsonNamingPolicy.CamelCase : null,
+            DefaultIgnoreCondition = defalutVal ? JsonIgnoreCondition.Never : JsonIgnoreCondition.WhenWritingDefault
         };
 
-        if (camelCase)
+        if (!nullValue)
         {
-            settings.ContractResolver = new CamelCasePropertyNamesContractResolver();
+            options.DefaultIgnoreCondition = JsonIgnoreCondition.Never;
         }
-        settings.DateFormatString = "yyyy-MM-dd HH:mm:ss.fff";
-        settings.Converters ??= [];
-        settings.Converters.Add(new NewtonsoftExceptionConverter());
-        settings.Converters.Add(new AssemblyConverter());
-        settings.Converters.Add(new MemberInfoConverter());
-        return JsonConvert.SerializeObject(obj, indented ? Newtonsoft.Json.Formatting.Indented : Newtonsoft.Json.Formatting.None, settings);
+        else
+        {
+            options.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+        }
+
+        options.Converters.Add(new DateTimeJsonConverter("yyyy-MM-dd HH:mm:ss.fff"));
+        options.Converters.Add(new ExceptionJsonConverter());
+        options.Converters.Add(new AssemblyJsonConverter());
+        options.Converters.Add(new MemberInfoJsonConverter());
+        return JsonSerializer.Serialize(obj, obj!.GetType(), options);
     }
 
     /// <summary>
@@ -73,6 +74,7 @@ public static class SerializeUtil
     /// </summary>
     /// <param name="ex"></param>
     /// <returns></returns>
+    [RequiresUnreferencedCode("json序列化")]
     public static string ToJson(this Exception ex)
     {
         if (ex == null)
@@ -88,24 +90,25 @@ public static class SerializeUtil
     }
 
     /// <summary>
-    /// newton.json反序列化
+    /// json反序列化
     /// </summary>
     /// <typeparam name="T"></typeparam>
     /// <param name="json"></param>
     /// <param name="defalutVal"></param>
     /// <param name="nullValue"></param>
     /// <returns></returns>
+    [RequiresUnreferencedCode("json反序列化")]
     public static T? Deserialize<T>(string json, bool defalutVal = true, bool nullValue = false)
     {
         if (json.IsNullOrEmpty()) return default;
         try
         {
-            JsonSerializerSettings settings = new();
-            settings.ObjectCreationHandling = ObjectCreationHandling.Replace;
-            settings.DefaultValueHandling = defalutVal ? DefaultValueHandling.Include : DefaultValueHandling.Ignore;
-            settings.NullValueHandling = nullValue ? NullValueHandling.Ignore : NullValueHandling.Include;
-            settings.DateFormatString = "yyyy-MM-dd HH:mm:ss.fff";
-            return JsonConvert.DeserializeObject<T>(json, settings);
+            var options = new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            };
+            options.Converters.Add(new DateTimeJsonConverter("yyyy-MM-dd HH:mm:ss.fff"));
+            return JsonSerializer.Deserialize<T>(json, options);
         }
         catch
         {
@@ -116,38 +119,56 @@ public static class SerializeUtil
 
 
     /// <summary>
-    /// newton.json反序列化
+    /// json反序列化
     /// </summary>
     /// <param name="json"></param>
     /// <param name="type"></param>
     /// <param name="defalutVal"></param>
     /// <param name="nullValue"></param>
     /// <returns></returns>
-    public static dynamic? Deserialize(string json, Type type, bool defalutVal = true, bool nullValue = false)
+    [RequiresUnreferencedCode("json反序列化")]
+    public static object? Deserialize(string json, Type type, bool defalutVal = true, bool nullValue = false)
     {
-        JsonSerializerSettings settings = new();
-        settings.ObjectCreationHandling = ObjectCreationHandling.Replace;
-        settings.DefaultValueHandling = defalutVal ? DefaultValueHandling.Include : DefaultValueHandling.Ignore;
-        settings.NullValueHandling = nullValue ? NullValueHandling.Ignore : NullValueHandling.Include;
-        settings.DateFormatString = "yyyy-MM-dd HH:mm:ss.fff";
-        return JsonConvert.DeserializeObject(json, type, settings);
+        if (json.IsNullOrEmpty()) return null;
+        try
+        {
+            var options = new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            };
+            options.Converters.Add(new DateTimeJsonConverter("yyyy-MM-dd HH:mm:ss.fff"));
+            return JsonSerializer.Deserialize(json, type, options);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     /// <summary>
-    /// newton.json反序列化
+    /// json反序列化
     /// </summary>
     /// <param name="json"></param>
     /// <param name="defalutVal"></param>
     /// <param name="nullValue"></param>
     /// <returns></returns>
-    public static dynamic? Deserialize(string json, bool defalutVal = true, bool nullValue = false)
+    [RequiresUnreferencedCode("json反序列化")]
+    public static object? Deserialize(string json, bool defalutVal = true, bool nullValue = false)
     {
-        JsonSerializerSettings settings = new();
-        settings.ObjectCreationHandling = ObjectCreationHandling.Replace;
-        settings.DefaultValueHandling = defalutVal ? DefaultValueHandling.Include : DefaultValueHandling.Ignore;
-        settings.NullValueHandling = nullValue ? NullValueHandling.Ignore : NullValueHandling.Include;
-        settings.DateFormatString = "yyyy-MM-dd HH:mm:ss.fff";
-        return JsonConvert.DeserializeObject(json, settings);
+        if (json.IsNullOrEmpty()) return null;
+        try
+        {
+            var options = new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            };
+            options.Converters.Add(new DateTimeJsonConverter("yyyy-MM-dd HH:mm:ss.fff"));
+            return JsonSerializer.Deserialize(json, typeof(object), options);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     /// <summary>
@@ -158,21 +179,21 @@ public static class SerializeUtil
     /// <param name="defalutVal"></param>
     /// <param name="nullValue"></param>
     /// <returns></returns>
+    [RequiresUnreferencedCode("通过json序列化和反序列化方式转换模型")]
     public static T? Convert<T>(dynamic val, bool defalutVal = true, bool nullValue = false)
     {
         try
         {
-            JsonSerializerSettings settings = new();
-            settings.ObjectCreationHandling = ObjectCreationHandling.Replace;
-            settings.DefaultValueHandling = defalutVal ? DefaultValueHandling.Include : DefaultValueHandling.Ignore;
-            settings.NullValueHandling = nullValue ? NullValueHandling.Ignore : NullValueHandling.Include;
-            settings.DateFormatString = "yyyy-MM-dd HH:mm:ss.fff";
-            settings.Converters ??= [];
-            settings.Converters.Add(new NewtonsoftExceptionConverter());
-            settings.Converters.Add(new AssemblyConverter());
-            settings.Converters.Add(new MemberInfoConverter());
-            var json = JsonConvert.SerializeObject(val, Newtonsoft.Json.Formatting.None, settings);
-            return JsonConvert.DeserializeObject<T>(json);
+            var options = new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            };
+            options.Converters.Add(new DateTimeJsonConverter("yyyy-MM-dd HH:mm:ss.fff"));
+            options.Converters.Add(new ExceptionJsonConverter());
+            options.Converters.Add(new AssemblyJsonConverter());
+            options.Converters.Add(new MemberInfoJsonConverter());
+            var json = JsonSerializer.Serialize(val, val?.GetType() ?? typeof(object), options);
+            return JsonSerializer.Deserialize<T>(json, options);
         }
         catch
         {
@@ -186,6 +207,7 @@ public static class SerializeUtil
     /// <typeparam name="T"></typeparam>
     /// <param name="obj"></param>
     /// <returns></returns>
+    [RequiresUnreferencedCode("深复制当前对象")]
     public static T? DeepClone<T>(this T obj)
     {
         if (obj == null) return default;
@@ -201,6 +223,7 @@ public static class SerializeUtil
     /// <typeparam name="T"></typeparam>
     /// <param name="obj"></param>
     /// <returns></returns>
+    [RequiresUnreferencedCode("深复制当前对象")]
     public static T? DeepClone<T>(this object obj)
     {
         var json = Serialize(obj);
@@ -217,41 +240,31 @@ public static class SerializeUtil
     /// <param name="nullValue"></param>
     /// <param name="hasIndentation"></param>
     /// <returns></returns>
+    [RequiresUnreferencedCode("转换为JSON格式字符串")]
     public static string ToJson(this object obj, bool defalutVal = true, bool nullValue = false, bool hasIndentation = true)
     {
         if (obj == null) return string.Empty;
         try
         {
-            StringWriter textWriter = new StringWriter();
-            JsonTextWriter jsonWriter;
-            if (hasIndentation)
+            var options = new JsonSerializerOptions
             {
-                jsonWriter = new JsonTextWriter(textWriter)
-                {
-                    Formatting = Newtonsoft.Json.Formatting.Indented,
-                    Indentation = 4,
-                    IndentChar = ' '
-                };
+                WriteIndented = hasIndentation
+            };
+
+            if (!nullValue)
+            {
+                options.DefaultIgnoreCondition = JsonIgnoreCondition.Never;
             }
             else
             {
-                jsonWriter = new JsonTextWriter(textWriter)
-                {
-                    Formatting = Newtonsoft.Json.Formatting.None
-                };
+                options.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
             }
-            JsonSerializerSettings settings = new();
-            settings.ObjectCreationHandling = ObjectCreationHandling.Replace;
-            settings.DefaultValueHandling = defalutVal ? DefaultValueHandling.Include : DefaultValueHandling.Ignore;
-            settings.NullValueHandling = nullValue ? NullValueHandling.Include : NullValueHandling.Ignore;
-            settings.DateFormatString = "yyyy-MM-dd HH:mm:ss.fff";
-            settings.Converters ??= [];
-            settings.Converters.Add(new NewtonsoftExceptionConverter());
-            settings.Converters.Add(new AssemblyConverter());
-            settings.Converters.Add(new MemberInfoConverter());
-            JsonSerializer serializer = JsonSerializer.Create(settings);
-            serializer.Serialize(jsonWriter, obj);
-            return textWriter.ToString();
+
+            options.Converters.Add(new DateTimeJsonConverter("yyyy-MM-dd HH:mm:ss.fff"));
+            options.Converters.Add(new ExceptionJsonConverter());
+            options.Converters.Add(new AssemblyJsonConverter());
+            options.Converters.Add(new MemberInfoJsonConverter());
+            return JsonSerializer.Serialize(obj, obj.GetType(), options);
         }
         catch { }
         return string.Empty;
@@ -265,6 +278,7 @@ public static class SerializeUtil
     /// <param name="defalutVal"></param>
     /// <param name="nullValue"></param>
     /// <returns></returns>
+    [RequiresUnreferencedCode("转换为对象")]
     public static T? ToObject<T>(this string json, bool defalutVal = true, bool nullValue = false)
     {
         return Deserialize<T>(json, defalutVal, nullValue);
@@ -275,26 +289,17 @@ public static class SerializeUtil
     /// 转json格式
     /// </summary>
     /// <param name="str"></param>
-    /// <returns></returns>
+    /// <returns></returns> 
+    [RequiresUnreferencedCode("转json格式")]
     private static string ConvertJsonString(string str)
     {
-        JsonSerializer serializer = new();
-        TextReader tr = new StringReader(str);
-        JsonTextReader jtr = new(tr);
-        var obj = serializer.Deserialize(jtr);
-        if (obj != null)
+        try
         {
-            StringWriter textWriter = new StringWriter();
-            JsonTextWriter jsonWriter = new JsonTextWriter(textWriter)
-            {
-                Formatting = Newtonsoft.Json.Formatting.Indented,
-                Indentation = 4,
-                IndentChar = ' '
-            };
-            serializer.Serialize(jsonWriter, obj);
-            return textWriter.ToString();
+            using var doc = JsonDocument.Parse(str);
+            var options = new JsonSerializerOptions { WriteIndented = true };
+            return JsonSerializer.Serialize(doc.RootElement, options);
         }
-        else
+        catch
         {
             return str;
         }
@@ -324,6 +329,7 @@ public static class SerializeUtil
     /// <param name="returnType">Type of the return.</param>
     /// <param name="data">The data.</param>
     /// <returns></returns>
+    [RequiresUnreferencedCode("XML反序列化")]
     public static object? XmlDeserialize(Type returnType, string? data)
     {
         if (data.IsNullOrEmpty())
@@ -346,12 +352,13 @@ public static class SerializeUtil
     }
 
     /// <summary>
-    /// 返序列化
+    /// XML反序列化
     /// </summary>
     /// <typeparam name="T"></typeparam>
     /// <param name="xml"></param>
     /// <param name="rootXml"></param>
     /// <returns></returns>
+    [RequiresUnreferencedCode("XML反序列化")]
     public static T? XmlDeserialize<T>(string xml, string rootXml = "")
     {
         if (string.IsNullOrEmpty(xml))
@@ -381,6 +388,8 @@ public static class SerializeUtil
     /// </summary>
     /// <param name="obj">The obj.</param>
     /// <returns></returns>
+    
+    [RequiresUnreferencedCode("XML序列化")]
     public static string XmlSerialize(object obj)
     {
         if (obj == null)
@@ -414,6 +423,7 @@ public static class SerializeUtil
     /// <param name="xml"></param>
     /// <param name="prefix"></param>
     /// <returns></returns>
+    [RequiresUnreferencedCode("XML反序列化")]
     public static T? CustomXmlDeserialize<T>(string xml, string prefix = "")
     {
         if (string.IsNullOrEmpty(xml)) return default;
@@ -440,6 +450,7 @@ public static class SerializeUtil
         return (T)FillModel(obj, elems, prefix);
     }
 
+    [RequiresUnreferencedCode("FillModel")]
     private static object FillModel(object? obj, XmlNodeList? xmlNodeList, string prefix = "")
     {
         if (obj == null) throw new Exception("obj is null");
@@ -661,164 +672,3 @@ public static class SerializeUtil
     #endregion 因为dotnet core的xml反序列化bug，自定义      
 }
 
-
-/// <summary>
-/// Json.NET 序列化/反序列化扩展方法
-/// </summary>
-public class NewtonsoftExceptionConverter : JsonConverter<Exception>
-{
-    /// <summary>
-    /// 允许反序列化（如需反序列化 Exception，需额外处理，通常不推荐）
-    /// </summary>
-    public override bool CanRead => false;
-
-    /// <summary>
-    /// 自定义序列化逻辑
-    /// </summary>
-    /// <param name="writer"></param>
-    /// <param name="value"></param>
-    /// <param name="serializer"></param>
-    public override void WriteJson(JsonWriter writer, Exception? value, JsonSerializer serializer)
-    {
-        if (value == null)
-        {
-            writer.WriteNull();
-            return;
-        }
-
-        // 只序列化 Exception 的核心信息，避免循环引用和不可序列化成员
-        writer.WriteStartObject();
-
-        // 1. 异常类型（如 "System.NullReferenceException"）
-        writer.WritePropertyName("ExceptionType");
-        writer.WriteValue(value.GetType().FullName);
-
-        // 2. 异常消息
-        writer.WritePropertyName("Message");
-        writer.WriteValue(value.Message);
-
-        // 3. 栈跟踪（可选，根据需求决定是否包含）
-        writer.WritePropertyName("StackTrace");
-        writer.WriteValue(value.StackTrace);
-
-        // 4. 内部异常（递归处理，避免循环引用）
-        if (value.InnerException != null)
-        {
-            writer.WritePropertyName("InnerException");
-            WriteJson(writer, value.InnerException, serializer); // 递归序列化内部异常
-        }
-
-        // 5. 其他自定义信息（如异常来源、HResult 等，按需添加）
-        writer.WritePropertyName("Source");
-        writer.WriteValue(value.Source);
-
-        writer.WriteEndObject();
-    }
-
-    /// <summary>
-    /// 反序列化逻辑（如需支持，需手动处理，通常 Exception 反序列化意义不大）
-    /// </summary>
-    /// <param name="reader"></param>
-    /// <param name="objectType"></param>
-    /// <param name="existingValue"></param>
-    /// <param name="hasExistingValue"></param>
-    /// <param name="serializer"></param>
-    /// <returns></returns>
-    /// <exception cref="NotImplementedException"></exception>
-    public override Exception ReadJson(JsonReader reader, Type objectType, Exception? existingValue, bool hasExistingValue, JsonSerializer serializer)
-    {
-        throw new NotImplementedException("Exception 反序列化暂不支持");
-    }
-}
-/// <summary>
-/// 自定义 Assembly 转换器：只序列化程序集名称（忽略循环引用属性）
-/// </summary>
-public class AssemblyConverter : JsonConverter<Assembly>
-{
-    /// <summary>
-    /// 允许序列化
-    /// </summary>
-    public override bool CanRead => false; // 无需反序列化
-    /// <summary>
-    /// 自定义序列化逻辑
-    /// </summary>
-    /// <param name="writer"></param>
-    /// <param name="value"></param>
-    /// <param name="serializer"></param>
-    public override void WriteJson(JsonWriter writer, Assembly? value, JsonSerializer serializer)
-    {
-        if (value == null)
-        {
-            writer.WriteNull();
-            return;
-        }
-        // 只序列化程序集的核心信息，避免触发循环引用
-        writer.WriteStartObject();
-        writer.WritePropertyName("AssemblyName");
-        writer.WriteValue(value.FullName); // 程序集全名
-        writer.WritePropertyName("Location");
-        writer.WriteValue(value.Location); // 程序集路径（可选，按需保留）
-        writer.WriteEndObject();
-    }
-    /// <summary>
-    /// 反序列化逻辑（如需支持，需手动处理，通常不推荐）
-    /// </summary>
-    /// <param name="reader"></param>
-    /// <param name="objectType"></param>
-    /// <param name="existingValue"></param>
-    /// <param name="hasExistingValue"></param>
-    /// <param name="serializer"></param>
-    /// <returns></returns>
-    /// <exception cref="NotImplementedException"></exception>
-    public override Assembly ReadJson(JsonReader reader, Type objectType, Assembly? existingValue, bool hasExistingValue, JsonSerializer serializer)
-    {
-        throw new NotImplementedException("无需反序列化 Assembly");
-    }
-}
-/// <summary>
-/// 自定义 MemberInfo 转换器（处理方法/属性等成员信息）
-/// </summary>
-public class MemberInfoConverter : JsonConverter<MemberInfo>
-{
-    /// <summary>
-    /// 允许序列化
-    /// </summary>
-    public override bool CanRead => false;
-    /// <summary>
-    /// 自定义序列化逻辑
-    /// </summary>
-    /// <param name="writer"></param>
-    /// <param name="value"></param>
-    /// <param name="serializer"></param>
-    public override void WriteJson(JsonWriter writer, MemberInfo? value, JsonSerializer serializer)
-    {
-        if (value == null)
-        {
-            writer.WriteNull();
-            return;
-        }
-        // 只序列化成员的关键信息，不序列化 DeclaringType/Module 等可能引发循环的属性
-        writer.WriteStartObject();
-        writer.WritePropertyName("MemberName");
-        writer.WriteValue(value.Name); // 成员名称
-        writer.WritePropertyName("MemberType");
-        writer.WriteValue(value.MemberType.ToString()); // 成员类型（如 Method、Property）
-        writer.WritePropertyName("DeclaringTypeName");
-        writer.WriteValue(value.DeclaringType?.FullName); // 声明类型名（只保留字符串，避免循环）
-        writer.WriteEndObject();
-    }
-    /// <summary>
-    /// 反序列化逻辑（如需支持，需手动处理，通常不推荐）
-    /// </summary>
-    /// <param name="reader"></param>
-    /// <param name="objectType"></param>
-    /// <param name="existingValue"></param>
-    /// <param name="hasExistingValue"></param>
-    /// <param name="serializer"></param>
-    /// <returns></returns>
-    /// <exception cref="NotImplementedException"></exception>
-    public override MemberInfo ReadJson(JsonReader reader, Type objectType, MemberInfo? existingValue, bool hasExistingValue, JsonSerializer serializer)
-    {
-        throw new NotImplementedException("无需反序列化 MemberInfo");
-    }
-}

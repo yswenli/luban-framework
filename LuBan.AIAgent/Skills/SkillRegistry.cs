@@ -1,175 +1,192 @@
-/****************************************************************************
-*Copyright @ yswenli All Rights Reserved.
-*CLR版本： .net8.0
-*机器名称：WALLE
-*公司名称：Walle
-*命名空间：LuBan.AIAgent.Skills
-*文件名： SkillRegistry
-*版本号： V1.0.0.0
-*唯一标识：8ce8e6ed-6316-4c28-a5b6-5f521b2d384b
-*当前的用户域：WALLE
-*创建人： yswenli
-*电子邮箱：yswenli@outlook.com
-*创建时间：2026/7/27
-*描述：Skill 注册表
-*
-*=================================================
-*修改标记
-*修改时间：2026/7/27
-*修改人： yswenli
-*版本号： V1.0.0.0
-*描述：Skill 注册表
-*
-*****************************************************************************/
-
 namespace LuBan.AIAgent.Skills;
 
 /// <summary>
-/// Skill 注册表，管理所有可用的 Skill（内置 + 文件级 + 自定义，惰性合并）
+/// Skill 注册表，管理所有可用的 Skill（硬编码 + 工作区 + config.json，三级优先级）
 /// </summary>
 /// <remarks>
-/// 优先级：文件级（项目/用户）> 内置 > 自定义（config.json）。
-/// 同名 Id 高优先级覆盖低优先级。
+/// 优先级：硬编码（DI）> 工作区文件 > config.json。
+/// 同名 Id 高优先级优先，低优先级被忽略。
 /// </remarks>
 public class SkillRegistry
 {
-    private readonly Dictionary<string, ISkill> _builtinSkills = new();
+    private readonly ReaderWriterLockSlim _lock = new();
+    private readonly Dictionary<string, ISkill> _hardcoded = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, ISkill> _workspace = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, ISkill> _config = new(StringComparer.OrdinalIgnoreCase);
     private readonly Configuration.ConfigManager? _configManager;
-    private List<FileSkill> _fileSkills = new();
+    private List<ISkill> _merged = new();
 
-    /// <summary>
-    /// 创建 SkillRegistry 实例
-    /// </summary>
-    /// <param name="skills">DI 注册的内置 Skill</param>
-    /// <param name="configManager">配置管理器（可选，无则只有内置）</param>
     public SkillRegistry(IEnumerable<ISkill> skills, Configuration.ConfigManager? configManager = null)
     {
-        foreach (var skill in skills)
-        {
-            _builtinSkills[skill.Id.ToLowerInvariant()] = skill;
-        }
         _configManager = configManager;
+        foreach (var skill in skills)
+            _hardcoded[skill.Id] = skill;
+        RebuildMerged();
     }
 
-    /// <summary>
-    /// 加载工作区级和用户级的文件 Skill。每次切换工作区时调用。
-    /// </summary>
-    /// <param name="workspaceSkillsDir">工作区级 skills 目录，可为 null</param>
-    public void LoadFileSkills(string? workspaceSkillsDir)
+    public void LoadFromWorkspace(string workspaceDir)
     {
-        var configs = SkillLoader.LoadAll(workspaceSkillsDir);
-        _fileSkills = configs.Select(c => new FileSkill(c)).ToList();
-    }
-
-    private IEnumerable<ISkill> GetMerged()
-    {
-        var consumedIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        // 1. 文件级 Skill（最高优先级）
-        foreach (var fs in _fileSkills)
+        var temp = new Dictionary<string, ISkill>(StringComparer.OrdinalIgnoreCase);
+        var skillsDir = Path.Combine(workspaceDir, ".luban-agent", "skills");
+        
+        if (Directory.Exists(skillsDir))
         {
-            consumedIds.Add(fs.Id.ToLowerInvariant());
-            yield return fs;
-        }
-
-        // 2. 内置 Skill（过滤已禁用和被文件级覆盖的）
-        var disabledBuiltin = _configManager?.DisabledBuiltinSkills;
-        foreach (var (id, skill) in _builtinSkills)
-        {
-            if (consumedIds.Contains(id)) continue;
-            if (disabledBuiltin?.Contains(id) == true) continue;
-            consumedIds.Add(id);
-            yield return skill;
-        }
-
-        // 3. 自定义 Skill（config.json，过滤已被覆盖的）
-        if (_configManager != null)
-        {
-            foreach (var cfg in _configManager.CustomSkills.Where(c => c.Enabled))
+            try
             {
-                if (consumedIds.Contains(cfg.Id.ToLowerInvariant())) continue;
-                consumedIds.Add(cfg.Id.ToLowerInvariant());
-                yield return new CustomSkill(cfg);
+                var configs = SkillLoader.LoadAll(skillsDir);
+                foreach (var config in configs)
+                {
+                    var skill = new FileSkill(config);
+                    temp[skill.Id] = skill;
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"加载工作区 Skill 失败: {skillsDir}", ex);
             }
         }
+
+        _lock.EnterWriteLock();
+        try
+        {
+            _workspace.Clear();
+            foreach (var kvp in temp)
+                _workspace[kvp.Key] = kvp.Value;
+            RebuildMerged();
+        }
+        finally
+        {
+            _lock.ExitWriteLock();
+        }
     }
 
-    /// <summary>
-    /// 获取所有 Skill
-    /// </summary>
-    public IReadOnlyList<ISkill> GetAll() => GetMerged().ToList();
-
-    /// <summary>
-    /// 根据分类获取 Skill
-    /// </summary>
-    public IReadOnlyList<ISkill> GetByCategory(string category)
-        => GetMerged().Where(s => s.Category.Equals(category, StringComparison.OrdinalIgnoreCase)).ToList();
-
-    /// <summary>
-    /// 根据 ID 获取 Skill
-    /// </summary>
-    public ISkill? Get(string id)
+    public void LoadFromConfig()
     {
-        var lowerId = id.ToLowerInvariant();
-
-        // 1. 文件级优先
-        var fileSkill = _fileSkills.FirstOrDefault(f => f.Id.Equals(lowerId, StringComparison.OrdinalIgnoreCase));
-        if (fileSkill != null) return fileSkill;
-
-        // 2. 内置
-        if (_configManager?.DisabledBuiltinSkills.Contains(lowerId) != true
-            && _builtinSkills.TryGetValue(lowerId, out var builtin))
+        var temp = new Dictionary<string, ISkill>(StringComparer.OrdinalIgnoreCase);
+        
+        try
         {
-            return builtin;
+            if (_configManager != null)
+            {
+                foreach (var cfg in _configManager.CustomSkills.Where(c => c.Enabled))
+                    temp[cfg.Id] = new CustomSkill(cfg);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("加载 config.json Skills 失败", ex);
         }
 
-        // 3. 自定义（config.json）
-        var custom = _configManager?.CustomSkills
-            .FirstOrDefault(c => c.Id.Equals(id, StringComparison.OrdinalIgnoreCase) && c.Enabled);
-        return custom != null ? new CustomSkill(custom) : null;
+        _lock.EnterWriteLock();
+        try
+        {
+            _config.Clear();
+            foreach (var kvp in temp)
+                _config[kvp.Key] = kvp.Value;
+            RebuildMerged();
+        }
+        finally
+        {
+            _lock.ExitWriteLock();
+        }
     }
 
-    /// <summary>
-    /// 搜索 Skill
-    /// </summary>
+    public void Reload(string? workspaceDir = null)
+    {
+        LoadFromConfig();
+        if (workspaceDir != null)
+            LoadFromWorkspace(workspaceDir);
+    }
+
+    public IReadOnlyList<ISkill> GetAll()
+    {
+        _lock.EnterReadLock();
+        try
+        {
+            return _merged.ToList();
+        }
+        finally
+        {
+            _lock.ExitReadLock();
+        }
+    }
+
+    public ISkill? Get(string id)
+    {
+        _lock.EnterReadLock();
+        try
+        {
+            return _merged.FirstOrDefault(s => s.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            _lock.ExitReadLock();
+        }
+    }
+
+    public bool Contains(string id)
+    {
+        _lock.EnterReadLock();
+        try
+        {
+            return _merged.Any(s => s.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            _lock.ExitReadLock();
+        }
+    }
+
+    public IReadOnlyList<ISkill> GetByCategory(string category)
+    {
+        _lock.EnterReadLock();
+        try
+        {
+            return _merged.Where(s => s.Category.Equals(category, StringComparison.OrdinalIgnoreCase)).ToList();
+        }
+        finally
+        {
+            _lock.ExitReadLock();
+        }
+    }
+
     public IReadOnlyList<ISkill> Search(string keyword)
     {
-        if (string.IsNullOrWhiteSpace(keyword))
-            return GetAll();
+        _lock.EnterReadLock();
+        try
+        {
+            if (string.IsNullOrWhiteSpace(keyword))
+                return _merged.ToList();
 
-        return GetMerged()
-            .Where(s => s.Name.Contains(keyword, StringComparison.OrdinalIgnoreCase) ||
-                       s.Description.Contains(keyword, StringComparison.OrdinalIgnoreCase))
-            .ToList();
+            return _merged
+                .Where(s => s.Name.Contains(keyword, StringComparison.OrdinalIgnoreCase) ||
+                           s.Description.Contains(keyword, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+        finally
+        {
+            _lock.ExitReadLock();
+        }
     }
 
-    /// <summary>
-    /// 根据用户输入自动检测可能适用的 Skill（按匹配度降序）。
-    /// 匹配规则：输入文本（忽略大小写）包含 Skill 的任意触发关键词，或包含 Skill 名称/描述中的关键词。
-    /// </summary>
-    /// <param name="input">用户输入</param>
-    /// <param name="maxResults">最大返回数量</param>
-    /// <returns>匹配到的 Skill 列表</returns>
     public IReadOnlyList<ISkill> DetectSkills(string input, int maxResults = 3)
     {
         if (string.IsNullOrWhiteSpace(input) || maxResults <= 0)
             return Array.Empty<ISkill>();
 
+        var allSkills = GetAll();
         var lowerInput = input.ToLowerInvariant();
         var matches = new List<(ISkill Skill, int Score)>();
 
-        foreach (var skill in GetAll())
+        foreach (var skill in allSkills)
         {
             int score = 0;
             foreach (var keyword in skill.TriggerKeywords)
             {
                 if (!string.IsNullOrWhiteSpace(keyword) && lowerInput.Contains(keyword.ToLowerInvariant()))
-                {
                     score += 10;
-                }
             }
 
-            // 名称和描述中的词作为弱信号
             if (lowerInput.Contains(skill.Name.ToLowerInvariant()))
                 score += 2;
             if (lowerInput.Contains(skill.Description.ToLowerInvariant()))
@@ -186,5 +203,27 @@ public class SkillRegistry
             .Select(m => m.Skill)
             .ToList();
     }
-}
 
+    private void RebuildMerged()
+    {
+        var merged = new Dictionary<string, ISkill>(StringComparer.OrdinalIgnoreCase);
+        
+        // 1. 最低优先级：config.json
+        foreach (var kvp in _config)
+            merged[kvp.Key] = kvp.Value;
+        
+        // 2. 中优先级：工作区文件
+        foreach (var kvp in _workspace)
+            merged[kvp.Key] = kvp.Value;
+        
+        // 3. 最高优先级：硬编码（排除被禁用的）
+        var disabledBuiltin = _configManager?.DisabledBuiltinSkills;
+        foreach (var kvp in _hardcoded)
+        {
+            if (disabledBuiltin?.Contains(kvp.Key) == true) continue;
+            merged[kvp.Key] = kvp.Value;
+        }
+
+        _merged = merged.Values.ToList();
+    }
+}

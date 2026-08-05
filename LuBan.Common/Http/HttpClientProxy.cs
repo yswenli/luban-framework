@@ -44,10 +44,6 @@ public sealed class HttpClientProxy
     /// </summary>
     static HttpClientProxy()
     {
-        ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls
-            | SecurityProtocolType.Tls11
-            | SecurityProtocolType.Tls12;
-
         _httpClients = new ConcurrentDictionary<string, HttpClientProxy>();
     }
 

@@ -16,7 +16,6 @@
 *****************************************************************************/
 global using LuBan.Common;
 global using LuBan.Common.IO;
-global using LuBan.Common.LogCom;
 global using LuBan.DI;
 
 global using Microsoft.Extensions.Logging;
@@ -25,4 +24,3 @@ global using Microsoft.Extensions.Options;
 
 global using System.Text.Json;
 global using System.Text.Json.Serialization;
-global using System.Text.Json.Nodes;

@@ -11,21 +11,21 @@
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2024/4/8 18:10:22
-*描述：
+*描述：日志信息
 *
 *=================================================
 *修改标记
 *修改时间：2024/4/8 18:10:22
 *修改人： yswenli
 *版本号： V1.0.0.0
-*描述：
+*描述：日志信息
 *
 *****************************************************************************/
-using System.Text.Json.Serialization;
-
 namespace LuBan.Common.LogCom;
 
-[JsonObject]
+/// <summary>
+/// 日志信息
+/// </summary>
 public class LogInfo
 {
     /// <summary>
@@ -33,33 +33,33 @@ public class LogInfo
     /// </summary>
     private static readonly string _cachedServiceName = ConfigUtil.GetServiceName();
 
-    [JsonProperty(Order = 0)]
+    [JsonPropertyName("created")]
     [JsonPropertyOrder(0)]
     public DateTime Created { get; set; } = DateTimeUtil.Now;
 
 
-    [JsonProperty(Order = 0)]
+    [JsonPropertyName("serviceName")]
     [JsonPropertyOrder(0)]
     public string ServiceName { get; set; } = _cachedServiceName;
 
 
-    [JsonProperty(Order = 1)]
+    [JsonPropertyName("level")]
     [JsonPropertyOrder(1)]
     public int Level { get; set; } = 0;
 
 
-    [JsonProperty(Order = 2)]
+    [JsonPropertyName("description")]
     [JsonPropertyOrder(2)]
     public string Description { get; set; }
 
-    [JsonProperty(Order = 9)]
+    [JsonPropertyName("params")]
     [JsonPropertyOrder(9)]
     public object[] Params { get; set; }
 
-    [JsonProperty(Order = 12)]
+    [JsonPropertyName("exception")]
     [JsonPropertyOrder(12)]
     public Exception? Exception { get; set; }
 
-    [Newtonsoft.Json.JsonIgnore]
+    [JsonIgnore]
     public bool EnableDebug { get; set; }
 }

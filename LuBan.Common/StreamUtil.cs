@@ -42,7 +42,7 @@ public static class StreamUtil
         if (stream is FileStream fs)
         {
             var bytes = new byte[fs.Length];
-            fs.Read(bytes, 0, bytes.Length);
+            fs.ReadExactly(bytes);
             return bytes;
         }
         else if (stream is MemoryStream ms)
@@ -75,7 +75,7 @@ public static class StreamUtil
         if (stream is FileStream fs)
         {
             var bytes = new byte[fs.Length];
-            await fs.ReadAsync(bytes, 0, bytes.Length);
+            await fs.ReadExactlyAsync(bytes);
             return bytes;
         }
         else if (stream is MemoryStream ms)

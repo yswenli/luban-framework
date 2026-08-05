@@ -45,6 +45,7 @@
     <ProjectReference Include="..\LuBan.Common\LuBan.Common.csproj" />
     <ProjectReference Include="..\LuBan.DI\LuBan.DI.csproj" />
     <ProjectReference Include="..\LuBan.Linq\LuBan.Linq.csproj" />
+    <ProjectReference Include="..\LuBan.Logging\LuBan.Logging.csproj" />
   </ItemGroup>
 
   <ItemGroup>

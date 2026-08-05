@@ -22,44 +22,43 @@
 *
 *****************************************************************************/
 
-namespace LuBan.Common.Data
+namespace LuBan.Common.Data;
+
+/// <summary>
+/// 分页字典信息类
+/// </summary>
+public class PagedDictionary<T1, T2> where T1 : notnull
 {
     /// <summary>
-    /// 分页字典信息类
+    /// 分页信息类
     /// </summary>
-    public class PagedDictionary<T1, T2> where T1 : notnull
+    public PagedDictionary()
     {
-        /// <summary>
-        /// 分页信息类
-        /// </summary>
-        public PagedDictionary()
-        {
-            Page = 1;
-            PageSize = 20;
-            Total = 0;
-            Dictionary = [];
-        }
-        /// <summary>
-        /// 页号
-        /// </summary>
-        [JsonProperty("pageIndex")]
-        public int Page { get; set; }
-        /// <summary>
-        /// 分页条数
-        /// </summary>
-        [JsonProperty("pageSize")]
-        public int PageSize { get; set; }
-
-        /// <summary>
-        /// 数量
-        /// </summary>
-        [JsonProperty("total")]
-        public long Total { get; set; }
-
-        /// <summary>
-        /// 分页数据内容
-        /// </summary>
-        [JsonProperty("list")]
-        public Dictionary<T1, T2> Dictionary { get; set; } = [];
+        Page = 1;
+        PageSize = 20;
+        Total = 0;
+        Dictionary = [];
     }
+    /// <summary>
+    /// 页号
+    /// </summary>
+    [JsonPropertyName("pageIndex")]
+    public int Page { get; set; }
+    /// <summary>
+    /// 分页条数
+    /// </summary>
+    [JsonPropertyName("pageSize")]
+    public int PageSize { get; set; }
+
+    /// <summary>
+    /// 数量
+    /// </summary>
+    [JsonPropertyName("total")]
+    public long Total { get; set; }
+
+    /// <summary>
+    /// 分页数据内容
+    /// </summary>
+    [JsonPropertyName("list")]
+    public Dictionary<T1, T2> Dictionary { get; set; } = [];
 }

@@ -70,6 +70,32 @@ npx playwright@1.61.0 install chromium
 | `LuBanChatClient` | 多 Provider 路由器，统一 `provider:model` 格式调用 |
 | `ConfigManager` | 配置管理器，负责 Provider 配置的加载、保存和管理 |
 
+### 组件注册表架构
+
+Skills、MCPs、Rules 采用统一的三级优先级注册表模式：
+
+| 优先级 | 来源 | 行为 |
+|--------|------|------|
+| 最高 | 硬编码（DI 注册） | 始终存在，可通过 `DisabledBuiltin` 配置禁用 |
+| 中 | 工作区文件 | 添加新项，同名项被忽略 |
+| 最低 | config.json | 添加新项，同名项被忽略 |
+
+**加载时机**：
+- 启动时：加载硬编码组件 + config.json 全局配置
+- 工作区切换时：加载工作区文件，自动合并
+
+**工作区目录结构**：
+```
+.luban-agent/
+├── skills/          # 工作区级 Skill
+│   └── my-skill/
+│       └── SKILL.md
+├── mcps/            # 工作区级 MCP 服务器
+│   └── my-mcp.json
+└── rules/           # 工作区级规则
+    └── my-rule.json
+```
+
 ### 工具系统
 
 | 组件 | 说明 |
@@ -135,7 +161,7 @@ category: custom
 - 项目级: `<workspace>/.luban-agent/skills/<skill-id>/SKILL.md`
 - 用户级: `%LocalAppData%/LuBan/AIAgent/skills/<skill-id>/SKILL.md`
 
-**优先级**：项目级 > 用户级 > 内置 > config.json
+**优先级**：硬编码（DI）> 工作区文件 > config.json
 
 ### Rule 系统
 

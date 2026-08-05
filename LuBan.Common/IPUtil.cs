@@ -207,7 +207,10 @@ namespace LuBan.Common
                     return new Tuple<string, string>(result.Msg.TrueIp, result.Msg.WebIp);
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Logger.Error("IPUtil.GetInternetIP 获取外网IP失败", ex);
+            }
             return null;
         }
         [DataContract]

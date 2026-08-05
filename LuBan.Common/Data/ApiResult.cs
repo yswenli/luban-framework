@@ -34,35 +34,35 @@ public abstract class ApiResult<T>
     /// 200 表示成功
     /// 其他表示失败
     /// </summary>
-    [JsonProperty(propertyName: "code")]
+    [JsonPropertyName("code")]
     public int Code { get; set; } = 200;
 
     /// <summary>
     /// 类型
     /// </summary>
-    [JsonProperty(propertyName: "type")]
+    [JsonPropertyName("type")]
     public string Type { get; set; }
 
     /// <summary>
     /// 异常消息
     /// </summary>
-    [JsonProperty(propertyName: "message")]
+    [JsonPropertyName("message")]
     public string Message { get; set; }
 
     /// <summary>
     /// 泛型结果
     /// </summary>
-    [JsonProperty(propertyName: "result")]
+    [JsonPropertyName("result")]
     public T? Result { get; set; }
     /// <summary>
     /// 扩展内容
     /// </summary>
-    [JsonProperty(propertyName: "extras")]
+    [JsonPropertyName("extras")]
     public dynamic Extras { get; set; }
     /// <summary>
     /// 时间
     /// </summary>
-    [JsonProperty(propertyName: "time")]
+    [JsonPropertyName("time")]
     public DateTime Time { get; set; }
 
     /// <summary>

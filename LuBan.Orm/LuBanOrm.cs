@@ -181,31 +181,6 @@ public static class LuBanOrm
                 }
             };
         }
-        // 差异日志
-        if (!config.DbSettings.EnableDiffLog) return dbProvider;
-        dbProvider.Aop.OnDiffLogEvent = u =>
-        {
-            try
-            {
-                var logDiff = new DbLogDiff
-                {
-                    AfterData = u.AfterData.ToJson(),
-                    BeforeData = u.BeforeData.ToJson(),
-                    BusinessData = u.BusinessData.ToJson(),
-                    DiffType = u.DiffType.ToString(),
-                    Sql = UtilMethods.GetSqlString(config.DbType, u.Sql, u.Parameters),
-                    Parameters = u.Parameters.ToJson(),
-                    Elapsed = u.Time == null ? 0 : (long)u.Time.Value.TotalMilliseconds
-                };
-                dbProvider.Insertable(logDiff).ExecuteCommand();
-                ConsoleUtil.WriteLine(DateTime.Now + $"\r\n*****LuBan.Orm 差异日志开始*****\r\n{Environment.NewLine}{logDiff.ToJson()}{Environment.NewLine}*****LuBan.Orm 差异日志结束*****\r\n", color: ConsoleColor.DarkYellow);
-                Logger.Info(logDiff.ToJson() ?? "");
-            }
-            catch (Exception ex)
-            {
-                Logger.ErrorWithOutEvent(ex);
-            }
-        };
         return dbProvider;
     }
 

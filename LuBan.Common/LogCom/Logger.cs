@@ -21,8 +21,6 @@
 *描述：LuBan.Framework 日志组件
 *
 *****************************************************************************/
-using System.Text.Json.Nodes;
-
 namespace System;
 
 /// <summary>
@@ -30,6 +28,11 @@ namespace System;
 /// </summary>
 public static class Logger
 {
+    /// <summary>
+    /// 是否输出控制台，由 LuBanLoggingOptions.EnableConsole 控制。
+    /// </summary>
+    public static bool EnableConsoleOutput { get; set; } = false;
+
     private static ILogger _loginfo = NullLogger.Instance;
     private static ILogger _logdebug = NullLogger.Instance;
     private static ILogger _logwarn = NullLogger.Instance;
@@ -119,7 +122,8 @@ public static class Logger
         {
             string text = _serializer(logInfo);
             _loginfo.LogInformation(text);
-            des.WriteLine(color: console);
+            if (EnableConsoleOutput)
+                des.WriteLine(color: console);
         }
         catch
         {
@@ -195,7 +199,8 @@ public static class Logger
             {
                 string text = _serializer(obj);
                 _logdebug.LogDebug(text);
-                text.WriteLine(withTime: true, "HH:mm:ss.fff", ConsoleColor.DarkYellow);
+                if (EnableConsoleOutput)
+                    text.WriteLine(withTime: true, "HH:mm:ss.fff", ConsoleColor.DarkYellow);
             }
             catch
             {
@@ -251,7 +256,8 @@ public static class Logger
             {
                 string text = _serializer(obj);
                 _logdebug.LogDebug(text);
-                text.WriteLine(withTime: true, "HH:mm:ss.fff", ConsoleColor.DarkYellow);
+                if (EnableConsoleOutput)
+                    text.WriteLine(withTime: true, "HH:mm:ss.fff", ConsoleColor.DarkYellow);
             }
             catch
             {
@@ -304,7 +310,8 @@ public static class Logger
         {
             string text = _serializer(obj);
             _logwarn.LogWarning(text);
-            text.WriteLine(withTime: true, "HH:mm:ss.fff", ConsoleColor.DarkYellow);
+            if (EnableConsoleOutput)
+                text.WriteLine(withTime: true, "HH:mm:ss.fff", ConsoleColor.DarkYellow);
         }
         catch
         {
@@ -441,7 +448,8 @@ public static class Logger
             if (text.IsNotNullOrEmpty())
             {
                 _logerror.LogError(text);
-                text.WriteLine(withTime: true, "HH:mm:ss.fff", ConsoleColor.Red);
+                if (EnableConsoleOutput)
+                    text.WriteLine(withTime: true, "HH:mm:ss.fff", ConsoleColor.Red);
             }
         }
         catch
@@ -485,7 +493,8 @@ public static class Logger
         {
             string text = _serializer(obj);
             _logerror.LogError(text);
-            text.WriteLine(color: ConsoleColor.Red);
+            if (EnableConsoleOutput)
+                text.WriteLine(color: ConsoleColor.Red);
         }
         catch
         {
@@ -576,13 +585,16 @@ public static class Logger
             var text = _serializer(apiLogModel);
             if (text.IsNotNullOrEmpty())
             {
-                if (apiLogModel.Exception == null)
+                if (EnableConsoleOutput)
                 {
-                    text.WriteLine(withTime: true, "HH:mm:ss.fff", ConsoleColor.Green);
-                }
-                else
-                {
-                    text.WriteLine(withTime: true, "HH:mm:ss.fff", ConsoleColor.Red);
+                    if (apiLogModel.Exception == null)
+                    {
+                        text.WriteLine(withTime: true, "HH:mm:ss.fff", ConsoleColor.Green);
+                    }
+                    else
+                    {
+                        text.WriteLine(withTime: true, "HH:mm:ss.fff", ConsoleColor.Red);
+                    }
                 }
                 _logcall.LogInformation(text);
             }

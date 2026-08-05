@@ -1,91 +1,155 @@
-/****************************************************************************
-*Copyright @ yswenli All Rights Reserved.
-*CLR版本： .net8.0
-*机器名称：WALLE
-*公司名称：Walle
-*命名空间：LuBan.AIAgent.Rules
-*文件名： RuleEngine
-*版本号： V1.0.0.0
-*唯一标识：e3aec384-cae4-4a25-95c0-af92a9b3a466
-*当前的用户域：WALLE
-*创建人： yswenli
-*电子邮箱：yswenli@outlook.com
-*创建时间：2026/7/27
-*描述：规则引擎
-*
-*=================================================
-*修改标记
-*修改时间：2026/7/27
-*修改人： yswenli
-*版本号： V1.0.0.0
-*描述：规则引擎
-*
-*****************************************************************************/
-
 namespace LuBan.AIAgent.Rules;
 
 /// <summary>
-/// 规则引擎 - 管理和执行规则（内置 + 自定义，惰性合并）
+/// 规则引擎 - 管理和执行规则（硬编码 + 工作区 + config.json，三级优先级）
 /// </summary>
-/// <remarks>
-/// 内置规则构造时缓存，自定义规则每次读取时从 ConfigManager 实时合并；
-/// 内置与自定义 Id 冲突时内置优先（冲突项在合并时被跳过）。
-/// </remarks>
 public class RuleEngine
 {
-    private readonly List<IRule> _builtinRules;
-    private readonly HashSet<string> _builtinIds;
+    private readonly ReaderWriterLockSlim _lock = new();
+    private readonly Dictionary<string, IRule> _hardcoded = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, IRule> _workspace = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, IRule> _config = new(StringComparer.OrdinalIgnoreCase);
     private readonly Configuration.ConfigManager? _configManager;
+    private List<IRule> _merged = new();
 
-    /// <summary>
-    /// 创建规则引擎实例
-    /// </summary>
-    /// <param name="rules">DI 注册的内置规则</param>
-    /// <param name="configManager">配置管理器（可选，无则只有内置）</param>
     public RuleEngine(IEnumerable<IRule> rules, Configuration.ConfigManager? configManager = null)
     {
-        _builtinRules = rules.ToList();
-        _builtinIds = _builtinRules.Select(r => r.Id.ToLowerInvariant()).ToHashSet();
         _configManager = configManager;
+        foreach (var rule in rules)
+            _hardcoded[rule.Id] = rule;
+        RebuildMerged();
     }
 
-    private List<IRule> GetMerged()
+    public void LoadFromWorkspace(string workspaceDir)
     {
-        var disabledBuiltin = _configManager?.DisabledBuiltinRules;
-        var merged = _builtinRules
-            .Where(r => disabledBuiltin?.Contains(r.Id.ToLowerInvariant()) != true);
-
-        if (_configManager != null)
+        var temp = new Dictionary<string, IRule>(StringComparer.OrdinalIgnoreCase);
+        var rulesDir = Path.Combine(workspaceDir, ".luban-agent", "rules");
+        
+        if (Directory.Exists(rulesDir))
         {
-            merged = merged.Concat(
-                _configManager.CustomRules
-                    .Where(c => !_builtinIds.Contains(c.Id.ToLowerInvariant()))
-                    .Select(c => new CustomRule(c)));
+            foreach (var jsonFile in Directory.GetFiles(rulesDir, "*.json"))
+            {
+                try
+                {
+                    var json = File.ReadAllText(jsonFile);
+                    var config = System.Text.Json.JsonSerializer.Deserialize<Configuration.CustomRuleConfig>(json);
+                    if (config != null && config.Enabled)
+                    {
+                        var rule = new CustomRule(config);
+                        temp[config.Id] = rule;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"加载工作区 Rule 失败: {jsonFile}", ex);
+                }
+            }
         }
 
-        return merged.OrderByDescending(r => r.Priority).ToList();
+        _lock.EnterWriteLock();
+        try
+        {
+            _workspace.Clear();
+            foreach (var kvp in temp)
+                _workspace[kvp.Key] = kvp.Value;
+            RebuildMerged();
+        }
+        finally
+        {
+            _lock.ExitWriteLock();
+        }
     }
 
-    /// <summary>
-    /// 获取所有规则
-    /// </summary>
-    public IReadOnlyList<IRule> GetAllRules() => GetMerged();
+    public void LoadFromConfig()
+    {
+        var temp = new Dictionary<string, IRule>(StringComparer.OrdinalIgnoreCase);
+        
+        try
+        {
+            if (_configManager != null)
+            {
+                foreach (var cfg in _configManager.CustomRules.Where(c => c.Enabled))
+                    temp[cfg.Id] = new CustomRule(cfg);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("加载 config.json Rules 失败", ex);
+        }
 
-    /// <summary>
-    /// 获取启用的规则
-    /// </summary>
-    public IReadOnlyList<IRule> GetEnabledRules() => GetMerged().Where(r => r.IsEnabled).ToList();
+        _lock.EnterWriteLock();
+        try
+        {
+            _config.Clear();
+            foreach (var kvp in temp)
+                _config[kvp.Key] = kvp.Value;
+            RebuildMerged();
+        }
+        finally
+        {
+            _lock.ExitWriteLock();
+        }
+    }
 
-    /// <summary>
-    /// 根据规则 ID 获取规则
-    /// </summary>
-    public IRule? GetRule(string id) => GetMerged().FirstOrDefault(r => r.Id == id.ToLowerInvariant());
+    public void Reload(string? workspaceDir = null)
+    {
+        LoadFromConfig();
+        if (workspaceDir != null)
+            LoadFromWorkspace(workspaceDir);
+    }
 
-    /// <summary>
-    /// 评估规则
-    /// </summary>
-    /// <param name="context">规则上下文</param>
-    /// <returns>评估结果</returns>
+    public IReadOnlyList<IRule> GetAllRules()
+    {
+        _lock.EnterReadLock();
+        try
+        {
+            return _merged.ToList();
+        }
+        finally
+        {
+            _lock.ExitReadLock();
+        }
+    }
+
+    public IReadOnlyList<IRule> GetEnabledRules()
+    {
+        _lock.EnterReadLock();
+        try
+        {
+            return _merged.Where(r => r.IsEnabled).ToList();
+        }
+        finally
+        {
+            _lock.ExitReadLock();
+        }
+    }
+
+    public IRule? GetRule(string id)
+    {
+        _lock.EnterReadLock();
+        try
+        {
+            return _merged.FirstOrDefault(r => r.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            _lock.ExitReadLock();
+        }
+    }
+
+    public bool Contains(string id)
+    {
+        _lock.EnterReadLock();
+        try
+        {
+            return _merged.Any(r => r.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            _lock.ExitReadLock();
+        }
+    }
+
     public async Task<RuleEvaluationResult> EvaluateAsync(RuleContext context)
     {
         var applicableRules = GetEnabledRules().Where(r => r.IsApplicable(context)).ToList();
@@ -104,7 +168,6 @@ public class RuleEngine
                 Result = result
             });
 
-            // 如果规则拒绝，立即返回
             if (!result.Allow)
             {
                 return new RuleEvaluationResult
@@ -115,24 +178,43 @@ public class RuleEngine
                 };
             }
 
-            // 如果规则修改了参数
             if (result.Modified && result.ModifiedArguments != null)
-            {
                 finalArguments = result.ModifiedArguments;
-            }
 
-            // 记录是否允许
             if (finalAllow == null)
                 finalAllow = result.Allow;
         }
 
-        // 没有适用规则时默认允许
         return new RuleEvaluationResult
         {
             Allow = finalAllow ?? true,
             ModifiedArguments = finalArguments,
             Results = results
         };
+    }
+
+    private void RebuildMerged()
+    {
+        var merged = new Dictionary<string, IRule>(StringComparer.OrdinalIgnoreCase);
+        
+        // 1. 最低优先级：config.json
+        foreach (var kvp in _config)
+            merged[kvp.Key] = kvp.Value;
+        
+        // 2. 中优先级：工作区文件
+        foreach (var kvp in _workspace)
+            merged[kvp.Key] = kvp.Value;
+        
+        // 3. 最高优先级：硬编码（排除被禁用的）
+        var disabledBuiltin = _configManager?.DisabledBuiltinRules;
+        foreach (var kvp in _hardcoded)
+        {
+            if (disabledBuiltin?.Contains(kvp.Key) == true) continue;
+            merged[kvp.Key] = kvp.Value;
+        }
+
+        // 按 Priority 降序排序
+        _merged = merged.Values.OrderByDescending(r => r.Priority).ToList();
     }
 }
 
@@ -141,24 +223,9 @@ public class RuleEngine
 /// </summary>
 public class RuleEvaluationResult
 {
-    /// <summary>
-    /// 是否允许执行
-    /// </summary>
     public bool Allow { get; set; }
-
-    /// <summary>
-    /// 消息
-    /// </summary>
     public string? Message { get; set; }
-
-    /// <summary>
-    /// 修改后的参数
-    /// </summary>
     public Dictionary<string, object?>? ModifiedArguments { get; set; }
-
-    /// <summary>
-    /// 各规则执行结果
-    /// </summary>
     public List<RuleExecutionResult> Results { get; set; } = new();
 }
 
@@ -167,18 +234,7 @@ public class RuleEvaluationResult
 /// </summary>
 public class RuleExecutionResult
 {
-    /// <summary>
-    /// 规则 ID
-    /// </summary>
     public string RuleId { get; set; } = "";
-
-    /// <summary>
-    /// 规则名称
-    /// </summary>
     public string RuleName { get; set; } = "";
-
-    /// <summary>
-    /// 执行结果
-    /// </summary>
     public RuleResult Result { get; set; } = new();
 }

@@ -38,20 +38,12 @@ public static class ZipUtil
     {
         if (data == null) return null;
 
-        byte[]? buffer = null;
-        using (var stream = new MemoryStream())
+        using var stream = new MemoryStream();
+        using (var inflateStream = new GZipStream(stream, CompressionMode.Compress, true))
         {
-            using (GZipStream inflateStream = new GZipStream(stream, CompressionMode.Compress, true))
-            {
-                inflateStream.Write(data, 0, data.Length);
-            }
-            if (stream.CanRead)
-                stream.Seek(0, SeekOrigin.Begin);
-            int length = Convert.ToInt32(stream.Length);
-            buffer = new byte[length];
-            stream.Read(buffer, 0, length);
+            inflateStream.Write(data, 0, data.Length);
         }
-        return buffer;
+        return stream.ToArray();
     }
 
     /// <summary>

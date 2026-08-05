@@ -47,11 +47,7 @@ public static class FileUtil
     {
         GetDirecotry(filePath);
 
-        FileStream fs = File.Create(filePath);
-
-        fs.Close();
-
-        fs.Dispose();
+        using var fs = File.Create(filePath);
 
         return true;
     }

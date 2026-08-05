@@ -21,17 +21,6 @@
 *描述：
 *
 *****************************************************************************/
-global using LuBan.Common;
-global using LuBan.Common.AntiReplayAttacks;
-global using LuBan.Common.Consts;
-global using LuBan.Common.Data;
-global using LuBan.Common.IO;
-global using LuBan.Common.LogCom;
-global using LuBan.Common.Models;
-global using LuBan.Common.NPinyin;
-global using LuBan.Common.EventBus;
-global using LuBan.Threading;
-
 global using Encrypt.Library;
 
 global using HtmlAgilityPack;
@@ -39,14 +28,23 @@ global using HtmlAgilityPack;
 global using ICSharpCode.SharpZipLib.GZip;
 global using ICSharpCode.SharpZipLib.Zip;
 
+global using LuBan.Common;
+global using LuBan.Common.AntiReplayAttacks;
+global using LuBan.Common.Consts;
+global using LuBan.Common.Data;
+global using LuBan.Common.EventBus;
+global using LuBan.Common.IO;
+global using LuBan.Common.LogCom;
+global using LuBan.Common.Models;
+global using LuBan.Common.NPinyin;
+global using LuBan.Common.Serialization;
+global using LuBan.Threading;
+
 global using Microsoft.Extensions.Configuration;
 global using Microsoft.Extensions.DependencyInjection.Extensions;
 global using Microsoft.Extensions.DependencyModel;
 global using Microsoft.Extensions.Logging;
 global using Microsoft.Extensions.Logging.Abstractions;
-
-global using Newtonsoft.Json;
-global using Newtonsoft.Json.Linq;
 
 global using NPOI.HSSF.UserModel;
 global using NPOI.SS.UserModel;
@@ -70,7 +68,6 @@ global using System.Linq.Expressions;
 global using System.Net;
 global using System.Net.Http.Headers;
 global using System.Net.NetworkInformation;
-global using System.Net.Security;
 global using System.Net.Sockets;
 global using System.Reflection;
 global using System.Reflection.Emit;
@@ -79,10 +76,14 @@ global using System.Runtime.InteropServices;
 global using System.Runtime.Loader;
 global using System.Runtime.Serialization;
 global using System.Security.Claims;
-global using System.Security.Cryptography.X509Certificates;
 global using System.Text;
+global using System.Text.Json;
+global using System.Text.Json.Nodes;
+global using System.Text.Json.Serialization;
 global using System.Text.RegularExpressions;
 global using System.Web;
+global using System.Xml;
+global using System.Xml.Serialization;
 
 global using ZXing;
 global using ZXing.Common;

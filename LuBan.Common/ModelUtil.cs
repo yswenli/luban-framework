@@ -20,7 +20,8 @@
 *版本号： V1.0.0.0
 *描述：
 *
-*****************************************************************************/
+ *****************************************************************************/
+using System.Text.Json.Serialization;
 
 
 namespace LuBan.Common
@@ -1761,7 +1762,7 @@ namespace LuBan.Common
 
 
         /// <summary>
-        /// 获取属性名称，兼容从System.Text.JsonJsonPropertyNameAttribute或newton.json.JsonPropertyAttribute特性中中获取属性名称
+        /// 获取属性名称，从System.Text.Json的JsonPropertyNameAttribute或JsonIgnoreAttribute中获取属性名称
         /// </summary>
         /// <param name="propertyInfo"></param>
         /// <returns></returns>
@@ -1773,12 +1774,8 @@ namespace LuBan.Common
             if (attrs == null || attrs.Length < 1) return propertityName;
             foreach (var attr in attrs)
             {
-                if (attr is JsonIgnoreAttribute || attr is System.Text.Json.Serialization.JsonIgnoreAttribute) return string.Empty;
-                if (attr is JsonPropertyAttribute jp)
-                {
-                    return jp.PropertyName ?? "";
-                }
-                if (attr is System.Text.Json.Serialization.JsonPropertyNameAttribute jpn)
+                if (attr is JsonIgnoreAttribute) return string.Empty;
+                if (attr is JsonPropertyNameAttribute jpn)
                 {
                     return jpn.Name;
                 }
