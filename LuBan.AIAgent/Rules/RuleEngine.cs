@@ -157,6 +157,7 @@ public class RuleEngine
         var results = new List<RuleExecutionResult>();
         bool? finalAllow = null;
         Dictionary<string, object?>? finalArguments = null;
+        var evalInject = new List<string>();
 
         foreach (var rule in applicableRules)
         {
@@ -168,13 +169,17 @@ public class RuleEngine
                 Result = result
             });
 
+            if (result.Inject.Count > 0)
+                evalInject.AddRange(result.Inject);
+
             if (!result.Allow)
             {
                 return new RuleEvaluationResult
                 {
                     Allow = false,
                     Message = result.Message,
-                    Results = results
+                    Results = results,
+                    Inject = evalInject
                 };
             }
 
@@ -189,7 +194,8 @@ public class RuleEngine
         {
             Allow = finalAllow ?? true,
             ModifiedArguments = finalArguments,
-            Results = results
+            Results = results,
+            Inject = evalInject
         };
     }
 
@@ -227,6 +233,11 @@ public class RuleEvaluationResult
     public string? Message { get; set; }
     public Dictionary<string, object?>? ModifiedArguments { get; set; }
     public List<RuleExecutionResult> Results { get; set; } = new();
+
+    /// <summary>
+    /// 所有规则注入的上下文文本（context-build 使用）
+    /// </summary>
+    public List<string> Inject { get; set; } = new();
 }
 
 /// <summary>

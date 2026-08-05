@@ -57,6 +57,21 @@ public class MemoryEntry
     /// 向量维度（仅用于校验）
     /// </summary>
     public int VectorDimension { get; set; }
+
+    /// <summary>
+    /// 工作区 ID（NULL=全局，跨工作区可见）
+    /// </summary>
+    public string? WorkspaceId { get; set; }
+
+    /// <summary>
+    /// 规范化内容的 SHA256（用于去重）
+    /// </summary>
+    public string ContentHash { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 过期时间（NULL=永不过期）
+    /// </summary>
+    public DateTime? ExpiresAt { get; set; }
 }
 
 /// <summary>

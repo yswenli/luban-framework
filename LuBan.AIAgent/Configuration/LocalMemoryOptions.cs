@@ -47,4 +47,24 @@ public class LocalMemoryOptions
     /// 无本地 Embedding 模型时的退化向量维度
     /// </summary>
     public int FallbackDimension { get; set; } = 256;
+
+    /// <summary>
+    /// 可选 TTL（天），null 表示永不过期
+    /// </summary>
+    public int? TtlDays { get; set; }
+
+    /// <summary>
+    /// 是否启用每轮自动记忆召回（MemoryRecallRule）
+    /// </summary>
+    public bool RecallEnabled { get; set; } = true;
+
+    /// <summary>
+    /// 每轮召回注入的记忆条数
+    /// </summary>
+    public int RecallTopK { get; set; } = 3;
+
+    /// <summary>
+    /// 召回注入的最低相似度阈值
+    /// </summary>
+    public double RecallMinScore { get; set; } = 0.3;
 }

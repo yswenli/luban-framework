@@ -67,4 +67,9 @@ public class CustomRuleConfig
     /// 是否启用
     /// </summary>
     public bool Enabled { get; set; } = true;
+
+    /// <summary>
+    /// 规则内容文本（供 IContentRule 读取，如 base-behavior 引导文本）
+    /// </summary>
+    public string? Content { get; set; }
 }

@@ -136,6 +136,11 @@ public class RuleResult
     public List<string> Actions { get; set; } = new();
 
     /// <summary>
+    /// 需要注入到上下文的文本列表（context-build 使用）
+    /// </summary>
+    public List<string> Inject { get; set; } = new();
+
+    /// <summary>
     /// 创建允许结果
     /// </summary>
     public static RuleResult AllowResult(string? message = null) => new() { Allow = true, Message = message };

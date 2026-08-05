@@ -72,6 +72,11 @@ public class LuBanAgentOptions
     /// 获取或设置编排子系统配置。
     /// </summary>
     public OrchestrationOptions? Orchestration { get; set; }
+
+    /// <summary>
+    /// Base 行为规则内容覆盖（缺省用内置中文默认文本）
+    /// </summary>
+    public string? BaseBehavior { get; set; }
 }
 
 /// <summary>

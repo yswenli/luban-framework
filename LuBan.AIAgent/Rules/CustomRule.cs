@@ -29,7 +29,7 @@ namespace LuBan.AIAgent.Rules;
 /// <summary>
 /// 自定义规则适配器，将 CustomRuleConfig 包装为 IRule
 /// </summary>
-public class CustomRule : IRule
+public class CustomRule : IRule, IContentRule
 {
     private readonly CustomRuleConfig _config;
 
@@ -70,6 +70,11 @@ public class CustomRule : IRule
         get => _config.Enabled;
         set => _config.Enabled = value;
     }
+
+    /// <summary>
+    /// 规则内容文本
+    /// </summary>
+    public string Content => _config.Content ?? "";
 
     /// <summary>
     /// 检查规则是否适用（ActionType 与 Target 均需匹配）
