@@ -1,34 +1,11 @@
-/****************************************************************************
-*Copyright @ yswenli All Rights Reserved.
-*CLR版本： .net8.0
-*机器名称：WALLE
-*公司名称：Walle
-*命名空间：LuBan.AIAgent.Sessions
-*文件名： SessionChatHistoryProvider
-*版本号： V1.0.0.0
-*唯一标识：7ef5b800-e80a-4800-ae79-c9bba1ee5d90
-*当前的用户域：WALLE
-*创建人： yswenli
-*电子邮箱：yswenli@outlook.com
-*创建时间：2026/7/29
-*描述：基于 ISessionManager 的会话历史提供者
-*
-*=================================================
-*修改标记
-*修改时间：2026/7/29
-*修改人： yswenli
-*版本号： V1.0.0.0
-*描述：基于 ISessionManager 的会话历史提供者
-*
-*****************************************************************************/
-
+using LuBan.AIAgent.Rules;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 
 namespace LuBan.AIAgent.Sessions;
 
 /// <summary>
-/// 基于 ISessionManager 的会话历史提供者
+/// 基于 ISessionManager 的会话历史提供者，支持摘要压缩与 context-build 规则注入
 /// </summary>
 public class SessionChatHistoryProvider : ChatHistoryProvider
 {
@@ -36,18 +13,21 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
     private readonly IChatClient _chatClient;
     private readonly int _targetCount;
     private readonly int _threshold;
+    private readonly RuleEngine? _ruleEngine;
 
     public SessionChatHistoryProvider(
         ISessionManager sessionManager,
         IChatClient chatClient,
         int targetCount = 20,
-        int threshold = 10)
+        int threshold = 10,
+        RuleEngine? ruleEngine = null)
         : base(null, null, null)
     {
         _sessionManager = sessionManager;
         _chatClient = chatClient;
         _targetCount = targetCount;
         _threshold = threshold;
+        _ruleEngine = ruleEngine;
     }
 
     protected override async ValueTask<IEnumerable<ChatMessage>> ProvideChatHistoryAsync(
@@ -61,9 +41,38 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
         if (active.Count == 0)
             return Array.Empty<ChatMessage>();
 
-        var firstIsSummary = active[0].Role == "summary";
+        // 分离摘要消息与正文消息（摘要在库中按 CreateTime 排序，位置不固定）
+        var summaries = active.Where(m => m.Role == "summary").OrderByDescending(m => m.Id).ToList();
+        var messages = active.Where(m => m.Role != "summary").ToList();
+        SessionMessage? latestSummary = summaries.FirstOrDefault();
 
-        var history = active
+        // context-build 规则注入（如记忆召回），仅消费 Inject，忽略 Allow
+        var recallMessages = new List<ChatMessage>();
+        if (_ruleEngine != null)
+        {
+            var lastUserText = context.RequestMessages?.LastOrDefault(m => m.Role == ChatRole.User)?.Text;
+            if (!string.IsNullOrWhiteSpace(lastUserText))
+            {
+                try
+                {
+                    var eval = await _ruleEngine.EvaluateAsync(new RuleContext
+                    {
+                        ActionType = "context-build",
+                        UserInput = lastUserText
+                    });
+                    recallMessages = eval.Inject
+                        .Where(s => !string.IsNullOrWhiteSpace(s))
+                        .Select(s => new ChatMessage(ChatRole.System, s))
+                        .ToList();
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error("context-build 规则评估失败", ex, sessionId);
+                }
+            }
+        }
+
+        var history = messages
             .Select(m => new ChatMessage(m.Role == "user" ? ChatRole.User : ChatRole.Assistant, m.Content))
             .ToList();
 
@@ -76,25 +85,28 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
 
             if (reduced.Count < history.Count)
             {
-                var keptCount = reduced.Count - 1;
-                var compactedIds = active.Take(active.Count - keptCount).Select(m => m.Id).ToList();
+                var keptCount = Math.Min(reduced.Count - 1, history.Count);
+                var keptTail = messages.Skip(messages.Count - keptCount).ToList();
+                var compactedIds = messages.Take(messages.Count - keptCount).Select(m => m.Id)
+                    .Concat(summaries.Select(s => s.Id))
+                    .ToList();
                 await _sessionManager.MarkMessagesCompactedAsync(sessionId, compactedIds);
 
                 var summaryText = reduced[0].Text ?? "";
                 await _sessionManager.AddMessageAsync(sessionId, "summary", summaryText, EstimateTokens(summaryText));
 
-                history = reduced;
-                firstIsSummary = true;
+                latestSummary = new SessionMessage { Id = long.MaxValue, Role = "summary", Content = summaryText };
+                history = keptTail
+                    .Select(m => new ChatMessage(m.Role == "user" ? ChatRole.User : ChatRole.Assistant, m.Content))
+                    .ToList();
             }
         }
 
-        var feed = new List<ChatMessage>(history.Count);
-        for (var i = 0; i < history.Count; i++)
-        {
-            feed.Add(i == 0 && firstIsSummary
-                ? new ChatMessage(ChatRole.System, "[对话摘要] " + history[i].Text)
-                : history[i]);
-        }
+        var feed = new List<ChatMessage>();
+        if (latestSummary != null && !string.IsNullOrWhiteSpace(latestSummary.Content))
+            feed.Add(new ChatMessage(ChatRole.System, "[对话摘要] " + latestSummary.Content));
+        feed.AddRange(recallMessages);
+        feed.AddRange(history);
         return feed;
     }
 

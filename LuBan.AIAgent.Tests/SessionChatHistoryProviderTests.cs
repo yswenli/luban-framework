@@ -41,7 +41,7 @@ public class SessionChatHistoryProviderTests
         }
 
         public Task<IEnumerable<SessionMessage>> GetActiveMessagesAsync(string sessionId)
-            => Task.FromResult(_messages.Where(m => !CompactedIds.Contains(m.Id)).OrderBy(m => m.Role == "summary" ? 0 : 1).ThenBy(m => m.Id).AsEnumerable());
+            => Task.FromResult(_messages.Where(m => !CompactedIds.Contains(m.Id)).OrderBy(m => m.Id).AsEnumerable());
 
         public Task MarkMessagesCompactedAsync(string sessionId, IEnumerable<long> messageIds)
         {
@@ -71,8 +71,22 @@ public class SessionChatHistoryProviderTests
         public void Dispose() { }
     }
 
-    private sealed class TestableProvider(ISessionManager sm, IChatClient client, int target = 20, int threshold = 10)
-        : SessionChatHistoryProvider(sm, client, target, threshold)
+    private sealed class StubRecallRule : LuBan.AIAgent.Rules.RuleBase
+    {
+        public override string Id => "stub-recall";
+        public override string Name => "";
+        public override string Description => "";
+        public override bool IsApplicable(LuBan.AIAgent.Rules.RuleContext context) => context.ActionType == "context-build";
+        public override Task<LuBan.AIAgent.Rules.RuleResult> ExecuteAsync(LuBan.AIAgent.Rules.RuleContext context)
+        {
+            var r = LuBan.AIAgent.Rules.RuleResult.AllowResult();
+            r.Inject.Add("[记忆上下文] 测试记忆");
+            return Task.FromResult(r);
+        }
+    }
+
+    private sealed class TestableProvider(ISessionManager sm, IChatClient client, int target = 20, int threshold = 10, LuBan.AIAgent.Rules.RuleEngine? ruleEngine = null)
+        : SessionChatHistoryProvider(sm, client, target, threshold, ruleEngine)
     {
         public ValueTask<IEnumerable<ChatMessage>> PublicProvide(ChatHistoryProvider.InvokingContext ctx, CancellationToken ct = default)
             => ProvideChatHistoryAsync(ctx, ct);
@@ -193,6 +207,25 @@ public class SessionChatHistoryProviderTests
         Assert.IsTrue(history.Count <= 22, $"Expected history.Count <= 22, but got {history.Count}");
         Assert.IsTrue(sm.CompactedIds.Count >= 14, $"Expected CompactedIds.Count >= 14, but got {sm.CompactedIds.Count}");
         var active = (await sm.GetActiveMessagesAsync("s1")).ToList();
-        Assert.AreEqual("summary", active[0].Role);
+        Assert.IsTrue(active.Any(m => m.Role == "summary"), "压缩后应存在摘要消息");
+    }
+
+    [TestMethod]
+    public async Task Provide_ContextBuildRule_InjectSystemMessage()
+    {
+        var sm = new FakeSessionManager();
+        await sm.CreateSessionAsync();
+        sm.Seed(("user", "你好"), ("assistant", "你好！"));
+
+        var engine = new LuBan.AIAgent.Rules.RuleEngine(new LuBan.AIAgent.Rules.IRule[] { new StubRecallRule() });
+        var provider = new TestableProvider(sm, new StubChatClient(), ruleEngine: engine);
+        var agent = CreateAgent(new StubChatClient());
+        var ctx = new ChatHistoryProvider.InvokingContext(agent, session: null,
+            new[] { new ChatMessage(ChatRole.User, "帮我回忆一下") });
+
+        var history = (await provider.PublicProvide(ctx)).ToList();
+
+        Assert.IsTrue(history.Any(m => m.Role == ChatRole.System && m.Text != null && m.Text.StartsWith("[记忆上下文]")),
+            "应注入记忆上下文 System 消息");
     }
 }
