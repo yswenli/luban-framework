@@ -59,6 +59,7 @@ public class MCPRegistryTests
         Assert.AreEqual(1, registry.GetAll().Count);
 
         cm.SetMcpServerEnabled("ext1", false);
+        registry.LoadFromConfig();
 
         Assert.AreEqual(0, registry.GetAll().Count);
     }
@@ -69,6 +70,7 @@ public class MCPRegistryTests
         var cm = new ConfigManager(_tempPath);
         cm.SetBuiltinMcpClientEnabled("builtin-mcp", false);
         var registry = new MCPRegistry(new IMCPClient[] { new FakeBuiltinMCPClient() }, cm);
+        registry.LoadFromConfig();
 
         Assert.AreEqual(0, registry.GetAll().Count);
     }
@@ -96,6 +98,7 @@ public class MCPRegistryTests
         Assert.IsNotNull(before);
 
         cm.UpdateMcpServer(new McpServerConfig { Name = "ext1", Command = "npx", Args = new List<string> { "-y", "v2" } });
+        registry.LoadFromConfig();
 
         var after = registry.Get("ext1");
         Assert.IsNotNull(after);

@@ -21,7 +21,19 @@ public class LocalMemoryServiceTests
     public void Cleanup()
     {
         _store?.Dispose();
-        if (File.Exists(_dbPath)) File.Delete(_dbPath);
+        
+        for (int i = 0; i < 5; i++)
+        {
+            try
+            {
+                if (File.Exists(_dbPath)) File.Delete(_dbPath);
+                break;
+            }
+            catch (IOException)
+            {
+                Thread.Sleep(100);
+            }
+        }
     }
 
     private sealed class FakeWorkspace(string? wsId) : IWorkspaceContextProvider

@@ -17,7 +17,7 @@ public class MCPRegistry
         _configManager = configManager;
         foreach (var client in clients)
             _hardcoded[client.Name] = client;
-        RebuildMerged();
+        LoadFromConfig();
     }
 
     private static string FingerprintOf(Configuration.McpServerConfig cfg)
@@ -231,9 +231,13 @@ public class MCPRegistry
         foreach (var kvp in _workspace)
             merged[kvp.Key] = kvp.Value.Client;
         
-        // 3. 最高优先级：硬编码
+        // 3. 最高优先级：硬编码（排除被禁用的）
+        var disabledBuiltin = _configManager?.DisabledBuiltinMcpClients;
         foreach (var kvp in _hardcoded)
+        {
+            if (disabledBuiltin?.Contains(kvp.Key) == true) continue;
             merged[kvp.Key] = kvp.Value;
+        }
 
         _merged = merged.Values.ToList();
     }

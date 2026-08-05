@@ -17,7 +17,7 @@ public class RuleEngine
         _configManager = configManager;
         foreach (var rule in rules)
             _hardcoded[rule.Id] = rule;
-        RebuildMerged();
+        LoadFromConfig();
     }
 
     public void LoadFromWorkspace(string workspaceDir)
@@ -68,7 +68,7 @@ public class RuleEngine
         {
             if (_configManager != null)
             {
-                foreach (var cfg in _configManager.CustomRules.Where(c => c.Enabled))
+                foreach (var cfg in _configManager.CustomRules)
                     temp[cfg.Id] = new CustomRule(cfg);
             }
         }
