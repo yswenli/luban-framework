@@ -1,57 +1,12 @@
-/****************************************************************************
-*Copyright @ yswenli All Rights Reserved.
-*CLR版本： .net8.0
-*机器名称：WALLE
-*公司名称：Walle
-*命名空间：LuBan.AIAgent.Skills.BuiltIn
-*文件名： TestGenerationSkill
-*版本号： V1.0.0.0
-*唯一标识：a1b2c3d4-e5f6-7890-abcd-ef1234567002
-*当前的用户域：WALLE
-*创建人： yswenli
-*电子邮箱：yswenli@outlook.com
-*创建时间：2026/8/3
-*描述：测试生成 Skill - 生成单元测试，覆盖正常路径和边界情况
-*
-*=================================================
-*修改标记
-*修改时间：2026/8/3
-*修改人： yswenli
-*版本号： V1.0.0.0
-*描述：测试生成 Skill - 生成单元测试，覆盖正常路径和边界情况
-*
-*****************************************************************************/
-
 namespace LuBan.AIAgent.Skills.BuiltIn;
 
-/// <summary>
-/// 测试生成 Skill - 生成单元测试，覆盖正常路径和边界情况
-/// </summary>
 public class TestGenerationSkill : SkillBase
 {
-    /// <summary>
-    /// Skill ID
-    /// </summary>
     public override string Id => "test-generation";
-
-    /// <summary>
-    /// Skill 名称
-    /// </summary>
     public override string Name => "测试生成";
-
-    /// <summary>
-    /// Skill 描述
-    /// </summary>
     public override string Description => "为代码生成单元测试，覆盖正常路径、边界情况和异常场景。支持 xUnit/NUnit 框架";
-
-    /// <summary>
-    /// Skill 分类
-    /// </summary>
     public override string Category => "development";
 
-    /// <summary>
-    /// 使用示例
-    /// </summary>
     public override IEnumerable<string> Examples => new[]
     {
         "为这个方法生成单元测试",
@@ -59,9 +14,6 @@ public class TestGenerationSkill : SkillBase
         "生成 xUnit 测试，覆盖边界情况"
     };
 
-    /// <summary>
-    /// 自动激活触发关键词
-    /// </summary>
     public override IEnumerable<string> TriggerKeywords => new[]
     {
         "test",
@@ -73,14 +25,7 @@ public class TestGenerationSkill : SkillBase
         "nunit"
     };
 
-    /// <summary>
-    /// 执行 Skill
-    /// </summary>
-    public override async Task<SkillResult> ExecuteAsync(SkillContext context, string input)
-    {
-        UpdateStatus(context, "正在分析代码并生成测试用例...");
-
-        var systemPrompt = @"你是一个资深的测试工程师。请为给定代码生成高质量的单元测试：
+    public override string PromptTemplate => @"你是一个资深的测试工程师。请为给定代码生成高质量的单元测试：
 
 1. **测试框架**：默认使用 xUnit，如果用户指定 NUnit/MSTest 则使用指定框架
 2. **测试覆盖**：
@@ -113,9 +58,4 @@ using Moq;
 💡 **建议**：
 - 额外需要测试的场景
 - 测试改进建议";
-
-        var result = await CallAgentAsync(context, $"{systemPrompt}\n\n{input}");
-
-        return SkillResult.Ok(result ?? "");
-    }
 }

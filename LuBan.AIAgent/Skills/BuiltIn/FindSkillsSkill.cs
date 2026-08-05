@@ -1,57 +1,12 @@
-/****************************************************************************
-*Copyright @ yswenli All Rights Reserved.
-*CLR版本： .net8.0
-*机器名称：WALLE
-*公司名称：Walle
-*命名空间：LuBan.AIAgent.Skills.BuiltIn
-*文件名： FindSkillsSkill
-*版本号： V1.0.0.0
-*唯一标识：a1b2c3d4-e5f6-7890-abcd-ef1234567006
-*当前的用户域：WALLE
-*创建人： yswenli
-*电子邮箱：yswenli@outlook.com
-*创建时间：2026/8/3
-*描述：技能发现 Skill - 搜索本地 skill、推荐适用场景、引导安装和创建
-*
-*=================================================
-*修改标记
-*修改时间：2026/8/3
-*修改人： yswenli
-*版本号： V1.0.0.0
-*描述：技能发现 Skill - 搜索本地 skill、推荐适用场景、引导安装和创建
-*
-*****************************************************************************/
-
 namespace LuBan.AIAgent.Skills.BuiltIn;
 
-/// <summary>
-/// 技能发现 Skill - 搜索本地 skill、推荐适用场景、引导安装和创建
-/// </summary>
 public class FindSkillsSkill : SkillBase
 {
-    /// <summary>
-    /// Skill ID
-    /// </summary>
     public override string Id => "find-skills";
-
-    /// <summary>
-    /// Skill 名称
-    /// </summary>
     public override string Name => "技能发现";
-
-    /// <summary>
-    /// Skill 描述
-    /// </summary>
     public override string Description => "发现和查找可用的 Skill：列出本地 skill、按需求推荐、引导从 skills.sh 安装或创建自定义 skill";
-
-    /// <summary>
-    /// Skill 分类
-    /// </summary>
     public override string Category => "productivity";
 
-    /// <summary>
-    /// 使用示例
-    /// </summary>
     public override IEnumerable<string> Examples => new[]
     {
         "帮我找一个能做代码审查的 skill",
@@ -59,25 +14,12 @@ public class FindSkillsSkill : SkillBase
         "列出所有可用的 skill"
     };
 
-    /// <summary>
-    /// 自动激活触发关键词
-    /// </summary>
-    public override IEnumerable<string> TriggerKeywords => new[]
-    {
-        "find skill",
-        "找 skill",
-        "技能",
-        "skill",
-        "有什么 skill",
-        "列出 skill"
-    };
+    public override IEnumerable<string> TriggerKeywords => Array.Empty<string>();
 
-    /// <summary>
-    /// 执行 Skill
-    /// </summary>
+    public override string PromptTemplate => "查找和列出可用的 Skill";
+
     public override async Task<SkillResult> ExecuteAsync(SkillContext context, string input)
     {
-        // 从 ServiceProvider 获取 SkillRegistry
         var registry = context.ServiceProvider?.GetService(typeof(SkillRegistry)) as SkillRegistry;
 
         if (registry == null)
@@ -87,7 +29,6 @@ public class FindSkillsSkill : SkillBase
 
         var allSkills = registry.GetAll();
 
-        // 无输入时：列出所有本地 skill
         if (string.IsNullOrWhiteSpace(input) ||
             input.Trim().Equals("list", StringComparison.OrdinalIgnoreCase) ||
             input.Trim().Equals("ls", StringComparison.OrdinalIgnoreCase))
@@ -95,8 +36,7 @@ public class FindSkillsSkill : SkillBase
             return ListLocalSkills(allSkills);
         }
 
-        // 有输入时：AI 分析 + 本地匹配 + 市场引导
-        UpdateStatus(context, "正在匹配 Skill...");
+        context.UpdateStatus?.Invoke("正在匹配 Skill...");
 
         var localMatches = registry.Search(input);
         var localSkillInfo = FormatLocalSkillsForPrompt(allSkills);
@@ -141,14 +81,11 @@ public class FindSkillsSkill : SkillBase
 
 请根据用户需求智能推荐，优先推荐本地已有的 Skill。";
 
-        var result = await CallAgentAsync(context, $"{systemPrompt}\n\n用户需求：{input}");
+        var result = await context.Agent.RunAsync($"{systemPrompt}\n\n用户需求：{input}", context.CancellationToken);
 
-        return SkillResult.Ok(result ?? "");
+        return SkillResult.Ok(result.Text ?? "");
     }
 
-    /// <summary>
-    /// 列出所有本地 skill
-    /// </summary>
     private static SkillResult ListLocalSkills(IReadOnlyList<ISkill> skills)
     {
         if (skills.Count == 0)
@@ -186,9 +123,6 @@ public class FindSkillsSkill : SkillBase
         return SkillResult.Ok(sb.ToString());
     }
 
-    /// <summary>
-    /// 格式化本地 skill 信息供 AI 提示词使用
-    /// </summary>
     private static string FormatLocalSkillsForPrompt(IReadOnlyList<ISkill> skills)
     {
         if (skills.Count == 0)

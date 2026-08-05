@@ -1,9 +1,9 @@
 namespace LuBan.AIAgent.Skills;
 
 /// <summary>
-/// 文件级 Skill 适配器，将 SKILL.md 文件包装为 ISkill
+/// 文件级 Skill 适配器，将 SKILL.md 文件包装为 Skill（纯提示词模板）
 /// </summary>
-public class FileSkill : ISkill
+public class FileSkill : SkillBase
 {
     private readonly FileSkillConfig _config;
 
@@ -12,26 +12,14 @@ public class FileSkill : ISkill
         _config = config ?? throw new ArgumentNullException(nameof(config));
     }
 
-    public string Id => _config.Id;
-    public string Name => _config.Name;
-    public string Description => _config.Description;
-    public string Category => _config.Category;
-    public IEnumerable<string> Examples => _config.Examples;
-    public IEnumerable<string> TriggerKeywords => _config.TriggerKeywords;
-    public string? PromptTemplate => _config.PromptTemplate;
+    public override string Id => _config.Id;
+    public override string Name => _config.Name;
+    public override string Description => _config.Description;
+    public override string Category => _config.Category;
+    public override IEnumerable<string> Examples => _config.Examples;
+    public override IEnumerable<string> TriggerKeywords => _config.TriggerKeywords;
+    public override string PromptTemplate => _config.PromptTemplate;
     public string SourcePath => _config.SourcePath;
-
-    public Task<SkillResult> ExecuteAsync(SkillContext context, string input)
-    {
-        if (context.Agent == null)
-            return Task.FromResult(SkillResult.Fail("Agent 不可用"));
-
-        var prompt = _config.PromptTemplate.Contains("{input}")
-            ? _config.PromptTemplate.Replace("{input}", input)
-            : $"{_config.PromptTemplate}\n\n{input}";
-
-        return Task.FromResult(SkillResult.Ok(prompt));
-    }
 }
 
 /// <summary>

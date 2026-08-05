@@ -1,57 +1,12 @@
-/****************************************************************************
-*Copyright @ yswenli All Rights Reserved.
-*CLR版本： .net8.0
-*机器名称：WALLE
-*公司名称：Walle
-*命名空间：LuBan.AIAgent.Skills.BuiltIn
-*文件名： GitCommitSkill
-*版本号： V1.0.0.0
-*唯一标识：a1b2c3d4-e5f6-7890-abcd-ef1234567005
-*当前的用户域：WALLE
-*创建人： yswenli
-*电子邮箱：yswenli@outlook.com
-*创建时间：2026/8/3
-*描述：Git提交 Skill - 根据 diff 生成 Conventional Commits 格式的提交信息
-*
-*=================================================
-*修改标记
-*修改时间：2026/8/3
-*修改人： yswenli
-*版本号： V1.0.0.0
-*描述：Git提交 Skill - 根据 diff 生成 Conventional Commits 格式的提交信息
-*
-*****************************************************************************/
-
 namespace LuBan.AIAgent.Skills.BuiltIn;
 
-/// <summary>
-/// Git提交 Skill - 根据 diff 生成 Conventional Commits 格式的提交信息
-/// </summary>
 public class GitCommitSkill : SkillBase
 {
-    /// <summary>
-    /// Skill ID
-    /// </summary>
     public override string Id => "git-commit";
-
-    /// <summary>
-    /// Skill 名称
-    /// </summary>
     public override string Name => "Git提交";
-
-    /// <summary>
-    /// Skill 描述
-    /// </summary>
     public override string Description => "根据 git diff 生成 Conventional Commits 规范的提交信息，自动分析变更类型和影响范围";
-
-    /// <summary>
-    /// Skill 分类
-    /// </summary>
     public override string Category => "productivity";
 
-    /// <summary>
-    /// 使用示例
-    /// </summary>
     public override IEnumerable<string> Examples => new[]
     {
         "帮我生成提交信息",
@@ -59,9 +14,6 @@ public class GitCommitSkill : SkillBase
         "git diff 生成提交描述"
     };
 
-    /// <summary>
-    /// 自动激活触发关键词
-    /// </summary>
     public override IEnumerable<string> TriggerKeywords => new[]
     {
         "commit",
@@ -72,14 +24,7 @@ public class GitCommitSkill : SkillBase
         "提交信息"
     };
 
-    /// <summary>
-    /// 执行 Skill
-    /// </summary>
-    public override async Task<SkillResult> ExecuteAsync(SkillContext context, string input)
-    {
-        UpdateStatus(context, "正在分析代码变更...");
-
-        var systemPrompt = @"你是一个 Git 提交信息生成专家。请根据用户提供的 git diff 或变更描述，生成符合 Conventional Commits 规范的提交信息：
+    public override string PromptTemplate => @"你是一个 Git 提交信息生成专家。请根据用户提供的 git diff 或变更描述，生成符合 Conventional Commits 规范的提交信息：
 
 ## 提交信息格式
 
@@ -124,9 +69,4 @@ public class GitCommitSkill : SkillBase
 
 📋 **变更详情**：
 - ...";
-
-        var result = await CallAgentAsync(context, $"{systemPrompt}\n\n{input}");
-
-        return SkillResult.Ok(result ?? "");
-    }
 }

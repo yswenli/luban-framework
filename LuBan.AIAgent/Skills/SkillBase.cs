@@ -1,31 +1,7 @@
-/****************************************************************************
-*Copyright @ yswenli All Rights Reserved.
-*CLR版本： .net8.0
-*机器名称：WALLE
-*公司名称：Walle
-*命名空间：LuBan.AIAgent.Skills
-*文件名： SkillBase
-*版本号： V1.0.0.0
-*唯一标识：477426b7-acda-440f-a463-03bff3c68b32
-*当前的用户域：WALLE
-*创建人： yswenli
-*电子邮箱：yswenli@outlook.com
-*创建时间：2026/7/27
-*描述：Skill 基类，提供通用功能
-*
-*=================================================
-*修改标记
-*修改时间：2026/7/27
-*修改人： yswenli
-*版本号： V1.0.0.0
-*描述：Skill 基类，提供通用功能
-*
-*****************************************************************************/
-
 namespace LuBan.AIAgent.Skills;
 
 /// <summary>
-/// Skill 基类，提供通用功能
+/// Skill 基类，所有 Skill 都是纯提示词模板
 /// </summary>
 public abstract class SkillBase : ISkill
 {
@@ -60,40 +36,35 @@ public abstract class SkillBase : ISkill
     public virtual IEnumerable<string> TriggerKeywords => Array.Empty<string>();
 
     /// <summary>
-    /// Skill 的提示词模板内容。内置 Skill 默认返回 null，派生类可覆盖。
+    /// Skill 的提示词模板内容。所有 Skill 必须提供。
     /// </summary>
-    public virtual string? PromptTemplate => null;
+    public abstract string PromptTemplate { get; }
 
     /// <summary>
-    /// 执行 Skill
+    /// 执行 Skill：渲染模板并调用 Agent
     /// </summary>
-    public abstract Task<SkillResult> ExecuteAsync(SkillContext context, string input);
-
-    /// <summary>
-    /// 记录日志
-    /// </summary>
-    protected void Log(SkillContext context, string message)
-    {
-        context.Log?.Invoke(message);
-    }
-
-    /// <summary>
-    /// 更新状态
-    /// </summary>
-    protected void UpdateStatus(SkillContext context, string status)
-    {
-        context.UpdateStatus?.Invoke(status);
-    }
-
-    /// <summary>
-    /// 调用 Agent 执行对话
-    /// </summary>
-    protected async Task<string?> CallAgentAsync(SkillContext context, string prompt)
+    public virtual async Task<SkillResult> ExecuteAsync(SkillContext context, string input)
     {
         if (context.Agent == null)
-            throw new InvalidOperationException("Agent 未设置");
+            return SkillResult.Fail("Agent 不可用");
 
-        var response = await context.Agent.RunAsync(prompt, context.CancellationToken);
-        return response.Text;
+        try
+        {
+            var prompt = PromptTemplate.Contains("{input}")
+                ? PromptTemplate.Replace("{input}", input)
+                : $"{PromptTemplate}\n\n{input}";
+
+            var response = await context.Agent.RunAsync(prompt, context.CancellationToken);
+            return SkillResult.Ok(response.Text ?? string.Empty);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("Skill 执行失败", ex, Name, Id);
+            return SkillResult.Fail($"执行失败: {ex.Message}");
+        }
     }
 }
