@@ -73,7 +73,19 @@ public class LocalMemoryService : ILocalMemoryService
         if (string.IsNullOrWhiteSpace(query)) return Array.Empty<MemorySearchResult>();
         topK = Math.Max(1, topK);
 
-        _ = _store.DeleteExpiredAsync(cancellationToken);
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _store.DeleteExpiredAsync(default);
+                lock (_indexLock)
+                    _indexDirty = true;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("Expired cleanup failed", ex);
+            }
+        });
 
         var workspaceId = category == MemoryCategories.Global ? null : _workspaceContext?.CurrentWorkspaceId;
         var queryVector = await GenerateEmbeddingAsync(query, cancellationToken);
