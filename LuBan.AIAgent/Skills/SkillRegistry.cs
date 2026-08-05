@@ -21,7 +21,7 @@ public class SkillRegistry
         _configManager = configManager;
         foreach (var skill in skills)
             _hardcoded[skill.Id] = skill;
-        RebuildMerged();
+        LoadFromConfig();
     }
 
     public void LoadFromWorkspace(string workspaceDir)

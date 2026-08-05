@@ -28,6 +28,7 @@ public class SkillRegistryTests
         public string Category => "builtin";
         public IEnumerable<string> Examples => Array.Empty<string>();
         public IEnumerable<string> TriggerKeywords => Array.Empty<string>();
+        public string PromptTemplate => "测试提示词";
         public Task<SkillResult> ExecuteAsync(SkillContext context, string input)
             => Task.FromResult(SkillResult.Ok("ok"));
     }
@@ -49,6 +50,7 @@ public class SkillRegistryTests
         public string Category => "builtin";
         public IEnumerable<string> Examples => Array.Empty<string>();
         public IEnumerable<string> TriggerKeywords => _triggers;
+        public string PromptTemplate => "测试提示词";
         public Task<SkillResult> ExecuteAsync(SkillContext context, string input)
             => Task.FromResult(SkillResult.Ok("ok"));
     }
@@ -57,7 +59,7 @@ public class SkillRegistryTests
     public void GetAll_MergesBuiltinAndCustom()
     {
         var cm = new ConfigManager(_tempPath);
-        cm.AddCustomSkill(new CustomSkillConfig { Id = "custom1", Name = "自定义", Category = "custom" });
+        cm.AddCustomSkill(new CustomSkillConfig { Id = "custom1", Name = "自定义", Category = "custom", PromptTemplate = "测试" });
         var registry = new SkillRegistry(new ISkill[] { new FakeBuiltinSkill() }, cm);
 
         var all = registry.GetAll();
@@ -70,7 +72,7 @@ public class SkillRegistryTests
     public void GetAll_DisabledCustom_Excluded()
     {
         var cm = new ConfigManager(_tempPath);
-        cm.AddCustomSkill(new CustomSkillConfig { Id = "custom1", Name = "自定义" });
+        cm.AddCustomSkill(new CustomSkillConfig { Id = "custom1", Name = "自定义", PromptTemplate = "测试" });
         cm.SetCustomSkillEnabled("custom1", false);
         var registry = new SkillRegistry(new ISkill[] { new FakeBuiltinSkill() }, cm);
 
@@ -91,7 +93,7 @@ public class SkillRegistryTests
     public void Get_FindsCustomSkill()
     {
         var cm = new ConfigManager(_tempPath);
-        cm.AddCustomSkill(new CustomSkillConfig { Id = "custom1", Name = "自定义" });
+        cm.AddCustomSkill(new CustomSkillConfig { Id = "custom1", Name = "自定义", PromptTemplate = "测试" });
         var registry = new SkillRegistry(Array.Empty<ISkill>(), cm);
 
         Assert.IsNotNull(registry.Get("custom1"));
@@ -105,7 +107,9 @@ public class SkillRegistryTests
 
         Assert.AreEqual(0, registry.GetAll().Count);
 
-        cm.AddCustomSkill(new CustomSkillConfig { Id = "late", Name = "后加的" });
+        cm.AddCustomSkill(new CustomSkillConfig { Id = "late", Name = "后加的", PromptTemplate = "测试" });
+
+        registry.LoadFromConfig();
 
         Assert.AreEqual(1, registry.GetAll().Count);
     }
@@ -114,7 +118,7 @@ public class SkillRegistryTests
     public void GetAll_DuplicateId_BuiltinWins()
     {
         var cm = new ConfigManager(_tempPath);
-        cm.AddCustomSkill(new CustomSkillConfig { Id = "dup", Name = "自定义" });
+        cm.AddCustomSkill(new CustomSkillConfig { Id = "dup", Name = "自定义", PromptTemplate = "测试" });
         var builtin = new ConfigurableBuiltinSkill("dup");
         var registry = new SkillRegistry(new ISkill[] { builtin }, cm);
 
@@ -156,7 +160,8 @@ public class SkillRegistryTests
         {
             Id = "custom1",
             Name = "自定义",
-            TriggerKeywords = new List<string> { "deploy" }
+            TriggerKeywords = new List<string> { "deploy" },
+            PromptTemplate = "部署提示词"
         });
         var registry = new SkillRegistry(Array.Empty<ISkill>(), cm);
 
