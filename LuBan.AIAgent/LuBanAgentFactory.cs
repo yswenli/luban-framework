@@ -181,11 +181,13 @@ public class LuBanAgentFactory : ILuBanAgentFactory, IScoped
             || _serviceProvider.GetService<ISessionManager>() is not { } sessionManager)
             return null;
 
+        var ruleEngine = _serviceProvider.GetService<RuleEngine>();
         return new SessionChatHistoryProvider(
             sessionManager,
             _chatClient,
             opts.Session.CompactTargetMessages,
-            opts.Session.CompactThreshold);
+            opts.Session.CompactThreshold,
+            ruleEngine);
     }
 
     /// <summary>
