@@ -1,8 +1,6 @@
-using LuBan.AIAgent.Abstractions;
 using LuBan.AIAgent.Configuration;
 using LuBan.AIAgent.LocalMemory;
 using LuBan.AIAgent.Tools.LocalMemory;
-using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Options;
 
 namespace LuBan.AIAgent.Tests.LocalMemory;
@@ -23,17 +21,26 @@ public class LocalMemoryServiceTests
     public void Cleanup()
     {
         _store?.Dispose();
+        if (File.Exists(_dbPath)) File.Delete(_dbPath);
     }
 
-    private LocalMemoryService CreateService(IEmbeddingGenerator<string, Embedding<float>>? embedder = null)
+    private sealed class FakeWorkspace(string? wsId) : IWorkspaceContextProvider
     {
-        // Use in-memory SQLite for tests to avoid file locking issues
-        _store = new SqliteLocalMemoryStore(":memory:");
-        var options = Options.Create(new LocalMemoryOptions { FallbackDimension = 64 });
-        return new LocalMemoryService(_store, options, embedder);
+        public string? CurrentWorkspaceId { get; set; } = wsId;
     }
 
-    [TestMethod, Ignore("SQLite in-memory database requires persistent connection; test setup needs adjustment")]
+    private LocalMemoryService CreateService(IWorkspaceContextProvider? workspace = null, int? ttlDays = null)
+    {
+        _store = new SqliteLocalMemoryStore(_dbPath);
+        var options = Options.Create(new LocalMemoryOptions
+        {
+            FallbackDimension = 64,
+            TtlDays = ttlDays
+        });
+        return new LocalMemoryService(_store, options, embedder: null, workspace);
+    }
+
+    [TestMethod]
     public async Task SaveAsync_ReturnsEntryWithId()
     {
         var service = CreateService();
@@ -44,7 +51,7 @@ public class LocalMemoryServiceTests
         Assert.IsTrue(entry.Content.Contains("C#"));
     }
 
-    [TestMethod, Ignore("SQLite in-memory database requires persistent connection; test setup needs adjustment")]
+    [TestMethod]
     public async Task SearchAsync_WithFallbackEmbedding_FindsRelevantContent()
     {
         var service = CreateService();
@@ -59,7 +66,7 @@ public class LocalMemoryServiceTests
         Assert.IsTrue(results.First().Score > 0);
     }
 
-    [TestMethod, Ignore("SQLite in-memory database requires persistent connection; test setup needs adjustment")]
+    [TestMethod]
     public async Task DeleteAsync_RemovesEntry()
     {
         var service = CreateService();
@@ -71,7 +78,7 @@ public class LocalMemoryServiceTests
         Assert.AreEqual(0, list.Count);
     }
 
-    [TestMethod, Ignore("SQLite in-memory database requires persistent connection; test setup needs adjustment")]
+    [TestMethod]
     public async Task ListAsync_RespectsCategoryFilter()
     {
         var service = CreateService();
@@ -85,7 +92,67 @@ public class LocalMemoryServiceTests
         Assert.AreEqual(1, prefs.Count);
     }
 
-    [TestMethod, Ignore("SQLite in-memory database requires persistent connection; test setup needs adjustment")]
+    [TestMethod]
+    public async Task SaveAsync_DuplicateContent_ReturnsSameId()
+    {
+        var service = CreateService(new FakeWorkspace("ws1"));
+        var a = await service.SaveAsync(" 记住这个事实 ", "fact");
+        var b = await service.SaveAsync("记住这个事实", "fact");
+
+        Assert.AreEqual(a.Id, b.Id);
+        Assert.AreEqual(1, (await service.ListAsync("fact")).Count);
+    }
+
+    [TestMethod]
+    public async Task WorkspaceIsolation_AcrossWorkspaces()
+    {
+        var ws1 = CreateService(new FakeWorkspace("ws1"));
+        var ws2 = CreateService(new FakeWorkspace("ws2"));
+        await ws1.SaveAsync("工作区1的秘密", "fact");
+
+        var inWs1 = await ws1.SearchAsync("工作区1的秘密", null, 5);
+        var inWs2 = await ws2.SearchAsync("工作区1的秘密", null, 5);
+
+        Assert.IsTrue(inWs1.Count > 0);
+        Assert.AreEqual(0, inWs2.Count, "其他工作区不应看到该记忆");
+    }
+
+    [TestMethod]
+    public async Task GlobalCategory_VisibleAcrossWorkspaces()
+    {
+        var ws1 = CreateService(new FakeWorkspace("ws1"));
+        var ws2 = CreateService(new FakeWorkspace("ws2"));
+        await ws1.SaveAsync("用户偏好简洁回答", MemoryCategories.Global);
+
+        var inWs2 = await ws2.SearchAsync("偏好简洁回答", MemoryCategories.Global, 5);
+        Assert.IsTrue(inWs2.Count > 0, "全局记忆应跨工作区可见");
+    }
+
+    [TestMethod]
+    public async Task Ttl_ExpiredEntries_NotReturned()
+    {
+        var service = CreateService(ttlDays: 0);
+        await service.SaveAsync("会过期的记忆", "fact");
+
+        var results = await service.SearchAsync("会过期的记忆", null, 5);
+        Assert.AreEqual(0, results.Count, "TTL=0 的条目应立即过期");
+    }
+
+    [TestMethod]
+    public async Task InvertedIndex_MatchesFullScan()
+    {
+        var service = CreateService(new FakeWorkspace("ws1"));
+        await service.SaveAsync("我喜欢编程和算法", "fact");
+        await service.SaveAsync("团队喜欢团建活动", "fact");
+        await service.SaveAsync("今天天气晴朗", "fact");
+
+        var viaIndex = await service.SearchAsync("喜欢编程", null, 5);
+
+        Assert.IsTrue(viaIndex.Count > 0, "倒排预筛应命中相关记忆");
+        Assert.IsTrue(viaIndex.Any(r => r.Content.Contains("编程")), "最相关记忆应排在最前");
+    }
+
+    [TestMethod]
     public async Task SaveAsync_ToolResult_WrapsOk()
     {
         var service = CreateService();
@@ -96,7 +163,7 @@ public class LocalMemoryServiceTests
         Assert.IsNotNull(result.Data);
     }
 
-    [TestMethod, Ignore("SQLite in-memory database requires persistent connection; test setup needs adjustment")]
+    [TestMethod]
     public async Task SearchAsync_ToolResult_WrapsOk()
     {
         var service = CreateService();

@@ -1,39 +1,22 @@
-/****************************************************************************
-*Copyright @ yswenli All Rights Reserved.
-*CLR版本： .net8.0
-*机器名称：WALLE
-*公司名称：Walle
-*命名空间：LuBan.AIAgent.LocalMemory
-*文件名： LocalMemoryService
-*版本号： V1.0.0.0
-*唯一标识：a1b2c3d4-5e6f-7a8b-9c0d-1e2f3a4b5c6d
-*当前的用户域：WALLE
-*创建人： yswenli
-*电子邮箱：yswenli@outlook.com
-*创建时间：2026/8/4
-*描述：本地长期记忆服务实现，基于本地 Embedding + SQLite 向量检索
-*
-*=================================================
-*修改标记
-*修改时间：2026/8/4
-*修改人： yswenli
-*版本号： V1.0.0.0
-*描述：本地长期记忆服务实现
-*
-*****************************************************************************/
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Options;
 
 namespace LuBan.AIAgent.LocalMemory;
 
 /// <summary>
-/// 本地长期记忆服务实现，基于本地 Embedding + SQLite 向量检索
+/// 本地长期记忆服务实现，基于本地 Embedding + SQLite 向量检索。
+/// 特性：工作区隔离、内容去重、可选 TTL、fallback 字符 n-gram 向量 + 倒排索引预筛。
 /// </summary>
 public class LocalMemoryService : ILocalMemoryService
 {
     private readonly ILocalMemoryStore _store;
     private readonly IEmbeddingGenerator<string, Embedding<float>>? _embedder;
     private readonly LocalMemoryOptions _options;
+    private readonly IWorkspaceContextProvider? _workspaceContext;
+
+    private readonly object _indexLock = new();
+    private Dictionary<uint, HashSet<string>>? _inverted;
+    private bool _indexDirty = true;
 
     /// <summary>
     /// 创建本地记忆服务
@@ -41,11 +24,13 @@ public class LocalMemoryService : ILocalMemoryService
     public LocalMemoryService(
         ILocalMemoryStore store,
         IOptions<LocalMemoryOptions> options,
-        IEmbeddingGenerator<string, Embedding<float>>? embedder = null)
+        IEmbeddingGenerator<string, Embedding<float>>? embedder = null,
+        IWorkspaceContextProvider? workspaceContext = null)
     {
         _store = store;
         _options = options.Value;
         _embedder = embedder;
+        _workspaceContext = workspaceContext;
     }
 
     /// <inheritdoc />
@@ -54,22 +39,32 @@ public class LocalMemoryService : ILocalMemoryService
         if (string.IsNullOrWhiteSpace(content))
             throw new ArgumentException("记忆内容不能为空", nameof(content));
 
-        category = string.IsNullOrWhiteSpace(category) ? "general" : category;
+        category = string.IsNullOrWhiteSpace(category) ? "general" : category.Trim().ToLowerInvariant();
 
+        var workspaceId = category == MemoryCategories.Global ? null : _workspaceContext?.CurrentWorkspaceId;
+
+        var now = DateTime.UtcNow;
         var entry = new MemoryEntry
         {
             Id = Guid.NewGuid().ToString("N"),
             Content = content.Trim(),
-            Category = category.Trim().ToLowerInvariant(),
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow,
-            VectorDimension = 0
+            Category = category,
+            CreatedAt = now,
+            UpdatedAt = now,
+            VectorDimension = 0,
+            WorkspaceId = workspaceId,
+            ContentHash = ComputeContentHash(content),
+            ExpiresAt = _options.TtlDays.HasValue ? now.AddDays(_options.TtlDays.Value) : null
         };
 
         var vector = await GenerateEmbeddingAsync(entry.Content, cancellationToken);
         entry.VectorDimension = vector.Length;
-        await _store.SaveAsync(entry, ToBytes(vector), cancellationToken);
-        return entry;
+        var saved = await _store.UpsertAsync(entry, ToBytes(vector), cancellationToken);
+
+        lock (_indexLock)
+            _indexDirty = true;
+
+        return saved;
     }
 
     /// <inheritdoc />
@@ -78,13 +73,89 @@ public class LocalMemoryService : ILocalMemoryService
         if (string.IsNullOrWhiteSpace(query)) return Array.Empty<MemorySearchResult>();
         topK = Math.Max(1, topK);
 
+        _ = _store.DeleteExpiredAsync(cancellationToken);
+
+        var workspaceId = category == MemoryCategories.Global ? null : _workspaceContext?.CurrentWorkspaceId;
         var queryVector = await GenerateEmbeddingAsync(query, cancellationToken);
-        var all = await _store.LoadAllAsync(category, cancellationToken);
 
-        if (all.Count == 0) return Array.Empty<MemorySearchResult>();
+        // fallback 模式：倒排索引预筛；ONNX 模式：全量扫描
+        if (_embedder == null)
+        {
+            var candidates = await GetCandidates(query, cancellationToken);
+            if (candidates.Count > 0)
+            {
+                var rows = await _store.LoadByIdsAsync(candidates, workspaceId, cancellationToken);
+                return ScoreRows(queryVector, rows, topK);
+            }
+        }
 
-        var scored = new List<MemorySearchResult>(all.Count);
-        foreach (var (entry, bytes) in all)
+        var all = await _store.LoadAllAsync(category, workspaceId, cancellationToken: cancellationToken);
+        return ScoreRows(queryVector, all, topK);
+    }
+
+    /// <inheritdoc />
+    public Task<IReadOnlyList<MemoryEntry>> ListAsync(string? category = null, int limit = 100, CancellationToken cancellationToken = default)
+        => _store.ListAsync(category, _workspaceContext?.CurrentWorkspaceId, limit, cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<bool> DeleteAsync(string id, CancellationToken cancellationToken = default)
+    {
+        var ok = await _store.DeleteAsync(id, cancellationToken);
+        if (ok)
+            lock (_indexLock)
+                _indexDirty = true;
+        return ok;
+    }
+
+    private async Task<List<string>> GetCandidates(string query, CancellationToken cancellationToken)
+    {
+        var grams = NGramExtractor.ExtractHashes(query).ToHashSet();
+        if (grams.Count == 0) return new List<string>();
+
+        lock (_indexLock)
+        {
+            if (_inverted != null && !_indexDirty)
+                return CollectCandidates(grams);
+        }
+
+        var all = await _store.LoadAllAsync(category: null, workspaceId: null, includeAllWorkspaces: true, cancellationToken: cancellationToken);
+        var rebuilt = new Dictionary<uint, HashSet<string>>();
+        foreach (var (entry, _) in all)
+        {
+            foreach (var gram in NGramExtractor.ExtractHashes(entry.Content))
+            {
+                if (!rebuilt.TryGetValue(gram, out var set))
+                    rebuilt[gram] = set = new HashSet<string>();
+                set.Add(entry.Id);
+            }
+        }
+        lock (_indexLock)
+        {
+            _inverted = rebuilt;
+            _indexDirty = false;
+        }
+        return CollectCandidates(grams);
+    }
+
+    private List<string> CollectCandidates(HashSet<uint> grams)
+    {
+        var candidates = new HashSet<string>();
+        if (_inverted == null) return new List<string>();
+        foreach (var gram in grams)
+        {
+            if (_inverted.TryGetValue(gram, out var ids))
+                candidates.UnionWith(ids);
+        }
+        return candidates.ToList();
+    }
+
+    private static IReadOnlyList<MemorySearchResult> ScoreRows(
+        float[] queryVector,
+        IReadOnlyList<(MemoryEntry Entry, byte[] VectorBytes)> rows,
+        int topK)
+    {
+        var scored = new List<MemorySearchResult>(rows.Count);
+        foreach (var (entry, bytes) in rows)
         {
             var storedVector = ToFloats(bytes);
             if (storedVector.Length == 0 || storedVector.Length != queryVector.Length) continue;
@@ -97,32 +168,25 @@ public class LocalMemoryService : ILocalMemoryService
                 CreatedAt = entry.CreatedAt,
                 UpdatedAt = entry.UpdatedAt,
                 VectorDimension = entry.VectorDimension,
+                WorkspaceId = entry.WorkspaceId,
+                ContentHash = entry.ContentHash,
+                ExpiresAt = entry.ExpiresAt,
                 Score = score
             });
         }
-
         return scored
             .OrderByDescending(r => r.Score)
             .Take(topK)
             .ToList();
     }
 
-    /// <inheritdoc />
-    public Task<IReadOnlyList<MemoryEntry>> ListAsync(string? category = null, int limit = 100, CancellationToken cancellationToken = default)
-        => _store.ListAsync(category, limit, cancellationToken);
-
-    /// <inheritdoc />
-    public Task<bool> DeleteAsync(string id, CancellationToken cancellationToken = default)
-        => _store.DeleteAsync(id, cancellationToken);
+    private static string ComputeContentHash(string content)
+        => SqliteLocalMemoryStore.ComputeContentHash(content);
 
     private async Task<float[]> GenerateEmbeddingAsync(string text, CancellationToken cancellationToken)
     {
         if (_embedder == null)
-        {
-            // 退化方案：未提供本地 embedder 时，返回基于词袋哈希的固定长度向量
-            // 这样可以保证在没有 ONNX 模型时 localmemory 仍可工作（语义能力较弱）
             return FallbackEmbedding(text, _options.FallbackDimension);
-        }
 
         var embedding = await _embedder.GenerateAsync(text, cancellationToken: cancellationToken);
         return embedding.Vector.ToArray();
@@ -131,13 +195,8 @@ public class LocalMemoryService : ILocalMemoryService
     private static float[] FallbackEmbedding(string text, int dimension)
     {
         var vector = new float[dimension];
-        var words = text.Split(new[] { ' ', '\t', '\n', '\r', '，', '。', '；', '！', '？', ',', '.', ';', '!', '?' }, StringSplitOptions.RemoveEmptyEntries);
-        foreach (var word in words)
-        {
-            var hash = word.GetHashCode();
-            var idx = Math.Abs(hash % dimension);
-            vector[idx] += 1.0f;
-        }
+        foreach (var gram in NGramExtractor.ExtractHashes(text))
+            vector[gram % dimension] += 1.0f;
         Normalize(vector);
         return vector;
     }
