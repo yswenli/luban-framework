@@ -66,7 +66,6 @@ public class LuBanAgentFactory : ILuBanAgentFactory, IScoped
         var instructions = systemPrompt ?? opts.SystemPrompt ?? "你是一个智能助手。";
 
         var tools = BuildTools(toolGroups);
-        PrintToolList(tools);
 
         var functionClient = BuildFunctionClient(tools, opts);
         var historyProvider = BuildHistoryProvider(useSessionHistory, opts);
