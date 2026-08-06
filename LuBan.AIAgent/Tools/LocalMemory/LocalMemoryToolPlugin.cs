@@ -115,6 +115,8 @@ public class LocalMemoryToolGroup
     /// <param name="category">可选类别过滤</param>
     /// <param name="topK">返回条数</param>
     [Description("基于语义相似度搜索本地长期记忆")]
+    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026", 
+        Justification = "JSON 序列化仅用于简单结果类型，已通过 JsonSerializerOptions 处理")]
     public async Task<ToolResult<string>> SearchAsync(string query, string? category = null, int topK = 5)
     {
         if (string.IsNullOrWhiteSpace(query))
@@ -150,6 +152,8 @@ public class LocalMemoryToolGroup
     /// <param name="category">可选类别过滤</param>
     /// <param name="limit">最大条数</param>
     [Description("列出本地长期记忆条目")]
+    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026", 
+        Justification = "JSON 序列化仅用于简单结果类型，已通过 JsonSerializerOptions 处理")]
     public async Task<ToolResult<string>> ListAsync(string? category = null, int limit = 100)
     {
         try

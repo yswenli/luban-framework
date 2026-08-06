@@ -210,6 +210,8 @@ public class DatabaseToolGroup
 /// <param name="connectionString">数据库连接字符串</param>
 /// <returns>查询结果（JSON 格式）</returns>
 [Description("执行查询 SQL（SELECT），返回结果集。需提供数据库连接字符串参数。")]
+    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026", 
+        Justification = "JSON 序列化仅用于简单结果类型，已通过 JsonSerializerOptions 处理")]
     public async Task<ToolResult<string>> ExecuteQueryAsync(string sql, string? connectionString = null)
     {
         var connStr = connectionString ?? _options.ConnectionString;
@@ -276,6 +278,8 @@ public class DatabaseToolGroup
 /// <param name="connectionString">数据库连接字符串</param>
 /// <returns>执行结果（受影响的行数）</returns>
 [Description("执行非查询 SQL（INSERT、UPDATE、DELETE、CREATE 等），返回受影响的行数。需提供数据库连接字符串参数。注意：此操作会修改数据。")]
+    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026", 
+        Justification = "JSON 序列化仅用于简单结果类型，已通过 JsonSerializerOptions 处理")]
     public async Task<ToolResult<string>> ExecuteNonQueryAsync(string sql, string? connectionString = null)
     {
         var connStr = connectionString ?? _options.ConnectionString;

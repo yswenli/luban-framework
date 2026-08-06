@@ -20,6 +20,8 @@ public class RuleEngine
         LoadFromConfig();
     }
 
+    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026", 
+        Justification = "JSON 序列化仅用于简单配置类型，已通过 JsonSerializerOptions 处理")]
     public void LoadFromWorkspace(string workspaceDir)
     {
         var temp = new Dictionary<string, IRule>(StringComparer.OrdinalIgnoreCase);

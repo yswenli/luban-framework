@@ -109,6 +109,8 @@ public class ScriptToolGroup
     /// <param name="workingDirectory">工作目录（可选）</param>
     /// <returns>执行结果</returns>
     [Description("执行 Shell 命令")]
+    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026", 
+        Justification = "JSON 序列化仅用于简单结果类型，已通过 JsonSerializerOptions 处理")]
     public async Task<ToolResult<string>> RunShellAsync(string command, string? workingDirectory = null)
     {
         // 确认执行
@@ -133,6 +135,17 @@ public class ScriptToolGroup
                 workingDirectory,
                 stdin: null,  // 不使用 stdin
                 timeoutMs: _options.DefaultTimeout);
+
+            // 检测可执行文件不存在错误，返回结构化错误供 AI 分析
+            if (result.ExitCode == -1 && !string.IsNullOrEmpty(result.StandardError))
+            {
+                if (result.StandardError.Contains("可执行文件不存在") || result.StandardError.Contains("无法启动"))
+                {
+                    return ToolResult.Fail<string>(
+                        $"Shell 工具不可用: {_options.Shell}。请检查环境配置或联系管理员。",
+                        result.StandardError);
+                }
+            }
 
             return ToolResult.Ok<string>(JsonSerializer.Serialize(new
             {
@@ -164,6 +177,8 @@ public class ScriptToolGroup
     /// <param name="workingDirectory">工作目录（可选）</param>
     /// <returns>执行结果</returns>
     [Description("执行 Lua 脚本")]
+    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026", 
+        Justification = "JSON 序列化仅用于简单结果类型，已通过 JsonSerializerOptions 处理")]
     public async Task<ToolResult<string>> RunLuaAsync(string script, string? workingDirectory = null)
     {
         // 确认执行
@@ -182,6 +197,17 @@ public class ScriptToolGroup
                 workingDirectory,
                 stdin: script,
                 timeoutMs: _options.DefaultTimeout);
+
+            // 检测可执行文件不存在错误，返回结构化错误供 AI 分析
+            if (result.ExitCode == -1 && !string.IsNullOrEmpty(result.StandardError))
+            {
+                if (result.StandardError.Contains("可执行文件不存在") || result.StandardError.Contains("无法启动"))
+                {
+                    return ToolResult.Fail<string>(
+                        $"Lua 工具不可用: {_options.LuaPath}。请检查环境配置或联系管理员。",
+                        result.StandardError);
+                }
+            }
 
             return ToolResult.Ok<string>(new
             {
@@ -213,6 +239,8 @@ public class ScriptToolGroup
 /// <param name="workingDirectory">工作目录（可选）</param>
 /// <returns>执行结果</returns>
 [Description("执行 Python 脚本")]
+[System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026", 
+    Justification = "JSON 序列化仅用于简单结果类型，已通过 JsonSerializerOptions 处理")]
 public async Task<ToolResult<string>> RunPythonAsync(string script, string? workingDirectory = null)
 {
     // 确认执行
@@ -244,6 +272,17 @@ public async Task<ToolResult<string>> RunPythonAsync(string script, string? work
             Logger.Warn($"Python stderr: {result.StandardError}");
         }
 
+        // 检测可执行文件不存在错误，返回结构化错误供 AI 分析
+        if (result.ExitCode == -1 && !string.IsNullOrEmpty(result.StandardError))
+        {
+            if (result.StandardError.Contains("可执行文件不存在") || result.StandardError.Contains("无法启动"))
+            {
+                return ToolResult.Fail<string>(
+                    $"Python 工具不可用: {_options.PythonPath}。请检查环境配置或联系管理员。",
+                    result.StandardError);
+            }
+        }
+
         return ToolResult.Ok<string>(new
         {
             exitCode = result.ExitCode,
@@ -252,18 +291,18 @@ public async Task<ToolResult<string>> RunPythonAsync(string script, string? work
             durationMs = result.DurationMs,
             timedOut = result.TimedOut
         }.ToJson());
-        }
-        catch (Exception ex)
-        {
-            Logger.Error("Python 执行异常", ex, script);
-            return ToolResult.Fail<string>($"执行失败: {ex.Message}", new
-            {
-                exitCode = -1,
-                stdout = "",
-                stderr = $"执行失败: {ex.Message}",
-                durationMs = 0,
-                timedOut = false
-            }.ToJson());
-        }
     }
+    catch (Exception ex)
+    {
+        Logger.Error("Python 执行异常", ex, script);
+        return ToolResult.Fail<string>($"执行失败: {ex.Message}", new
+        {
+            exitCode = -1,
+            stdout = "",
+            stderr = $"执行失败: {ex.Message}",
+            durationMs = 0,
+            timedOut = false
+        }.ToJson());
+    }
+}
 }

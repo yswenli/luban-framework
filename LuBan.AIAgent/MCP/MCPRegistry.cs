@@ -23,6 +23,8 @@ public class MCPRegistry
     private static string FingerprintOf(Configuration.McpServerConfig cfg)
         => cfg.Command + "\0" + string.Join("\0", cfg.Args);
 
+    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026", 
+        Justification = "JSON 序列化仅用于简单配置类型，已通过 JsonSerializerOptions 处理")]
     public void LoadFromWorkspace(string workspaceDir)
     {
         var temp = new Dictionary<string, (IMCPClient Client, string Fingerprint)>(StringComparer.OrdinalIgnoreCase);

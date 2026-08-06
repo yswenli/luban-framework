@@ -118,6 +118,8 @@ public class HttpMCPClient : IMCPClient, IDisposable
     }
 
     /// <inheritdoc />
+    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026", 
+        Justification = "JSON 序列化仅用于简单字典类型，已通过 JsonSerializerOptions 处理")]
     public async Task<MCPToolResult> CallToolAsync(string toolName, Dictionary<string, object?> arguments, CancellationToken cancellationToken = default)
     {
         try

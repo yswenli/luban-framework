@@ -106,6 +106,8 @@ public class RedisToolGroup
     /// <param name="command">Redis 命令</param>
     /// <returns>执行结果</returns>
     [Description("执行 Redis 命令")]
+    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026", 
+        Justification = "JSON 序列化仅用于简单结果类型，已通过 JsonSerializerOptions 处理")]
     public async Task<ToolResult<string>> ExecAsync(string command)
     {
         var sanitizedCommand = SanitizeRedisCommand(command);

@@ -301,6 +301,8 @@ public class StdioMCPClient : IMCPClient, IDisposable, IAsyncDisposable
     /// <summary>
     /// 将参数值转换为 JsonNode（兼容 JsonElement 与基础类型）
     /// </summary>
+    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026", 
+        Justification = "JsonValue.Create 仅用于基础类型，不会导致 trimming 问题")]
     private static JsonNode? ToJsonNode(object? value) => value switch
     {
         null => null,
