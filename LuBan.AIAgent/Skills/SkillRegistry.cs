@@ -13,12 +13,12 @@ public class SkillRegistry
     private readonly Dictionary<string, ISkill> _hardcoded = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, ISkill> _workspace = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, ISkill> _config = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Configuration.ConfigManager? _configManager;
+    private readonly Configuration.IAppConfigReader? _configReader;
     private List<ISkill> _merged = new();
 
-    public SkillRegistry(IEnumerable<ISkill> skills, Configuration.ConfigManager? configManager = null)
+    public SkillRegistry(IEnumerable<ISkill> skills, Configuration.IAppConfigReader? configReader = null)
     {
-        _configManager = configManager;
+        _configReader = configReader;
         foreach (var skill in skills)
             _hardcoded[skill.Id] = skill;
         LoadFromConfig();
@@ -66,9 +66,9 @@ public class SkillRegistry
         
         try
         {
-            if (_configManager != null)
+            if (_configReader != null)
             {
-                foreach (var cfg in _configManager.CustomSkills.Where(c => c.Enabled))
+                foreach (var cfg in _configReader.CustomSkills.Where(c => c.Enabled))
                     temp[cfg.Id] = new CustomSkill(cfg);
             }
         }
@@ -217,7 +217,7 @@ public class SkillRegistry
             merged[kvp.Key] = kvp.Value;
         
         // 3. 最高优先级：硬编码（排除被禁用的）
-        var disabledBuiltin = _configManager?.DisabledBuiltinSkills;
+        var disabledBuiltin = _configReader?.DisabledBuiltinSkills;
         foreach (var kvp in _hardcoded)
         {
             if (disabledBuiltin?.Contains(kvp.Key) == true) continue;
