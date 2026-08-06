@@ -89,19 +89,9 @@ public static class LuBanAgentExtensions
         services.AddSingleton<Services.ToolConfirmationContext>();
         services.AddSingleton<Services.IToolConfirmationService, Services.ToolConfirmationService>();
 
-        // 注册本地长期记忆（SQLite + 本地 Embedding，可选依赖 IEmbeddingGenerator）
+        // 注册本地长期记忆（可选依赖 IEmbeddingGenerator）
+        // 注意：ILocalMemoryStore 由宿主注册，框架不再默认注册 SqliteLocalMemoryStore
         services.Configure<LocalMemoryOptions>(configuration.GetSection("LuBanAgent:Tools:LocalMemory"));
-        services.AddSingleton<ILocalMemoryStore>(sp =>
-        {
-            var opts = sp.GetRequiredService<IOptions<LocalMemoryOptions>>().Value;
-            var dbPath = opts.DatabasePath;
-            if (string.IsNullOrWhiteSpace(dbPath))
-            {
-                var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-                dbPath = Path.Combine(appData, "LuBan", "AIAgent", "localmemory.db");
-            }
-            return new SqliteLocalMemoryStore(dbPath);
-        });
         services.AddSingleton<ILocalMemoryService, LocalMemoryService>();
 
         // ===== Orchestration 子系统注册 =====
