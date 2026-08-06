@@ -98,7 +98,23 @@ public class ConfigManager
                 if (config != null)
                 {
                     Providers = config.Providers ?? new List<ProviderConfig>();
-                    SelectedModel = config.SelectedModel;
+                    foreach (var p in Providers)
+                    {
+                        if (!string.IsNullOrEmpty(p.Name))
+                            p.Name = p.Name.Trim().ToLowerInvariant();
+                    }
+                    if (!string.IsNullOrEmpty(config.SelectedModel))
+                    {
+                        var colonIdx = config.SelectedModel.IndexOf(':');
+                        if (colonIdx > 0)
+                            SelectedModel = config.SelectedModel[..colonIdx].Trim().ToLowerInvariant() + config.SelectedModel[colonIdx..];
+                        else
+                            SelectedModel = config.SelectedModel;
+                    }
+                    else
+                    {
+                        SelectedModel = config.SelectedModel;
+                    }
                     CustomSkills = config.CustomSkills ?? new List<CustomSkillConfig>();
                     CustomRules = config.CustomRules ?? new List<CustomRuleConfig>();
                     McpServers = config.McpServers ?? new List<McpServerConfig>();
@@ -166,7 +182,7 @@ public class ConfigManager
         if (string.IsNullOrWhiteSpace(apiKey))
             throw new ArgumentException("API Key 不能为空", nameof(apiKey));
 
-        name = name.ToLowerInvariant();
+        name = name.Trim().ToLowerInvariant();
 
         var existing = Providers.FirstOrDefault(p => p.Name == name);
         if (existing != null)
