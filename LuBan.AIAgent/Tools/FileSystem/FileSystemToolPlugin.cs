@@ -259,7 +259,7 @@ public class FileSystemToolGroup
         if (!ToolConfirmationService.TryConfirmByPath("ReadFileAsync", path,
             new Dictionary<string, object?> { ["path"] = path }))
         {
-            return ToolResult.Fail<string>("操作已被用户取消");
+            return ToolResult.Fail<string>("⚠️ 用户已拒绝执行此操作。请停止尝试相同类型的工具，向用户解释情况并询问是否继续其他任务。");
         }
 
         try
@@ -307,14 +307,19 @@ public class FileSystemToolGroup
         }
     }
 
-    /// <summary>
-    /// 写入文件
-    /// </summary>
-    /// <param name="path">文件路径</param>
-    /// <param name="content">文件内容</param>
-    /// <returns>写入结果</returns>
-    [Description("写入文件内容")]
-    public async Task<ToolResult<string>> WriteFileAsync(string path, string content)
+/// <summary>
+/// 写入文件内容到指定路径。对于临时文件，建议使用工作区临时目录：.luban-agent/temp/
+/// </summary>
+/// <param name="path">文件路径（相对或绝对）</param>
+/// <param name="content">文件内容</param>
+/// <returns>操作结果</returns>
+[Description(@"写入文件内容到指定路径。
+
+💡 临时文件建议：
+- 使用工作区临时目录：.luban-agent/temp/文件名.扩展名
+- 示例：.luban-agent/temp/query_users_20260806.py
+- 工作区切换时会自动清理24小时前的临时文件")]
+public async Task<ToolResult<string>> WriteFileAsync(string path, string content)
     {
         if (!_pathGuard.IsAllowed(path))
             return ToolResult.Fail<string>($"错误：路径 {path} 不在允许访问的范围内");
@@ -323,7 +328,7 @@ public class FileSystemToolGroup
         if (!ToolConfirmationService.TryConfirmByPath("WriteFileAsync", path,
             new Dictionary<string, object?> { ["path"] = path, ["content"] = content }))
         {
-            return ToolResult.Fail<string>("操作已被用户取消");
+            return ToolResult.Fail<string>("⚠️ 用户已拒绝执行此操作。请停止尝试相同类型的工具，向用户解释情况并询问是否继续其他任务。");
         }
 
         try

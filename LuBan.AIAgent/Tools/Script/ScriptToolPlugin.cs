@@ -110,7 +110,7 @@ public class ScriptToolGroup
         if (!ToolConfirmationService.RequestConfirmation("RunShellAsync",
             new Dictionary<string, object?> { ["command"] = command, ["workingDirectory"] = workingDirectory }))
         {
-            return ToolResult.Fail<string>("操作已被用户取消");
+            return ToolResult.Fail<string>("⚠️ 用户已拒绝执行此操作。请停止尝试相同类型的工具，向用户解释情况并询问是否继续其他任务。");
         }
 
         try
@@ -173,7 +173,7 @@ public class ScriptToolGroup
         if (!ToolConfirmationService.RequestConfirmation("RunLuaAsync",
             new Dictionary<string, object?> { ["script"] = script, ["workingDirectory"] = workingDirectory }))
         {
-            return ToolResult.Fail<string>("操作已被用户取消");
+            return ToolResult.Fail<string>("⚠️ 用户已拒绝执行此操作。请停止尝试相同类型的工具，向用户解释情况并询问是否继续其他任务。");
         }
 
         try
@@ -220,39 +220,50 @@ public class ScriptToolGroup
         }
     }
 
-    /// <summary>
-    /// 执行 Python 脚本
-    /// </summary>
-    /// <param name="script">Python 脚本内容</param>
-    /// <param name="workingDirectory">工作目录（可选）</param>
-    /// <returns>执行结果</returns>
-    [Description("执行 Python 脚本")]
-    public async Task<ToolResult<string>> RunPythonAsync(string script, string? workingDirectory = null)
+/// <summary>
+/// 执行 Python 脚本
+/// </summary>
+/// <param name="script">Python 脚本内容</param>
+/// <param name="workingDirectory">工作目录（可选）</param>
+/// <returns>执行结果</returns>
+[Description("执行 Python 脚本")]
+public async Task<ToolResult<string>> RunPythonAsync(string script, string? workingDirectory = null)
+{
+    // 确认执行
+    if (!ToolConfirmationService.RequestConfirmation("RunPythonAsync",
+        new Dictionary<string, object?> { ["script"] = script, ["workingDirectory"] = workingDirectory }))
     {
-        // 确认执行
-        if (!ToolConfirmationService.RequestConfirmation("RunPythonAsync",
-            new Dictionary<string, object?> { ["script"] = script, ["workingDirectory"] = workingDirectory }))
+        return ToolResult.Fail<string>("⚠️ 用户已拒绝执行此操作。请停止尝试相同类型的工具，向用户解释情况并询问是否继续其他任务。");
+    }
+
+    try
+    {
+        // 诊断日志：Python 环境
+        Logger.Info($"Python 执行: executable={_options.PythonPath}, workingDir={workingDirectory ?? "未指定"}");
+        Logger.Debug($"脚本内容（前200字符）:\n{(script.Length > 200 ? script.Substring(0, 200) + "..." : script)}");
+
+        var result = await _processRunner.RunAsync(
+            _options.PythonPath,
+            "-c",
+            workingDirectory,
+            stdin: script,
+            timeoutMs: _options.DefaultTimeout);
+
+        // 诊断日志：执行结果
+        Logger.Info($"Python 结果: exitCode={result.ExitCode}, stdout.length={result.StandardOutput.Length}, stderr.length={result.StandardError.Length}, duration={result.DurationMs}ms");
+        if (!string.IsNullOrEmpty(result.StandardError))
         {
-            return ToolResult.Fail<string>("操作已被用户取消");
+            Logger.Warn($"Python stderr: {result.StandardError}");
         }
 
-        try
+        return ToolResult.Ok<string>(new
         {
-            var result = await _processRunner.RunAsync(
-                _options.PythonPath,
-                "-c",
-                workingDirectory,
-                stdin: script,
-                timeoutMs: _options.DefaultTimeout);
-
-            return ToolResult.Ok<string>(new
-            {
-                exitCode = result.ExitCode,
-                stdout = result.StandardOutput,
-                stderr = result.StandardError,
-                durationMs = result.DurationMs,
-                timedOut = result.TimedOut
-            }.ToJson());
+            exitCode = result.ExitCode,
+            stdout = result.StandardOutput,
+            stderr = result.StandardError,
+            durationMs = result.DurationMs,
+            timedOut = result.TimedOut
+        }.ToJson());
         }
         catch (System.ComponentModel.Win32Exception ex)
         {

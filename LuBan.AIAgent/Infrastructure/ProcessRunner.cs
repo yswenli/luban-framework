@@ -67,6 +67,7 @@ public sealed class ProcessRunner
         try
         {
             process.Start();
+            Logger.Debug($"进程已启动: {executable} {arguments}");
         }
         catch (Win32Exception ex)
         {

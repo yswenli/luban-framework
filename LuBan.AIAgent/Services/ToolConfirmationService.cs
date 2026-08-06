@@ -30,6 +30,7 @@ public static class ToolConfirmationService
 {
     private static readonly AsyncLocal<Func<string, IReadOnlyDictionary<string, object?>, bool>?> _callback = new();
     private static readonly AsyncLocal<Func<string, bool>?> _workspacePathChecker = new();
+    private static readonly AsyncLocal<CancellationToken?> _cancellationToken = new();
 
     /// <summary>
     /// 获取或设置工具调用确认回调函数。
@@ -50,6 +51,15 @@ public static class ToolConfirmationService
     {
         get => _workspacePathChecker.Value;
         set => _workspacePathChecker.Value = value;
+    }
+
+    /// <summary>
+    /// 获取或设置取消令牌，用于响应 ESC 键中断。
+    /// </summary>
+    public static CancellationToken? CancellationToken
+    {
+        get => _cancellationToken.Value;
+        set => _cancellationToken.Value = value;
     }
 
     private static readonly HashSet<string> DangerousTools = new()
@@ -77,20 +87,28 @@ public static class ToolConfirmationService
     public static bool RequiresConfirmation(string toolName)
         => DangerousTools.Contains(toolName);
 
-    /// <summary>
-    /// 请求对指定工具调用进行确认。
-    /// 若未设置确认回调，则默认允许执行。
-    /// </summary>
-    /// <param name="toolName">工具名称。</param>
-    /// <param name="arguments">工具参数。</param>
-    /// <returns>是否允许执行该工具调用。</returns>
-    public static bool RequestConfirmation(string toolName, IReadOnlyDictionary<string, object?> arguments)
+/// <summary>
+/// 请求对指定工具调用进行确认。
+/// 若未设置确认回调，则默认允许执行。
+/// 若设置了取消令牌且已被取消，则自动拒绝。
+/// </summary>
+/// <param name="toolName">工具名称。</param>
+/// <param name="arguments">工具参数。</param>
+/// <returns>是否允许执行该工具调用。</returns>
+public static bool RequestConfirmation(string toolName, IReadOnlyDictionary<string, object?> arguments)
+{
+    // ESC 已触发，自动拒绝所有工具调用
+    var token = CancellationToken;
+    if (token.HasValue && token.Value.IsCancellationRequested)
     {
-        var callback = ConfirmationCallback;
-        if (callback == null)
-            return false;
-        return callback(toolName, arguments);
+        return false;
     }
+
+    var callback = ConfirmationCallback;
+    if (callback == null)
+        return false;
+    return callback(toolName, arguments);
+}
 
     /// <summary>
     /// 判断路径是否在当前工作区内。
