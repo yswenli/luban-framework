@@ -96,20 +96,29 @@ public class DatabaseToolGroup
         _options = options;
     }
 
-    /// <summary>
-    /// 执行查询 SQL（SELECT）
-    /// </summary>
-    /// <param name="sql">SELECT SQL 语句</param>
-    /// <returns>查询结果（JSON 格式）</returns>
-    [Description("执行查询 SQL（SELECT），返回结果集")]
-    public async Task<ToolResult<string>> ExecuteQueryAsync(string sql)
+/// <summary>
+/// 执行查询 SQL（SELECT）
+/// </summary>
+/// <param name="sql">SELECT SQL 语句</param>
+/// <param name="connectionString">数据库连接字符串（可选，不提供则使用预配置的连接）</param>
+/// <returns>查询结果（JSON 格式）</returns>
+[Description(@"执行查询 SQL（SELECT），返回结果集。
+
+💡 连接字符串说明：
+- 如未配置预置连接，或需连接其他数据库，请提供连接字符串参数
+- MySQL 示例：Server=host;Port=3306;Database=db;User Id=user;Password=pwd;
+- SQL Server 示例：Server=host;Database=db;User Id=user;Password=pwd;
+- PostgreSQL 示例：Host=host;Port=5432;Database=db;Username=user;Password=pwd;
+- SQLite 示例：Data Source=/path/to/db.sqlite;")]
+public async Task<ToolResult<string>> ExecuteQueryAsync(string sql, string? connectionString = null)
     {
-        if (string.IsNullOrEmpty(_options.ConnectionString))
-            return ToolResult.Fail<string>("错误：未配置数据库连接字符串");
+        var connStr = connectionString ?? _options.ConnectionString;
+        if (string.IsNullOrEmpty(connStr))
+            return ToolResult.Fail<string>("错误：未配置数据库连接字符串，请通过参数提供连接字符串");
 
         try
         {
-            using var connection = CreateConnection();
+            using var connection = CreateConnection(connStr);
             await connection.OpenAsync();
 
             using var command = connection.CreateCommand();
@@ -150,20 +159,28 @@ public class DatabaseToolGroup
         }
     }
 
-    /// <summary>
-    /// 执行非查询 SQL（INSERT、UPDATE、DELETE、CREATE 等）
-    /// </summary>
-    /// <param name="sql">SQL 语句</param>
-    /// <returns>执行结果</returns>
-    [Description("执行非查询 SQL（INSERT、UPDATE、DELETE、CREATE 等），返回受影响的行数")]
-    public async Task<ToolResult<string>> ExecuteNonQueryAsync(string sql)
+/// <summary>
+/// 执行非查询 SQL（INSERT、UPDATE、DELETE、CREATE 等）
+/// </summary>
+/// <param name="sql">SQL 语句</param>
+/// <param name="connectionString">数据库连接字符串（可选，不提供则使用预配置的连接）</param>
+/// <returns>执行结果（受影响的行数）</returns>
+[Description(@"执行非查询 SQL（INSERT、UPDATE、DELETE、CREATE 等），返回受影响的行数。
+
+⚠️ 注意：此操作会修改数据，请谨慎使用。
+
+💡 连接字符串说明：
+- 如未配置预置连接，或需连接其他数据库，请提供连接字符串参数
+- MySQL 示例：Server=host;Port=3306;Database=db;User Id=user;Password=pwd;")]
+public async Task<ToolResult<string>> ExecuteNonQueryAsync(string sql, string? connectionString = null)
     {
-        if (string.IsNullOrEmpty(_options.ConnectionString))
-            return ToolResult.Fail<string>("错误：未配置数据库连接字符串");
+        var connStr = connectionString ?? _options.ConnectionString;
+        if (string.IsNullOrEmpty(connStr))
+            return ToolResult.Fail<string>("错误：未配置数据库连接字符串，请通过参数提供连接字符串");
 
         try
         {
-            using var connection = CreateConnection();
+            using var connection = CreateConnection(connStr);
             await connection.OpenAsync();
 
             using var command = connection.CreateCommand();
@@ -186,9 +203,8 @@ public class DatabaseToolGroup
         }
     }
 
-    private DbConnection CreateConnection()
+    private static DbConnection CreateConnection(string connectionString)
     {
-        var connectionString = _options.ConnectionString!;
         var dbType = DetectDatabaseType(connectionString);
 
         return dbType switch
