@@ -9,12 +9,12 @@ public class MCPRegistry
     private readonly Dictionary<string, IMCPClient> _hardcoded = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, (IMCPClient Client, string Fingerprint)> _workspace = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, (IMCPClient Client, string Fingerprint)> _config = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Configuration.ConfigManager? _configManager;
+    private readonly Configuration.IAppConfigReader? _configReader;
     private List<IMCPClient> _merged = new();
 
-    public MCPRegistry(IEnumerable<IMCPClient> clients, Configuration.ConfigManager? configManager = null)
+    public MCPRegistry(IEnumerable<IMCPClient> clients, Configuration.IAppConfigReader? configReader = null)
     {
-        _configManager = configManager;
+        _configReader = configReader;
         foreach (var client in clients)
             _hardcoded[client.Name] = client;
         LoadFromConfig();
@@ -85,9 +85,9 @@ public class MCPRegistry
         
         try
         {
-            if (_configManager != null)
+            if (_configReader != null)
             {
-                foreach (var cfg in _configManager.McpServers.Where(s => s.Enabled))
+                foreach (var cfg in _configReader.McpServers.Where(s => s.Enabled))
                 {
                     IMCPClient client = cfg.Transport?.ToLowerInvariant() switch
                     {
@@ -250,7 +250,7 @@ public class MCPRegistry
             merged[kvp.Key] = kvp.Value.Client;
         
         // 3. 最高优先级：硬编码（排除被禁用的）
-        var disabledBuiltin = _configManager?.DisabledBuiltinMcpClients;
+        var disabledBuiltin = _configReader?.DisabledBuiltinMcpClients;
         foreach (var kvp in _hardcoded)
         {
             if (disabledBuiltin?.Contains(kvp.Key) == true) continue;
