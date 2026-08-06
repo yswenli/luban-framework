@@ -22,7 +22,6 @@
 *
 *****************************************************************************/
 
-
 namespace LuBan.Common;
 
 /// <summary>
@@ -40,34 +39,35 @@ public static class SerializeUtil
     /// <param name="camelCase"></param>
     /// <returns></returns>
     [RequiresUnreferencedCode("json序列化")]
-    public static string Serialize(object obj, bool indented = false, bool defalutVal = true, bool nullValue = false, bool camelCase = false)
+public static string Serialize(object obj, bool indented = false, bool defalutVal = true, bool nullValue = false, bool camelCase = false)
+{
+    if (obj == null)
     {
-        if (obj == null)
-        {
-            return string.Empty;
-        }
-        var options = new JsonSerializerOptions
-        {
-            WriteIndented = indented,
-            PropertyNamingPolicy = camelCase ? JsonNamingPolicy.CamelCase : null,
-            DefaultIgnoreCondition = defalutVal ? JsonIgnoreCondition.Never : JsonIgnoreCondition.WhenWritingDefault
-        };
-
-        if (!nullValue)
-        {
-            options.DefaultIgnoreCondition = JsonIgnoreCondition.Never;
-        }
-        else
-        {
-            options.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
-        }
-
-        options.Converters.Add(new DateTimeJsonConverter("yyyy-MM-dd HH:mm:ss.fff"));
-        options.Converters.Add(new ExceptionJsonConverter());
-        options.Converters.Add(new AssemblyJsonConverter());
-        options.Converters.Add(new MemberInfoJsonConverter());
-        return JsonSerializer.Serialize(obj, obj!.GetType(), options);
+        return string.Empty;
     }
+var options = new JsonSerializerOptions
+{
+    WriteIndented = indented,
+    PropertyNamingPolicy = camelCase ? JsonNamingPolicy.CamelCase : null,
+    DefaultIgnoreCondition = defalutVal ? JsonIgnoreCondition.Never : JsonIgnoreCondition.WhenWritingDefault,
+    Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+};
+
+    if (!nullValue)
+    {
+        options.DefaultIgnoreCondition = JsonIgnoreCondition.Never;
+    }
+    else
+    {
+        options.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+    }
+
+    options.Converters.Add(new DateTimeJsonConverter("yyyy-MM-dd HH:mm:ss.fff"));
+    options.Converters.Add(new ExceptionJsonConverter());
+    options.Converters.Add(new AssemblyJsonConverter());
+    options.Converters.Add(new MemberInfoJsonConverter());
+    return JsonSerializer.Serialize(obj, obj!.GetType(), options);
+}
 
     /// <summary>
     /// 序列化异常
@@ -241,34 +241,35 @@ public static class SerializeUtil
     /// <param name="hasIndentation"></param>
     /// <returns></returns>
     [RequiresUnreferencedCode("转换为JSON格式字符串")]
-    public static string ToJson(this object obj, bool defalutVal = true, bool nullValue = false, bool hasIndentation = true)
+public static string ToJson(this object obj, bool defalutVal = true, bool nullValue = false, bool hasIndentation = true)
+{
+    if (obj == null) return string.Empty;
+    try
     {
-        if (obj == null) return string.Empty;
-        try
+var options = new JsonSerializerOptions
+{
+    WriteIndented = hasIndentation,
+    Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+};
+
+        if (!nullValue)
         {
-            var options = new JsonSerializerOptions
-            {
-                WriteIndented = hasIndentation
-            };
-
-            if (!nullValue)
-            {
-                options.DefaultIgnoreCondition = JsonIgnoreCondition.Never;
-            }
-            else
-            {
-                options.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
-            }
-
-            options.Converters.Add(new DateTimeJsonConverter("yyyy-MM-dd HH:mm:ss.fff"));
-            options.Converters.Add(new ExceptionJsonConverter());
-            options.Converters.Add(new AssemblyJsonConverter());
-            options.Converters.Add(new MemberInfoJsonConverter());
-            return JsonSerializer.Serialize(obj, obj.GetType(), options);
+            options.DefaultIgnoreCondition = JsonIgnoreCondition.Never;
         }
-        catch { }
-        return string.Empty;
+        else
+        {
+            options.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+        }
+
+        options.Converters.Add(new DateTimeJsonConverter("yyyy-MM-dd HH:mm:ss.fff"));
+        options.Converters.Add(new ExceptionJsonConverter());
+        options.Converters.Add(new AssemblyJsonConverter());
+        options.Converters.Add(new MemberInfoJsonConverter());
+        return JsonSerializer.Serialize(obj, obj.GetType(), options);
     }
+    catch { }
+    return string.Empty;
+}
 
     /// <summary>
     /// newton.json反序列化

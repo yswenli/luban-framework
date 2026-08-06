@@ -223,7 +223,7 @@ public class LuaScriptEngine : IDisposable
     {
         try
         {
-            return JsonSerializer.Serialize(obj);
+            return obj.ToJson();
         }
         catch
         {

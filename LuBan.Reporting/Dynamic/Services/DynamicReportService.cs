@@ -228,7 +228,7 @@ public class DynamicReportService
 
         try
         {
-            var map = JsonSerializer.Deserialize<Dictionary<string, string>>(converterConfig!);
+            var map = converterConfig.ToObject<Dictionary<string, string>>();
             return map?.TryGetValue(value.ToString() ?? "", out var result) == true
                 ? result
                 : value.ToString() ?? "";

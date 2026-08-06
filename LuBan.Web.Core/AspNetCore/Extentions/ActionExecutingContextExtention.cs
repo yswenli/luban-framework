@@ -99,7 +99,7 @@ public static class ActionExecutingContextExtention
                 var value = "";
                 if (context.ActionArguments.ContainsKey(argumentName))
                 {
-                    value = JsonSerializer.Serialize(context.ActionArguments[argumentName]);
+                    value = context.ActionArguments[argumentName].ToJson();
                 }
                 sp.AppendFormat("{0}={1}&", argumentName, value);
             }

@@ -126,7 +126,7 @@ public class LocalMemoryToolGroup
             if (results.Count == 0)
                 return ToolResult.Ok<string>("未找到相关记忆");
 
-            var json = JsonSerializer.Serialize(results.Select(r => new
+            var json = results.Select(r => new
             {
                 r.Id,
                 r.Content,
@@ -134,7 +134,7 @@ public class LocalMemoryToolGroup
                 r.Score,
                 r.CreatedAt,
                 r.UpdatedAt
-            }));
+            }).ToJson();
             return ToolResult.Ok(json, $"找到 {results.Count} 条相关记忆");
         }
         catch (Exception ex)
@@ -158,14 +158,14 @@ public class LocalMemoryToolGroup
             if (entries.Count == 0)
                 return ToolResult.Ok<string>("本地记忆库为空");
 
-            var json = JsonSerializer.Serialize(entries.Select(e => new
+            var json = entries.Select(e => new
             {
                 e.Id,
                 e.Content,
                 e.Category,
                 e.CreatedAt,
                 e.UpdatedAt
-            }));
+            }).ToJson();
             return ToolResult.Ok(json, $"共 {entries.Count} 条记忆");
         }
         catch (Exception ex)

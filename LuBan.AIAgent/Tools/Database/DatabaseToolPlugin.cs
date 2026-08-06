@@ -135,13 +135,13 @@ public class DatabaseToolGroup
                 results.Add(row);
             }
 
-            return ToolResult.Ok<string>(JsonSerializer.Serialize(new
+            return ToolResult.Ok<string>(new
             {
                 success = true,
                 columns,
                 rows = results,
                 rowCount = results.Count
-            }, new JsonSerializerOptions { WriteIndented = true }));
+            }.ToJson(hasIndentation: true));
         }
         catch (Exception ex)
         {
@@ -172,12 +172,12 @@ public class DatabaseToolGroup
 
             var affectedRows = await command.ExecuteNonQueryAsync();
 
-            return ToolResult.Ok<string>(JsonSerializer.Serialize(new
+            return ToolResult.Ok<string>(new
             {
                 success = true,
                 affectedRows,
                 message = $"成功执行，受影响行数：{affectedRows}"
-            }));
+            }.ToJson());
         }
         catch (Exception ex)
         {

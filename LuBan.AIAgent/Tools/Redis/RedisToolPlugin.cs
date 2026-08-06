@@ -119,38 +119,38 @@ public class RedisToolGroup
                 $"{args} {sanitizedCommand}",
                 timeoutMs: 30000);
 
-            return ToolResult.Ok<string>(JsonSerializer.Serialize(new
+            return ToolResult.Ok<string>(new
             {
                 exitCode = result.ExitCode,
                 stdout = result.StandardOutput,
                 stderr = result.StandardError,
                 durationMs = result.DurationMs,
                 timedOut = result.TimedOut
-            }));
+            }.ToJson());
         }
         catch (System.ComponentModel.Win32Exception ex)
         {
             Logger.Error("Redis 执行失败：redis-cli 不存在", ex, "redis-cli");
-            return ToolResult.Fail<string>("可执行文件不存在: redis-cli。请确保已安装 Redis 并将 redis-cli 配置到 PATH 环境变量。", JsonSerializer.Serialize(new
+            return ToolResult.Fail<string>("可执行文件不存在: redis-cli。请确保已安装 Redis 并将 redis-cli 配置到 PATH 环境变量。", new
             {
                 exitCode = -1,
                 stdout = "",
                 stderr = "可执行文件不存在: redis-cli。请确保已安装 Redis 并将 redis-cli 配置到 PATH 环境变量。",
                 durationMs = 0,
                 timedOut = false
-            }));
+            }.ToJson());
         }
         catch (Exception ex)
         {
             Logger.Error("Redis 执行异常", ex, sanitizedCommand);
-            return ToolResult.Fail<string>($"执行失败: {ex.Message}", JsonSerializer.Serialize(new
+            return ToolResult.Fail<string>($"执行失败: {ex.Message}", new
             {
                 exitCode = -1,
                 stdout = "",
                 stderr = $"执行失败: {ex.Message}",
                 durationMs = 0,
                 timedOut = false
-            }));
+            }.ToJson());
         }
         finally
         {

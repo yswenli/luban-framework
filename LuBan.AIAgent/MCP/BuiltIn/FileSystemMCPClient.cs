@@ -85,7 +85,7 @@ public class FileSystemMCPClient : MCPClientBase
             {
                 Name = "read_file",
                 Description = "读取文件内容",
-                InputSchema = JsonSerializer.Serialize(new
+                InputSchema = new
                 {
                     type = "object",
                     properties = new
@@ -93,13 +93,13 @@ public class FileSystemMCPClient : MCPClientBase
                         path = new { type = "string", description = "文件路径" }
                     },
                     required = new[] { "path" }
-                })
+                }.ToJson()
             },
             new MCPTool
             {
                 Name = "write_file",
                 Description = "写入文件内容",
-                InputSchema = JsonSerializer.Serialize(new
+                InputSchema = new
                 {
                     type = "object",
                     properties = new
@@ -108,13 +108,13 @@ public class FileSystemMCPClient : MCPClientBase
                         content = new { type = "string", description = "文件内容" }
                     },
                     required = new[] { "path", "content" }
-                })
+                }.ToJson()
             },
             new MCPTool
             {
                 Name = "list_directory",
                 Description = "列出目录内容",
-                InputSchema = JsonSerializer.Serialize(new
+                InputSchema = new
                 {
                     type = "object",
                     properties = new
@@ -122,7 +122,7 @@ public class FileSystemMCPClient : MCPClientBase
                         path = new { type = "string", description = "目录路径" }
                     },
                     required = new[] { "path" }
-                })
+                }.ToJson()
             }
         };
 

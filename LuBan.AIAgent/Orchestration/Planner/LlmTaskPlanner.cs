@@ -69,7 +69,7 @@ public class LlmTaskPlanner : ITaskPlanner
                 if (string.IsNullOrWhiteSpace(json))
                     throw new TaskPlanningException("LLM 返回空内容");
 
-                var graph = JsonSerializer.Deserialize<TaskGraph>(json, JsonOpts);
+                var graph = json.ToObject<TaskGraph>();
 
                 if (graph == null || graph.Nodes.Count == 0)
                     throw new TaskPlanningException("LLM 返回空图谱");

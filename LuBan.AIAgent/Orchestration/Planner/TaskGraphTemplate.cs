@@ -60,10 +60,10 @@ public class TaskGraphTemplate
     /// <returns>填充后的 TaskGraph。</returns>
     public TaskGraph Instantiate(Dictionary<string, string> parameters)
     {
-        var json = JsonSerializer.Serialize(Prototype);
+        var json = Prototype.ToJson();
         foreach (var (k, v) in parameters)
             json = json.Replace($"{{param:{k}}}", v);
-        var graph = JsonSerializer.Deserialize<TaskGraph>(json, JsonOpts)!;
+        var graph = json.ToObject<TaskGraph>()!;
         graph.Source = "template";
         return graph;
     }

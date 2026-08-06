@@ -35,7 +35,7 @@ public class MCPRegistry
                 try
                 {
                     var json = File.ReadAllText(jsonFile);
-                    var config = System.Text.Json.JsonSerializer.Deserialize<Configuration.McpServerConfig>(json);
+                    var config = json.ToObject<Configuration.McpServerConfig>();
                     if (config != null && config.Enabled)
                     {
                         IMCPClient client = config.Transport?.ToLowerInvariant() switch

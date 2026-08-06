@@ -32,7 +32,7 @@ public class RuleEngine
                 try
                 {
                     var json = File.ReadAllText(jsonFile);
-                    var config = System.Text.Json.JsonSerializer.Deserialize<Configuration.CustomRuleConfig>(json);
+                    var config = json.ToObject<Configuration.CustomRuleConfig>();
                     if (config != null && config.Enabled)
                     {
                         var rule = new CustomRule(config);

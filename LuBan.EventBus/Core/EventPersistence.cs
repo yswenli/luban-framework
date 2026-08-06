@@ -54,10 +54,10 @@ public class EventPersistence
                 var keysJson = LocalCacheUtil.Get<string>(keyListKey);
                 var keys = string.IsNullOrEmpty(keysJson)
                     ? new List<string>()
-                    : JsonSerializer.Deserialize<List<string>>(keysJson) ?? new List<string>();
+                    : keysJson.ToObject<List<string>>() ?? new List<string>();
 
                 keys.Add(eventKey);
-                LocalCacheUtil.Set(keyListKey, JsonSerializer.Serialize(keys), TimeSpan.FromHours(24));
+                LocalCacheUtil.Set(keyListKey, keys.ToJson(), TimeSpan.FromHours(24));
             }
 
             Logger.Debug($"EventPersistence: 保存事件 {typeof(TEvent).Name}");
@@ -78,7 +78,7 @@ public class EventPersistence
             if (string.IsNullOrEmpty(keysJson))
                 return new List<TEvent>();
 
-            var keys = JsonSerializer.Deserialize<List<string>>(keysJson) ?? new List<string>();
+            var keys = keysJson.ToObject<List<string>>() ?? new List<string>();
             var events = new List<TEvent>();
 
             foreach (var key in keys.Take(MAX_LOAD_COUNT))

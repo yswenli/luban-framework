@@ -135,10 +135,7 @@ public class ConfigManager
                 DisabledBuiltinMcpClients = DisabledBuiltinMcpClients
             };
 
-            var json = JsonSerializer.Serialize(config, new JsonSerializerOptions
-            {
-                WriteIndented = true
-            });
+            var json = config.ToJson(hasIndentation: true);
 
             var directory = Path.GetDirectoryName(_configPath);
             if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
