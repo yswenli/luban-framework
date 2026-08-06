@@ -39,6 +39,12 @@ public class ToolResult
     public string? Message { get; set; }
 
     /// <summary>
+    /// 是否为用户主动取消（拒绝确认或按 ESC）。
+    /// 为 true 时，AI 应停止重试同类操作，向用户说明情况后再决定下一步。
+    /// </summary>
+    public bool UserCancelled { get; set; }
+
+    /// <summary>
     /// 创建一个成功结果
     /// </summary>
     public static ToolResult<T> Ok<T>(T data, string? message = null)
@@ -49,6 +55,18 @@ public class ToolResult
     /// </summary>
     public static ToolResult<T> Fail<T>(string message, T? data = default)
         => new() { IsSuccess = false, Message = message, Data = data };
+
+    /// <summary>
+    /// 创建一个用户取消的失败结果。
+    /// Message 中明确包含停止重试指令，供 AI 遵循。
+    /// </summary>
+    public static ToolResult<T> Cancelled<T>()
+        => new()
+        {
+            IsSuccess = false,
+            UserCancelled = true,
+            Message = "操作已被用户拒绝。请停止尝试同类操作，向用户说明情况，等待用户指示后再继续。"
+        };
 }
 
 /// <summary>

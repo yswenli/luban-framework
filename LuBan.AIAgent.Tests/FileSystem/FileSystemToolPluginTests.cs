@@ -25,8 +25,12 @@ public class FileSystemToolPluginTests
             }
         };
         var pathGuard = new PathGuard(Options.Create(options));
-        ToolConfirmationService.WorkspacePathChecker = path => true;
-        return new FileSystemToolGroup(pathGuard);
+        var confirmContext = new ToolConfirmationContext
+        {
+            WorkspacePathChecker = path => true
+        };
+        var confirmService = new ToolConfirmationService(confirmContext);
+        return new FileSystemToolGroup(pathGuard, confirmService);
     }
 
     [TestMethod]

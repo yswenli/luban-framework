@@ -25,17 +25,16 @@ global using LuBan.AIAgent.Abstractions;
 global using LuBan.AIAgent.Configuration;
 global using LuBan.AIAgent.Core;
 global using LuBan.AIAgent.Infrastructure;
+global using LuBan.AIAgent.LocalMemory;
 global using LuBan.AIAgent.MCP;
 global using LuBan.AIAgent.MCP.BuiltIn;
 global using LuBan.AIAgent.Plugins;
 global using LuBan.AIAgent.Rules;
 global using LuBan.AIAgent.Rules.BuiltIn;
-global using LuBan.AIAgent.Services;
 global using LuBan.AIAgent.Sessions;
 global using LuBan.AIAgent.Skills;
 global using LuBan.AIAgent.Skills.BuiltIn;
 global using LuBan.Common;
-global using LuBan.Common.Http;
 global using LuBan.DI;
 
 global using Microsoft.Agents.AI;
@@ -48,8 +47,8 @@ global using Microsoft.Playwright;
 
 global using System.Collections.Concurrent;
 global using System.ComponentModel;
-global using System.Diagnostics.CodeAnalysis;
 global using System.Diagnostics;
+global using System.Diagnostics.CodeAnalysis;
 global using System.Reflection;
 global using System.Runtime.CompilerServices;
 global using System.Text;

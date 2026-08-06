@@ -61,7 +61,9 @@ public class RedisToolPlugin : ILuBanToolPlugin
     /// <returns>工具函数列表</returns>
     public IReadOnlyList<AIFunction> GetTools(IServiceProvider sp)
     {
-        var toolGroup = new RedisToolGroup(_options, _processRunner);
+        var confirmationService = sp.GetService(typeof(Services.IToolConfirmationService)) as Services.IToolConfirmationService
+            ?? new Services.ToolConfirmationService(new Services.ToolConfirmationContext());
+        var toolGroup = new RedisToolGroup(_options, _processRunner, confirmationService);
         return new List<AIFunction>
         {
             AIFunctionFactoryHelper.Create(toolGroup, nameof(RedisToolGroup.ExecAsync))
@@ -83,16 +85,19 @@ public class RedisToolGroup
 {
     private readonly RedisToolOptions _options;
     private readonly ProcessRunner _processRunner;
+    private readonly Services.IToolConfirmationService _confirmationService;
 
     /// <summary>
     /// 创建 RedisToolGroup 实例
     /// </summary>
     /// <param name="options">配置选项</param>
     /// <param name="processRunner">进程执行器</param>
-    public RedisToolGroup(RedisToolOptions options, ProcessRunner processRunner)
+    /// <param name="confirmationService">工具调用确认服务</param>
+    public RedisToolGroup(RedisToolOptions options, ProcessRunner processRunner, Services.IToolConfirmationService confirmationService)
     {
         _options = options;
         _processRunner = processRunner;
+        _confirmationService = confirmationService;
     }
 
     /// <summary>
@@ -104,6 +109,16 @@ public class RedisToolGroup
     public async Task<ToolResult<string>> ExecAsync(string command)
     {
         var sanitizedCommand = SanitizeRedisCommand(command);
+
+        // 写操作与危险命令需要用户确认（GET/KEYS/INFO 等只读命令免确认）
+        if (RequiresConfirmation(sanitizedCommand))
+        {
+            if (!_confirmationService.RequestConfirmation("ExecAsync",
+                new Dictionary<string, object?> { ["command"] = command }))
+            {
+                return ToolResult.Cancelled<string>();
+            }
+        }
         var args = $"-h {_options.Host} -p {_options.Port} --no-auth-warning";
 
         var envBackup = Environment.GetEnvironmentVariable("REDISCLI_AUTH");
@@ -168,5 +183,26 @@ public class RedisToolGroup
             .Replace(";", " ")
             .Replace("`", " ")
             .Replace("$(", " ");
+    }
+
+    /// <summary>
+    /// 只读命令白名单，免确认
+    /// </summary>
+    private static readonly HashSet<string> ReadOnlyCommands = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "GET", "MGET", "KEYS", "SCAN", "EXISTS", "TYPE", "TTL", "PTTL",
+        "STRLEN", "LLEN", "SCARD", "HLEN", "HGET", "HGETALL", "HMGET",
+        "LRANGE", "SMEMBERS", "SISMEMBER", "ZRANGE", "ZSCORE", "ZCARD",
+        "INFO", "DBSIZE", "PING", "TIME", "RANDOMKEY", "DUMP"
+    };
+
+    /// <summary>
+    /// 判断 Redis 命令是否需要用户确认（非只读命令均需确认）。
+    /// </summary>
+    private static bool RequiresConfirmation(string command)
+    {
+        var firstWord = command.TrimStart().Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+        if (string.IsNullOrEmpty(firstWord)) return true;
+        return !ReadOnlyCommands.Contains(firstWord);
     }
 }

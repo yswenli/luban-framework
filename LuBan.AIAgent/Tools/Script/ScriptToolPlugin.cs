@@ -61,7 +61,9 @@ public class ScriptToolPlugin : ILuBanToolPlugin
     /// <returns>工具函数列表</returns>
     public IReadOnlyList<AIFunction> GetTools(IServiceProvider sp)
     {
-        var toolGroup = new ScriptToolGroup(_options, _processRunner);
+        var confirmationService = sp.GetService(typeof(Services.IToolConfirmationService)) as Services.IToolConfirmationService
+            ?? new Services.ToolConfirmationService(new Services.ToolConfirmationContext());
+        var toolGroup = new ScriptToolGroup(_options, _processRunner, confirmationService);
         return new List<AIFunction>
         {
             AIFunctionFactoryHelper.Create(toolGroup, nameof(ScriptToolGroup.RunShellAsync)),
@@ -85,16 +87,19 @@ public class ScriptToolGroup
 {
     private readonly ScriptToolOptions _options;
     private readonly ProcessRunner _processRunner;
+    private readonly Services.IToolConfirmationService _confirmationService;
 
     /// <summary>
     /// 创建 ScriptToolGroup 实例
     /// </summary>
     /// <param name="options">配置选项</param>
     /// <param name="processRunner">进程执行器</param>
-    public ScriptToolGroup(ScriptToolOptions options, ProcessRunner processRunner)
+    /// <param name="confirmationService">工具调用确认服务</param>
+    public ScriptToolGroup(ScriptToolOptions options, ProcessRunner processRunner, Services.IToolConfirmationService confirmationService)
     {
         _options = options;
         _processRunner = processRunner;
+        _confirmationService = confirmationService;
     }
 
     /// <summary>
@@ -107,10 +112,10 @@ public class ScriptToolGroup
     public async Task<ToolResult<string>> RunShellAsync(string command, string? workingDirectory = null)
     {
         // 确认执行
-        if (!ToolConfirmationService.RequestConfirmation("RunShellAsync",
+        if (!_confirmationService.RequestConfirmation("RunShellAsync",
             new Dictionary<string, object?> { ["command"] = command, ["workingDirectory"] = workingDirectory }))
         {
-            return ToolResult.Fail<string>("⚠️ 用户已拒绝执行此操作。请停止尝试相同类型的工具，向用户解释情况并询问是否继续其他任务。");
+            return ToolResult.Cancelled<string>();
         }
 
         try
@@ -170,10 +175,10 @@ public class ScriptToolGroup
     public async Task<ToolResult<string>> RunLuaAsync(string script, string? workingDirectory = null)
     {
         // 确认执行
-        if (!ToolConfirmationService.RequestConfirmation("RunLuaAsync",
+        if (!_confirmationService.RequestConfirmation("RunLuaAsync",
             new Dictionary<string, object?> { ["script"] = script, ["workingDirectory"] = workingDirectory }))
         {
-            return ToolResult.Fail<string>("⚠️ 用户已拒绝执行此操作。请停止尝试相同类型的工具，向用户解释情况并询问是否继续其他任务。");
+            return ToolResult.Cancelled<string>();
         }
 
         try
@@ -230,10 +235,10 @@ public class ScriptToolGroup
 public async Task<ToolResult<string>> RunPythonAsync(string script, string? workingDirectory = null)
 {
     // 确认执行
-    if (!ToolConfirmationService.RequestConfirmation("RunPythonAsync",
+    if (!_confirmationService.RequestConfirmation("RunPythonAsync",
         new Dictionary<string, object?> { ["script"] = script, ["workingDirectory"] = workingDirectory }))
     {
-        return ToolResult.Fail<string>("⚠️ 用户已拒绝执行此操作。请停止尝试相同类型的工具，向用户解释情况并询问是否继续其他任务。");
+        return ToolResult.Cancelled<string>();
     }
 
     try

@@ -64,7 +64,9 @@ public class DatabaseToolPlugin : ILuBanToolPlugin
     /// <returns>工具函数列表</returns>
     public IReadOnlyList<AIFunction> GetTools(IServiceProvider sp)
     {
-        var toolGroup = new DatabaseToolGroup(_options);
+        var confirmationService = sp.GetService(typeof(Services.IToolConfirmationService)) as Services.IToolConfirmationService
+            ?? new Services.ToolConfirmationService(new Services.ToolConfirmationContext());
+        var toolGroup = new DatabaseToolGroup(_options, confirmationService);
         return new List<AIFunction>
         {
             AIFunctionFactoryHelper.Create(toolGroup, nameof(DatabaseToolGroup.ExecuteQueryAsync)),
@@ -86,14 +88,118 @@ public class DatabaseToolPlugin : ILuBanToolPlugin
 public class DatabaseToolGroup
 {
     private readonly DatabaseToolOptions _options;
+    private readonly Services.IToolConfirmationService _confirmationService;
 
     /// <summary>
     /// 创建 DatabaseToolGroup 实例
     /// </summary>
     /// <param name="options">配置选项</param>
-    public DatabaseToolGroup(DatabaseToolOptions options)
+    /// <param name="confirmationService">工具调用确认服务</param>
+    public DatabaseToolGroup(DatabaseToolOptions options, Services.IToolConfirmationService confirmationService)
     {
         _options = options;
+        _confirmationService = confirmationService;
+    }
+
+    /// <summary>
+    /// 验证连接字符串基本格式。
+    /// </summary>
+    /// <param name="connectionString">连接字符串</param>
+    /// <returns>合法返回 null，否则返回错误消息</returns>
+    private static string? ValidateConnectionString(string connectionString)
+    {
+        // 长度限制：防止异常输入
+        if (connectionString.Length > 2048)
+            return "错误：连接字符串过长（最大 2048 字符）";
+
+        // 必须包含键值对
+        if (!connectionString.Contains('='))
+            return "错误：连接字符串格式无效，缺少键值对（如 Server=host;Database=db;）";
+
+        // 必须能识别数据库类型
+        DatabaseType dbType;
+        try
+        {
+            dbType = DetectDatabaseType(connectionString);
+        }
+        catch
+        {
+            return "错误：无法识别的数据库连接字符串，请检查格式";
+        }
+
+        var lower = connectionString.ToLowerInvariant();
+
+        // SQLite 只需文件路径
+        if (dbType == DatabaseType.SQLite)
+            return null;
+
+        // 网络型数据库必须包含服务器与数据库名
+        var hasServer = lower.Contains("server=") || lower.Contains("host=") || lower.Contains("data source=");
+        if (!hasServer)
+            return "错误：连接字符串缺少服务器地址（Server= 或 Host=）";
+
+        var hasDatabase = lower.Contains("database=") || lower.Contains("initial catalog=");
+        if (!hasDatabase)
+            return "错误：连接字符串缺少数据库名（Database= 或 Initial Catalog=）";
+
+        return null;
+    }
+
+    /// <summary>
+    /// 只读查询允许的语句起始关键字
+    /// </summary>
+    private static readonly string[] ReadOnlyPrefixes = { "select", "with", "explain", "show", "describe", "desc" };
+
+    /// <summary>
+    /// 校验 SQL 是否为只读查询语句。
+    /// </summary>
+    /// <param name="sql">SQL 语句</param>
+    /// <returns>合法返回 null，否则返回错误消息</returns>
+    private static string? ValidateReadOnlySql(string sql)
+    {
+        if (string.IsNullOrWhiteSpace(sql))
+            return "错误：SQL 语句不能为空";
+
+        // 去除前导注释与空白后取第一个关键字
+        var trimmed = sql.TrimStart();
+        while (trimmed.StartsWith("--") || trimmed.StartsWith("/*"))
+        {
+            if (trimmed.StartsWith("--"))
+            {
+                var newline = trimmed.IndexOf('\n');
+                if (newline < 0) return "错误：SQL 语句不能为空";
+                trimmed = trimmed.Substring(newline + 1).TrimStart();
+            }
+            else
+            {
+                var end = trimmed.IndexOf("*/", StringComparison.Ordinal);
+                if (end < 0) return "错误：SQL 注释未闭合";
+                trimmed = trimmed.Substring(end + 2).TrimStart();
+            }
+        }
+
+        var firstWordEnd = trimmed.IndexOfAny(new[] { ' ', '\t', '\r', '\n', '(' });
+        var firstWord = (firstWordEnd > 0 ? trimmed.Substring(0, firstWordEnd) : trimmed).ToLowerInvariant();
+
+        if (!ReadOnlyPrefixes.Contains(firstWord))
+        {
+            return $"错误：ExecuteQuery 仅允许只读查询（SELECT/WITH/EXPLAIN/SHOW/DESCRIBE），检测到 '{firstWord.ToUpperInvariant()}'。如需执行写操作，请使用 ExecuteNonQuery（需用户确认）。";
+        }
+
+        // 阻止查询中夹带的写操作（分号后的第二条语句）
+        foreach (var segment in trimmed.Split(';'))
+        {
+            var segWord = segment.TrimStart();
+            if (segWord.Length == 0) continue;
+            var segEnd = segWord.IndexOfAny(new[] { ' ', '\t', '\r', '\n', '(' });
+            var segFirst = (segEnd > 0 ? segWord.Substring(0, segEnd) : segWord).ToLowerInvariant();
+            if (!ReadOnlyPrefixes.Contains(segFirst))
+            {
+                return $"错误：检测到多语句中包含非只读操作 '{segFirst.ToUpperInvariant()}'，已拒绝执行。";
+            }
+        }
+
+        return null;
     }
 
 /// <summary>
@@ -115,6 +221,16 @@ public async Task<ToolResult<string>> ExecuteQueryAsync(string sql, string? conn
         var connStr = connectionString ?? _options.ConnectionString;
         if (string.IsNullOrEmpty(connStr))
             return ToolResult.Fail<string>("错误：未配置数据库连接字符串，请通过参数提供连接字符串");
+
+        // 连接字符串格式验证
+        var connError = ValidateConnectionString(connStr);
+        if (connError != null)
+            return ToolResult.Fail<string>(connError);
+
+        // SQL 注入保护：仅允许只读查询语句
+        var validationError = ValidateReadOnlySql(sql);
+        if (validationError != null)
+            return ToolResult.Fail<string>(validationError);
 
         try
         {
@@ -177,6 +293,18 @@ public async Task<ToolResult<string>> ExecuteNonQueryAsync(string sql, string? c
         var connStr = connectionString ?? _options.ConnectionString;
         if (string.IsNullOrEmpty(connStr))
             return ToolResult.Fail<string>("错误：未配置数据库连接字符串，请通过参数提供连接字符串");
+
+        // 连接字符串格式验证
+        var connError = ValidateConnectionString(connStr);
+        if (connError != null)
+            return ToolResult.Fail<string>(connError);
+
+        // 写操作需要用户确认
+        if (!_confirmationService.RequestConfirmation("ExecuteNonQueryAsync",
+            new Dictionary<string, object?> { ["sql"] = sql }))
+        {
+            return ToolResult.Cancelled<string>();
+        }
 
         try
         {

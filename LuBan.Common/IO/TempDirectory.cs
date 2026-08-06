@@ -75,6 +75,7 @@ public static class TempDirectory
     /// <summary>
     /// 清理临时目录中超过指定时长的文件。
     /// 仅清理 Resolver 指定的目录（工作区临时目录），不清理系统临时目录。
+    /// 跳过正在被其他进程占用的文件，避免误删。
     /// </summary>
     /// <param name="maxAge">文件最大保留时长</param>
     public static void Cleanup(TimeSpan maxAge)
@@ -89,14 +90,38 @@ public static class TempDirectory
             {
                 try
                 {
-                    if (File.GetLastWriteTime(file) < cutoff)
-                    {
-                        File.Delete(file);
-                    }
+                    if (File.GetLastWriteTime(file) >= cutoff) continue;
+
+                    // 并发保护：文件被占用时跳过，下次清理再处理
+                    if (IsFileInUse(file)) continue;
+
+                    File.Delete(file);
                 }
                 catch { }
             }
         }
         catch { }
+    }
+
+    /// <summary>
+    /// 检测文件是否正在被其他进程占用。
+    /// </summary>
+    /// <param name="filePath">文件路径</param>
+    /// <returns>被占用返回 true，否则返回 false</returns>
+    private static bool IsFileInUse(string filePath)
+    {
+        try
+        {
+            using var stream = new FileStream(filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+            return false;
+        }
+        catch (IOException)
+        {
+            return true;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return true;
+        }
     }
 }

@@ -21,11 +21,6 @@
 *描述：LuBan Agent 服务集合扩展
 *
 *****************************************************************************/
-using System.Diagnostics.CodeAnalysis;
-using System.Reflection;
-using LuBan.AIAgent.LocalMemory;
-using Microsoft.Extensions.Options;
-
 namespace LuBan.AIAgent;
 
 
@@ -90,6 +85,10 @@ public static class LuBanAgentExtensions
         services.AddSingleton<ProcessRunner>();
         services.AddSingleton<PathGuard>();
 
+        // 注册工具确认服务（上下文为单例，由宿主层每轮对话设置/重置）
+        services.AddSingleton<Services.ToolConfirmationContext>();
+        services.AddSingleton<Services.IToolConfirmationService, Services.ToolConfirmationService>();
+
         // 注册本地长期记忆（SQLite + 本地 Embedding，可选依赖 IEmbeddingGenerator）
         services.Configure<LocalMemoryOptions>(configuration.GetSection("LuBanAgent:Tools:LocalMemory"));
         services.AddSingleton<ILocalMemoryStore>(sp =>
@@ -121,9 +120,9 @@ public static class LuBanAgentExtensions
             var opts = sp.GetRequiredService<IOptions<LuBanAgentOptions>>().Value;
             return opts.Orchestration?.PlannerType switch
             {
-                "llm"      => sp.GetRequiredService<Orchestration.Planner.LlmTaskPlanner>(),
+                "llm" => sp.GetRequiredService<Orchestration.Planner.LlmTaskPlanner>(),
                 "template" => sp.GetRequiredService<Orchestration.Planner.TemplateTaskPlanner>(),
-                _          => new Orchestration.Planner.CompositeTaskPlanner(
+                _ => new Orchestration.Planner.CompositeTaskPlanner(
                                 sp.GetRequiredService<Orchestration.Planner.TemplateTaskPlanner>(),
                                 sp.GetRequiredService<Orchestration.Planner.LlmTaskPlanner>())
             };
@@ -151,6 +150,7 @@ public static class LuBanAgentExtensions
     /// <param name="configuration">配置</param>
     /// <param name="chatClientFactory">ChatClient 工厂方法</param>
     /// <returns>服务集合</returns>
+    [UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code", Justification = "<Pending>")]
     public static IServiceCollection AddLuBanAgent(
         this IServiceCollection services,
         IConfiguration configuration,
@@ -160,6 +160,7 @@ public static class LuBanAgentExtensions
         return services.AddLuBanAgent(configuration);
     }
 
+    [RequiresUnreferencedCode("Calls Microsoft.Extensions.Configuration.ConfigurationBinder.Get<T>()")]
     private static void LoadExternalPlugins(IServiceCollection services, IConfiguration configuration)
     {
         var options = configuration.GetSection("LuBanAgent").Get<LuBanAgentOptions>();
@@ -191,7 +192,7 @@ public static class LuBanAgentExtensions
             catch (Exception ex)
             {
                 Logger.Error("加载外部插件程序集失败", ex, assemblyName);
-                System.Diagnostics.Debug.WriteLine($"加载外部插件程序集 '{assemblyName}' 失败: {ex.Message}");
+                ConsoleUtil.WriteLine($"加载外部插件程序集 '{assemblyName}' 失败: {ex.Message}", color: ConsoleColor.Red);
             }
         }
     }
