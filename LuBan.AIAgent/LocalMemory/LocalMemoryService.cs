@@ -1,3 +1,4 @@
+using LuBan.AIAgent.Utils.Text;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Options;
 
@@ -195,7 +196,7 @@ public class LocalMemoryService : ILocalMemoryService
     }
 
     private static string ComputeContentHash(string content)
-        => SqliteLocalMemoryStore.ComputeContentHash(content);
+        => TextUtils.ComputeContentHash(content);
 
     private async Task<float[]> GenerateEmbeddingAsync(string text, CancellationToken cancellationToken)
     {

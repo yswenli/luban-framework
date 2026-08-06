@@ -1,4 +1,4 @@
-namespace LuBan.AIAgent.LocalMemory;
+namespace LuBan.AIAgent.Utils.Text;
 
 /// <summary>
 /// 字符 n-gram 提取与确定性哈希工具。

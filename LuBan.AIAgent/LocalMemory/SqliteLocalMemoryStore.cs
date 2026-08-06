@@ -1,5 +1,6 @@
 using System.Data;
 using System.Data.SQLite;
+using LuBan.AIAgent.Utils.Text;
 
 namespace LuBan.AIAgent.LocalMemory;
 
@@ -105,10 +106,7 @@ public class SqliteLocalMemoryStore : ILocalMemoryStore, IDisposable
     }
 
     internal static string ComputeContentHash(string content)
-    {
-        var normalized = NGramExtractor.Normalize(content);
-        return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(normalized)));
-    }
+        => TextUtils.ComputeContentHash(content);
 
     /// <inheritdoc />
     public async Task<MemoryEntry> UpsertAsync(MemoryEntry entry, byte[] vectorBytes, CancellationToken cancellationToken = default)

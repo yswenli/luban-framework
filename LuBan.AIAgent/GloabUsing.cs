@@ -34,6 +34,7 @@ global using LuBan.AIAgent.Rules.BuiltIn;
 global using LuBan.AIAgent.Sessions;
 global using LuBan.AIAgent.Skills;
 global using LuBan.AIAgent.Skills.BuiltIn;
+global using LuBan.AIAgent.Utils.Text;
 global using LuBan.Common;
 global using LuBan.DI;
 
