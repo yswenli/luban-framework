@@ -58,7 +58,7 @@ public sealed class PathGuard
             return _options.AllowedRoots.Any(root =>
             {
                 var normalizedRoot = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-                return normalizedPath.StartsWith(normalizedRoot + Path.DirectorySeparatorChar) ||
+                return normalizedPath.StartsWith(normalizedRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) ||
                        normalizedPath.Equals(normalizedRoot, StringComparison.OrdinalIgnoreCase);
             });
         }

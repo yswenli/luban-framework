@@ -104,6 +104,22 @@ public class MCPRegistry
         _lock.EnterWriteLock();
         try
         {
+            // 断开并释放已移除或配置变更的旧客户端；配置未变的实例保留复用
+            foreach (var kvp in _config)
+            {
+                if (temp.TryGetValue(kvp.Key, out var updated) && updated.Fingerprint == kvp.Value.Fingerprint)
+                {
+                    temp[kvp.Key] = kvp.Value;
+                    continue;
+                }
+
+                if (kvp.Value.Client.IsConnected)
+                {
+                    try { Task.Run(() => kvp.Value.Client.DisconnectAsync()).Wait(); } catch { }
+                }
+                (kvp.Value.Client as IDisposable)?.Dispose();
+            }
+
             _config.Clear();
             foreach (var kvp in temp)
                 _config[kvp.Key] = kvp.Value;

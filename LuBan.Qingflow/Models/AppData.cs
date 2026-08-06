@@ -31,12 +31,12 @@ public class AppData : IAppData
     /// <summary>
     /// 数据的id
     /// </summary>
-    [JsonProperty(PropertyName = "applyId")]
+    [JsonPropertyName("applyId")]
     public int? AppDataId { get; set; }
     /// <summary>
     /// 字段信息列表
     /// </summary>
-    [JsonProperty(PropertyName = "answers")]
+    [JsonPropertyName("answers")]
     public List<FiledInfo> FiledInfos { get; set; }
 }
 
@@ -48,28 +48,28 @@ public class FiledInfo
     /// <summary>
     /// 字段Id
     /// </summary>
-    [JsonProperty(PropertyName = "queId")]
+    [JsonPropertyName("queId")]
     public int QueId { get; set; }
     /// <summary>
     /// 字段标题
     /// </summary>
-    [JsonProperty(PropertyName = "queTitle")]
+    [JsonPropertyName("queTitle")]
     public string QueTitle { get; set; }
     /// <summary>
     /// 字段类型。queType可见文档1、描述文字；2、单行文字；3、多行文字；4、日期时间；5、成员字段；6、邮箱；7、手机；8、数字；9、链接；10、单项选择；11、下拉选择；12、多项选择；13、上传附件；14、起止时间；15、图片选择；16、富文本；17、定位字段；18、表格；19、数据关联；20、Q-Linker；21、地址字段；22、部门字段；
     /// </summary>
-    [JsonProperty(PropertyName = "queType")]
+    [JsonPropertyName("queType")]
     public EnumQueType QueType { get; set; }
     /// <summary>
     /// 字段中的值
     /// </summary>
-    [JsonProperty(PropertyName = "values")]
+    [JsonPropertyName("values")]
     public List<ValueInfo> Values { get; set; }
 
     /// <summary>
     /// tableValues
     /// </summary>
-    [JsonProperty(PropertyName = "tableValues")]
+    [JsonPropertyName("tableValues")]
     public List<TableInfo> TableValues { get; set; }
 }
 
@@ -81,29 +81,29 @@ public class ValueInfo
     /// <summary>
     /// 值
     /// </summary>
-    [JsonProperty(PropertyName = "dataValue")]
+    [JsonPropertyName("dataValue")]
     public string DataValue { get; set; }
     /// <summary>
     /// email
     /// </summary>
-    [JsonProperty(PropertyName = "email")]
+    [JsonPropertyName("email")]
     public string? Email { get; set; }
 
     /// <summary>
     /// 选择类型，为optId，成员类型，为uid；成员字段 ，当前用户: -1；地址字段，1-4：省、市、区、详细地址
     /// </summary>
-    [JsonProperty(PropertyName = "id")]
+    [JsonPropertyName("id")]
     public int? Id { get; set; }
 
     /// <summary>
     /// 字段Id
     /// </summary>
-    [JsonProperty(PropertyName = "queId")]
+    [JsonPropertyName("queId")]
     public int QueId { get; set; }
     /// <summary>
     /// 值
     /// </summary>
-    [JsonProperty(PropertyName = "value")]
+    [JsonPropertyName("value")]
     public string Value { get; set; }
 }
 
@@ -158,12 +158,12 @@ public class AuditFlowInfo
     /// <summary>
     /// 数据当前所处状态。1：草稿、2:流程中（已经有用户处理过）、3：已通过（有流程）、4:已拒绝、5:待完善（退回申请人）、6:已通过（无流程）、7:流程中（没有用户处理过）
     /// </summary>
-    [JsonProperty(PropertyName = "applyStatus")]
+    [JsonPropertyName("applyStatus")]
     public EnumFlowType ApplyStatus { get; set; }
     /// <summary>
     /// 流程日志
     /// </summary>
-    [JsonProperty(PropertyName = "auditRecords")]
+    [JsonPropertyName("auditRecords")]
     public List<AuditRecord> AuditRecords { get; set; }
 }
 /// <summary>
@@ -174,22 +174,22 @@ public class AuditRecord
     /// <summary>
     /// 审批节点id
     /// </summary>
-    [JsonProperty(PropertyName = "auditNodeId")]
+    [JsonPropertyName("auditNodeId")]
     public int? AuditNodeId { get; set; }
     /// <summary>
     /// 审批节点名称
     /// </summary>
-    [JsonProperty(PropertyName = "auditNodeName")]
+    [JsonPropertyName("auditNodeName")]
     public string? AuditNodeName { get; set; }
     /// <summary>
     /// 审批时间unit时间戳
     /// </summary>
-    [JsonProperty(PropertyName = "auditTime")]
+    [JsonPropertyName("auditTime")]
     public long? AuditTime { get; set; }
     /// <summary>
     /// 审批人
     /// </summary>
-    [JsonProperty(PropertyName = "auditUser")]
+    [JsonPropertyName("auditUser")]
     public AuditUser? AuditUser { get; set; }
 }
 
@@ -206,37 +206,39 @@ public class GetAppDataListInput
     /// <summary>
     /// 页码
     /// </summary>
-    [JsonProperty(PropertyName = "pageNum")]
+    [JsonPropertyName("pageNum")]
     public int PageIndex { get; set; } = 1;
 
     /// <summary>
     /// 获取全部数据：8；（不传默认为type=8）,
     /// https://exiao.yuque.com/ixwxsb/cqfg2y/wz17n68r0ayoa5sk?singleDoc#EbkfH
     /// </summary>
-    [JsonProperty(PropertyName = "type")]
+    [JsonPropertyName("type")]
     public int Type { get; set; } = 8;
     /// <summary>
     /// 每页数据条数，注意pageSize最大可填200
     /// </summary>
-    [JsonProperty(PropertyName = "pageSize")]
+    [JsonPropertyName("pageSize")]
     public int PageSize { get; set; } = 10;
     /// <summary>
     /// 针对字段的查询条件
     /// </summary>
-    [JsonProperty(PropertyName = "queries")]
+    [JsonPropertyName("queries")]
     public List<AppDataQuery>? Queries { get; set; }
 
     /// <summary>
     /// 模糊搜索全部字段数据的key值
     /// </summary>
-    [JsonProperty(PropertyName = "queryKey", NullValueHandling = NullValueHandling.Ignore)]
+    [JsonPropertyName("queryKey")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? QueryKey { get; set; }
 
 
     /// <summary>
     /// 申请的数据id列表
     /// </summary>
-    [JsonProperty(PropertyName = "applyIds", NullValueHandling = NullValueHandling.Ignore)]
+    [JsonPropertyName("applyIds")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public long[]? AppDataIds { get; set; }
 
     /// <summary>
@@ -266,7 +268,7 @@ public class AppDataQuery
     /// <summary>
     /// 字段Id
     /// </summary>
-    [JsonProperty(PropertyName = "queId")]
+    [JsonPropertyName("queId")]
     public int QueId { get; set; }
 
     /// <summary>
@@ -277,23 +279,23 @@ public class AppDataQuery
     /// <summary>
     /// 搜索关键字，搜索为模糊搜索
     /// </summary>
-    [JsonProperty(PropertyName = "searchKey")]
+    [JsonPropertyName("searchKey")]
     public string SearchKey { get; set; }
     /// <summary>
     /// 数字模块中，是搜索结果中最小值，日期类型，就是最早日期
     /// </summary>
-    [JsonProperty(PropertyName = "minValue")]
+    [JsonPropertyName("minValue")]
     public string? MinValue { get; set; }
     /// <summary>
     /// 数字模块中，是搜索结果中最大值，日期类型，就是最晚日期
     /// </summary>
-    [JsonProperty(PropertyName = "maxValue")]
+    [JsonPropertyName("maxValue")]
     public string? MaxValue { get; set; }
 
     /// <summary>
     /// 成员字段中，搜索答案中包含这些userId的申请
     /// </summary>
-    [JsonProperty(PropertyName = "searchUserIds")]
+    [JsonPropertyName("searchUserIds")]
     public List<string>? SearchUserIds { get; set; }
 }
 /// <summary>
@@ -506,7 +508,7 @@ public class RequestInfo
     /// <summary>
     /// 请求ID
     /// </summary>
-    [JsonProperty(PropertyName = "requestId")]
+    [JsonPropertyName("requestId")]
     public string RequestId { get; set; }
 }
 
@@ -542,12 +544,12 @@ public class GetChartDataListInput
     /// <summary>
     /// 针对字段的查询条件
     /// </summary>
-    [JsonProperty(PropertyName = "filter")]
+    [JsonPropertyName("filter")]
     public ChartDataListInputFilter Filter { get; set; }
     /// <summary>
     /// 数据表设置了查询条件时，查询条件的值
     /// </summary>
-    [JsonProperty(PropertyName = "accurateQuery")]
+    [JsonPropertyName("accurateQuery")]
     public List<ChartDataListInputAccurateQuery> AccurateQuery { get; set; }
 }
 
@@ -559,13 +561,13 @@ public class ChartDataListInputQuery
     /// <summary>
     /// 字段ID，specialQueId可见数据结构
     /// </summary>
-    [JsonProperty(PropertyName = "queId")]
+    [JsonPropertyName("queId")]
     public int QueId { get; set; }
 
     /// <summary>
     /// 搜索的关键词,选择类型传递optionId
     /// </summary>
-    [JsonProperty(PropertyName = "searchKey")]
+    [JsonPropertyName("searchKey")]
     public string SearchKey { get; set; }
 }
 
@@ -575,31 +577,31 @@ public class ChartDataListInputFilter
     /// <summary>
     /// 每页数据条数
     /// </summary>
-    [JsonProperty(PropertyName = "pageSize")]
+    [JsonPropertyName("pageSize")]
     public int PageSize { get; set; } = 200;//注意pageSize最大可填200
 
     /// <summary>
     /// 请求页码
     /// </summary>
-    [JsonProperty(PropertyName = "pageNum")]
+    [JsonPropertyName("pageNum")]
     public int PageNum { get; set; }
 
     /// <summary>
     /// 针对字段的查询条件
     /// </summary>
-    [JsonProperty(PropertyName = "queries")]
+    [JsonPropertyName("queries")]
     public List<ChartDataListInputQuery> Queries { get; set; }
 
     /// <summary>
     /// 模糊搜索全部字段数据的key值
     /// </summary>
-    [JsonProperty(PropertyName = "queryKey")]
+    [JsonPropertyName("queryKey")]
     public string QueryKey { get; set; }
 
     /// <summary>
     /// 类型
     /// </summary>
-    [JsonProperty(PropertyName = "type")]
+    [JsonPropertyName("type")]
     public int Type { get; set; } = 13;
 
 
@@ -611,11 +613,11 @@ public class ChartDataListInputAccurateQuery
     /// <summary>
     /// 字段ID，特殊queId可查看
     /// </summary>
-    [JsonProperty(PropertyName = "queId")]
+    [JsonPropertyName("queId")]
     public int QueId { get; set; }
     /// <summary>
     /// 搜索的关键词（选择类型字段传递optionId）
     /// </summary>
-    [JsonProperty(PropertyName = "searchKey")]
+    [JsonPropertyName("searchKey")]
     public string SearchKey { get; set; }
 }

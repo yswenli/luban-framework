@@ -507,12 +507,12 @@ public class ConfigManager
         if (index >= 0)
         {
             provider.CustomModels[index] = newModelName.Trim();
-            
-            if (SelectedModel == $"{providerName}:{oldModelName}")
+
+            if (SelectedModel == $"{provider.Name}:{oldModelName}")
             {
-                SelectedModel = $"{providerName}:{newModelName.Trim()}";
+                SelectedModel = $"{provider.Name}:{newModelName.Trim()}";
             }
-            
+
             Save();
         }
     }
@@ -528,7 +528,7 @@ public class ConfigManager
 
         if (provider.CustomModels.Remove(modelName))
         {
-            if (SelectedModel == $"{providerName}:{modelName}")
+            if (SelectedModel == $"{provider.Name}:{modelName}")
             {
                 SelectedModel = null;
             }

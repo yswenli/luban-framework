@@ -634,8 +634,6 @@ public class EventBusUnitTest
 
         Assert.AreEqual(10000, options.MaxQueueCapacity);
         Assert.AreEqual(true, options.EnablePersistence);
-        Assert.AreEqual(100, options.Sensitivities);
-        Assert.AreEqual(4, options.MaxDegreeOfParallelism);
     }
 
     /// <summary>
@@ -647,15 +645,11 @@ public class EventBusUnitTest
         var options = new EventBusOptions
         {
             MaxQueueCapacity = 5000,
-            EnablePersistence = false,
-            Sensitivities = 200,
-            MaxDegreeOfParallelism = 8
+            EnablePersistence = false
         };
 
         Assert.AreEqual(5000, options.MaxQueueCapacity);
         Assert.AreEqual(false, options.EnablePersistence);
-        Assert.AreEqual(200, options.Sensitivities);
-        Assert.AreEqual(8, options.MaxDegreeOfParallelism);
     }
 
     /// <summary>

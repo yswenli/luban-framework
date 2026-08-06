@@ -28,12 +28,9 @@ global using Mapster;
 global using Microsoft.AspNetCore.Authorization;
 global using Microsoft.AspNetCore.Mvc;
 
-global using Newtonsoft.Json;
+global using Services.ApiServices;
 
 global using SqlSugar;
 
 global using System.ComponentModel;
 global using System.ComponentModel.DataAnnotations;
-
-global using WebApplication1.Models;
-global using Services.ApiServices;

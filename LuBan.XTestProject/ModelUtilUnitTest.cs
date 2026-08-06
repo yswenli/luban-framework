@@ -21,9 +21,7 @@
 *描述：
 *
 *****************************************************************************/
-using LuBan.Common;
-
-using Newtonsoft.Json;
+using System.Text.Json.Serialization;
 
 namespace LuBan.UnitTestProject;
 
@@ -80,19 +78,19 @@ public class Model1
     // <summary>
     /// 页码
     /// </summary>
-    [JsonProperty("pageNo")]
+    [JsonPropertyName("pageNo")]
     public int PageIndex { get; set; } = 1;
 
     /// <summary>
     /// 每页数量
     /// </summary>
-    [JsonProperty("pageSize")]
+    [JsonPropertyName("pageSize")]
     public int PageSize { get; set; } = 100;
 
     /// <summary>
     /// 搜索关键字
     /// </summary>
-    [JsonProperty("keyword")]
+    [JsonPropertyName("keyword")]
     public string Key { get; set; }
 
     [JsonIgnore]

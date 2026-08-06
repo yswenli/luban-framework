@@ -989,6 +989,12 @@ public async Task<ToolResult<string>> WriteFileAsync(string path, string content
             return Task.FromResult(ToolResult.Cancelled<string>());
         }
 
+        if (!_confirmationService.TryConfirmByPath("CopyFileAsync", destPath,
+            new Dictionary<string, object?> { ["sourcePath"] = sourcePath, ["destPath"] = destPath, ["overwrite"] = overwrite }))
+        {
+            return Task.FromResult(ToolResult.Cancelled<string>());
+        }
+
         try
         {
             if (!File.Exists(sourcePath))
@@ -1050,6 +1056,12 @@ public async Task<ToolResult<string>> WriteFileAsync(string path, string content
             return Task.FromResult(ToolResult.Fail<string>($"错误：目标路径 {destPath} 不在允许访问的范围内"));
 
         if (!_confirmationService.TryConfirmByPath("MoveFileAsync", sourcePath,
+            new Dictionary<string, object?> { ["sourcePath"] = sourcePath, ["destPath"] = destPath }))
+        {
+            return Task.FromResult(ToolResult.Cancelled<string>());
+        }
+
+        if (!_confirmationService.TryConfirmByPath("MoveFileAsync", destPath,
             new Dictionary<string, object?> { ["sourcePath"] = sourcePath, ["destPath"] = destPath }))
         {
             return Task.FromResult(ToolResult.Cancelled<string>());

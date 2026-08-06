@@ -44,7 +44,6 @@ public class DbUser : EntityDataScoreBase
     /// </summary>
     [SugarColumn(ColumnDescription = "密码", Length = 512)]
     [MaxLength(512)]
-    [System.Text.Json.Serialization.JsonIgnore]
     [JsonIgnore]
     public string Password { get; set; }
 

@@ -28,7 +28,6 @@ global using LuBan.Qingflow.Models;
 
 global using Encrypt.Library;
 
-global using Newtonsoft.Json;
-
 global using System.ComponentModel.DataAnnotations;
 global using System.Runtime.Serialization;
+global using System.Text.Json.Serialization;

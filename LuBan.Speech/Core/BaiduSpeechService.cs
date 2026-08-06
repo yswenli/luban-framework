@@ -70,7 +70,7 @@ public class BaiduSpeechService : BaseService<BaiduSpeechService>, ISpeechServic
         {
             return string.Empty;
         }
-        var result = JsonConvert.DeserializeObject<dynamic>(bytes);
+        var result = SerializeUtil.Deserialize<dynamic>(bytes);
         if (result == null) return string.Empty;
         return result.access_token.ToString();
     }

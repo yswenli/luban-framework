@@ -11,10 +11,10 @@
     <Title>$(AssemblyName)</Title>
     <Version>2026.8.4.1</Version>
     <Authors>yswenli</Authors>
-    <Description>LuBan Framework工具类项目，三方引用包主要有：Encrypt.Library、HtmlAgilityPack、ICSharpCode.SharpZipLib、Newtonsoft.Json、NPOI、SkiaSharp、ZXing等</Description>
+    <Description>LuBan Framework工具类项目，三方引用包主要有：Encrypt.Library、HtmlAgilityPack、ICSharpCode.SharpZipLib、NPOI、SkiaSharp、ZXing等（JSON 序列化已迁移至 System.Text.Json）</Description>
     <PackageIcon>favicon.png</PackageIcon>
     <PackageTags>$(AssemblyName);web;api;aspnet;aspnetcore;LuBan;yswenli</PackageTags>
-    <PackageReleaseNotes>LuBan Framework工具类项目，三方引用包主要有：Encrypt.Library、HtmlAgilityPack、ICSharpCode.SharpZipLib、Newtonsoft.Json、NPOI、SkiaSharp、ZXing等</PackageReleaseNotes>
+    <PackageReleaseNotes>LuBan Framework工具类项目，三方引用包主要有：Encrypt.Library、HtmlAgilityPack、ICSharpCode.SharpZipLib、NPOI、SkiaSharp、ZXing等（JSON 序列化已迁移至 System.Text.Json）</PackageReleaseNotes>
     <PackageId>$(AssemblyName)</PackageId>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <Copyright>$(Authors)</Copyright>

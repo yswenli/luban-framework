@@ -21,7 +21,7 @@
 *描述：
 *
 *****************************************************************************/
-using Newtonsoft.Json;
+using System.Text.Json.Serialization;
 
 namespace LuBan.AIFlow.Models.Chat;
 
@@ -33,38 +33,38 @@ public class ChatMessageRequest
     /// <summary>
     /// 输入参数字典
     /// </summary>
-    [JsonProperty("inputs")]
+    [JsonPropertyName("inputs")]
     public object Inputs { get; set; } = new();
 
     /// <summary>
     /// 查询内容
     /// </summary>
-    [JsonProperty("query")]
+    [JsonPropertyName("query")]
     public string Query { get; set; }
 
     /// <summary>
     /// 响应模式
     /// 默认值: "blocking"
     /// </summary>
-    [JsonProperty("response_mode")]
+    [JsonPropertyName("response_mode")]
     public string ResponseMode { get; set; } = "blocking";
 
     /// <summary>
     /// 会话ID
     /// </summary>
-    [JsonProperty("conversation_id")]
+    [JsonPropertyName("conversation_id")]
     public string ConversationId { get; set; } = string.Empty;
 
     /// <summary>
     /// 用户标识
     /// </summary>
-    [JsonProperty("user")]
+    [JsonPropertyName("user")]
     public string User { get; set; } = "yswenli";
 
     /// <summary>
     /// 聊天文件列表
     /// </summary>
-    [JsonProperty("files")]
+    [JsonPropertyName("files")]
     public List<ChatFile> Files { get; set; } = new();
 }
 /// <summary>
@@ -75,16 +75,16 @@ public class ChatFile
     /// <summary>
     /// 文件类型
     /// </summary>
-    [JsonProperty("type")]
+    [JsonPropertyName("type")]
     public string Type { get; set; } = "image";
     /// <summary>
     /// 传输方式
     /// </summary>
-    [JsonProperty("transfer_method")]
+    [JsonPropertyName("transfer_method")]
     public string TransferMethod { get; set; } = "remote_url";
     /// <summary>
     /// 地址
     /// </summary>
-    [JsonProperty("url")]
+    [JsonPropertyName("url")]
     public string Url { get; set; }
 }

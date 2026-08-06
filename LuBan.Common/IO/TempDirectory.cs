@@ -112,7 +112,7 @@ public static class TempDirectory
     {
         try
         {
-            using var stream = new FileStream(filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+            using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.None);
             return false;
         }
         catch (IOException)

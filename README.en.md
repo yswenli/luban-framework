@@ -220,7 +220,12 @@ The framework automatically provides:
 ```json
 "DbConnectionOptions": {
   "EnableConsoleSql": true,
-  "EnableDBLogs": true,
+  "DbLogOptions": {
+    "ApiLogMaxSize": 10240,
+    "ApiLogExpiredSeconds": 604800,
+    "ErrorLogMaxSize": 1024,
+    "ErrorLogExpiredSeconds": 604800
+  },
   "ConnectionConfigs": [
     {
       "ConfigId": "1300000000001",
@@ -228,7 +233,6 @@ The framework automatically provides:
       "ConnectionString": "Data Source=app.db",
       "DbSettings": {
         "EnableInitDb": true,
-        "EnableDiffLog": true,
         "EnableUnderLine": true
       },
       "TableSettings": { "EnableInitTable": true },
@@ -237,6 +241,21 @@ The framework automatically provides:
   ]
 }
 ```
+
+### Logging Configuration
+
+```json
+"LuBanLoggingOptions": {
+  "Enabled": true,
+  "Directory": "logs",
+  "MaxFileSizeMB": 100,
+  "MaxRollBackups": 5,
+  "EnableConsole": false,
+  "EnableDb": false
+}
+```
+
+> `EnableDb` controls whether API/error logs are written to the database (used together with `DbConnectionOptions.DbLogOptions`).
 
 ### Redis Configuration
 

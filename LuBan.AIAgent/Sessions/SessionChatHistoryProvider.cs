@@ -83,7 +83,7 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
 #pragma warning restore MEAI001
             var reduced = (await reducer.ReduceAsync(history, cancellationToken)).ToList();
 
-            if (reduced.Count < history.Count)
+            if (reduced.Count > 0 && reduced.Count < history.Count)
             {
                 var keptCount = Math.Min(reduced.Count - 1, history.Count);
                 var keptTail = messages.Skip(messages.Count - keptCount).ToList();

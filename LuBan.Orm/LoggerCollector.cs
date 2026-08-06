@@ -217,6 +217,7 @@ public class LoggerCollector : BaseSingleInstance<LoggerCollector>
     /// </summary>
     public void Stop()
     {
+        if (!_enableDbLogs) return;
         Logger.OnCalled -= Logger_OnReceived;
         Logger.OnError -= Logger_OnReceived;
         _dbLogCleaner.Stop();

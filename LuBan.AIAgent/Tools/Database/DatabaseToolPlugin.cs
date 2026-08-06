@@ -146,9 +146,10 @@ public class DatabaseToolGroup
     }
 
     /// <summary>
-    /// 只读查询允许的语句起始关键字
+    /// 只读查询允许的语句起始关键字。
+    /// 注：不允许 WITH（PostgreSQL 数据修改 CTE 可写）与 EXPLAIN（EXPLAIN ANALYZE 会真实执行写操作）。
     /// </summary>
-    private static readonly string[] ReadOnlyPrefixes = { "select", "with", "explain", "show", "describe", "desc" };
+    private static readonly string[] ReadOnlyPrefixes = { "select", "show", "describe", "desc" };
 
     /// <summary>
     /// 校验 SQL 是否为只读查询语句。
@@ -183,7 +184,7 @@ public class DatabaseToolGroup
 
         if (!ReadOnlyPrefixes.Contains(firstWord))
         {
-            return $"错误：ExecuteQuery 仅允许只读查询（SELECT/WITH/EXPLAIN/SHOW/DESCRIBE），检测到 '{firstWord.ToUpperInvariant()}'。如需执行写操作，请使用 ExecuteNonQuery（需用户确认）。";
+            return $"错误：ExecuteQuery 仅允许只读查询（SELECT/SHOW/DESCRIBE），检测到 '{firstWord.ToUpperInvariant()}'。如需执行写操作，请使用 ExecuteNonQuery（需用户确认）。";
         }
 
         // 阻止查询中夹带的写操作（分号后的第二条语句）

@@ -26,6 +26,4 @@ global using LuBan.Common.Data;
 global using LuBan.Speech.Core;
 global using LuBan.Speech.Models;
 
-global using Newtonsoft.Json;
-
 global using System.Runtime.Serialization;

@@ -97,6 +97,8 @@ public class LocalMemoryService : ILocalMemoryService
             if (candidates.Count > 0)
             {
                 var rows = await _store.LoadByIdsAsync(candidates, workspaceId, cancellationToken);
+                if (category != null)
+                    rows = rows.Where(r => r.Entry.Category == category).ToList();
                 return ScoreRows(queryVector, rows, topK);
             }
         }
@@ -206,6 +208,7 @@ public class LocalMemoryService : ILocalMemoryService
 
     private static float[] FallbackEmbedding(string text, int dimension)
     {
+        dimension = Math.Max(1, dimension);
         var vector = new float[dimension];
         foreach (var gram in NGramExtractor.ExtractHashes(text))
             vector[gram % dimension] += 1.0f;

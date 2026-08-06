@@ -21,7 +21,11 @@ public sealed class DateTimeJsonConverter : JsonConverter<DateTime>
     {
         var str = reader.GetString();
         if (string.IsNullOrEmpty(str)) return default;
-        return DateTime.ParseExact(str, _format, null);
+        if (DateTime.TryParseExact(str, _format, null, System.Globalization.DateTimeStyles.None, out var exact))
+            return exact;
+        if (DateTime.TryParse(str, out var fallback))
+            return fallback;
+        return default;
     }
 
     /// <inheritdoc/>

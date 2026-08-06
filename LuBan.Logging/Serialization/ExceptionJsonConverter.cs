@@ -6,6 +6,12 @@ namespace LuBan.Logging.Serialization;
 internal sealed class ExceptionJsonConverter : JsonConverter<Exception>
 {
     /// <inheritdoc/>
+    public override bool CanConvert(Type typeToConvert)
+    {
+        return typeof(Exception).IsAssignableFrom(typeToConvert);
+    }
+
+    /// <inheritdoc/>
     public override Exception? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
         return null;

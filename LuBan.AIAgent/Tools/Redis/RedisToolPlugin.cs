@@ -110,6 +110,15 @@ public class RedisToolGroup
     {
         var sanitizedCommand = SanitizeRedisCommand(command);
 
+        // 拒绝可能重定向连接的 redis-cli flag（防止 REDISCLI_AUTH 凭据泄露到第三方主机）
+        foreach (var token in sanitizedCommand.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (token.StartsWith("--") || token is "-h" or "-p" or "-a" or "-u" or "-s")
+            {
+                return ToolResult.Fail<string>($"错误：命令中包含不允许的参数 '{token}'，redis-cli 连接参数由工具统一配置。");
+            }
+        }
+
         // 写操作与危险命令需要用户确认（GET/KEYS/INFO 等只读命令免确认）
         if (RequiresConfirmation(sanitizedCommand))
         {
@@ -141,18 +150,6 @@ public class RedisToolGroup
                 stderr = result.StandardError,
                 durationMs = result.DurationMs,
                 timedOut = result.TimedOut
-            }.ToJson());
-        }
-        catch (System.ComponentModel.Win32Exception ex)
-        {
-            Logger.Error("Redis 执行失败：redis-cli 不存在", ex, "redis-cli");
-            return ToolResult.Fail<string>("可执行文件不存在: redis-cli。请确保已安装 Redis 并将 redis-cli 配置到 PATH 环境变量。", new
-            {
-                exitCode = -1,
-                stdout = "",
-                stderr = "可执行文件不存在: redis-cli。请确保已安装 Redis 并将 redis-cli 配置到 PATH 环境变量。",
-                durationMs = 0,
-                timedOut = false
             }.ToJson());
         }
         catch (Exception ex)

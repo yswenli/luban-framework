@@ -44,7 +44,7 @@ global using Microsoft.AspNetCore.Mvc.Filters;
 global using Microsoft.Extensions.Configuration;
 global using Microsoft.Extensions.DependencyInjection;
 
-global using Newtonsoft.Json;
+global using System.Text.Json.Serialization;
 
 global using SqlSugar;
 

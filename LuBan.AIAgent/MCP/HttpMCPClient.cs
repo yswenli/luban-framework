@@ -125,7 +125,7 @@ public class HttpMCPClient : IMCPClient, IDisposable
             var result = await SendRequestAsync("tools/call", new JsonObject
             {
                 ["name"] = toolName,
-                ["arguments"] = arguments.ToJson()
+                ["arguments"] = JsonSerializer.SerializeToNode(arguments)
             }, cancellationToken);
 
             if (result == null)

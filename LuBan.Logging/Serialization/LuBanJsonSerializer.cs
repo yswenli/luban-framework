@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Text.Encodings.Web;
 
 namespace LuBan.Logging.Serialization;
 
@@ -14,6 +15,7 @@ internal static class LuBanJsonSerializer
         WriteIndented = true,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingDefault,
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
         Converters =
         {
             new LuBanDateTimeConverter("yyyy-MM-dd HH:mm:ss.fff"),

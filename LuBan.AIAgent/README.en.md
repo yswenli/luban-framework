@@ -111,7 +111,7 @@ Skills, MCPs, and Rules use a unified three-tier priority registry pattern:
 | **Browser Tools** | `browser` | Navigate, click, type, screenshot, get content, wait for selector, get URL (Playwright-based) |
 | **File System Tools** | `filesystem` | Read files, write files, list directories, delete files, delete directories, search files (glob), content search (regex), create directories, copy files, move files, get file info, with AllowedRoots security restrictions |
 | **Script Tools** | `script` | Execute Shell, Lua, Python scripts |
-| **Database Tools** | `database` | Execute SQL statements via sqlcmd |
+| **Database Tools** | `database` | Execute SQL via ADO.NET direct connections (MySQL/PostgreSQL/SQL Server/SQLite), read-only query whitelist validation, write operations require user confirmation, supports dynamic connection strings |
 | **Redis Tools** | `redis` | Execute Redis commands via redis-cli |
 | **Web Tools** | `web` | Send HTTP requests to fetch web content |
 | **Retrieval Tools** | `retrieval` | Index local code/documents, semantic search |

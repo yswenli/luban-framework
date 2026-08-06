@@ -8,6 +8,12 @@ namespace LuBan.Logging.Serialization;
 internal sealed class MemberInfoJsonConverter : JsonConverter<MemberInfo>
 {
     /// <inheritdoc/>
+    public override bool CanConvert(Type typeToConvert)
+    {
+        return typeof(MemberInfo).IsAssignableFrom(typeToConvert);
+    }
+
+    /// <inheritdoc/>
     public override MemberInfo? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
         return null;

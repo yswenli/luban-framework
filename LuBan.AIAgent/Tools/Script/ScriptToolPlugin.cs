@@ -139,18 +139,6 @@ public class ScriptToolGroup
                 timedOut = result.TimedOut
             }));
         }
-        catch (System.ComponentModel.Win32Exception ex)
-        {
-            Logger.Error("Shell 执行失败：可执行文件不存在", ex, _options.Shell);
-            return ToolResult.Fail<string>($"可执行文件不存在: {_options.Shell}。请确保已安装并配置到 PATH 环境变量。", new
-            {
-                exitCode = -1,
-                stdout = "",
-                stderr = $"可执行文件不存在: {_options.Shell}。请确保已安装并配置到 PATH 环境变量。",
-                durationMs = 0,
-                timedOut = false
-            }.ToJson());
-        }
         catch (Exception ex)
         {
             Logger.Error("Shell 执行异常", ex, command);
@@ -197,18 +185,6 @@ public class ScriptToolGroup
                 stderr = result.StandardError,
                 durationMs = result.DurationMs,
                 timedOut = result.TimedOut
-            }.ToJson());
-        }
-        catch (System.ComponentModel.Win32Exception ex)
-        {
-            Logger.Error("Lua 执行失败：可执行文件不存在", ex, _options.LuaPath);
-            return ToolResult.Fail<string>($"可执行文件不存在: {_options.LuaPath}。请确保已安装并配置到 PATH 环境变量。", new
-            {
-                exitCode = -1,
-                stdout = "",
-                stderr = $"可执行文件不存在: {_options.LuaPath}。请确保已安装并配置到 PATH 环境变量。",
-                durationMs = 0,
-                timedOut = false
             }.ToJson());
         }
         catch (Exception ex)
@@ -269,18 +245,6 @@ public async Task<ToolResult<string>> RunPythonAsync(string script, string? work
             durationMs = result.DurationMs,
             timedOut = result.TimedOut
         }.ToJson());
-        }
-        catch (System.ComponentModel.Win32Exception ex)
-        {
-            Logger.Error("Python 执行失败：可执行文件不存在", ex, _options.PythonPath);
-            return ToolResult.Fail<string>($"可执行文件不存在: {_options.PythonPath}。请确保已安装并配置到 PATH 环境变量。", new
-            {
-                exitCode = -1,
-                stdout = "",
-                stderr = $"可执行文件不存在: {_options.PythonPath}。请确保已安装并配置到 PATH 环境变量。",
-                durationMs = 0,
-                timedOut = false
-            }.ToJson());
         }
         catch (Exception ex)
         {

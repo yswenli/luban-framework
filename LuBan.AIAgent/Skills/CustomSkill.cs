@@ -15,10 +15,10 @@ public class CustomSkill : SkillBase
     }
 
     public override string Id => _config.Id;
-    public override string Name => _config.Name;
-    public override string Description => _config.Description;
-    public override string Category => _config.Category;
-    public override IEnumerable<string> Examples => _config.Examples;
-    public override IEnumerable<string> TriggerKeywords => _config.TriggerKeywords;
+    public override string Name => _config.Name ?? "";
+    public override string Description => _config.Description ?? "";
+    public override string Category => _config.Category ?? "";
+    public override IEnumerable<string> Examples => _config.Examples ?? Enumerable.Empty<string>();
+    public override IEnumerable<string> TriggerKeywords => _config.TriggerKeywords ?? Enumerable.Empty<string>();
     public override string PromptTemplate => _config.PromptTemplate ?? "";
 }

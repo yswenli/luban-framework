@@ -21,67 +21,66 @@
 *描述：微吼接口返回值
 *
 *****************************************************************************/
-namespace LuBan.Lives.VH.Models
+namespace LuBan.Lives.VH.Models;
+
+/// <summary>
+/// 微吼接口返回值
+/// </summary>
+/// <typeparam name="T"></typeparam>
+public class Result<T>
 {
     /// <summary>
-    /// 微吼接口返回值
+    /// 异常码,
+    /// https://saas-doc.vhall.com/opendocs/show/1414
     /// </summary>
-    /// <typeparam name="T"></typeparam>
-    public class Result<T>
-    {
-        /// <summary>
-        /// 异常码,
-        /// https://saas-doc.vhall.com/opendocs/show/1414
-        /// </summary>
-        [JsonProperty("code")]
-        public int Code { get; set; }
+    [JsonPropertyName("code")]
+    public int Code { get; set; }
 
-        /// <summary>
-        /// 异常消息
-        /// </summary>
-        [JsonProperty("msg")]
-        public string Message { get; set; }
-
-        /// <summary>
-        /// 返回数据
-        /// </summary>
-        [JsonProperty("data")]
-        public T data { get; set; }
-
-        /// <summary>
-        /// 请求id
-        /// </summary>
-        [JsonProperty("request_id")]
-        public string RequestId { get; set; }
-    }
     /// <summary>
-    /// 微吼接口返回值
+    /// 异常消息
     /// </summary>
-    public class Result
-    {
-        /// <summary>
-        /// 异常码,
-        /// https://saas-doc.vhall.com/opendocs/show/1414
-        /// </summary>
-        [JsonProperty("code")]
-        public int Code { get; set; }
+    [JsonPropertyName("msg")]
+    public string Message { get; set; }
 
-        /// <summary>
-        /// 异常消息
-        /// </summary>
-        [JsonProperty("msg")]
-        public string Message { get; set; }
+    /// <summary>
+    /// 返回数据
+    /// </summary>
+    [JsonPropertyName("data")]
+    public T data { get; set; }
 
-        /// <summary>
-        /// 返回数据
-        /// </summary>
-        [JsonProperty("data")]
-        public dynamic data { get; set; }
+    /// <summary>
+    /// 请求id
+    /// </summary>
+    [JsonPropertyName("request_id")]
+    public string RequestId { get; set; }
+}
+/// <summary>
+/// 微吼接口返回值
+/// </summary>
+public class Result
+{
+    /// <summary>
+    /// 异常码,
+    /// https://saas-doc.vhall.com/opendocs/show/1414
+    /// </summary>
+    [JsonPropertyName("code")]
+    public int Code { get; set; }
 
-        /// <summary>
-        /// 请求id
-        /// </summary>
-        [JsonProperty("request_id")]
-        public string RequestId { get; set; }
-    }
+    /// <summary>
+    /// 异常消息
+    /// </summary>
+    [JsonPropertyName("msg")]
+    public string Message { get; set; }
+
+    /// <summary>
+    /// 返回数据
+    /// </summary>
+    [JsonPropertyName("data")]
+    public dynamic data { get; set; }
+
+    /// <summary>
+    /// 请求id
+    /// </summary>
+    [JsonPropertyName("request_id")]
+    public string RequestId { get; set; }
 }

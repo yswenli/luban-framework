@@ -155,7 +155,6 @@ public class RuleEngine
         var applicableRules = GetEnabledRules().Where(r => r.IsApplicable(context)).ToList();
         
         var results = new List<RuleExecutionResult>();
-        bool? finalAllow = null;
         Dictionary<string, object?>? finalArguments = null;
         var evalInject = new List<string>();
 
@@ -185,14 +184,11 @@ public class RuleEngine
 
             if (result.Modified && result.ModifiedArguments != null)
                 finalArguments = result.ModifiedArguments;
-
-            if (finalAllow == null)
-                finalAllow = result.Allow;
         }
 
         return new RuleEvaluationResult
         {
-            Allow = finalAllow ?? true,
+            Allow = true,
             ModifiedArguments = finalArguments,
             Results = results,
             Inject = evalInject

@@ -8,6 +8,12 @@ namespace LuBan.Logging.Serialization;
 internal sealed class AssemblyJsonConverter : JsonConverter<Assembly>
 {
     /// <inheritdoc/>
+    public override bool CanConvert(Type typeToConvert)
+    {
+        return typeof(Assembly).IsAssignableFrom(typeToConvert);
+    }
+
+    /// <inheritdoc/>
     public override Assembly? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
         return null;

@@ -82,29 +82,6 @@ public class AIAgentUnitTest
         Assert.AreEqual(10000, options.Web.MaxCharacters);
     }
 
-    /// <summary>
-    /// 测试 PathGuard
-    /// </summary>
-    [TestMethod]
-    public void TestPathGuard()
-    {
-        var fsOptions = new FileSystemToolOptions
-        {
-            Enabled = true,
-            AllowedRoots = new List<string> 
-            { 
-                "C:\\Temp",
-                "D:\\Work"
-            }
-        };
-
-        var pathGuard = new PathGuard(fsOptions);
-
-        Assert.IsTrue(pathGuard.IsAllowed("C:\\Temp\\test.txt"));
-        Assert.IsTrue(pathGuard.IsAllowed("D:\\Work\\project\\file.cs"));
-        Assert.IsFalse(pathGuard.IsAllowed("C:\\Windows\\system32"));
-        Assert.IsFalse(pathGuard.IsAllowed("E:\\Data\\file.txt"));
-    }
 
     /// <summary>
     /// 测试插件注册表

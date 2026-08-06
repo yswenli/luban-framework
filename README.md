@@ -220,7 +220,12 @@ public class UserController : BaseApiController
 ```json
 "DbConnectionOptions": {
   "EnableConsoleSql": true,
-  "EnableDBLogs": true,
+  "DbLogOptions": {
+    "ApiLogMaxSize": 10240,
+    "ApiLogExpiredSeconds": 604800,
+    "ErrorLogMaxSize": 1024,
+    "ErrorLogExpiredSeconds": 604800
+  },
   "ConnectionConfigs": [
     {
       "ConfigId": "1300000000001",
@@ -228,7 +233,6 @@ public class UserController : BaseApiController
       "ConnectionString": "Data Source=app.db",
       "DbSettings": {
         "EnableInitDb": true,
-        "EnableDiffLog": true,
         "EnableUnderLine": true
       },
       "TableSettings": { "EnableInitTable": true },
@@ -237,6 +241,21 @@ public class UserController : BaseApiController
   ]
 }
 ```
+
+### 日志配置
+
+```json
+"LuBanLoggingOptions": {
+  "Enabled": true,
+  "Directory": "logs",
+  "MaxFileSizeMB": 100,
+  "MaxRollBackups": 5,
+  "EnableConsole": false,
+  "EnableDb": false
+}
+```
+
+> `EnableDb` 控制是否将 API/错误日志写入数据库（需配合 `DbConnectionOptions.DbLogOptions` 使用）。
 
 ### Redis 配置
 
