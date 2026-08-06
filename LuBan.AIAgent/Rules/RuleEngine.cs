@@ -9,12 +9,12 @@ public class RuleEngine
     private readonly Dictionary<string, IRule> _hardcoded = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, IRule> _workspace = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, IRule> _config = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Configuration.ConfigManager? _configManager;
+    private readonly Configuration.IAppConfigReader? _configReader;
     private List<IRule> _merged = new();
 
-    public RuleEngine(IEnumerable<IRule> rules, Configuration.ConfigManager? configManager = null)
+    public RuleEngine(IEnumerable<IRule> rules, Configuration.IAppConfigReader? configReader = null)
     {
-        _configManager = configManager;
+        _configReader = configReader;
         foreach (var rule in rules)
             _hardcoded[rule.Id] = rule;
         LoadFromConfig();
@@ -68,9 +68,9 @@ public class RuleEngine
         
         try
         {
-            if (_configManager != null)
+            if (_configReader != null)
             {
-                foreach (var cfg in _configManager.CustomRules)
+                foreach (var cfg in _configReader.CustomRules)
                     temp[cfg.Id] = new CustomRule(cfg);
             }
         }
@@ -210,7 +210,7 @@ public class RuleEngine
             merged[kvp.Key] = kvp.Value;
         
         // 3. 最高优先级：硬编码（排除被禁用的）
-        var disabledBuiltin = _configManager?.DisabledBuiltinRules;
+        var disabledBuiltin = _configReader?.DisabledBuiltinRules;
         foreach (var kvp in _hardcoded)
         {
             if (disabledBuiltin?.Contains(kvp.Key) == true) continue;
