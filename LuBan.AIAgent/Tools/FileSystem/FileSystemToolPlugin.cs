@@ -313,18 +313,13 @@ public class FileSystemToolGroup
     }
 
 /// <summary>
-/// 写入文件内容到指定路径。对于临时文件，建议使用工作区临时目录：.luban-agent/temp/
+/// 写入文件内容到指定路径
 /// </summary>
 /// <param name="path">文件路径（相对或绝对）</param>
 /// <param name="content">文件内容</param>
 /// <returns>操作结果</returns>
-[Description(@"写入文件内容到指定路径。
-
-💡 临时文件建议：
-- 使用工作区临时目录：.luban-agent/temp/文件名.扩展名
-- 示例：.luban-agent/temp/query_users_20260806.py
-- 工作区切换时会自动清理24小时前的临时文件")]
-public async Task<ToolResult<string>> WriteFileAsync(string path, string content)
+[Description("写入文件内容到指定路径。")]
+    public async Task<ToolResult<string>> WriteFileAsync(string path, string content)
     {
         if (!_pathGuard.IsAllowed(path))
             return ToolResult.Fail<string>($"错误：路径 {path} 不在允许访问的范围内");

@@ -57,4 +57,9 @@ public class ProviderConfig
     /// 用户自定义的模型列表（持久化保存）
     /// </summary>
     public List<string> CustomModels { get; set; } = new();
+
+    /// <summary>
+    /// 网络请求超时时间（秒），默认 60 秒
+    /// </summary>
+    public int? NetworkTimeoutSeconds { get; set; }
 }

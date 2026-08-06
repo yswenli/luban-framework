@@ -578,15 +578,19 @@ public class ConfigManager
         if (provider == null)
             throw new InvalidOperationException($"Provider '{providerName}' 不存在");
 
-        return CreateOpenAIClient(modelName, provider.ApiKey, provider.BaseUrl);
+        var timeoutSeconds = provider.NetworkTimeoutSeconds ?? 60;
+        return CreateOpenAIClient(modelName, provider.ApiKey, provider.BaseUrl, timeoutSeconds);
     }
 
     /// <summary>
     /// 创建 OpenAI 兼容的 ChatClient
     /// </summary>
-    private static IChatClient CreateOpenAIClient(string modelName, string apiKey, string? baseUrl)
+    private IChatClient CreateOpenAIClient(string modelName, string apiKey, string? baseUrl, int timeoutSeconds = 60)
     {
-        var clientOptions = new OpenAI.OpenAIClientOptions();
+        var clientOptions = new OpenAI.OpenAIClientOptions
+        {
+            NetworkTimeout = TimeSpan.FromSeconds(timeoutSeconds)
+        };
 
         if (!string.IsNullOrEmpty(baseUrl))
         {
@@ -597,7 +601,7 @@ public class ConfigManager
         var openAIClient = new OpenAI.OpenAIClient(credential, clientOptions);
         
         var effectiveUrl = baseUrl ?? "https://api.openai.com/v1 (默认)";
-        Logger.Info($"创建 ChatClient: model={modelName}, endpoint={effectiveUrl}", ConsoleColor.Yellow);
+        Logger.Info($"创建 ChatClient: model={modelName}, endpoint={effectiveUrl}, timeout={timeoutSeconds}s", ConsoleColor.Yellow);
         
         return openAIClient.GetChatClient(modelName).AsIChatClient();
     }
