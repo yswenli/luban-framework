@@ -121,13 +121,17 @@ public class ScriptToolGroup
         try
         {
             // Windows cmd 使用 /c 参数（执行后退出），Unix shell 使用 -c
+            // 命令作为参数传递，而不是 stdin（cmd/sh 不支持 stdin 传递命令）
             var shellName = Path.GetFileNameWithoutExtension(_options.Shell);
-            var shellArgs = shellName.Equals("cmd", StringComparison.OrdinalIgnoreCase) ? "/c" : "-c";
+            var shellArgs = shellName.Equals("cmd", StringComparison.OrdinalIgnoreCase)
+                ? $"/c \"{command.Replace("\"", "\\\"\"")}"  // Windows: cmd /c "command"
+                : $"-c \"{command.Replace("\"", "\\\"\"")}"; // Unix: sh -c "command"
+            
             var result = await _processRunner.RunAsync(
                 _options.Shell,
                 shellArgs,
                 workingDirectory,
-                stdin: command,
+                stdin: null,  // 不使用 stdin
                 timeoutMs: _options.DefaultTimeout);
 
             return ToolResult.Ok<string>(JsonSerializer.Serialize(new
@@ -171,9 +175,10 @@ public class ScriptToolGroup
 
         try
         {
+            // Lua 通过 stdin 执行脚本：lua - < script.lua
             var result = await _processRunner.RunAsync(
                 _options.LuaPath,
-                "-e",
+                "-",  // "-" 表示从 stdin 读取脚本
                 workingDirectory,
                 stdin: script,
                 timeoutMs: _options.DefaultTimeout);
@@ -223,9 +228,11 @@ public async Task<ToolResult<string>> RunPythonAsync(string script, string? work
         Logger.Info($"Python 执行: executable={_options.PythonPath}, workingDir={workingDirectory ?? "未指定"}");
         Logger.Debug($"脚本内容（前200字符）:\n{(script.Length > 200 ? script.Substring(0, 200) + "..." : script)}");
 
+        // Python 通过 stdin 执行脚本：python - < script.py
+        // 使用 "-" 表示从 stdin 读取，而不是空 arguments（会启动交互模式）
         var result = await _processRunner.RunAsync(
             _options.PythonPath,
-            "-c",
+            "-",  // "-" 表示从 stdin 读取脚本
             workingDirectory,
             stdin: script,
             timeoutMs: _options.DefaultTimeout);
