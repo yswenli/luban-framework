@@ -35,8 +35,8 @@ public class OrchestratorTests
         var llmGraphJson = """
             {
                 "nodes": [
-                    {"id":"a","description":"节点A","prompt":"执行A","dependencies":[]},
-                    {"id":"b","description":"节点B","prompt":"执行B","dependencies":["a"]}
+                    {"id":"a","description":"节点A","prompt":"执行A","dependencies":[],"toolGroups":["filesystem"]},
+                    {"id":"b","description":"节点B","prompt":"执行B","dependencies":["a"],"toolGroups":["filesystem"]}
                 ]
             }
             """;

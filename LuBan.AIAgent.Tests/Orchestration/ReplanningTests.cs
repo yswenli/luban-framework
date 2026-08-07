@@ -80,7 +80,7 @@ public class ReplanningTests
     public async Task RunAsync_成功时不触发反思()
     {
         var graphJson = """
-            {"nodes":[{"id":"a","description":"A","prompt":"执行A","dependencies":[],"isCritical":true}]}
+            {"nodes":[{"id":"a","description":"A","prompt":"执行A","dependencies":[],"isCritical":true,"toolGroups":["filesystem"]}]}
             """;
 
         using var sp = BuildServiceProvider(graphJson);

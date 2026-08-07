@@ -29,6 +29,7 @@ namespace LuBan.AIAgent;
 public class LuBanAgentFactory : ILuBanAgentFactory, IScoped
 {
     private readonly IChatClient _chatClient;
+    private readonly IProviderRouter? _providerRouter;
     private readonly ToolPluginRegistry _pluginRegistry;
     private readonly IOptions<LuBanAgentOptions> _options;
     private readonly IServiceProvider _serviceProvider;
@@ -36,20 +37,23 @@ public class LuBanAgentFactory : ILuBanAgentFactory, IScoped
     /// <summary>
     /// 创建 LuBanAgentFactory 实例
     /// </summary>
-    /// <param name="chatClient">聊天客户端</param>
+    /// <param name="chatClient">聊天客户端（默认模型）</param>
     /// <param name="pluginRegistry">工具插件注册表</param>
     /// <param name="options">配置选项</param>
     /// <param name="serviceProvider">服务提供者</param>
+    /// <param name="providerRouter">模型提供者路由（可选，注册后支持按 modelName 路由）</param>
     public LuBanAgentFactory(
         IChatClient chatClient,
         ToolPluginRegistry pluginRegistry,
         IOptions<LuBanAgentOptions> options,
-        IServiceProvider serviceProvider)
+        IServiceProvider serviceProvider,
+        IProviderRouter? providerRouter = null)
     {
         _chatClient = chatClient;
         _pluginRegistry = pluginRegistry;
         _options = options;
         _serviceProvider = serviceProvider;
+        _providerRouter = providerRouter;
     }
 
     /// <summary>
@@ -67,7 +71,7 @@ public class LuBanAgentFactory : ILuBanAgentFactory, IScoped
 
         var tools = BuildTools(toolGroups);
 
-        var functionClient = BuildFunctionClient(tools, opts);
+        var functionClient = BuildFunctionClient(tools, opts, modelName);
         var historyProvider = BuildHistoryProvider(useSessionHistory, opts);
 
         var agent = new ChatClientAgent(
@@ -94,7 +98,7 @@ public class LuBanAgentFactory : ILuBanAgentFactory, IScoped
     /// <summary>
     /// 创建 SubAgent 实例。静默创建，不打印工具列表，不启用 SessionHistory。
     /// </summary>
-    /// <param name="modelName">模型名称（预留字段，当前未实现多模型路由）。</param>
+    /// <param name="modelName">模型名称（格式 "provider:model"，经 IProviderRouter 路由；null 表示默认模型）。</param>
     /// <param name="toolGroups">工具组列表，null 表示全部启用。</param>
     /// <param name="systemPrompt">系统提示词。</param>
     /// <param name="cancellationToken">取消令牌。</param>
@@ -108,7 +112,7 @@ public class LuBanAgentFactory : ILuBanAgentFactory, IScoped
         var opts = _options.Value;
         var tools = BuildTools(toolGroups);
 
-        var functionClient = BuildFunctionClient(tools, opts);
+        var functionClient = BuildFunctionClient(tools, opts, modelName);
 
         var agent = new ChatClientAgent(
             functionClient,
@@ -157,15 +161,36 @@ public class LuBanAgentFactory : ILuBanAgentFactory, IScoped
     /// </summary>
     /// <param name="tools">工具列表。</param>
     /// <param name="opts">配置选项。</param>
+    /// <param name="modelName">模型名称（格式 "provider:model"），null 表示默认模型。</param>
     /// <returns>FunctionInvokingChatClient 实例。</returns>
-    private FunctionInvokingChatClient BuildFunctionClient(List<AITool> tools, LuBanAgentOptions opts)
+    private FunctionInvokingChatClient BuildFunctionClient(List<AITool> tools, LuBanAgentOptions opts, string? modelName = null)
     {
-        var sanitizedClient = new SanitizingChatClient(_chatClient);
+        var sanitizedClient = new SanitizingChatClient(ResolveChatClient(modelName));
         var loggerFactory = _serviceProvider.GetService<ILoggerFactory>();
         return new FunctionInvokingChatClient(sanitizedClient, loggerFactory, _serviceProvider)
         {
             MaximumIterationsPerRequest = Math.Max(1, opts.MaxToolLoopIterations)
         };
+    }
+
+    /// <summary>
+    /// 按模型名称解析聊天客户端。未指定模型或未注册路由时使用注入的默认客户端；路由失败回退默认客户端。
+    /// </summary>
+    /// <param name="modelName">模型名称（格式 "provider:model"）。</param>
+    /// <returns>聊天客户端实例。</returns>
+    private IChatClient ResolveChatClient(string? modelName)
+    {
+        if (string.IsNullOrEmpty(modelName) || _providerRouter == null)
+            return _chatClient;
+        try
+        {
+            return _providerRouter.CreateChatClient(modelName);
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn($"模型 '{modelName}' 路由失败（{ex.Message}），回退默认模型");
+            return _chatClient;
+        }
     }
 
     /// <summary>
