@@ -66,6 +66,41 @@ public class TaskGraphTemplate
         return graph;
     }
 
+    /// <summary>
+    /// 从工作区模板 JSON 文本解析模板。
+    /// 文件格式：{ "name": "...", "description": "...", "keywords": [...], "graph": { "nodes": [...] } }。
+    /// </summary>
+    /// <param name="json">模板 JSON 文本。</param>
+    /// <returns>解析成功的模板；缺少 name 时返回 null。JSON 语法错误时抛出 JsonException。</returns>
+    [RequiresUnreferencedCode("模板 JSON 反序列化依赖反射")]
+    public static TaskGraphTemplate? FromJson(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+
+        var template = new TaskGraphTemplate
+        {
+            Name = root.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "",
+            Description = root.TryGetProperty("description", out var d) ? d.GetString() ?? "" : "",
+            Keywords = root.TryGetProperty("keywords", out var k) && k.ValueKind == JsonValueKind.Array
+                ? k.EnumerateArray().Select(e => e.GetString() ?? "").Where(s => s.Length > 0).ToArray()
+                : Array.Empty<string>()
+        };
+        template.Id = template.Name;
+
+        if (string.IsNullOrWhiteSpace(template.Name))
+            return null;
+
+        if (root.TryGetProperty("graph", out var g) && g.ValueKind == JsonValueKind.Object)
+        {
+            var graph = JsonSerializer.Deserialize<TaskGraph>(g.GetRawText(), JsonOpts);
+            if (graph != null)
+                template.Prototype = graph;
+        }
+
+        return template;
+    }
+
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
         PropertyNameCaseInsensitive = true

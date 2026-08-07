@@ -57,6 +57,46 @@ public class TemplateTaskPlanner : ITaskPlanner
     }
 
     /// <summary>
+    /// 从工作区 `.luban-agent/plans/*.json` 加载任务模板。单个文件失败不影响其他文件。
+    /// </summary>
+    /// <param name="workspaceRoot">工作区根路径。</param>
+    /// <returns>成功加载的模板数量。</returns>
+    [RequiresUnreferencedCode("模板 JSON 反序列化依赖反射")]
+    public int LoadFromWorkspace(string workspaceRoot)
+    {
+        if (string.IsNullOrWhiteSpace(workspaceRoot))
+            return 0;
+
+        var dir = Path.Combine(workspaceRoot, ".luban-agent", "plans");
+        if (!Directory.Exists(dir))
+            return 0;
+
+        var count = 0;
+        foreach (var file in Directory.EnumerateFiles(dir, "*.json"))
+        {
+            try
+            {
+                var template = TaskGraphTemplate.FromJson(File.ReadAllText(file));
+                if (template == null)
+                {
+                    Logger.Warn($"任务模板文件缺少 name，已跳过: {file}");
+                    continue;
+                }
+                _templates.Add(template);
+                count++;
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"加载任务模板失败: {file}", ex);
+            }
+        }
+
+        if (count > 0)
+            Logger.Info($"已从工作区加载 {count} 个任务模板 ({dir})");
+        return count;
+    }
+
+    /// <summary>
     /// 通过关键词匹配模板。
     /// </summary>
     /// <param name="task">用户任务描述。</param>

@@ -143,4 +143,69 @@ public class TemplateTaskPlannerTests
         Assert.IsNotNull(graph);
         Assert.AreEqual("llm", graph!.Source);
     }
+
+    private static string CreateTempWorkspace()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "luban-test-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        return dir;
+    }
+
+    [TestMethod]
+    public async Task TestLoadFromWorkspace_加载模板并命中()
+    {
+        var workspace = CreateTempWorkspace();
+        try
+        {
+            var plansDir = Path.Combine(workspace, ".luban-agent", "plans");
+            Directory.CreateDirectory(plansDir);
+            File.WriteAllText(Path.Combine(plansDir, "code-review.json"), """
+            {
+              "name": "code-review",
+              "keywords": ["代码审查", "code review"],
+              "graph": {
+                "nodes": [
+                  { "id": "analyze", "description": "分析代码", "prompt": "分析代码结构", "role": "analyst", "toolGroups": ["filesystem"], "dependencies": [], "isCritical": true },
+                  { "id": "review", "description": "审查意见", "prompt": "基于 {dep:analyze} 给出审查意见", "role": "coder", "toolGroups": ["filesystem"], "dependencies": ["analyze"], "isCritical": false }
+                ]
+              }
+            }
+            """);
+
+            var planner = new TemplateTaskPlanner(Array.Empty<TaskGraphTemplate>());
+            var loaded = planner.LoadFromWorkspace(workspace);
+
+            Assert.AreEqual(1, loaded);
+            var graph = await planner.PlanAsync("请做一次代码审查");
+            Assert.IsNotNull(graph);
+            Assert.AreEqual(2, graph!.Nodes.Count);
+            Assert.AreEqual("analyst", graph.Nodes[0].Role);
+        }
+        finally { Directory.Delete(workspace, true); }
+    }
+
+    [TestMethod]
+    public void TestLoadFromWorkspace_目录不存在返回0()
+    {
+        var planner = new TemplateTaskPlanner(Array.Empty<TaskGraphTemplate>());
+        var loaded = planner.LoadFromWorkspace(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N")));
+        Assert.AreEqual(0, loaded);
+    }
+
+    [TestMethod]
+    public void TestLoadFromWorkspace_无效JSON被容忍()
+    {
+        var workspace = CreateTempWorkspace();
+        try
+        {
+            var plansDir = Path.Combine(workspace, ".luban-agent", "plans");
+            Directory.CreateDirectory(plansDir);
+            File.WriteAllText(Path.Combine(plansDir, "bad.json"), "{ not valid json !!!");
+
+            var planner = new TemplateTaskPlanner(Array.Empty<TaskGraphTemplate>());
+            var loaded = planner.LoadFromWorkspace(workspace);
+            Assert.AreEqual(0, loaded);
+        }
+        finally { Directory.Delete(workspace, true); }
+    }
 }
