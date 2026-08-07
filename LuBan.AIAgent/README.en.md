@@ -67,8 +67,11 @@ npx playwright@1.61.0 install chromium
 |-----------|-------------|
 | `LuBanAgent` | Agent instance, wraps ChatClientAgent, supports sync/streaming execution |
 | `ILuBanAgentFactory` / `LuBanAgentFactory` | Agent factory, creates agents with configured tools |
-| `LuBanChatClient` | Multi-provider router, unified `provider:model` format calls |
-| `ConfigManager` | Configuration manager for loading, saving, and managing Provider configs |
+| `IAppConfigReader` | Application config read-only interface |
+| `IProviderRouter` | Provider routing interface |
+| `TextUtils` | Text processing utilities |
+| `WildcardMatcher` | Wildcard matching |
+| `SkillMdParser` | SKILL.md parser |
 
 ### Component Registry Architecture
 
@@ -247,21 +250,17 @@ Main Agent parses composite tasks → decomposes into DAG task graph → dispatc
 ```
 
 ```csharp
-// Register services (with custom ChatClient)
-services.AddSingleton<IChatClient>(sp => CreateChatClient());
+// Register services
+services.AddSingleton<IAppConfigReader>(myConfigManager);
+services.AddSingleton<IProviderRouter>(myProviderRouter);
 services.AddLuBanAgent(configuration);
-
-// Configure Provider (via ConfigManager)
-var configManager = serviceProvider.GetRequiredService<ConfigManager>();
-configManager.AddProvider("openai", "sk-xxx");
-configManager.Save();
 ```
 
 ### 2. Multi-Model Routing
 
 ```csharp
 // Use provider:model format to route to different models
-// LuBanChatClient auto-dispatches based on the provider prefix in ModelId
+// IProviderRouter auto-dispatches based on the provider prefix in ModelId
 var agent = await factory.CreateAsync(modelName: "qwen:qwen-plus");
 
 // Switch providers by changing the prefix only
@@ -486,16 +485,24 @@ await foreach (var progress in orchestrator.RunStreamingAsync("..."))
 | claude | Claude | claude-3-5-sonnet, claude-3-5-haiku, claude-3-opus, etc. |
 | gemini | Google Gemini | gemini-2.0-flash, gemini-1.5-pro, gemini-1.5-flash, etc. |
 | ollama | Ollama (Local) | llama3.1, llama3.2, qwen2.5, deepseek-coder-v2, etc. |
+| ernie | Baidu ERNIE | ernie-4.0-turbo-8k, ernie-4.0-8k, etc. |
+| minimax | MiniMax | abab6.5s-chat, abab6.5-chat, etc. |
+| hunyuan | Tencent Hunyuan | hunyuan-pro, hunyuan-standard, etc. |
+| mimo | Xiaomi MiMo | mimo-v1, mimo-v1-32k, etc. |
+| xai | xAI Grok | grok-2, grok-2-mini, grok-beta |
+| qianfan | Baidu Qianfan | ernie-4.0-8k, ernie-speed-128k, etc. |
+| tencent-ti | Tencent TI Platform | hunyuan-pro, hunyuan-standard, etc. |
+| huawei-pangu | Huawei Pangu | pangu-7b, pangu-13b, pangu-52b |
+| bedrock | AWS Bedrock | anthropic.claude-3-sonnet, etc. |
+| openrouter | OpenRouter | openai/gpt-4o, anthropic/claude-3.5-sonnet, etc. |
 
 ## Project Structure
 
 ```
 LuBan.AIAgent/
 ├── Configuration/
+│   ├── IAppConfigReader.cs            # Application config read-only interface
 │   ├── Storage/
-│   │   ├── ProviderConfig.cs          # Provider configuration
-│   │   ├── AppConfig.cs               # Application configuration
-│   │   ├── ConfigManager.cs           # Configuration manager (with CRUD)
 │   │   ├── CustomSkillConfig.cs       # Custom skill configuration
 │   │   ├── CustomRuleConfig.cs        # Custom rule configuration
 │   │   └── McpServerConfig.cs         # External MCP server config
@@ -519,6 +526,7 @@ LuBan.AIAgent/
 │   ├── SkillBase.cs                   # Skill base class
 │   ├── SkillRegistry.cs               # Skill registry (merges multiple sources)
 │   ├── SkillLoader.cs                 # SKILL.md file loader
+│   ├── SkillMdParser.cs               # SKILL.md parser
 │   ├── FileSkill.cs                   # File-based Skill adapter
 │   ├── CustomSkill.cs                 # Custom Skill adapter
 │   └── BuiltIn/
@@ -554,13 +562,18 @@ LuBan.AIAgent/
 │   ├── RetrievalService.cs            # Retrieval service
 │   └── Chunkers/                     # Code chunkers
 ├── Providers/
-│   └── LuBanChatClient.cs             # Provider router
+│   └── IProviderRouter.cs             # Provider routing interface
 ├── Abstractions/
 │   └── ILuBanToolPlugin.cs            # Tool plugin interface
 ├── Plugins/
 │   └── ToolPluginRegistry.cs          # Plugin registry
 ├── Services/
 │   └── ToolConfirmationService.cs     # Tool execution confirmation service
+├── Utils/
+│   └── Text/
+│       ├── TextUtils.cs               # Text processing utilities
+│       ├── NGramExtractor.cs          # N-gram extractor
+│       └── WildcardMatcher.cs         # Wildcard matching
 ├── Orchestration/                     # Multi-Agent orchestration subsystem
 │   ├── IOrchestrator.cs               # Orchestrator interface
 │   ├── Orchestrator.cs                # Orchestrator default implementation
@@ -596,7 +609,7 @@ LuBan.AIAgent/
 
 ## Tips
 
-- Model routing uses `provider:model` format; add providers via `ConfigManager.AddProvider()`
+- Model routing uses `provider:model` format; configure providers via `IAppConfigReader` / host implementation
 - **7 built-in tool groups** cover browser automation, file operations, script execution, database, Redis, web requests, and semantic retrieval
 - `ToolConfirmationService` automatically requires user confirmation for dangerous operations (write, delete, execute)
 - `FileSystemToolOptions.AllowedRoots` restricts file access scope to prevent Agent overreach

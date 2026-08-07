@@ -67,8 +67,11 @@ npx playwright@1.61.0 install chromium
 |------|------|
 | `LuBanAgent` | Agent 实例，封装 ChatClientAgent，支持同步/流式运行 |
 | `ILuBanAgentFactory` / `LuBanAgentFactory` | Agent 工厂，按配置创建 Agent 并注入工具 |
-| `LuBanChatClient` | 多 Provider 路由器，统一 `provider:model` 格式调用 |
-| `ConfigManager` | 配置管理器，负责 Provider 配置的加载、保存和管理 |
+| `IAppConfigReader` | 应用配置只读接口 |
+| `IProviderRouter` | Provider 路由接口 |
+| `TextUtils` | 文本处理工具 |
+| `WildcardMatcher` | 通配符匹配 |
+| `SkillMdParser` | SKILL.md 解析器 |
 
 ### 组件注册表架构
 
@@ -247,21 +250,17 @@ category: custom
 ```
 
 ```csharp
-// 注册服务（使用自定义 ChatClient）
-services.AddSingleton<IChatClient>(sp => CreateChatClient());
+// 注册服务
+services.AddSingleton<IAppConfigReader>(myConfigManager);
+services.AddSingleton<IProviderRouter>(myProviderRouter);
 services.AddLuBanAgent(configuration);
-
-// 配置 Provider（通过 ConfigManager）
-var configManager = serviceProvider.GetRequiredService<ConfigManager>();
-configManager.AddProvider("openai", "sk-xxx");
-configManager.Save();
 ```
 
 ### 2. 多模型路由
 
 ```csharp
 // 使用 provider:model 格式路由到不同模型
-// LuBanChatClient 根据 ModelId 中的 provider 前缀自动分发
+// IProviderRouter 根据 ModelId 中的 provider 前缀自动分发
 var agent = await factory.CreateAsync(modelName: "qwen:qwen-plus");
 
 // 切换 Provider 只需更改前缀
@@ -487,16 +486,24 @@ await foreach (var progress in orchestrator.RunStreamingAsync("..."))
 | claude | Claude | claude-3-5-sonnet, claude-3-5-haiku, claude-3-opus 等 |
 | gemini | Google Gemini | gemini-2.0-flash, gemini-1.5-pro, gemini-1.5-flash 等 |
 | ollama | Ollama (本地) | llama3.1, llama3.2, qwen2.5, deepseek-coder-v2 等 |
+| ernie | 百度文心一言 | ernie-4.0-turbo-8k, ernie-4.0-8k 等 |
+| minimax | MiniMax | abab6.5s-chat, abab6.5-chat 等 |
+| hunyuan | 腾讯混元 | hunyuan-pro, hunyuan-standard 等 |
+| mimo | 小米 MiMo | mimo-v1, mimo-v1-32k 等 |
+| xai | xAI Grok | grok-2, grok-2-mini, grok-beta |
+| qianfan | 百度智能云千帆 | ernie-4.0-8k, ernie-speed-128k 等 |
+| tencent-ti | 腾讯云 TI 平台 | hunyuan-pro, hunyuan-standard 等 |
+| huawei-pangu | 华为云盘古 | pangu-7b, pangu-13b, pangu-52b |
+| bedrock | AWS Bedrock | anthropic.claude-3-sonnet 等 |
+| openrouter | OpenRouter | openai/gpt-4o, anthropic/claude-3.5-sonnet 等 |
 
 ## 项目结构
 
 ```
 LuBan.AIAgent/
 ├── Configuration/
+│   ├── IAppConfigReader.cs            # 应用配置只读接口
 │   ├── Storage/
-│   │   ├── ProviderConfig.cs          # Provider 配置
-│   │   ├── AppConfig.cs               # 应用配置
-│   │   ├── ConfigManager.cs           # 配置管理器（含 CRUD）
 │   │   ├── CustomSkillConfig.cs       # 自定义 Skill 配置
 │   │   ├── CustomRuleConfig.cs        # 自定义规则配置
 │   │   └── McpServerConfig.cs         # 外部 MCP 服务器配置
@@ -520,6 +527,7 @@ LuBan.AIAgent/
 │   ├── SkillBase.cs                   # Skill 基类
 │   ├── SkillRegistry.cs               # Skill 注册表（合并多来源）
 │   ├── SkillLoader.cs                 # SKILL.md 文件加载器
+│   ├── SkillMdParser.cs               # SKILL.md 解析器
 │   ├── FileSkill.cs                   # 文件级 Skill 适配器
 │   ├── CustomSkill.cs                 # 自定义 Skill 适配器
 │   └── BuiltIn/
@@ -555,13 +563,19 @@ LuBan.AIAgent/
 │   ├── RetrievalService.cs            # 检索服务实现
 │   └── Chunkers/                     # 代码切块器
 ├── Providers/
-│   └── LuBanChatClient.cs             # Provider 路由器
+│   └── IProviderRouter.cs             # Provider 路由接口
 ├── Abstractions/
 │   └── ILuBanToolPlugin.cs            # 工具插件接口
 ├── Plugins/
 │   └── ToolPluginRegistry.cs          # 插件注册表
 ├── Services/
 │   └── ToolConfirmationService.cs     # 工具执行确认服务
+├── Utils/Text/
+│   ├── TextUtils.cs                   # 文本处理工具
+│   ├── NGramExtractor.cs              # N-Gram 提取器
+│   └── WildcardMatcher.cs             # 通配符匹配
+├── LocalMemory/
+│   └── LocalMemoryService.cs          # 本地记忆服务
 ├── Orchestration/                     # 多 Agent 编排子系统
 │   ├── IOrchestrator.cs               # 编排器接口
 │   ├── Orchestrator.cs                # 编排器默认实现
@@ -597,7 +611,7 @@ LuBan.AIAgent/
 
 ## 小贴士
 
-- 模型路由使用 `provider:model` 格式，新增 Provider 只需通过 `ConfigManager.AddProvider()` 添加
+- 模型路由使用 `provider:model` 格式，新增 Provider 只需通过 `IAppConfigReader` / 宿主实现添加
 - **7 大内置工具组**覆盖浏览器自动化、文件操作、脚本执行、数据库、Redis、Web 请求、语义检索等场景
 - `ToolConfirmationService` 对写入、删除、执行等危险操作自动要求用户确认
 - `FileSystemToolOptions.AllowedRoots` 限制文件访问范围，防止 Agent 越权操作
