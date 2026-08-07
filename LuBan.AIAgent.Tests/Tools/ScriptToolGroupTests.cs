@@ -1,6 +1,6 @@
+using LuBan.AIAgent.Abstractions;
 using LuBan.AIAgent.Configuration;
 using LuBan.AIAgent.Infrastructure;
-using LuBan.AIAgent.Services;
 using LuBan.AIAgent.Tools.Script;
 
 namespace LuBan.AIAgent.Tests.Tools;

@@ -73,7 +73,7 @@ Arranged by dependency hierarchy, from底层 utilities to upper-layer applicatio
 | **LuBan.ApprovalFlow** | Approval workflow engine: graph-theory model, condition gateways, countersign aggregation, task delegation, HTTP callbacks, event-driven |
 | **LuBan.Reporting** | Data export: generic list Excel/CSV export + dynamic reports + Lua script conversion |
 | **LuBan.AIFlow** | AI platform unified access: RagFlow / Dify / Coze |
-| **LuBan.AIAgent** | AI Agent framework: tool calling, skill system, multi-model providers, session management, middleware pipeline |
+| **LuBan.AIAgent** | AI Agent framework: tool calling, skill system, multi-model providers, session management, middleware pipeline, multi-agent orchestration |
 
 ---
 

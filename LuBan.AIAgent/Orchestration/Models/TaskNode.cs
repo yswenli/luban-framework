@@ -32,6 +32,11 @@ public class TaskNode
     public string Description { get; set; } = "";
 
     /// <summary>
+    /// 获取或设置节点角色（如 "analyst", "coder"）。null 表示使用通用 SubAgent。
+    /// </summary>
+    public string? Role { get; set; }
+
+    /// <summary>
     /// 获取或设置节点执行 prompt。支持 {dep:xxx} 占位符，运行时由 ContextStore 替换为前驱节点输出。
     /// </summary>
     public string Prompt { get; set; } = "";
@@ -42,7 +47,10 @@ public class TaskNode
     public List<string> Dependencies { get; set; } = new();
 
     /// <summary>
-    /// 获取或设置该节点 SubAgent 启用的工具组。null 表示全部启用，空数组表示无工具。
+    /// 获取或设置该节点 SubAgent 启用的工具组。
+    /// 当 Role 非空时，null 表示使用角色的 DefaultToolGroups；
+    /// 当 Role 为空时，null 不再允许（planner 必须显式指定）。
+    /// 空数组表示无工具。
     /// </summary>
     public List<string>? ToolGroups { get; set; }
 

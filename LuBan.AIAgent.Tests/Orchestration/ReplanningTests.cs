@@ -14,11 +14,12 @@
 *描述：DAG 动态重规划单元测试
 *
 *****************************************************************************/
+using LuBan.AIAgent.Abstractions;
 using LuBan.AIAgent.Configuration;
 using LuBan.AIAgent.Orchestration;
 using LuBan.AIAgent.Orchestration.Models;
 using LuBan.AIAgent.Orchestration.Planner;
-using LuBan.AIAgent.Plugins;
+using LuBan.AIAgent.Tests;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -65,6 +66,7 @@ public class ReplanningTests
         services.AddSingleton<IChatClient>(mockClient);
         services.AddSingleton<ToolPluginRegistry>();
         services.AddScoped<LuBanAgentFactory>();
+        services.AddSingleton<SubAgentRoleRegistry>();
         services.AddScoped<SubAgentFactory>();
         services.AddSingleton<ContextStore>();
         services.AddScoped<DagScheduler>();

@@ -32,7 +32,14 @@ public class SubAgentSpec
     public string Prompt { get; set; } = "";
 
     /// <summary>
-    /// 获取或设置启用的工具组。null 表示全部启用。
+    /// 获取或设置角色名称。null 表示使用通用 SubAgent。
+    /// </summary>
+    public string? Role { get; set; }
+
+    /// <summary>
+    /// 获取或设置启用的工具组。
+    /// 当 Role 非空时，null 表示使用角色的 DefaultToolGroups；
+    /// 当 Role 为空时，null 不再允许。
     /// </summary>
     public List<string>? ToolGroups { get; set; }
 

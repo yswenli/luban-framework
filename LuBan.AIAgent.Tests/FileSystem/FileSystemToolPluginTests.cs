@@ -1,7 +1,6 @@
 using LuBan.AIAgent.Abstractions;
 using LuBan.AIAgent.Configuration;
 using LuBan.AIAgent.Infrastructure;
-using LuBan.AIAgent.Services;
 using LuBan.AIAgent.Tools.FileSystem;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;

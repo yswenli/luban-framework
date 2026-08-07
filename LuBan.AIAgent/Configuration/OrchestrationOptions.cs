@@ -62,6 +62,11 @@ public class OrchestrationOptions
     public bool ExposeAsTool { get; set; } = true;
 
     /// <summary>
+    /// 获取或设置是否启用自动判定（每轮输入由 planner 判定是否为复合任务）。
+    /// </summary>
+    public bool AutoDetect { get; set; } = true;
+
+    /// <summary>
     /// 获取或设置关键节点失败后的最大重规划尝试次数。0 表示禁用重规划。
     /// </summary>
     public int MaxReplanAttempts { get; set; } = 3;
@@ -70,4 +75,9 @@ public class OrchestrationOptions
     /// 获取或设置反思阶段 LLM 调用的超时时间（秒）。
     /// </summary>
     public int ReflectionTimeoutSeconds { get; set; } = 60;
+
+    /// <summary>
+    /// 获取或设置启发式预过滤配置。
+    /// </summary>
+    public HeuristicFilterOptions HeuristicFilter { get; set; } = new();
 }

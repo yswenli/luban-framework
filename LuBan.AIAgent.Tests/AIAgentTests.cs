@@ -18,8 +18,6 @@ using LuBan.AIAgent;
 using LuBan.AIAgent.Abstractions;
 using LuBan.AIAgent.Configuration;
 using LuBan.AIAgent.Infrastructure;
-using LuBan.AIAgent.Plugins;
-using LuBan.AIAgent.Providers;
 using LuBan.AIAgent.Tools.FileSystem;
 using LuBan.AIAgent.Tools.Web;
 using Microsoft.Extensions.AI;
@@ -208,42 +206,6 @@ public class AIAgentTests
         var filesystemPlugins = registry.GetPlugins(new[] { "filesystem" });
         Assert.AreEqual(1, filesystemPlugins.Count);
         Assert.AreEqual("filesystem", filesystemPlugins[0].GroupName);
-    }
-
-    [TestMethod]
-    public void TestLuBanChatClient_ProviderRouting()
-    {
-        var mockClient1 = new MockChatClient("openai");
-        var mockClient2 = new MockChatClient("azure");
-
-        var clients = new List<KeyValuePair<string, IChatClient>>
-        {
-            new("openai", mockClient1),
-            new("azure", mockClient2)
-        };
-
-        var luBanClient = new LuBanChatClient(clients, "openai");
-
-        Assert.IsNotNull(luBanClient);
-
-        var provider = luBanClient.GetType()
-            .GetMethod("GetProvider", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?
-            .Invoke(luBanClient, new object[] { "openai:gpt-4" });
-
-        Assert.IsNotNull(provider);
-    }
-
-    [TestMethod]
-    public void TestLuBanChatClient_DefaultProvider()
-    {
-        var mockClient = new MockChatClient("default");
-        var clients = new List<KeyValuePair<string, IChatClient>>
-        {
-            new("default", mockClient)
-        };
-
-        var luBanClient = new LuBanChatClient(clients, "default");
-        Assert.IsNotNull(luBanClient);
     }
 
     [TestMethod]

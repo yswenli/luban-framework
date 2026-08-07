@@ -15,10 +15,11 @@
 *
 *****************************************************************************/
 using LuBan.AIAgent;
+using LuBan.AIAgent.Abstractions;
 using LuBan.AIAgent.Configuration;
 using LuBan.AIAgent.Orchestration;
 using LuBan.AIAgent.Orchestration.Models;
-using LuBan.AIAgent.Plugins;
+using LuBan.AIAgent.Tests;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -59,6 +60,7 @@ public class SubAgentFactoryTests
         services.AddSingleton<IChatClient>(new MockChatClient("test", _ => "结果"));
         services.AddSingleton<ToolPluginRegistry>();
         services.AddScoped<LuBanAgentFactory>();
+        services.AddSingleton<SubAgentRoleRegistry>();
         services.AddScoped<SubAgentFactory>();
         var sp = services.BuildServiceProvider();
 
@@ -67,6 +69,7 @@ public class SubAgentFactoryTests
         {
             NodeId = "test",
             Prompt = "执行测试",
+            Role = "coder",
             ParentSessionId = "parent-1"
         };
         var agent = await subFactory.CreateAsync(spec);

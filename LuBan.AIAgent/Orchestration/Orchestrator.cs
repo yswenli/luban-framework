@@ -55,13 +55,33 @@ public class Orchestrator : IOrchestrator
         if (string.IsNullOrWhiteSpace(task))
             throw new ArgumentException("任务描述不能为空", nameof(task));
 
-        var orchestrationOpts = _options.Value.Orchestration ?? new();
-        var maxReplan = orchestrationOpts.MaxReplanAttempts;
-
         var graph = await _planner.PlanAsync(task, ct)
             ?? throw new TaskPlanningException("规划器返回空图谱");
         if (!graph.Validate(out var errors))
             throw new TaskPlanningException("DAG 校验失败", errors);
+
+        return await ExecuteGraphAsync(graph, task, ct);
+    }
+
+    /// <inheritdoc/>
+    public async Task<OrchestrationResult> RunAsync(TaskGraph graph, CancellationToken ct = default)
+    {
+        if (graph == null)
+            throw new ArgumentNullException(nameof(graph));
+
+        if (!graph.Validate(out var errors))
+            throw new TaskPlanningException("DAG 校验失败", errors);
+
+        return await ExecuteGraphAsync(graph, graph.OriginalTask, ct);
+    }
+
+    /// <summary>
+    /// 执行任务图谱的核心逻辑。
+    /// </summary>
+    private async Task<OrchestrationResult> ExecuteGraphAsync(TaskGraph graph, string originalTask, CancellationToken ct)
+    {
+        var orchestrationOpts = _options.Value.Orchestration ?? new();
+        var maxReplan = orchestrationOpts.MaxReplanAttempts;
 
         var attempt = 0;
         OrchestrationResult? lastResult = null;
@@ -108,7 +128,7 @@ public class Orchestrator : IOrchestrator
             try
             {
                 reflection = await PerformReflectionAsync(
-                    graph, result, task, attempt, dependencyOutputsSnapshot, ct);
+                    graph, result, originalTask, attempt, dependencyOutputsSnapshot, ct);
             }
             catch (Exception ex)
             {
@@ -134,12 +154,12 @@ public class Orchestrator : IOrchestrator
             }
 
             graph = BuildFixGraph(graph, reflection, attempt);
-            if (!graph.Validate(out errors))
+            if (!graph.Validate(out var fixErrors))
             {
                 result.ReplanningExhausted = true;
                 result.Reflection = new ReflectionResult
                 {
-                    Analysis = $"修正图谱校验失败: {string.Join("; ", errors)}",
+                    Analysis = $"修正图谱校验失败: {string.Join("; ", fixErrors)}",
                     ShouldRetry = false,
                     FailedNodeIds = reflection.FailedNodeIds
                 };

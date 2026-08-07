@@ -98,6 +98,9 @@ public static class LuBanAgentExtensions
         // ContextStore 纯内存线程安全字典，可 Singleton
         services.AddSingleton<Orchestration.ContextStore>();
 
+        // SubAgent 角色注册表
+        services.AddSingleton<Orchestration.SubAgentRoleRegistry>();
+
         // SubAgentFactory / DagScheduler / Orchestrator 依赖 Scoped 的 LuBanAgentFactory，必须 Scoped
         services.AddScoped<Orchestration.SubAgentFactory>();
         services.AddScoped<Orchestration.DagScheduler>();

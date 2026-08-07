@@ -221,8 +221,10 @@ Main Agent parses composite tasks → decomposes into DAG task graph → dispatc
 | `CompositeTaskPlanner` | Composite planner, template-first with LLM fallback |
 | `DagScheduler` | DAG scheduler, layer-based parallel execution via topological sort |
 | `SubAgentFactory` | SubAgent factory, wraps LuBanAgentFactory for child agent creation |
+| `SubAgentRoleRegistry` | SubAgent role registry, manages built-in and custom roles |
+| `SubAgentRole` | SubAgent role definition, includes name, system prompt template, default tool groups |
 | `ContextStore` | Cross-node context store, isolated by graph ID, thread-safe |
-| `TaskGraph` / `TaskNode` | DAG data models, support dependency declaration, placeholder references, critical nodes |
+| `TaskGraph` / `TaskNode` | DAG data models, support dependency declaration, placeholder references, critical nodes, role assignment |
 | `OrchestrationToolPlugin` | Tool plugin, exposes orchestration capability to main Agent |
 | `ReflectionResult` / `ReplanContext` | Dynamic replanning models, LLM analyzes failures and generates fix graph after critical node failure |
 
@@ -423,16 +425,22 @@ Specify assembly names via `ExternalPlugins` configuration — the framework aut
     "Orchestration": {
       "Enabled": true,
       "PlannerType": "composite",
+      "AutoDetect": true,
       "MaxNodes": 10,
       "MaxParallelism": 4,
       "DefaultNodeTimeoutSeconds": 120,
       "MaxReplanAttempts": 3,
       "ReflectionTimeoutSeconds": 60,
-      "ExposeAsTool": true
+      "ExposeAsTool": false
     }
   }
 }
 ```
+
+- `AutoDetect`: When enabled, each user input is first evaluated by the planner to determine if it's a composite task (≥2 nodes). If so, it goes through orchestration automatically; otherwise, it goes through normal conversation.
+- `ExposeAsTool`: Set to `false` to stop exposing orchestration as an explicit tool, replaced by automatic detection.
+
+**SubAgent Role System**: The planner can assign a role (`analyst`/`researcher`/`coder`/`writer`) to each node. Roles provide specialized system prompts and default tool groups. 4 built-in roles are included, with support for custom roles via workspace extensions.
 
 **Dynamic Replanning**: When critical node failures cause overall status `failed`, the orchestrator automatically triggers reflection:
 1. **Reflect**: LLM analyzes failed nodes and their direct dependencies' outputs to determine if fixable
@@ -597,12 +605,14 @@ LuBan.AIAgent/
 │   ├── Orchestrator.cs                # Orchestrator default implementation
 │   ├── DagScheduler.cs                # DAG scheduler (topological layer parallel)
 │   ├── SubAgentFactory.cs             # SubAgent factory
+│   ├── SubAgentRoleRegistry.cs        # SubAgent role registry
 │   ├── ContextStore.cs                # Cross-node context store
 │   ├── Models/                        # Data models
 │   │   ├── TaskGraph.cs               # Task graph
 │   │   ├── TaskNode.cs                # Task node
 │   │   ├── TaskNodeStatus.cs          # Node status enum
 │   │   ├── SubAgentSpec.cs            # SubAgent specification
+│   │   ├── SubAgentRole.cs            # SubAgent role definition
 │   │   ├── NodeResult.cs              # Node result
 │   │   ├── OrchestrationResult.cs     # Orchestration result
 │   │   ├── OrchestrationProgress.cs   # Progress event

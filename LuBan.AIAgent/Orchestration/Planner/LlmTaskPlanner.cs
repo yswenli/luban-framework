@@ -50,7 +50,7 @@ public class LlmTaskPlanner : ITaskPlanner
     /// <returns></returns>
     /// <exception cref="TaskPlanningException"></exception>
 
-    [UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code", Justification = "<Pending>")]
+    [UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code", Justification = "PlanAsync uses JSON deserialization via ToObject extension which requires reflection. This planner is only invoked at runtime when orchestration is enabled, not during AOT compilation.")]
     public async Task<TaskGraph?> PlanAsync(string task, CancellationToken ct = default)
     {
         var orchestrationOpts = _options.Value.Orchestration ?? new();
@@ -217,6 +217,7 @@ public class LlmTaskPlanner : ITaskPlanner
                     Id = nodeEl.TryGetProperty("id", out var id) ? id.GetString() ?? "" : "",
                     Description = nodeEl.TryGetProperty("description", out var desc) ? desc.GetString() ?? "" : "",
                     Prompt = nodeEl.TryGetProperty("prompt", out var prompt) ? prompt.GetString() ?? "" : "",
+                    Role = nodeEl.TryGetProperty("role", out var role) ? role.GetString() : null,
                     IsCritical = TryGetBool(nodeEl, "isCritical")
                 };
 
@@ -267,36 +268,47 @@ public class LlmTaskPlanner : ITaskPlanner
     /// <param name="task">用户任务。</param>
     /// <param name="tools">可用工具组列表。</param>
     /// <returns>提示词字符串。</returns>
-    private static string BuildPlannerPrompt(string task, List<string> tools)
+    private string BuildPlannerPrompt(string task, List<string> tools)
     {
+        var availableTools = tools.Where(t => !string.Equals(t, "orchestration", StringComparison.OrdinalIgnoreCase)).ToList();
+        var maxNodes = _options.Value.Orchestration?.MaxNodes ?? 10;
         return $@"你是任务规划专家。将用户的复合任务拆解为 DAG 任务图谱。
 
-        ## 输出格式（严格 JSON）
-        {{
-          ""nodes"": [
-            {{
-              ""id"": ""唯一标识（如 research/analyze/execute）"",
-              ""description"": ""节点用途描述"",
-              ""prompt"": ""执行 prompt，可使用 {{dep:节点id}} 引用前驱输出"",
-              ""dependencies"": [""依赖的节点id""],
-              ""toolGroups"": [""web"" | ""filesystem"" | null],
-              ""isCritical"": true | false
-            }}
-          ]
-        }}
+## 输出格式（严格 JSON）
+{{
+  ""nodes"": [
+    {{
+      ""id"": ""唯一标识（如 research/analyze/execute）"",
+      ""description"": ""节点用途描述"",
+      ""prompt"": ""执行 prompt，可使用 {{dep:节点id}} 引用前驱输出"",
+      ""role"": ""analyst|researcher|coder|writer|null"",
+      ""dependencies"": [""依赖的节点id""],
+      ""toolGroups"": [""web"" | ""filesystem"" | ""script"" | ""database"" | ""redis"" | ""retrieval"" | ""localmemory"" | ""browser"" | null],
+      ""isCritical"": true | false
+    }}
+  ]
+}}
 
-        ## 可用工具组
-        {string.Join(", ", tools)}
+## 可用角色
+- analyst: 问题分析专家，默认工具组 [""filesystem""]
+- researcher: 信息检索专家，默认工具组 [""web"", ""filesystem""]
+- coder: 代码实现专家，默认工具组 [""filesystem"", ""script"", ""database""]
+- writer: 文案撰写专家，默认工具组 [""filesystem""]
 
-        ## 拆解原则
-        1. 每个节点应是独立的、可验证的子任务
-        2. 无依赖的节点不要强行添加依赖
-        3. 节点数量控制在 2-8 个
-        4. 终点节点应产出最终交付物
-        5. 使用 {{dep:id}} 占位符让后继节点引用前驱输出
+## 可用工具组
+{string.Join(", ", availableTools)}
 
-        ## 用户任务
-        {task}";
+## 拆解原则
+1. 每个节点应是独立的、可验证的子任务
+2. 无依赖的节点不要强行添加依赖
+3. 节点数量控制在 1-{maxNodes} 个（1 个表示普通任务，多个表示复合任务）
+4. 终点节点应产出最终交付物
+5. 使用 {{dep:id}} 占位符让后继节点引用前驱输出
+6. 为每个节点选择合适的角色（role），若不确定可设为 null
+7. toolGroups 可省略（使用角色默认工具组）或显式指定（覆盖角色默认值）；若未指定 role，则 toolGroups 必须显式指定
+
+## 用户任务
+{task}";
     }
 
     /// <summary>

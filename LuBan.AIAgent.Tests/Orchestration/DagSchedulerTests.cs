@@ -15,10 +15,11 @@
 *
 *****************************************************************************/
 using LuBan.AIAgent;
+using LuBan.AIAgent.Abstractions;
 using LuBan.AIAgent.Configuration;
 using LuBan.AIAgent.Orchestration;
 using LuBan.AIAgent.Orchestration.Models;
-using LuBan.AIAgent.Plugins;
+using LuBan.AIAgent.Tests;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -44,6 +45,7 @@ public class DagSchedulerTests
             : new MockChatClient("test", responder));
         services.AddSingleton<ToolPluginRegistry>();
         services.AddScoped<LuBanAgentFactory>();
+        services.AddSingleton<SubAgentRoleRegistry>();
         services.AddScoped<SubAgentFactory>();
         services.AddSingleton<ContextStore>();
         services.AddScoped<DagScheduler>();
@@ -56,8 +58,8 @@ public class DagSchedulerTests
         {
             Nodes = new()
             {
-                new() { Id = "a", Description = "节点A", Prompt = "执行A", Dependencies = new() },
-                new() { Id = "b", Description = "节点B", Prompt = "执行B", Dependencies = new() { "a" } }
+                new() { Id = "a", Description = "节点A", Prompt = "执行A", Dependencies = new(), ToolGroups = new() { "filesystem" } },
+                new() { Id = "b", Description = "节点B", Prompt = "执行B", Dependencies = new() { "a" }, ToolGroups = new() { "filesystem" } }
             }
         };
     }
@@ -85,9 +87,9 @@ public class DagSchedulerTests
         {
             Nodes = new()
             {
-                new() { Id = "a", Prompt = "A", Dependencies = new() },
-                new() { Id = "b", Prompt = "B", Dependencies = new() },
-                new() { Id = "c", Prompt = "C", Dependencies = new() }
+                new() { Id = "a", Prompt = "A", Dependencies = new(), ToolGroups = new() { "filesystem" } },
+                new() { Id = "b", Prompt = "B", Dependencies = new(), ToolGroups = new() { "filesystem" } },
+                new() { Id = "c", Prompt = "C", Dependencies = new(), ToolGroups = new() { "filesystem" } }
             }
         };
 
@@ -106,8 +108,8 @@ public class DagSchedulerTests
         {
             Nodes = new()
             {
-                new() { Id = "a", Prompt = "A", Dependencies = new(), IsCritical = true },
-                new() { Id = "b", Prompt = "B", Dependencies = new() { "a" } }
+                new() { Id = "a", Prompt = "A", Dependencies = new(), IsCritical = true, ToolGroups = new() { "filesystem" } },
+                new() { Id = "b", Prompt = "B", Dependencies = new() { "a" }, ToolGroups = new() { "filesystem" } }
             }
         };
 
@@ -133,8 +135,8 @@ public class DagSchedulerTests
         {
             Nodes = new()
             {
-                new() { Id = "a", Prompt = "A", Dependencies = new(), IsCritical = false },
-                new() { Id = "b", Prompt = "B", Dependencies = new() { "a" } }
+                new() { Id = "a", Prompt = "A", Dependencies = new(), IsCritical = false, ToolGroups = new() { "filesystem" } },
+                new() { Id = "b", Prompt = "B", Dependencies = new() { "a" }, ToolGroups = new() { "filesystem" } }
             }
         };
 

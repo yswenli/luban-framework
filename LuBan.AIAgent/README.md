@@ -221,8 +221,10 @@ category: custom
 | `CompositeTaskPlanner` | 组合式规划器，模板优先匹配，未命中回退到 LLM |
 | `DagScheduler` | DAG 调度器，基于拓扑分层实现同层并行、跨层串行 |
 | `SubAgentFactory` | SubAgent 工厂，封装 LuBanAgentFactory 的子 Agent 创建 |
+| `SubAgentRoleRegistry` | SubAgent 角色注册表，管理内置角色与自定义角色 |
+| `SubAgentRole` | SubAgent 角色定义，包含名称、系统提示词模板、默认工具组 |
 | `ContextStore` | 跨节点上下文存储，按图谱 ID 隔离，线程安全 |
-| `TaskGraph` / `TaskNode` | DAG 数据模型，支持依赖声明、占位符引用、关键节点 |
+| `TaskGraph` / `TaskNode` | DAG 数据模型，支持依赖声明、占位符引用、关键节点、角色指定 |
 | `OrchestrationToolPlugin` | 工具插件，将编排能力暴露给主 Agent 自动调用 |
 | `ReflectionResult` / `ReplanContext` | 动态重规划数据模型，关键节点失败后 LLM 分析并生成修正图谱 |
 
@@ -424,16 +426,22 @@ services.AddSingleton<IRule, MyRule>();
     "Orchestration": {
       "Enabled": true,
       "PlannerType": "composite",
+      "AutoDetect": true,
       "MaxNodes": 10,
       "MaxParallelism": 4,
       "DefaultNodeTimeoutSeconds": 120,
       "MaxReplanAttempts": 3,
       "ReflectionTimeoutSeconds": 60,
-      "ExposeAsTool": true
+      "ExposeAsTool": false
     }
   }
 }
 ```
+
+- `AutoDetect`：启用后，每轮用户输入先由 planner 判定是否为复合任务（≥2 节点），是则自动走编排，否则走普通对话。
+- `ExposeAsTool`：设为 `false` 时不再将编排暴露为显式工具，由自动判定取代。
+
+**SubAgent 角色系统**：规划器可为每个节点指定角色（`analyst`/`researcher`/`coder`/`writer`），角色提供专业系统提示词和默认工具组。内置 4 个角色，支持通过工作区扩展自定义角色。
 
 **动态重规划**：当关键节点失败导致整体状态为 `failed` 时，编排器自动触发反思阶段：
 1. **反思**：LLM 分析失败节点及其直接依赖的输出，判断是否可修复
@@ -598,12 +606,14 @@ LuBan.AIAgent/
 │   ├── Orchestrator.cs                # 编排器默认实现
 │   ├── DagScheduler.cs                # DAG 调度器（拓扑分层并行）
 │   ├── SubAgentFactory.cs             # SubAgent 工厂
+│   ├── SubAgentRoleRegistry.cs        # SubAgent 角色注册表
 │   ├── ContextStore.cs                # 跨节点上下文存储
 │   ├── Models/                        # 数据模型
 │   │   ├── TaskGraph.cs               # 任务图谱
 │   │   ├── TaskNode.cs                # 任务节点
 │   │   ├── TaskNodeStatus.cs          # 节点状态枚举
 │   │   ├── SubAgentSpec.cs            # SubAgent 规格
+│   │   ├── SubAgentRole.cs            # SubAgent 角色定义
 │   │   ├── NodeResult.cs              # 节点结果
 │   │   ├── OrchestrationResult.cs     # 编排结果
 │   │   ├── OrchestrationProgress.cs   # 进度事件

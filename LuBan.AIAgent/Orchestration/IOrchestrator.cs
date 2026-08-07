@@ -32,6 +32,14 @@ public interface IOrchestrator
     Task<OrchestrationResult> RunAsync(string task, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// 执行预计算的任务图谱（跳过规划阶段）。
+    /// </summary>
+    /// <param name="graph">预计算的任务图谱。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>编排结果。</returns>
+    Task<OrchestrationResult> RunAsync(TaskGraph graph, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// 流式执行，实时推送节点进度事件。
     /// </summary>
     /// <param name="task">用户的复合任务描述。</param>

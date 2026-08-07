@@ -14,10 +14,11 @@
 *描述：LlmTaskPlanner 单元测试
 *
 *****************************************************************************/
+using LuBan.AIAgent.Abstractions;
 using LuBan.AIAgent.Configuration;
 using LuBan.AIAgent.Orchestration;
 using LuBan.AIAgent.Orchestration.Planner;
-using LuBan.AIAgent.Plugins;
+using LuBan.AIAgent.Tests;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;

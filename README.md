@@ -73,7 +73,7 @@ LuBan.Framework 是基于 ASP.NET Core 封装的企业级 API 框架，集成了
 | **LuBan.ApprovalFlow** | 审批流引擎：图论模型、条件网关、会签聚合、任务委派、HTTP 回调、事件驱动 |
 | **LuBan.Reporting** | 数据导出：泛型列表导出 Excel/CSV + 动态报表 + Lua 脚本转换 |
 | **LuBan.AIFlow** | AI 平台统一接入：RagFlow / Dify / Coze |
-| **LuBan.AIAgent** | AI Agent 框架：工具调用、技能系统、多模型 Provider、会话管理、中间件管线 |
+| **LuBan.AIAgent** | AI Agent 框架：工具调用、技能系统、多模型 Provider、会话管理、中间件管线、多 Agent 编排 |
 
 ---
 
