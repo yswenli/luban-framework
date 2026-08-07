@@ -24,6 +24,7 @@ namespace LuBan.AIAgent.Orchestration;
 public class SubAgentRoleRegistry
 {
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, SubAgentRole> _roles = new(StringComparer.OrdinalIgnoreCase);
+    private volatile Dictionary<string, SubAgentRole> _workspaceRoles = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// 创建 SubAgentRoleRegistry 实例，注册内置角色
@@ -73,65 +74,75 @@ public class SubAgentRoleRegistry
         _roles[role.Name] = role;
     }
 
-    /// <summary>
-    /// 获取角色
-    /// </summary>
-    /// <param name="name">角色名称</param>
-    /// <returns>角色定义，未找到返回 null</returns>
-    public SubAgentRole? GetRole(string name)
-    {
-        return _roles.TryGetValue(name, out var role) ? role : null;
-    }
+/// <summary>
+/// 获取角色。工作区角色优先于内置/全局注册角色。
+/// </summary>
+/// <param name="name">角色名称</param>
+/// <returns>角色定义，未找到返回 null</returns>
+public SubAgentRole? GetRole(string name)
+{
+    if (_workspaceRoles.TryGetValue(name, out var ws))
+        return ws;
+    return _roles.TryGetValue(name, out var role) ? role : null;
+}
 
-    /// <summary>
-    /// 获取所有角色
-    /// </summary>
-    /// <returns>角色列表</returns>
-    public IReadOnlyList<SubAgentRole> GetAllRoles()
-    {
-        return _roles.Values.ToList();
-    }
+/// <summary>
+/// 获取所有角色（工作区角色覆盖同名内置角色）。
+/// </summary>
+/// <returns>角色列表</returns>
+public IReadOnlyList<SubAgentRole> GetAllRoles()
+{
+    var merged = new Dictionary<string, SubAgentRole>(StringComparer.OrdinalIgnoreCase);
+    foreach (var kvp in _roles)
+        merged[kvp.Key] = kvp.Value;
+    foreach (var kvp in _workspaceRoles)
+        merged[kvp.Key] = kvp.Value;
+    return merged.Values.ToList();
+}
 
-    /// <summary>
-    /// 从工作区 `.luban-agent/roles/*.json` 加载自定义角色。同名角色覆盖内置角色。单个文件失败不影响其他文件。
-    /// </summary>
-    /// <param name="workspaceRoot">工作区根路径。</param>
-    /// <returns>成功加载的角色数量。</returns>
-    [RequiresUnreferencedCode("角色 JSON 反序列化依赖反射")]
-    public int LoadFromWorkspace(string workspaceRoot)
+/// <summary>
+/// 从工作区 `.luban-agent/roles/*.json` 加载自定义角色。整体替换之前加载的工作区角色，
+/// 避免重复进入或切换工作区时累积残留。同名角色覆盖内置角色。单个文件失败不影响其他文件。
+/// </summary>
+/// <param name="workspaceRoot">工作区根路径。</param>
+/// <returns>成功加载的角色数量。</returns>
+[RequiresUnreferencedCode("角色 JSON 反序列化依赖反射")]
+public int LoadFromWorkspace(string workspaceRoot)
+{
+    var loaded = new Dictionary<string, SubAgentRole>(StringComparer.OrdinalIgnoreCase);
+    
+    if (!string.IsNullOrWhiteSpace(workspaceRoot))
     {
-        if (string.IsNullOrWhiteSpace(workspaceRoot))
-            return 0;
-
         var dir = Path.Combine(workspaceRoot, ".luban-agent", "roles");
-        if (!Directory.Exists(dir))
-            return 0;
-
-        var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-        var count = 0;
-        foreach (var file in Directory.EnumerateFiles(dir, "*.json"))
+        if (Directory.Exists(dir))
         {
-            try
+            var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            foreach (var file in Directory.EnumerateFiles(dir, "*.json"))
             {
-                var role = JsonSerializer.Deserialize<SubAgentRole>(File.ReadAllText(file), opts);
-                if (role == null || string.IsNullOrWhiteSpace(role.Name))
+                try
                 {
-                    Logger.Warn($"角色文件无效（缺少 name），已跳过: {file}");
-                    continue;
+                    var role = JsonSerializer.Deserialize<SubAgentRole>(File.ReadAllText(file), opts);
+                    if (role == null || string.IsNullOrWhiteSpace(role.Name))
+                    {
+                        Logger.Warn($"角色文件无效（缺少 name），已跳过: {file}");
+                        continue;
+                    }
+                    if (_roles.ContainsKey(role.Name) || loaded.ContainsKey(role.Name))
+                        Logger.Warn($"自定义角色 '{role.Name}' 覆盖同名内置角色");
+                    loaded[role.Name] = role;
                 }
-                if (_roles.ContainsKey(role.Name))
-                    Logger.Warn($"自定义角色 '{role.Name}' 覆盖同名内置角色");
-                Register(role);
-                count++;
-            }
-            catch (Exception ex)
-            {
-                Logger.Warn($"加载角色文件失败: {file}", ex);
+                catch (Exception ex)
+                {
+                    Logger.Warn($"加载角色文件失败: {file}", ex);
+                }
             }
         }
-
-        if (count > 0)
-            Logger.Info($"已从工作区加载 {count} 个自定义角色 ({dir})");
-        return count;
     }
+
+    _workspaceRoles = loaded;
+
+    if (loaded.Count > 0)
+        Logger.Info($"已从工作区加载 {loaded.Count} 个自定义角色 ({Path.Combine(workspaceRoot ?? "", ".luban-agent", "roles")})");
+    return loaded.Count;
+}
 }

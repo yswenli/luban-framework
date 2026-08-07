@@ -208,4 +208,72 @@ public class TemplateTaskPlannerTests
         }
         finally { Directory.Delete(workspace, true); }
     }
+
+    [TestMethod]
+    public async Task TestLoadFromWorkspace_重新加载时清除旧模板()
+    {
+        var workspace1 = CreateTempWorkspace();
+        var workspace2 = CreateTempWorkspace();
+        try
+        {
+            var plans1 = Path.Combine(workspace1, ".luban-agent", "plans");
+            Directory.CreateDirectory(plans1);
+            File.WriteAllText(Path.Combine(plans1, "ws1.json"), """
+            {
+              "name": "ws1-template",
+              "keywords": ["ws1关键词"],
+              "graph": { "nodes": [ { "id": "a", "description": "a", "prompt": "a", "dependencies": [], "toolGroups": ["filesystem"] } ] }
+            }
+            """);
+
+            var plans2 = Path.Combine(workspace2, ".luban-agent", "plans");
+            Directory.CreateDirectory(plans2);
+            File.WriteAllText(Path.Combine(plans2, "ws2.json"), """
+            {
+              "name": "ws2-template",
+              "keywords": ["ws2关键词"],
+              "graph": { "nodes": [ { "id": "b", "description": "b", "prompt": "b", "dependencies": [], "toolGroups": ["filesystem"] } ] }
+            }
+            """);
+
+            var planner = new TemplateTaskPlanner(Array.Empty<TaskGraphTemplate>());
+            
+            planner.LoadFromWorkspace(workspace1);
+            var graph1 = await planner.PlanAsync("ws1关键词任务");
+            Assert.IsNotNull(graph1);
+
+            planner.LoadFromWorkspace(workspace2);
+            var graph2 = await planner.PlanAsync("ws1关键词任务");
+            Assert.IsNull(graph2);
+
+            var graph3 = await planner.PlanAsync("ws2关键词任务");
+            Assert.IsNotNull(graph3);
+        }
+        finally { Directory.Delete(workspace1, true); Directory.Delete(workspace2, true); }
+    }
+
+    [TestMethod]
+    public void TestLoadFromWorkspace_空工作区清除旧模板()
+    {
+        var workspace1 = CreateTempWorkspace();
+        var workspaceEmpty = CreateTempWorkspace();
+        try
+        {
+            var plans1 = Path.Combine(workspace1, ".luban-agent", "plans");
+            Directory.CreateDirectory(plans1);
+            File.WriteAllText(Path.Combine(plans1, "test.json"), """
+            {
+              "name": "test-template",
+              "keywords": ["测试关键词"],
+              "graph": { "nodes": [ { "id": "a", "description": "a", "prompt": "a", "dependencies": [], "toolGroups": ["filesystem"] } ] }
+            }
+            """);
+
+            var planner = new TemplateTaskPlanner(Array.Empty<TaskGraphTemplate>());
+            
+            planner.LoadFromWorkspace(workspace1);
+            Assert.AreEqual(0, planner.LoadFromWorkspace(workspaceEmpty));
+        }
+        finally { Directory.Delete(workspace1, true); Directory.Delete(workspaceEmpty, true); }
+    }
 }

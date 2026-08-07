@@ -159,4 +159,67 @@ public class SubAgentRoleRegistryTests
         }
         finally { Directory.Delete(workspace, true); }
     }
+
+    [TestMethod]
+    public void TestLoadFromWorkspace_重新加载时清除旧角色()
+    {
+        var workspace1 = CreateTempWorkspace();
+        var workspace2 = CreateTempWorkspace();
+        try
+        {
+            var roles1 = Path.Combine(workspace1, ".luban-agent", "roles");
+            Directory.CreateDirectory(roles1);
+            File.WriteAllText(Path.Combine(roles1, "ws1-role.json"), """
+            { "name": "ws1-custom", "systemPromptTemplate": "WS1 {prompt}", "defaultToolGroups": ["filesystem"] }
+            """);
+
+            var roles2 = Path.Combine(workspace2, ".luban-agent", "roles");
+            Directory.CreateDirectory(roles2);
+            File.WriteAllText(Path.Combine(roles2, "ws2-role.json"), """
+            { "name": "ws2-custom", "systemPromptTemplate": "WS2 {prompt}", "defaultToolGroups": ["filesystem"] }
+            """);
+
+            var registry = new SubAgentRoleRegistry();
+            
+            registry.LoadFromWorkspace(workspace1);
+            Assert.IsNotNull(registry.GetRole("ws1-custom"));
+            Assert.IsNull(registry.GetRole("ws2-custom"));
+
+            registry.LoadFromWorkspace(workspace2);
+            Assert.IsNull(registry.GetRole("ws1-custom"));
+            Assert.IsNotNull(registry.GetRole("ws2-custom"));
+        }
+        finally { Directory.Delete(workspace1, true); Directory.Delete(workspace2, true); }
+    }
+
+    [TestMethod]
+    public void TestLoadFromWorkspace_工作区角色覆盖后重新加载空目录恢复内置()
+    {
+        var workspace = CreateTempWorkspace();
+        var emptyWorkspace = CreateTempWorkspace();
+        try
+        {
+            var rolesDir = Path.Combine(workspace, ".luban-agent", "roles");
+            Directory.CreateDirectory(rolesDir);
+            File.WriteAllText(Path.Combine(rolesDir, "coder.json"), """
+            { "name": "coder", "systemPromptTemplate": "CustomCoder {prompt}", "defaultToolGroups": ["filesystem"] }
+            """);
+
+            var registry = new SubAgentRoleRegistry();
+            var builtIn = registry.GetRole("coder");
+            Assert.IsNotNull(builtIn);
+            Assert.IsFalse(builtIn!.SystemPromptTemplate.StartsWith("CustomCoder"));
+
+            registry.LoadFromWorkspace(workspace);
+            var overridden = registry.GetRole("coder");
+            Assert.IsNotNull(overridden);
+            Assert.IsTrue(overridden!.SystemPromptTemplate.StartsWith("CustomCoder"));
+
+            registry.LoadFromWorkspace(emptyWorkspace);
+            var restored = registry.GetRole("coder");
+            Assert.IsNotNull(restored);
+            Assert.IsFalse(restored!.SystemPromptTemplate.StartsWith("CustomCoder"));
+        }
+        finally { Directory.Delete(workspace, true); Directory.Delete(emptyWorkspace, true); }
+    }
 }

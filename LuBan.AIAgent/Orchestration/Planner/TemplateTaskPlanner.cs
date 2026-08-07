@@ -21,15 +21,16 @@ namespace LuBan.AIAgent.Orchestration.Planner;
 /// </summary>
 public class TemplateTaskPlanner : ITaskPlanner
 {
-    private readonly List<TaskGraphTemplate> _templates;
+    private readonly List<TaskGraphTemplate> _builtInTemplates;
+    private List<TaskGraphTemplate> _workspaceTemplates = new();
 
     /// <summary>
     /// 创建 TemplateTaskPlanner 实例。
     /// </summary>
-    /// <param name="templates">模板列表。</param>
+    /// <param name="templates">内置模板列表（构造时提供，不随工作区变化）。</param>
     public TemplateTaskPlanner(IEnumerable<TaskGraphTemplate> templates)
     {
-        _templates = templates?.ToList() ?? new();
+        _builtInTemplates = templates?.ToList() ?? new();
     }
 
     /// <inheritdoc/>
@@ -57,54 +58,57 @@ public class TemplateTaskPlanner : ITaskPlanner
     }
 
     /// <summary>
-    /// 从工作区 `.luban-agent/plans/*.json` 加载任务模板。单个文件失败不影响其他文件。
+    /// 从工作区 `.luban-agent/plans/*.json` 加载任务模板。整体替换之前加载的工作区模板，
+    /// 避免重复进入或切换工作区时累积残留。单个文件失败不影响其他文件。
     /// </summary>
     /// <param name="workspaceRoot">工作区根路径。</param>
     /// <returns>成功加载的模板数量。</returns>
     [RequiresUnreferencedCode("模板 JSON 反序列化依赖反射")]
     public int LoadFromWorkspace(string workspaceRoot)
     {
-        if (string.IsNullOrWhiteSpace(workspaceRoot))
-            return 0;
-
-        var dir = Path.Combine(workspaceRoot, ".luban-agent", "plans");
-        if (!Directory.Exists(dir))
-            return 0;
-
-        var count = 0;
-        foreach (var file in Directory.EnumerateFiles(dir, "*.json"))
+        var loaded = new List<TaskGraphTemplate>();
+        if (!string.IsNullOrWhiteSpace(workspaceRoot))
         {
-            try
+            var dir = Path.Combine(workspaceRoot, ".luban-agent", "plans");
+            if (Directory.Exists(dir))
             {
-                var template = TaskGraphTemplate.FromJson(File.ReadAllText(file));
-                if (template == null)
+                foreach (var file in Directory.EnumerateFiles(dir, "*.json"))
                 {
-                    Logger.Warn($"任务模板文件缺少 name，已跳过: {file}");
-                    continue;
+                    try
+                    {
+                        var template = TaskGraphTemplate.FromJson(File.ReadAllText(file));
+                        if (template == null)
+                        {
+                            Logger.Warn($"任务模板文件无效（缺少 name 或 graph 无节点），已跳过: {file}");
+                            continue;
+                        }
+                        loaded.Add(template);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn($"加载任务模板失败: {file}", ex);
+                    }
                 }
-                _templates.Add(template);
-                count++;
-            }
-            catch (Exception ex)
-            {
-                Logger.Warn($"加载任务模板失败: {file}", ex);
             }
         }
 
-        if (count > 0)
-            Logger.Info($"已从工作区加载 {count} 个任务模板 ({dir})");
-        return count;
+        _workspaceTemplates = loaded;
+
+        if (loaded.Count > 0)
+            Logger.Info($"已从工作区加载 {loaded.Count} 个任务模板 ({Path.Combine(workspaceRoot ?? "", ".luban-agent", "plans")})");
+        return loaded.Count;
     }
 
     /// <summary>
-    /// 通过关键词匹配模板。
+    /// 通过关键词匹配模板。工作区模板优先于内置模板。
     /// </summary>
     /// <param name="task">用户任务描述。</param>
     /// <returns>匹配的模板，未命中返回 null。</returns>
     private TaskGraphTemplate? MatchTemplate(string task)
     {
         var lowerTask = task.ToLowerInvariant();
-        foreach (var t in _templates)
+        
+        foreach (var t in _workspaceTemplates)
         {
             foreach (var kw in t.Keywords)
             {
@@ -112,6 +116,16 @@ public class TemplateTaskPlanner : ITaskPlanner
                     return t;
             }
         }
+        
+        foreach (var t in _builtInTemplates)
+        {
+            foreach (var kw in t.Keywords)
+            {
+                if (lowerTask.Contains(kw.ToLowerInvariant()))
+                    return t;
+            }
+        }
+        
         return null;
     }
 
