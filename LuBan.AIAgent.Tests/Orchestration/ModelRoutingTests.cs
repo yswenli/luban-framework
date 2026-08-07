@@ -16,6 +16,7 @@
 *****************************************************************************/
 using LuBan.AIAgent.Abstractions;
 using LuBan.AIAgent.Configuration;
+using LuBan.AIAgent.Orchestration.Planner;
 using LuBan.AIAgent.Tests;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
@@ -73,5 +74,72 @@ public class ModelRoutingTests
         var agent = await factory.CreateSubAgentAsync("missing:model", null, "你是子代理");
 
         Assert.IsNotNull(agent);
+    }
+
+    private const string PlannerGraphJson = """
+        { "nodes": [ { "id": "a", "description": "a", "prompt": "p", "dependencies": [], "toolGroups": ["filesystem"] } ] }
+        """;
+
+    private static ServiceProvider BuildPlannerServices(MockProviderRouter router, string? plannerModel)
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton(Options.Create(new LuBanAgentOptions
+        {
+            Orchestration = new OrchestrationOptions { PlannerModel = plannerModel, MaxNodes = 10 }
+        }));
+        services.AddSingleton<IChatClient>(new MockChatClient("default", _ => PlannerGraphJson));
+        services.AddSingleton<IProviderRouter>(router);
+        services.AddSingleton<ToolPluginRegistry>();
+        return services.BuildServiceProvider();
+    }
+
+    [TestMethod]
+    public async Task TestLlmTaskPlanner_配置PlannerModel时走路由()
+    {
+        var router = new MockProviderRouter(new MockChatClient("planner", _ => PlannerGraphJson));
+        using var sp = BuildPlannerServices(router, "kimi:planner-strong");
+
+        var planner = new LlmTaskPlanner(
+            sp.GetRequiredService<IChatClient>(),
+            sp,
+            sp.GetRequiredService<IOptions<LuBanAgentOptions>>(),
+            router);
+        var graph = await planner.PlanAsync("任意任务");
+
+        Assert.IsNotNull(graph);
+        Assert.IsTrue(router.RequestedModels.Contains("kimi:planner-strong"));
+    }
+
+    [TestMethod]
+    public async Task TestLlmTaskPlanner_未配置PlannerModel不走路由()
+    {
+        var router = new MockProviderRouter(new MockChatClient("planner", _ => PlannerGraphJson));
+        using var sp = BuildPlannerServices(router, null);
+
+        var planner = new LlmTaskPlanner(
+            sp.GetRequiredService<IChatClient>(),
+            sp,
+            sp.GetRequiredService<IOptions<LuBanAgentOptions>>(),
+            router);
+        var graph = await planner.PlanAsync("任意任务");
+
+        Assert.IsNotNull(graph);
+        Assert.AreEqual(0, router.RequestedModels.Count);
+    }
+
+    [TestMethod]
+    public async Task TestLlmTaskPlanner_路由失败回退注入客户端()
+    {
+        var router = new MockProviderRouter(new MockChatClient("x", _ => PlannerGraphJson), throwOnRoute: true);
+        using var sp = BuildPlannerServices(router, "missing:model");
+
+        var planner = new LlmTaskPlanner(
+            sp.GetRequiredService<IChatClient>(),
+            sp,
+            sp.GetRequiredService<IOptions<LuBanAgentOptions>>(),
+            router);
+        var graph = await planner.PlanAsync("任意任务");
+
+        Assert.IsNotNull(graph);
     }
 }

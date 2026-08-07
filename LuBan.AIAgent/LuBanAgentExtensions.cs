@@ -105,7 +105,7 @@ public static class LuBanAgentExtensions
         services.AddScoped<Orchestration.SubAgentFactory>();
         services.AddScoped<Orchestration.DagScheduler>();
 
-        // 规划器：LlmTaskPlanner 依赖 IChatClient（通常 Scoped），TemplateTaskPlanner 无状态可 Singleton
+        // 规划器：LlmTaskPlanner 依赖 IChatClient（通常 Scoped）+ 可选 IProviderRouter（PlannerModel 路由），必须 Scoped
         services.AddScoped<Orchestration.Planner.LlmTaskPlanner>();
         services.AddSingleton<Orchestration.Planner.TemplateTaskPlanner>();
         services.AddScoped<Orchestration.Planner.ITaskPlanner>(sp =>

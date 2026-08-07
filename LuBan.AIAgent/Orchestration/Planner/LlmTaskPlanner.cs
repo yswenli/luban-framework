@@ -29,17 +29,41 @@ public class LlmTaskPlanner : ITaskPlanner
     /// <summary>
     /// 创建 LlmTaskPlanner 实例。
     /// </summary>
-    /// <param name="chatClient">聊天客户端。</param>
+    /// <param name="chatClient">聊天客户端（默认模型，作为未配置 PlannerModel 或路由失败时的回退）。</param>
     /// <param name="serviceProvider">服务提供者。</param>
     /// <param name="options">配置选项。</param>
+    /// <param name="providerRouter">模型提供者路由（可选，配置 PlannerModel 后生效）。</param>
     public LlmTaskPlanner(
         IChatClient chatClient,
         IServiceProvider serviceProvider,
-        IOptions<LuBanAgentOptions> options)
+        IOptions<LuBanAgentOptions> options,
+        IProviderRouter? providerRouter = null)
     {
-        _chatClient = chatClient;
         _serviceProvider = serviceProvider;
         _options = options;
+        _chatClient = ResolvePlannerClient(chatClient, providerRouter, options.Value.Orchestration?.PlannerModel);
+    }
+
+    /// <summary>
+    /// 按 PlannerModel 配置解析规划器使用的聊天客户端，路由失败回退注入客户端。
+    /// </summary>
+    /// <param name="fallback">注入的默认客户端。</param>
+    /// <param name="router">模型提供者路由。</param>
+    /// <param name="plannerModel">规划器模型（格式 "provider:model"）。</param>
+    /// <returns>聊天客户端实例。</returns>
+    private static IChatClient ResolvePlannerClient(IChatClient fallback, IProviderRouter? router, string? plannerModel)
+    {
+        if (string.IsNullOrEmpty(plannerModel) || router == null)
+            return fallback;
+        try
+        {
+            return router.CreateChatClient(plannerModel);
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn($"Planner 模型 '{plannerModel}' 路由失败（{ex.Message}），回退默认模型");
+            return fallback;
+        }
     }
 
     /// <summary>
