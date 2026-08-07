@@ -21,13 +21,6 @@
 *描述：检索服务实现
 *
 *****************************************************************************/
-using System.Security.Cryptography;
-using System.Text;
-using Microsoft.Extensions.AI;
-using Microsoft.Extensions.Options;
-using LuBan.AIAgent.Configuration;
-using LuBan.AIAgent.Retrieval.Chunkers;
-using LuBan.Threading;
 
 namespace LuBan.AIAgent.Retrieval;
 

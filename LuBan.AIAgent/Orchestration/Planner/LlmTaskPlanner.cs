@@ -14,9 +14,6 @@
 *描述：基于 LLM 的任务规划器，通过提示词引导模型生成 DAG 任务图谱
 *
 *****************************************************************************/
-using LuBan.AIAgent.Configuration;
-using LuBan.AIAgent.Orchestration.Models;
-
 namespace LuBan.AIAgent.Orchestration.Planner;
 
 /// <summary>
@@ -45,7 +42,15 @@ public class LlmTaskPlanner : ITaskPlanner
         _options = options;
     }
 
-    /// <inheritdoc/>
+    /// <summary>
+    /// 将自然语言任务转换为 TaskGraph
+    /// </summary>
+    /// <param name="task"></param>
+    /// <param name="ct"></param>
+    /// <returns></returns>
+    /// <exception cref="TaskPlanningException"></exception>
+
+    [UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code", Justification = "<Pending>")]
     public async Task<TaskGraph?> PlanAsync(string task, CancellationToken ct = default)
     {
         var orchestrationOpts = _options.Value.Orchestration ?? new();
@@ -163,20 +168,20 @@ public class LlmTaskPlanner : ITaskPlanner
 
         sb.AppendLine("## 输出格式（严格 JSON）");
         sb.AppendLine(@"{
-  ""analysis"": ""失败原因分析"",
-  ""fix_approach"": ""修复方案"",
-  ""should_retry"": true,
-  ""new_nodes"": [
-    {
-      ""id"": ""fix_1_step1"",
-      ""description"": ""节点用途"",
-      ""prompt"": ""执行 prompt，可使用 {dep:节点id} 引用前驱输出"",
-      ""dependencies"": [""依赖的节点id""],
-      ""toolGroups"": [""web""],
-      ""isCritical"": true
-    }
-  ]
-}");
+          ""analysis"": ""失败原因分析"",
+          ""fix_approach"": ""修复方案"",
+          ""should_retry"": true,
+          ""new_nodes"": [
+            {
+              ""id"": ""fix_1_step1"",
+              ""description"": ""节点用途"",
+              ""prompt"": ""执行 prompt，可使用 {dep:节点id} 引用前驱输出"",
+              ""dependencies"": [""依赖的节点id""],
+              ""toolGroups"": [""web""],
+              ""isCritical"": true
+            }
+          ]
+        }");
         sb.AppendLine();
         sb.AppendLine("请分析失败原因，决定是否重试，并生成修正节点（如果需要）。");
 
@@ -266,32 +271,32 @@ public class LlmTaskPlanner : ITaskPlanner
     {
         return $@"你是任务规划专家。将用户的复合任务拆解为 DAG 任务图谱。
 
-## 输出格式（严格 JSON）
-{{
-  ""nodes"": [
-    {{
-      ""id"": ""唯一标识（如 research/analyze/execute）"",
-      ""description"": ""节点用途描述"",
-      ""prompt"": ""执行 prompt，可使用 {{dep:节点id}} 引用前驱输出"",
-      ""dependencies"": [""依赖的节点id""],
-      ""toolGroups"": [""web"" | ""filesystem"" | null],
-      ""isCritical"": true | false
-    }}
-  ]
-}}
+        ## 输出格式（严格 JSON）
+        {{
+          ""nodes"": [
+            {{
+              ""id"": ""唯一标识（如 research/analyze/execute）"",
+              ""description"": ""节点用途描述"",
+              ""prompt"": ""执行 prompt，可使用 {{dep:节点id}} 引用前驱输出"",
+              ""dependencies"": [""依赖的节点id""],
+              ""toolGroups"": [""web"" | ""filesystem"" | null],
+              ""isCritical"": true | false
+            }}
+          ]
+        }}
 
-## 可用工具组
-{string.Join(", ", tools)}
+        ## 可用工具组
+        {string.Join(", ", tools)}
 
-## 拆解原则
-1. 每个节点应是独立的、可验证的子任务
-2. 无依赖的节点不要强行添加依赖
-3. 节点数量控制在 2-8 个
-4. 终点节点应产出最终交付物
-5. 使用 {{dep:id}} 占位符让后继节点引用前驱输出
+        ## 拆解原则
+        1. 每个节点应是独立的、可验证的子任务
+        2. 无依赖的节点不要强行添加依赖
+        3. 节点数量控制在 2-8 个
+        4. 终点节点应产出最终交付物
+        5. 使用 {{dep:id}} 占位符让后继节点引用前驱输出
 
-## 用户任务
-{task}";
+        ## 用户任务
+        {task}";
     }
 
     /// <summary>
@@ -312,8 +317,5 @@ public class LlmTaskPlanner : ITaskPlanner
         => _serviceProvider.GetRequiredService<ToolPluginRegistry>()
             .GetEnabledPlugins().Select(p => p.GroupName).ToList();
 
-    private static readonly JsonSerializerOptions JsonOpts = new()
-    {
-        PropertyNameCaseInsensitive = true
-    };
+
 }

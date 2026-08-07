@@ -1,7 +1,3 @@
-using LuBan.AIAgent.Utils.Text;
-using Microsoft.Extensions.AI;
-using Microsoft.Extensions.Options;
-
 /****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net8.0
