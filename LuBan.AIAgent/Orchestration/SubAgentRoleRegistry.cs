@@ -91,4 +91,47 @@ public class SubAgentRoleRegistry
     {
         return _roles.Values.ToList();
     }
+
+    /// <summary>
+    /// 从工作区 `.luban-agent/roles/*.json` 加载自定义角色。同名角色覆盖内置角色。单个文件失败不影响其他文件。
+    /// </summary>
+    /// <param name="workspaceRoot">工作区根路径。</param>
+    /// <returns>成功加载的角色数量。</returns>
+    [RequiresUnreferencedCode("角色 JSON 反序列化依赖反射")]
+    public int LoadFromWorkspace(string workspaceRoot)
+    {
+        if (string.IsNullOrWhiteSpace(workspaceRoot))
+            return 0;
+
+        var dir = Path.Combine(workspaceRoot, ".luban-agent", "roles");
+        if (!Directory.Exists(dir))
+            return 0;
+
+        var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+        var count = 0;
+        foreach (var file in Directory.EnumerateFiles(dir, "*.json"))
+        {
+            try
+            {
+                var role = JsonSerializer.Deserialize<SubAgentRole>(File.ReadAllText(file), opts);
+                if (role == null || string.IsNullOrWhiteSpace(role.Name))
+                {
+                    Logger.Warn($"角色文件无效（缺少 name），已跳过: {file}");
+                    continue;
+                }
+                if (_roles.ContainsKey(role.Name))
+                    Logger.Warn($"自定义角色 '{role.Name}' 覆盖同名内置角色");
+                Register(role);
+                count++;
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"加载角色文件失败: {file}", ex);
+            }
+        }
+
+        if (count > 0)
+            Logger.Info($"已从工作区加载 {count} 个自定义角色 ({dir})");
+        return count;
+    }
 }
