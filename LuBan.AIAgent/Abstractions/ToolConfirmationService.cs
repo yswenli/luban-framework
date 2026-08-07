@@ -3,7 +3,7 @@
 *CLR版本： .net8.0
 *机器名称：WALLE
 *公司名称：Walle
-*命名空间：LuBan.AIAgent.Services
+*命名空间：LuBan.AIAgent.Abstractions
 *文件名： ToolConfirmationService
 *版本号： V2.0.0.0
 *唯一标识：5fbbb94e-0e73-49ae-9105-0910710e8209

@@ -3,7 +3,7 @@
 *CLR版本： .net8.0
 *机器名称：WALLE
 *公司名称：Walle
-*命名空间：LuBan.AIAgent.Core
+*命名空间：LuBan.AIAgent
 *文件名： SanitizingChatClient
 *版本号： V1.0.0.0
 *唯一标识：e2811310-57da-479d-bb83-7b7ec92040a3

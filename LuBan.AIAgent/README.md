@@ -501,14 +501,30 @@ await foreach (var progress in orchestrator.RunStreamingAsync("..."))
 
 ```
 LuBan.AIAgent/
+├── Abstractions/
+│   ├── ILuBanToolPlugin.cs            # 工具插件接口
+│   ├── ToolPluginRegistry.cs          # 插件注册表
+│   ├── ToolConfirmationService.cs     # 工具执行确认服务
+│   ├── ToolAttribute.cs               # 工具标注特性
+│   ├── ToolResult.cs                  # 工具结果
+│   └── IIdentifiable.cs               # 可标识组件接口
 ├── Configuration/
 │   ├── IAppConfigReader.cs            # 应用配置只读接口
-│   ├── Storage/
-│   │   ├── CustomSkillConfig.cs       # 自定义 Skill 配置
-│   │   ├── CustomRuleConfig.cs        # 自定义规则配置
-│   │   └── McpServerConfig.cs         # 外部 MCP 服务器配置
+│   ├── IProviderRouter.cs             # Provider 路由接口
+│   ├── CustomSkillConfig.cs           # 自定义 Skill 配置
+│   ├── CustomRuleConfig.cs            # 自定义规则配置
+│   ├── McpServerConfig.cs             # 外部 MCP 服务器配置
 │   ├── LuBanAgentOptions.cs           # Agent 配置选项
-│   ├── SessionOptions.cs              # 会话配置选项
+│   ├── BrowserToolOptions.cs          # 浏览器工具选项
+│   ├── DatabaseToolOptions.cs         # 数据库工具选项
+│   ├── FileSystemToolOptions.cs       # 文件系统工具选项
+│   ├── RedisToolOptions.cs            # Redis 工具选项
+│   ├── ScriptToolOptions.cs           # 脚本工具选项
+│   ├── WebToolOptions.cs              # Web 工具选项
+│   ├── RetrievalToolOptions.cs        # 检索工具选项
+│   ├── LocalMemoryOptions.cs          # 本地记忆选项
+│   ├── ModelEndpointOptions.cs        # 模型端点选项
+│   ├── OrchestrationOptions.cs        # 编排选项
 │   └── ToolGroupOptions.cs            # 工具组配置
 ├── Infrastructure/
 │   ├── PlaywrightSession.cs           # Playwright 会话管理
@@ -521,7 +537,11 @@ LuBan.AIAgent/
 │   ├── Database/DatabaseToolPlugin.cs # 数据库工具
 │   ├── Redis/RedisToolPlugin.cs       # Redis 工具
 │   ├── Web/WebToolPlugin.cs           # Web 工具
-│   └── Retrieval/RetrievalToolPlugin.cs # 语义检索工具
+│   ├── LocalMemory/LocalMemoryToolPlugin.cs  # 本地记忆工具
+│   ├── Retrieval/RetrievalToolPlugin.cs # 语义检索工具
+│   └── Orchestration/                 # 编排工具
+│       ├── OrchestrationToolPlugin.cs # 编排工具插件
+│       └── OrchestrationToolGroup.cs  # 编排工具组
 ├── Skills/
 │   ├── ISkill.cs                      # Skill 接口（含 PromptTemplate）
 │   ├── SkillBase.cs                   # Skill 基类
@@ -562,20 +582,17 @@ LuBan.AIAgent/
 │   ├── IRetrievalService.cs           # 语义检索接口
 │   ├── RetrievalService.cs            # 检索服务实现
 │   └── Chunkers/                     # 代码切块器
-├── Providers/
-│   └── IProviderRouter.cs             # Provider 路由接口
-├── Abstractions/
-│   └── ILuBanToolPlugin.cs            # 工具插件接口
-├── Plugins/
-│   └── ToolPluginRegistry.cs          # 插件注册表
-├── Services/
-│   └── ToolConfirmationService.cs     # 工具执行确认服务
 ├── Utils/Text/
 │   ├── TextUtils.cs                   # 文本处理工具
 │   ├── NGramExtractor.cs              # N-Gram 提取器
 │   └── WildcardMatcher.cs             # 通配符匹配
 ├── LocalMemory/
-│   └── LocalMemoryService.cs          # 本地记忆服务
+│   ├── ILocalMemoryService.cs         # 本地记忆服务接口
+│   ├── ILocalMemoryStore.cs           # 本地记忆存储接口
+│   ├── IWorkspaceContextProvider.cs   # 工作区上下文提供者接口
+│   ├── LocalMemoryService.cs          # 本地记忆服务
+│   ├── MemoryCategories.cs            # 记忆分类
+│   └── MemoryEntry.cs                 # 记忆条目模型
 ├── Orchestration/                     # 多 Agent 编排子系统
 │   ├── IOrchestrator.cs               # 编排器接口
 │   ├── Orchestrator.cs                # 编排器默认实现
@@ -601,12 +618,12 @@ LuBan.AIAgent/
 │   └── Exceptions/                    # 异常定义
 │       ├── TaskPlanningException.cs   # 规划异常
 │       └── NodeExecutionException.cs  # 节点执行异常
-├── Tools/Orchestration/               # 编排工具插件
-│   ├── OrchestrationToolPlugin.cs     # 工具插件
-│   └── OrchestrationToolGroup.cs      # 工具组
 ├── LuBanAgent.cs                      # Agent 实例
 ├── LuBanAgentFactory.cs               # Agent 工厂
-└── LuBanAgentExtensions.cs            # DI 扩展方法
+├── LuBanAgentExtensions.cs            # DI 扩展方法
+├── SanitizingChatClient.cs            # 聊天客户端消毒器
+├── AIFunctionFactoryHelper.cs         # AI 函数工厂辅助类
+└── ILuBanAgentFactory.cs              # Agent 工厂接口
 ```
 
 ## 小贴士

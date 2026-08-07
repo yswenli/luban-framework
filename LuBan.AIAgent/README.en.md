@@ -500,14 +500,30 @@ await foreach (var progress in orchestrator.RunStreamingAsync("..."))
 
 ```
 LuBan.AIAgent/
+├── Abstractions/
+│   ├── ILuBanToolPlugin.cs            # Tool plugin interface
+│   ├── ToolPluginRegistry.cs          # Plugin registry
+│   ├── ToolConfirmationService.cs     # Tool execution confirmation service
+│   ├── ToolAttribute.cs               # Tool attribute
+│   ├── ToolResult.cs                  # Tool result
+│   └── IIdentifiable.cs               # Identifiable component interface
 ├── Configuration/
 │   ├── IAppConfigReader.cs            # Application config read-only interface
-│   ├── Storage/
-│   │   ├── CustomSkillConfig.cs       # Custom skill configuration
-│   │   ├── CustomRuleConfig.cs        # Custom rule configuration
-│   │   └── McpServerConfig.cs         # External MCP server config
+│   ├── IProviderRouter.cs             # Provider routing interface
+│   ├── CustomSkillConfig.cs           # Custom skill configuration
+│   ├── CustomRuleConfig.cs            # Custom rule configuration
+│   ├── McpServerConfig.cs             # External MCP server config
 │   ├── LuBanAgentOptions.cs           # Agent configuration options
-│   ├── SessionOptions.cs              # Session configuration options
+│   ├── BrowserToolOptions.cs          # Browser tool options
+│   ├── DatabaseToolOptions.cs         # Database tool options
+│   ├── FileSystemToolOptions.cs       # File system tool options
+│   ├── RedisToolOptions.cs            # Redis tool options
+│   ├── ScriptToolOptions.cs           # Script tool options
+│   ├── WebToolOptions.cs              # Web tool options
+│   ├── RetrievalToolOptions.cs        # Retrieval tool options
+│   ├── LocalMemoryOptions.cs          # Local memory options
+│   ├── ModelEndpointOptions.cs        # Model endpoint options
+│   ├── OrchestrationOptions.cs        # Orchestration options
 │   └── ToolGroupOptions.cs            # Tool group configuration
 ├── Infrastructure/
 │   ├── PlaywrightSession.cs           # Playwright session management
@@ -520,7 +536,11 @@ LuBan.AIAgent/
 │   ├── Database/DatabaseToolPlugin.cs # Database tools
 │   ├── Redis/RedisToolPlugin.cs       # Redis tools
 │   ├── Web/WebToolPlugin.cs           # Web tools
-│   └── Retrieval/RetrievalToolPlugin.cs # Semantic retrieval tools
+│   ├── LocalMemory/LocalMemoryToolPlugin.cs  # Local memory tools
+│   ├── Retrieval/RetrievalToolPlugin.cs # Semantic retrieval tools
+│   └── Orchestration/                 # Orchestration tools
+│       ├── OrchestrationToolPlugin.cs # Orchestration tool plugin
+│       └── OrchestrationToolGroup.cs  # Orchestration tool group
 ├── Skills/
 │   ├── ISkill.cs                      # Skill interface (with PromptTemplate)
 │   ├── SkillBase.cs                   # Skill base class
@@ -561,19 +581,17 @@ LuBan.AIAgent/
 │   ├── IRetrievalService.cs           # Semantic retrieval interface
 │   ├── RetrievalService.cs            # Retrieval service
 │   └── Chunkers/                     # Code chunkers
-├── Providers/
-│   └── IProviderRouter.cs             # Provider routing interface
-├── Abstractions/
-│   └── ILuBanToolPlugin.cs            # Tool plugin interface
-├── Plugins/
-│   └── ToolPluginRegistry.cs          # Plugin registry
-├── Services/
-│   └── ToolConfirmationService.cs     # Tool execution confirmation service
-├── Utils/
-│   └── Text/
-│       ├── TextUtils.cs               # Text processing utilities
-│       ├── NGramExtractor.cs          # N-gram extractor
-│       └── WildcardMatcher.cs         # Wildcard matching
+├── LocalMemory/
+│   ├── ILocalMemoryService.cs         # Local memory service interface
+│   ├── ILocalMemoryStore.cs           # Local memory store interface
+│   ├── IWorkspaceContextProvider.cs   # Workspace context provider interface
+│   ├── LocalMemoryService.cs          # Local memory service
+│   ├── MemoryCategories.cs            # Memory categories
+│   └── MemoryEntry.cs                 # Memory entry model
+├── Utils/Text/
+│   ├── TextUtils.cs                   # Text processing utilities
+│   ├── NGramExtractor.cs              # N-gram extractor
+│   └── WildcardMatcher.cs             # Wildcard matching
 ├── Orchestration/                     # Multi-Agent orchestration subsystem
 │   ├── IOrchestrator.cs               # Orchestrator interface
 │   ├── Orchestrator.cs                # Orchestrator default implementation
@@ -599,12 +617,12 @@ LuBan.AIAgent/
 │   └── Exceptions/                    # Exception definitions
 │       ├── TaskPlanningException.cs   # Planning exception
 │       └── NodeExecutionException.cs  # Node execution exception
-├── Tools/Orchestration/               # Orchestration tool plugin
-│   ├── OrchestrationToolPlugin.cs     # Tool plugin
-│   └── OrchestrationToolGroup.cs      # Tool group
 ├── LuBanAgent.cs                      # Agent instance
 ├── LuBanAgentFactory.cs               # Agent factory
-└── LuBanAgentExtensions.cs            # DI extension methods
+├── LuBanAgentExtensions.cs            # DI extension methods
+├── SanitizingChatClient.cs            # Chat client sanitizer
+├── AIFunctionFactoryHelper.cs         # AI function factory helper
+└── ILuBanAgentFactory.cs              # Agent factory interface
 ```
 
 ## Tips
