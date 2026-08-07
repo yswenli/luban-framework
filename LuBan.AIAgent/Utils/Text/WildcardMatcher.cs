@@ -1,7 +1,32 @@
+/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net8.0
+*机器名称：WALLE
+*公司名称：Walle
+*命名空间：LuBan.AIAgent.Utils.Text
+*文件名： WildcardMatcher
+*版本号： V1.0.0.0
+*唯一标识：新建
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/8/7
+*描述：通配符匹配工具，支持 * 通配符（不区分大小写）
+*
+*****************************************************************************/
 namespace LuBan.AIAgent.Utils.Text;
 
+/// <summary>
+/// 通配符匹配工具，支持 * 通配符（不区分大小写）
+/// </summary>
 public static class WildcardMatcher
 {
+    /// <summary>
+    /// 判断值是否匹配通配符模式
+    /// </summary>
+    /// <param name="pattern">通配符模式，* 匹配任意字符</param>
+    /// <param name="value">待匹配的值</param>
+    /// <returns>匹配时返回 true，否则返回 false</returns>
     public static bool Match(string pattern, string value)
     {
         if (string.IsNullOrEmpty(pattern) || pattern == "*")

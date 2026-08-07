@@ -1,12 +1,46 @@
+/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net8.0
+*机器名称：WALLE
+*公司名称：Walle
+*命名空间：LuBan.AIAgent.Skills.BuiltIn
+*文件名： GitCommitSkill
+*版本号： V1.0.0.0
+*唯一标识：新建
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/8/7
+*描述：Git 提交信息生成内置 Skill，按 Conventional Commits 规范生成提交信息
+*
+*****************************************************************************/
 namespace LuBan.AIAgent.Skills.BuiltIn;
 
+/// <summary>
+/// Git 提交信息生成 Skill：根据 git diff 生成 Conventional Commits 规范的提交信息，自动分析变更类型和影响范围
+/// </summary>
 public class GitCommitSkill : SkillBase
 {
+    /// <summary>
+    /// Skill 唯一标识
+    /// </summary>
     public override string Id => "git-commit";
+    /// <summary>
+    /// Skill 名称
+    /// </summary>
     public override string Name => "Git提交";
+    /// <summary>
+    /// Skill 描述
+    /// </summary>
     public override string Description => "根据 git diff 生成 Conventional Commits 规范的提交信息，自动分析变更类型和影响范围";
+    /// <summary>
+    /// Skill 分类
+    /// </summary>
     public override string Category => "productivity";
 
+    /// <summary>
+    /// Skill 使用示例
+    /// </summary>
     public override IEnumerable<string> Examples => new[]
     {
         "帮我生成提交信息",
@@ -14,6 +48,9 @@ public class GitCommitSkill : SkillBase
         "git diff 生成提交描述"
     };
 
+    /// <summary>
+    /// Skill 自动激活触发关键词
+    /// </summary>
     public override IEnumerable<string> TriggerKeywords => new[]
     {
         "commit",
@@ -24,6 +61,9 @@ public class GitCommitSkill : SkillBase
         "提交信息"
     };
 
+    /// <summary>
+    /// Skill 的提示词模板内容
+    /// </summary>
     public override string PromptTemplate => @"你是一个 Git 提交信息生成专家。请根据用户提供的 git diff 或变更描述，生成符合 Conventional Commits 规范的提交信息：
 
 ## 提交信息格式

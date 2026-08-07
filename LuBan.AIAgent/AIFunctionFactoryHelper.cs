@@ -1,3 +1,19 @@
+/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net8.0
+*机器名称：WALLE
+*公司名称：Walle
+*命名空间：LuBan.AIAgent
+*文件名： AIFunctionFactoryHelper
+*版本号： V1.0.0.0
+*唯一标识：新建
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/8/7
+*描述：AIFunction 工厂辅助类，支持显式方法名注册工具
+*
+*****************************************************************************/
 namespace LuBan.AIAgent;
 
 /// <summary>

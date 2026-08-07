@@ -1,3 +1,19 @@
+/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net8.0
+*机器名称：WALLE
+*公司名称：Walle
+*命名空间：LuBan.AIAgent.Skills
+*文件名： SkillLoader
+*版本号： V1.0.0.0
+*唯一标识：新建
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/8/7
+*描述：Skill 文件加载器，从 SKILL.md 文件加载 Skill 定义
+*
+*****************************************************************************/
 namespace LuBan.AIAgent.Skills;
 
 /// <summary>
@@ -39,6 +55,7 @@ public class SkillLoader
     /// <summary>
     /// 获取用户级 skills 目录路径
     /// </summary>
+    /// <returns>用户级 skills 目录的绝对路径</returns>
     public static string GetUserSkillsRoot() => UserSkillsRoot;
 
     private static List<FileSkillConfig> ScanDirectory(string rootDir)

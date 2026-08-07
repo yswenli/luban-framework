@@ -2,6 +2,22 @@ using LuBan.AIAgent.Rules;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 
+/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net8.0
+*机器名称：WALLE
+*公司名称：Walle
+*命名空间：LuBan.AIAgent.Sessions
+*文件名： SessionChatHistoryProvider
+*版本号： V1.0.0.0
+*唯一标识：新建
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/8/7
+*描述：基于 ISessionManager 的会话历史提供者
+*
+*****************************************************************************/
 namespace LuBan.AIAgent.Sessions;
 
 /// <summary>
@@ -15,6 +31,14 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
     private readonly int _threshold;
     private readonly RuleEngine? _ruleEngine;
 
+    /// <summary>
+    /// 创建会话历史提供者
+    /// </summary>
+    /// <param name="sessionManager">会话管理器</param>
+    /// <param name="chatClient">聊天客户端，用于摘要压缩</param>
+    /// <param name="targetCount">摘要压缩的目标消息条数</param>
+    /// <param name="threshold">触发摘要压缩的冗余阈值</param>
+    /// <param name="ruleEngine">规则引擎，用于 context-build 规则注入（可为 null）</param>
     public SessionChatHistoryProvider(
         ISessionManager sessionManager,
         IChatClient chatClient,
@@ -30,6 +54,12 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
         _ruleEngine = ruleEngine;
     }
 
+    /// <summary>
+    /// 构建当前会话的聊天历史，包含对话摘要与 context-build 规则注入消息
+    /// </summary>
+    /// <param name="context">调用上下文</param>
+    /// <param name="cancellationToken">取消令牌</param>
+    /// <returns>聊天消息列表</returns>
     protected override async ValueTask<IEnumerable<ChatMessage>> ProvideChatHistoryAsync(
         InvokingContext context, CancellationToken cancellationToken = default)
     {
@@ -110,6 +140,11 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
         return feed;
     }
 
+    /// <summary>
+    /// 将本轮对话的用户输入与助手回复持久化到会话
+    /// </summary>
+    /// <param name="context">调用完成后的上下文</param>
+    /// <param name="cancellationToken">取消令牌</param>
     protected override async ValueTask StoreChatHistoryAsync(
         InvokedContext context, CancellationToken cancellationToken = default)
     {

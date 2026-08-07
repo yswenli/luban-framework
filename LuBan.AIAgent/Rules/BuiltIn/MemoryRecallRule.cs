@@ -3,6 +3,22 @@ using LuBan.AIAgent.Configuration;
 using LuBan.AIAgent.LocalMemory;
 using Microsoft.Extensions.Options;
 
+/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net8.0
+*机器名称：WALLE
+*公司名称：Walle
+*命名空间：LuBan.AIAgent.Rules.BuiltIn
+*文件名： MemoryRecallRule
+*版本号： V1.0.0.0
+*唯一标识：新建
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/8/7
+*描述：记忆自动召回规则，每轮对话前检索相关长期记忆并注入上下文
+*
+*****************************************************************************/
 namespace LuBan.AIAgent.Rules.BuiltIn;
 
 /// <summary>
@@ -16,6 +32,8 @@ public class MemoryRecallRule : RuleBase
     /// <summary>
     /// 创建记忆召回规则
     /// </summary>
+    /// <param name="memory">本地记忆服务（可为 null，此时规则不生效）</param>
+    /// <param name="options">LuBan Agent 配置选项</param>
     public MemoryRecallRule(ILocalMemoryService? memory, IOptions<LuBanAgentOptions> options)
     {
         _memory = memory;

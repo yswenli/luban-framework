@@ -1,3 +1,19 @@
+/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net8.0
+*机器名称：WALLE
+*公司名称：Walle
+*命名空间：LuBan.AIAgent.Rules
+*文件名： RuleEngine
+*版本号： V1.0.0.0
+*唯一标识：新建
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/8/7
+*描述：规则引擎，管理和执行规则
+*
+*****************************************************************************/
 namespace LuBan.AIAgent.Rules;
 
 /// <summary>
@@ -12,6 +28,11 @@ public class RuleEngine
     private readonly Configuration.IAppConfigReader? _configReader;
     private List<IRule> _merged = new();
 
+    /// <summary>
+    /// 创建规则引擎
+    /// </summary>
+    /// <param name="rules">内置规则集合，注册到最高优先级的硬编码规则表</param>
+    /// <param name="configReader">配置文件读取器，用于加载 config.json 中的自定义规则（可为 null）</param>
     public RuleEngine(IEnumerable<IRule> rules, Configuration.IAppConfigReader? configReader = null)
     {
         _configReader = configReader;
@@ -22,6 +43,10 @@ public class RuleEngine
 
     [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026", 
         Justification = "JSON 序列化仅用于简单配置类型，已通过 JsonSerializerOptions 处理")]
+    /// <summary>
+    /// 从工作区目录加载规则（读取 .luban-agent/rules 下的 JSON 规则文件）
+    /// </summary>
+    /// <param name="workspaceDir">工作区根目录</param>
     public void LoadFromWorkspace(string workspaceDir)
     {
         var temp = new Dictionary<string, IRule>(StringComparer.OrdinalIgnoreCase);
@@ -62,6 +87,9 @@ public class RuleEngine
         }
     }
 
+    /// <summary>
+    /// 从 config.json 加载自定义规则
+    /// </summary>
     public void LoadFromConfig()
     {
         var temp = new Dictionary<string, IRule>(StringComparer.OrdinalIgnoreCase);
@@ -93,6 +121,10 @@ public class RuleEngine
         }
     }
 
+    /// <summary>
+    /// 重新加载所有规则（config.json + 可选的工作区规则）
+    /// </summary>
+    /// <param name="workspaceDir">工作区根目录；为 null 时仅重载 config.json</param>
     public void Reload(string? workspaceDir = null)
     {
         LoadFromConfig();
@@ -100,6 +132,10 @@ public class RuleEngine
             LoadFromWorkspace(workspaceDir);
     }
 
+    /// <summary>
+    /// 获取全部规则，按优先级降序排列
+    /// </summary>
+    /// <returns>规则列表</returns>
     public IReadOnlyList<IRule> GetAllRules()
     {
         _lock.EnterReadLock();
@@ -113,6 +149,10 @@ public class RuleEngine
         }
     }
 
+    /// <summary>
+    /// 获取当前启用的规则（IsEnabled 为 true），按优先级降序排列
+    /// </summary>
+    /// <returns>启用的规则列表</returns>
     public IReadOnlyList<IRule> GetEnabledRules()
     {
         _lock.EnterReadLock();
@@ -126,6 +166,11 @@ public class RuleEngine
         }
     }
 
+    /// <summary>
+    /// 按 ID 查找规则（忽略大小写）
+    /// </summary>
+    /// <param name="id">规则 ID</param>
+    /// <returns>匹配的规则，未找到时返回 null</returns>
     public IRule? GetRule(string id)
     {
         _lock.EnterReadLock();
@@ -139,6 +184,11 @@ public class RuleEngine
         }
     }
 
+    /// <summary>
+    /// 判断是否包含指定 ID 的规则（忽略大小写）
+    /// </summary>
+    /// <param name="id">规则 ID</param>
+    /// <returns>存在返回 true，否则返回 false</returns>
     public bool Contains(string id)
     {
         _lock.EnterReadLock();
@@ -152,6 +202,11 @@ public class RuleEngine
         }
     }
 
+    /// <summary>
+    /// 对规则上下文执行评估，依次运行所有适用规则并汇总结果
+    /// </summary>
+    /// <param name="context">规则评估上下文</param>
+    /// <returns>规则评估结果（含是否放行、注入文本、修改后的参数等）</returns>
     public async Task<RuleEvaluationResult> EvaluateAsync(RuleContext context)
     {
         var applicableRules = GetEnabledRules().Where(r => r.IsApplicable(context)).ToList();
@@ -227,9 +282,24 @@ public class RuleEngine
 /// </summary>
 public class RuleEvaluationResult
 {
+    /// <summary>
+    /// 是否允许继续执行（任一规则拒绝则为 false）
+    /// </summary>
     public bool Allow { get; set; }
+
+    /// <summary>
+    /// 拒绝原因消息
+    /// </summary>
     public string? Message { get; set; }
+
+    /// <summary>
+    /// 规则修改后的参数（存在规则修改参数时非 null）
+    /// </summary>
     public Dictionary<string, object?>? ModifiedArguments { get; set; }
+
+    /// <summary>
+    /// 各规则的执行结果列表
+    /// </summary>
     public List<RuleExecutionResult> Results { get; set; } = new();
 
     /// <summary>
@@ -243,7 +313,18 @@ public class RuleEvaluationResult
 /// </summary>
 public class RuleExecutionResult
 {
+    /// <summary>
+    /// 规则 ID
+    /// </summary>
     public string RuleId { get; set; } = "";
+
+    /// <summary>
+    /// 规则名称
+    /// </summary>
     public string RuleName { get; set; } = "";
+
+    /// <summary>
+    /// 规则执行结果
+    /// </summary>
     public RuleResult Result { get; set; } = new();
 }

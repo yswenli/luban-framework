@@ -1,7 +1,33 @@
+/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net8.0
+*机器名称：WALLE
+*公司名称：Walle
+*命名空间：LuBan.AIAgent.Skills
+*文件名： SkillMdParser
+*版本号： V1.0.0.0
+*唯一标识：新建
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/8/7
+*描述：SKILL.md 内容解析器，解析 frontmatter 元数据与提示词模板
+*
+*****************************************************************************/
 namespace LuBan.AIAgent.Skills;
 
+/// <summary>
+/// SKILL.md 内容解析器，负责解析 frontmatter 元数据（名称、描述、分类、触发关键词）与提示词模板正文
+/// </summary>
 public static class SkillMdParser
 {
+    /// <summary>
+    /// 解析 SKILL.md 文件内容为 FileSkillConfig
+    /// </summary>
+    /// <param name="content">SKILL.md 文件内容</param>
+    /// <param name="fallbackId">当 frontmatter 未提供名称或无法解析时使用的备用 Id 与名称</param>
+    /// <param name="sourcePath">SKILL.md 文件路径</param>
+    /// <returns>解析后的 FileSkillConfig</returns>
     public static FileSkillConfig? Parse(string content, string fallbackId, string sourcePath)
     {
         var config = new FileSkillConfig

@@ -1,3 +1,19 @@
+/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net8.0
+*机器名称：WALLE
+*公司名称：Walle
+*命名空间：LuBan.AIAgent.Skills
+*文件名： SkillBase
+*版本号： V1.0.0.0
+*唯一标识：新建
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/8/7
+*描述：Skill 基类，定义所有 Skill 的公共接口与默认执行逻辑
+*
+*****************************************************************************/
 namespace LuBan.AIAgent.Skills;
 
 /// <summary>
@@ -41,8 +57,11 @@ public abstract class SkillBase : ISkill
     public abstract string PromptTemplate { get; }
 
     /// <summary>
-    /// 执行 Skill：渲染模板并调用 Agent
+    /// 执行 Skill：渲染提示词模板并调用 Agent 获取响应
     /// </summary>
+    /// <param name="context">Skill 执行上下文，包含 Agent、取消令牌等信息</param>
+    /// <param name="input">用户输入内容</param>
+    /// <returns>Skill 执行结果，成功时包含 Agent 响应文本，失败时包含错误信息</returns>
     public virtual async Task<SkillResult> ExecuteAsync(SkillContext context, string input)
     {
         if (context.Agent == null)

@@ -2,6 +2,22 @@ using LuBan.AIAgent.Utils.Text;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Options;
 
+/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net8.0
+*机器名称：WALLE
+*公司名称：Walle
+*命名空间：LuBan.AIAgent.LocalMemory
+*文件名： LocalMemoryService
+*版本号： V1.0.0.0
+*唯一标识：新建
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/8/7
+*描述：本地长期记忆服务实现
+*
+*****************************************************************************/
 namespace LuBan.AIAgent.LocalMemory;
 
 /// <summary>
@@ -22,6 +38,10 @@ public class LocalMemoryService : ILocalMemoryService
     /// <summary>
     /// 创建本地记忆服务
     /// </summary>
+    /// <param name="store">本地记忆持久化存储</param>
+    /// <param name="options">本地记忆配置选项</param>
+    /// <param name="embedder">Embedding 生成器；为 null 时使用 fallback n-gram 向量</param>
+    /// <param name="workspaceContext">当前工作区上下文提供者；为 null 时不按工作区隔离</param>
     public LocalMemoryService(
         ILocalMemoryStore store,
         IOptions<LocalMemoryOptions> options,

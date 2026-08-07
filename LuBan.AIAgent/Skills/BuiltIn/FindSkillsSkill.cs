@@ -1,12 +1,46 @@
+/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net8.0
+*机器名称：WALLE
+*公司名称：Walle
+*命名空间：LuBan.AIAgent.Skills.BuiltIn
+*文件名： FindSkillsSkill
+*版本号： V1.0.0.0
+*唯一标识：新建
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/8/7
+*描述：技能发现内置 Skill，列出本地 Skill 并按需求推荐
+*
+*****************************************************************************/
 namespace LuBan.AIAgent.Skills.BuiltIn;
 
+/// <summary>
+/// 技能发现 Skill：列出本地 Skill、按需求推荐、引导从 skills.sh 安装或创建自定义 Skill
+/// </summary>
 public class FindSkillsSkill : SkillBase
 {
+    /// <summary>
+    /// Skill 唯一标识
+    /// </summary>
     public override string Id => "find-skills";
+    /// <summary>
+    /// Skill 名称
+    /// </summary>
     public override string Name => "技能发现";
+    /// <summary>
+    /// Skill 描述
+    /// </summary>
     public override string Description => "发现和查找可用的 Skill：列出本地 skill、按需求推荐、引导从 skills.sh 安装或创建自定义 skill";
+    /// <summary>
+    /// Skill 分类
+    /// </summary>
     public override string Category => "productivity";
 
+    /// <summary>
+    /// Skill 使用示例
+    /// </summary>
     public override IEnumerable<string> Examples => new[]
     {
         "帮我找一个能做代码审查的 skill",
@@ -14,10 +48,22 @@ public class FindSkillsSkill : SkillBase
         "列出所有可用的 skill"
     };
 
+    /// <summary>
+    /// Skill 自动激活触发关键词（空数组，不参与自动激活）
+    /// </summary>
     public override IEnumerable<string> TriggerKeywords => Array.Empty<string>();
 
+    /// <summary>
+    /// Skill 的提示词模板内容
+    /// </summary>
     public override string PromptTemplate => "查找和列出可用的 Skill";
 
+    /// <summary>
+    /// 执行技能发现：列出本地 Skill 或按需求推荐 Skill
+    /// </summary>
+    /// <param name="context">Skill 执行上下文，包含 Agent、取消令牌等信息</param>
+    /// <param name="input">用户输入内容</param>
+    /// <returns>Skill 执行结果，包含本地 Skill 列表或推荐结果</returns>
     public override async Task<SkillResult> ExecuteAsync(SkillContext context, string input)
     {
         var registry = context.ServiceProvider?.GetService(typeof(SkillRegistry)) as SkillRegistry;
@@ -86,6 +132,11 @@ public class FindSkillsSkill : SkillBase
         return SkillResult.Ok(result.Text ?? "");
     }
 
+    /// <summary>
+    /// 格式化并返回本地已安装的 Skill 列表
+    /// </summary>
+    /// <param name="skills">本地已安装的 Skill 列表</param>
+    /// <returns>按分类分组的 Skill 列表文本</returns>
     private static SkillResult ListLocalSkills(IReadOnlyList<ISkill> skills)
     {
         if (skills.Count == 0)
@@ -123,6 +174,11 @@ public class FindSkillsSkill : SkillBase
         return SkillResult.Ok(sb.ToString());
     }
 
+    /// <summary>
+    /// 将本地 Skill 列表格式化为用于提示词的文本
+    /// </summary>
+    /// <param name="skills">本地已安装的 Skill 列表</param>
+    /// <returns>格式化后的 Skill 列表文本</returns>
     private static string FormatLocalSkillsForPrompt(IReadOnlyList<ISkill> skills)
     {
         if (skills.Count == 0)
