@@ -432,7 +432,12 @@ services.AddSingleton<IRule, MyRule>();
       "DefaultNodeTimeoutSeconds": 120,
       "MaxReplanAttempts": 3,
       "ReflectionTimeoutSeconds": 60,
-      "ExposeAsTool": false
+      "ExposeAsTool": false,
+      "HeuristicFilter": {
+        "Enabled": true,
+        "MaxLength": 20,
+        "Keywords": [ "和", "同时", "然后", "并且", "另外", "还有", "分析并", "搜索并" ]
+      }
     }
   }
 }
@@ -442,6 +447,21 @@ services.AddSingleton<IRule, MyRule>();
 - `ExposeAsTool`：设为 `false` 时不再将编排暴露为显式工具，由自动判定取代。
 
 **SubAgent 角色系统**：规划器可为每个节点指定角色（`analyst`/`researcher`/`coder`/`writer`），角色提供专业系统提示词和默认工具组。内置 4 个角色，支持通过工作区扩展自定义角色。
+
+#### 工作区编排扩展
+
+进入 `/agi` 工作区时自动加载以下目录：
+
+- `.luban-agent/plans/*.json`：任务模板，命中关键词时由 TemplateTaskPlanner 直接生成图谱（不消耗 LLM 调用）。格式：`{ "name": "...", "keywords": [...], "graph": { "nodes": [...] } }`。
+- `.luban-agent/roles/*.json`：自定义 SubAgent 角色，同名覆盖内置角色。格式：`{ "name": "...", "systemPromptTemplate": "... {prompt} ...", "defaultToolGroups": [...] }`。
+
+#### 多模型路由
+
+注册 `IProviderRouter` 后，`TaskNode.ModelName`（格式 `provider:model`）与 `OrchestrationOptions.PlannerModel` 会路由到对应 Provider；路由失败自动回退默认模型并记录警告。未注册路由时行为不变。
+
+#### 启发式预过滤
+
+`Orchestration:HeuristicFilter`（Enabled / MaxLength / Keywords）：短输入且无复合关键词时跳过 planner，节省一次 LLM 调用。
 
 **动态重规划**：当关键节点失败导致整体状态为 `failed` 时，编排器自动触发反思阶段：
 1. **反思**：LLM 分析失败节点及其直接依赖的输出，判断是否可修复

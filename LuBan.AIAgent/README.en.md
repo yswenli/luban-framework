@@ -431,7 +431,12 @@ Specify assembly names via `ExternalPlugins` configuration — the framework aut
       "DefaultNodeTimeoutSeconds": 120,
       "MaxReplanAttempts": 3,
       "ReflectionTimeoutSeconds": 60,
-      "ExposeAsTool": false
+      "ExposeAsTool": false,
+      "HeuristicFilter": {
+        "Enabled": true,
+        "MaxLength": 20,
+        "Keywords": [ "和", "同时", "然后", "并且", "另外", "还有", "分析并", "搜索并" ]
+      }
     }
   }
 }
@@ -441,6 +446,21 @@ Specify assembly names via `ExternalPlugins` configuration — the framework aut
 - `ExposeAsTool`: Set to `false` to stop exposing orchestration as an explicit tool, replaced by automatic detection.
 
 **SubAgent Role System**: The planner can assign a role (`analyst`/`researcher`/`coder`/`writer`) to each node. Roles provide specialized system prompts and default tool groups. 4 built-in roles are included, with support for custom roles via workspace extensions.
+
+#### Workspace Orchestration Extensions
+
+On entering an `/agi` workspace, the following directories are loaded automatically:
+
+- `.luban-agent/plans/*.json`: task templates. When a keyword matches, TemplateTaskPlanner generates the graph directly (no LLM call). Format: `{ "name": "...", "keywords": [...], "graph": { "nodes": [...] } }`.
+- `.luban-agent/roles/*.json`: custom SubAgent roles; same-name entries override built-in roles. Format: `{ "name": "...", "systemPromptTemplate": "... {prompt} ...", "defaultToolGroups": [...] }`.
+
+#### Multi-Model Routing
+
+When an `IProviderRouter` is registered, `TaskNode.ModelName` (format `provider:model`) and `OrchestrationOptions.PlannerModel` are routed to the corresponding provider. Routing failures fall back to the default model with a warning. Behavior is unchanged without a router.
+
+#### Heuristic Pre-Filter
+
+`Orchestration:HeuristicFilter` (Enabled / MaxLength / Keywords): short inputs without composite keywords skip the planner, saving one LLM call.
 
 **Dynamic Replanning**: When critical node failures cause overall status `failed`, the orchestrator automatically triggers reflection:
 1. **Reflect**: LLM analyzes failed nodes and their direct dependencies' outputs to determine if fixable

@@ -56,8 +56,7 @@ public class TaskNode
 
     /// <summary>
     /// 获取或设置该节点使用的模型（格式 "provider:model"）。null 表示继承主 Agent 模型。
-    /// 注意：当前 LuBanAgentFactory 的 modelName 参数尚未实现多模型路由，此字段仅作预留，
-    /// 实际执行时统一使用主模型。
+    /// 经 IProviderRouter 路由，Provider 不存在时回退默认模型。
     /// </summary>
     public string? ModelName { get; set; }
 
