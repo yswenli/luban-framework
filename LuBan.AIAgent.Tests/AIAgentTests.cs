@@ -302,3 +302,28 @@ public class MockChatClient : IChatClient
     {
     }
 }
+
+public class MockProviderRouter : IProviderRouter
+{
+    private readonly IChatClient _client;
+    private readonly bool _throwOnRoute;
+
+    public List<string?> RequestedModels { get; } = new();
+
+    public MockProviderRouter(IChatClient client, bool throwOnRoute = false)
+    {
+        _client = client;
+        _throwOnRoute = throwOnRoute;
+    }
+
+    public IChatClient CreateChatClient(string? providerModel = null)
+    {
+        RequestedModels.Add(providerModel);
+        if (_throwOnRoute && providerModel != null)
+            throw new InvalidOperationException($"Provider '{providerModel}' not found");
+        return _client;
+    }
+
+    public IReadOnlyList<ProviderInfo> GetAvailableProviders()
+        => new List<ProviderInfo> { new("mock", "Mock Provider", new[] { "test" }) };
+}
