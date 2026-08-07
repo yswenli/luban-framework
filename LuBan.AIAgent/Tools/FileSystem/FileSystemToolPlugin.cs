@@ -62,8 +62,8 @@ public class FileSystemToolPlugin : ILuBanToolPlugin
     /// <returns>工具函数列表</returns>
     public IReadOnlyList<AIFunction> GetTools(IServiceProvider sp)
     {
-        var confirmationService = sp.GetService(typeof(Services.IToolConfirmationService)) as Services.IToolConfirmationService
-            ?? new Services.ToolConfirmationService(new Services.ToolConfirmationContext());
+        var confirmationService = sp.GetService(typeof(IToolConfirmationService)) as IToolConfirmationService
+            ?? new ToolConfirmationService(new ToolConfirmationContext());
         var toolGroup = new FileSystemToolGroup(_pathGuard, confirmationService);
         return new List<AIFunction>
         {
@@ -96,14 +96,14 @@ public class FileSystemToolPlugin : ILuBanToolPlugin
 public class FileSystemToolGroup
 {
     private readonly PathGuard _pathGuard;
-    private readonly Services.IToolConfirmationService _confirmationService;
+    private readonly IToolConfirmationService _confirmationService;
 
     /// <summary>
     /// 创建 FileSystemToolGroup 实例
     /// </summary>
     /// <param name="pathGuard">路径守卫</param>
     /// <param name="confirmationService">工具调用确认服务</param>
-    public FileSystemToolGroup(PathGuard pathGuard, Services.IToolConfirmationService confirmationService)
+    public FileSystemToolGroup(PathGuard pathGuard, IToolConfirmationService confirmationService)
     {
         _pathGuard = pathGuard;
         _confirmationService = confirmationService;

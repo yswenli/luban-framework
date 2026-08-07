@@ -61,8 +61,8 @@ public class ScriptToolPlugin : ILuBanToolPlugin
     /// <returns>工具函数列表</returns>
     public IReadOnlyList<AIFunction> GetTools(IServiceProvider sp)
     {
-        var confirmationService = sp.GetService(typeof(Services.IToolConfirmationService)) as Services.IToolConfirmationService
-            ?? new Services.ToolConfirmationService(new Services.ToolConfirmationContext());
+        var confirmationService = sp.GetService(typeof(IToolConfirmationService)) as IToolConfirmationService
+            ?? new ToolConfirmationService(new ToolConfirmationContext());
         var toolGroup = new ScriptToolGroup(_options, _processRunner, confirmationService);
         return new List<AIFunction>
         {
@@ -87,7 +87,7 @@ public class ScriptToolGroup
 {
     private readonly ScriptToolOptions _options;
     private readonly ProcessRunner _processRunner;
-    private readonly Services.IToolConfirmationService _confirmationService;
+    private readonly IToolConfirmationService _confirmationService;
 
     /// <summary>
     /// 创建 ScriptToolGroup 实例
@@ -95,7 +95,7 @@ public class ScriptToolGroup
     /// <param name="options">配置选项</param>
     /// <param name="processRunner">进程执行器</param>
     /// <param name="confirmationService">工具调用确认服务</param>
-    public ScriptToolGroup(ScriptToolOptions options, ProcessRunner processRunner, Services.IToolConfirmationService confirmationService)
+    public ScriptToolGroup(ScriptToolOptions options, ProcessRunner processRunner, IToolConfirmationService confirmationService)
     {
         _options = options;
         _processRunner = processRunner;

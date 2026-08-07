@@ -86,8 +86,8 @@ public static class LuBanAgentExtensions
         services.AddSingleton<PathGuard>();
 
         // 注册工具确认服务（上下文为单例，由宿主层每轮对话设置/重置）
-        services.AddSingleton<Services.ToolConfirmationContext>();
-        services.AddSingleton<Services.IToolConfirmationService, Services.ToolConfirmationService>();
+        services.AddSingleton<ToolConfirmationContext>();
+        services.AddSingleton<IToolConfirmationService, ToolConfirmationService>();
 
         // 注册本地长期记忆（可选依赖 IEmbeddingGenerator）
         // 注意：ILocalMemoryStore 由宿主注册，框架不再默认注册 SqliteLocalMemoryStore

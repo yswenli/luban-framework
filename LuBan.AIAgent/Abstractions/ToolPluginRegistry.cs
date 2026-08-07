@@ -1,4 +1,4 @@
-namespace LuBan.AIAgent.Plugins;
+namespace LuBan.AIAgent.Abstractions;
 
 /// <summary>
 /// 工具插件注册表

@@ -1,6 +1,6 @@
 using Microsoft.Extensions.AI;
 
-namespace LuBan.AIAgent.Providers;
+namespace LuBan.AIAgent.Configuration;
 
 public interface IProviderRouter
 {

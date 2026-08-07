@@ -22,8 +22,6 @@
 *
 *****************************************************************************/
 
-using LuBan.AIAgent.Configuration;
-
 namespace LuBan.AIAgent.Rules;
 
 /// <summary>
