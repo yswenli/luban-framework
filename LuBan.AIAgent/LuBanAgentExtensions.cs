@@ -140,7 +140,7 @@ public static class LuBanAgentExtensions
     /// <param name="configuration">配置</param>
     /// <param name="chatClientFactory">ChatClient 工厂方法</param>
     /// <returns>服务集合</returns>
-    [UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code", Justification = "<Pending>")]
+    [RequiresUnreferencedCode("AddLuBanAgent loads external plugins via Assembly.Load and GetTypes, which is incompatible with Native AOT trimming.")]
     public static IServiceCollection AddLuBanAgent(
         this IServiceCollection services,
         IConfiguration configuration,

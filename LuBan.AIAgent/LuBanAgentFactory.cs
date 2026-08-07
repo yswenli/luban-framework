@@ -189,16 +189,4 @@ public class LuBanAgentFactory : ILuBanAgentFactory, IScoped
             ruleEngine);
     }
 
-    /// <summary>
-    /// 打印已加载的工具列表。
-    /// </summary>
-    /// <param name="tools">工具列表。</param>
-    private static void PrintToolList(List<AITool> tools)
-    {
-        ConsoleUtil.WriteLine($"已加载 {tools.Count} 个工具:", color: ConsoleColor.DarkGray);
-        foreach (var tool in tools)
-        {
-            ConsoleUtil.WriteLine($"  - {tool.Name}: {tool.Description}", color: ConsoleColor.DarkGray);
-        }
-    }
 }
