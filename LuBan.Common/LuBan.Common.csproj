@@ -9,7 +9,7 @@
     <AcceptNPOIOSMFLicense>true</AcceptNPOIOSMFLicense>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <Title>$(AssemblyName)</Title>
-    <Version>2026.8.4.1</Version>
+    <Version>2026.8.7.1</Version>
     <Authors>yswenli</Authors>
     <Description>LuBan Framework工具类项目，三方引用包主要有：Encrypt.Library、HtmlAgilityPack、ICSharpCode.SharpZipLib、NPOI、SkiaSharp、ZXing等（JSON 序列化已迁移至 System.Text.Json）</Description>
     <PackageIcon>favicon.png</PackageIcon>
