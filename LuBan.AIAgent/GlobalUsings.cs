@@ -40,6 +40,8 @@ global using LuBan.DI;
 global using LuBan.Threading;
 
 global using Microsoft.Agents.AI;
+global using Microsoft.Data.SqlClient;
+global using Microsoft.Data.Sqlite;
 global using Microsoft.Extensions.AI;
 global using Microsoft.Extensions.Configuration;
 global using Microsoft.Extensions.DependencyInjection;
@@ -47,8 +49,13 @@ global using Microsoft.Extensions.Logging;
 global using Microsoft.Extensions.Options;
 global using Microsoft.Playwright;
 
+global using MySqlConnector;
+
+global using Npgsql;
+
 global using System.Collections.Concurrent;
 global using System.ComponentModel;
+global using System.Data.Common;
 global using System.Diagnostics;
 global using System.Diagnostics.CodeAnalysis;
 global using System.Reflection;

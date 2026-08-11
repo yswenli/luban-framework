@@ -21,13 +21,6 @@
 *描述：数据库工具插件
 *
 *****************************************************************************/
-using System.Data;
-using System.Data.Common;
-using Microsoft.Data.SqlClient;
-using MySqlConnector;
-using Npgsql;
-using System.Data.SQLite;
-using LuBan.AIAgent.Abstractions;
 
 namespace LuBan.AIAgent.Tools.Database;
 
@@ -332,7 +325,7 @@ public class DatabaseToolGroup
             DatabaseType.MySql => new MySqlConnection(connectionString),
             DatabaseType.PostgreSql => new NpgsqlConnection(connectionString),
             DatabaseType.SqlServer => new SqlConnection(connectionString),
-            DatabaseType.SQLite => new SQLiteConnection(connectionString),
+            DatabaseType.SQLite => new SqliteConnection(connectionString),
             _ => throw new NotSupportedException($"不支持的数据库类型：{dbType}")
         };
     }
