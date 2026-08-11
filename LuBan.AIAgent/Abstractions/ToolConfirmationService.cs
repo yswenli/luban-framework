@@ -16,6 +16,24 @@
 namespace LuBan.AIAgent.Abstractions;
 
 /// <summary>
+/// Agent 工具权限确认模式。由宿主层（CLI TUI）在每轮对话开始时设置，ToolConfirmationService 据此决定确认策略。
+/// </summary>
+public enum ToolPermissionMode
+{
+    /// <summary>默认模式。每个工具调用逐一确认。</summary>
+    Default = 0,
+
+    /// <summary>Plan 模式。Agent 先生成执行计划，用户逐项确认后再批量执行。</summary>
+    Plan = 1,
+
+    /// <summary>AcceptEdits 模式。接受所有编辑操作，仅确认非编辑类工具。</summary>
+    AcceptEdits = 2,
+
+    /// <summary>BypassPermissions 模式。跳过所有工具确认（需二次确认后生效）。</summary>
+    BypassPermissions = 3
+}
+
+/// <summary>
 /// 工具调用确认上下文，持有当前会话的确认回调、路径检查器和取消令牌。
 /// 由宿主层在每轮对话开始时设置、结束时清理。
 /// </summary>
@@ -37,6 +55,24 @@ public class ToolConfirmationContext
     public CancellationToken CancellationToken { get; set; }
 
     /// <summary>
+    /// 当前权限模式。由宿主层在每轮对话开始前设置，控制确认策略。
+    /// </summary>
+    public ToolPermissionMode Mode { get; set; } = ToolPermissionMode.Default;
+
+    /// <summary>
+    /// 本轮（当前 agent 交互回合内）已允许的工具名称集合。
+    /// 用户选择"本轮全部允许"后，后续同类工具跳过确认直到本轮结束。
+    /// <see cref="Reset"/> 时清空。
+    /// </summary>
+    public HashSet<string> AllowedThisTurn { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Plan 模式计划项回调。Plan 模式下每个危险工具调用不立即确认，
+    /// 而是通过此回调收集为 PlannedAction 列表，退出 Plan 时批量确认。
+    /// </summary>
+    public Action<string, IReadOnlyDictionary<string, object?>>? OnPlannedAction { get; set; }
+
+    /// <summary>
     /// 重置上下文到初始状态（每轮对话结束时调用）。
     /// </summary>
     public void Reset()
@@ -44,6 +80,9 @@ public class ToolConfirmationContext
         Callback = null;
         WorkspacePathChecker = null;
         CancellationToken = default;
+        Mode = ToolPermissionMode.Default;
+        AllowedThisTurn.Clear();
+        OnPlannedAction = null;
     }
 }
 
@@ -176,6 +215,37 @@ public class ToolConfirmationService : IToolConfirmationService
     /// <returns>是否允许执行该工具调用。</returns>
     public bool TryConfirmByPath(string toolName, string path, IReadOnlyDictionary<string, object?> arguments)
     {
+        // ── 模式分发 ──
+        switch (_context.Mode)
+        {
+            case ToolPermissionMode.BypassPermissions:
+                return true; // 跳过所有确认
+
+            case ToolPermissionMode.Plan:
+                // Plan 模式：不立即确认，收集到计划列表
+                _context.OnPlannedAction?.Invoke(toolName, arguments);
+                return true; // Plan 模式下先允许（后续批量确认时可能拒绝）
+
+            case ToolPermissionMode.AcceptEdits:
+                // AcceptEdits：编辑类操作直接放行，非编辑类仍需确认
+                if (!AlwaysConfirmTools.Contains(toolName))
+                {
+                    return true; // 非危险操作直接放行
+                }
+                break; // 删除类操作走 Default 路径
+
+            default: // ToolPermissionMode.Default
+                break;
+        }
+
+        // ── Default 路径（现有逻辑不变）──
+
+        // 本轮已允许的工具跳过确认
+        if (_context.AllowedThisTurn.Contains(toolName))
+        {
+            return true;
+        }
+
         // 删除类工具：始终需要确认
         if (AlwaysConfirmTools.Contains(toolName))
             return RequestConfirmation(toolName, arguments);
