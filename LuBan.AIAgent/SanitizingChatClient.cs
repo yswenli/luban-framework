@@ -86,9 +86,28 @@ public class SanitizingChatClient : IChatClient
             throw;
         }
 
-        await foreach (var update in _inner.GetStreamingResponseAsync(sanitized, options, cancellationToken))
+        IAsyncEnumerator<ChatResponseUpdate>? enumerator = null;
+        try
         {
-            yield return update;
+            enumerator = _inner.GetStreamingResponseAsync(sanitized, options, cancellationToken).GetAsyncEnumerator(cancellationToken);
+            while (true)
+            {
+                try
+                {
+                    if (!await enumerator.MoveNextAsync())
+                        break;
+                }
+                catch (ArgumentOutOfRangeException) when (!cancellationToken.IsCancellationRequested)
+                {
+                    continue;
+                }
+                yield return enumerator.Current;
+            }
+        }
+        finally
+        {
+            if (enumerator is not null)
+                await enumerator.DisposeAsync();
         }
     }
 
