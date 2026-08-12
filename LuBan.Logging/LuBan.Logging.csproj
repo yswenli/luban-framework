@@ -44,8 +44,4 @@
     <ProjectReference Include="..\LuBan.DI\LuBan.DI.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Update="System.Security.Cryptography.Xml" Version="10.0.10" />
-  </ItemGroup>
-
 </Project>

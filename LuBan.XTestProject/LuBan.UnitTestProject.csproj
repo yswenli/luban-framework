@@ -112,8 +112,4 @@
     <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
   </ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Update="System.Security.Cryptography.Xml" Version="10.0.10" />
-  </ItemGroup>
-
 </Project>
