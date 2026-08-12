@@ -36,7 +36,7 @@
   <ItemGroup>
     <PackageReference Include="MoonSharp" Version="2.0.0" />
     <PackageReference Include="SqlSugarCore" Version="5.1.4.216" />
-    <PackageReference Update="System.Security.Cryptography.Xml" Version="10.0.10" />
+    <PackageReference Update="System.Security.Cryptography.Xml" Version="10.0.11" />
   </ItemGroup>
 
 </Project>
