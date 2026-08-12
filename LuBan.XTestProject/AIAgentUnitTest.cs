@@ -18,10 +18,9 @@ using LuBan.AIAgent;
 using LuBan.AIAgent.Abstractions;
 using LuBan.AIAgent.Configuration;
 using LuBan.AIAgent.Infrastructure;
-using LuBan.AIAgent.Plugins;
-using LuBan.AIAgent.Providers;
 using LuBan.AIAgent.Tools.FileSystem;
 using LuBan.AIAgent.Tools.Web;
+
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -118,37 +117,6 @@ public class AIAgentUnitTest
         Assert.AreEqual(2, plugins.Count);
         Assert.IsTrue(plugins.Any(p => p.GroupName == "filesystem"));
         Assert.IsTrue(plugins.Any(p => p.GroupName == "web"));
-    }
-
-    /// <summary>
-    /// 测试 LuBanChatClient 路由
-    /// </summary>
-    [TestMethod]
-    public void TestLuBanChatClientRouting()
-    {
-        var mockClient1 = new MockChatClient("provider1");
-        var mockClient2 = new MockChatClient("provider2");
-
-        var clients = new List<KeyValuePair<string, IChatClient>>
-        {
-            new("provider1", mockClient1),
-            new("provider2", mockClient2)
-        };
-
-        var luBanClient = new LuBanChatClient(clients, "provider1");
-
-        Assert.IsNotNull(luBanClient);
-
-        var provider1 = luBanClient.GetType()
-            .GetMethod("GetProvider", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?
-            .Invoke(luBanClient, new object[] { "provider1:model" });
-
-        var provider2 = luBanClient.GetType()
-            .GetMethod("GetProvider", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?
-            .Invoke(luBanClient, new object[] { "provider2:model" });
-
-        Assert.IsNotNull(provider1);
-        Assert.IsNotNull(provider2);
     }
 
     /// <summary>

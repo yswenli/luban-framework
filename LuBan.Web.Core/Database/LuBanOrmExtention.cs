@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net8.0
 *机器名称：WALLE
@@ -52,7 +52,7 @@ internal static class LuBanOrmExtention
                     //配置日志
                     LuBanOrm.SetSqlSugarLogs(dbProvider, LuBanOrm.DbConnectionOptions.EnableConsoleSql, config);
                     //检查数据库连接配置
-                    CheckDbConnection();
+                    CheckDbConnection(dbProvider);
                     //初始化表结构及种子数据
                     LuBanOrm.InitDatabase(dbProvider, config);
                 });
@@ -68,8 +68,9 @@ internal static class LuBanOrmExtention
     /// <summary>
     /// 检查数据库连接
     /// </summary>
+    /// <param name="dbProvider"></param>
     /// <returns></returns>
-    public static void CheckDbConnection()
+    public static void CheckDbConnection(SqlSugarScopeProvider dbProvider)
     {
         if (_isFirstValide)
         {
@@ -78,11 +79,14 @@ internal static class LuBanOrmExtention
             {
                 if (NacosConfigUtil.Read<DbConnectionOptions>() != null)
                 {
-                    var isValide = ConsoleUtil.PrintProcess(() => LuBanOrm.IsValidConnection(), "正在检查数据库连接有效性...", "yellow");
+                    // 此处 DI 容器和 Logger 均未初始化（BuildProvider 在 InitDataBaseOrm 之后调用），
+                    // 直接使用回调中的 dbProvider 检查连接，避免通过 ServiceProviderUtil 获取 ISqlSugarClient 失败
+                    var isValide = ConsoleUtil.PrintProcess(() => dbProvider.Ado.IsValidConnection(), "正在检查数据库连接有效性...", "yellow");
                     if (!isValide)
                     {
                         var errorMsg = "数据库连接失败，请检查appsetttings.json中的DbConnectionOptions数据库配置";
-                        Logger.ErrorWithOutEvent($"An exception occurred during the initialization of cylopsORM.", new Exception(errorMsg));
+                        // Logger 未就绪，直接输出到控制台
+                        errorMsg.WriteLine(color: ConsoleColor.Red);
                         Thread.Sleep(3000);
                         Environment.Exit(-1);
                     }
@@ -90,7 +94,8 @@ internal static class LuBanOrmExtention
             }
             catch (Exception ex)
             {
-                Logger.ErrorWithOutEvent("orm中间件处理出现异常", ex);
+                // Logger 未就绪，直接输出到控制台
+                $"orm中间件处理出现异常:{ex}".WriteLine(color: ConsoleColor.Red);
             }
         }
     }

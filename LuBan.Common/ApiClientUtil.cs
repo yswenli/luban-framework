@@ -107,6 +107,7 @@ public class ApiClientUtil
     /// <param name="query"></param>
     /// <param name="postModel"></param>
     /// <returns></returns>
+    [RequiresUnreferencedCode("Calls LuBan.Common.SerializeUtil.Serialize(Object, Boolean, Boolean, Boolean, Boolean)")]
     Dictionary<string, string> BuildHeader(string jwt, string query, object postModel)
     {
         var sd = new AraData();
@@ -211,6 +212,7 @@ public class ApiClientUtil
     /// <param name="jwt"></param>
     /// <param name="withSafe"></param>
     /// <returns></returns>
+    [UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code", Justification = "<Pending>")]
     public async Task<T> GetAsync<T>(string resource, string jwt, bool withSafe)
     {
         Dictionary<string, string> header;
