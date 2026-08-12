@@ -15,6 +15,8 @@ public static class LuBanLoggingExtensions
 {
     /// <summary>
     /// 添加 LuBan 文件日志 Provider。
+    /// 清除 ASP.NET Core 默认日志提供程序（Console、Debug、EventSource 等），
+    /// 由 LuBan.Logging 完全接管日志输出。
     /// 若已注册 IConfiguration，则自动从 "LuBanLoggingOptions" 节读取配置；未配置或未注册时使用默认值。
     /// </summary>
     /// <param name="builder">日志构建器。</param>
@@ -24,6 +26,10 @@ public static class LuBanLoggingExtensions
         this ILoggingBuilder builder,
         Action<LuBanLoggingOptions>? configure = null)
     {
+        // 清除 WebApplication.CreateBuilder 默认注册的 Console/Debug/EventSource 等提供程序，
+        // 避免框架日志（Microsoft.Hosting.Lifetime 等）直接输出到控制台
+        builder.ClearProviders();
+
         builder.Services.AddOptions<LuBanLoggingOptions>()
             .Configure<IConfiguration>((options, configuration) =>
             {
@@ -54,6 +60,7 @@ public static class LuBanLoggingExtensions
 
     /// <summary>
     /// 添加 LuBan 文件日志 Provider，并显式指定 IConfiguration。
+    /// 清除 ASP.NET Core 默认日志提供程序，由 LuBan.Logging 完全接管日志输出。
     /// </summary>
     /// <param name="builder">日志构建器。</param>
     /// <param name="configuration">配置根节点，从 "LuBanLoggingOptions" 节读取。</param>
@@ -64,6 +71,10 @@ public static class LuBanLoggingExtensions
         IConfiguration configuration,
         Action<LuBanLoggingOptions>? configure = null)
     {
+        // 清除 WebApplication.CreateBuilder 默认注册的 Console/Debug/EventSource 等提供程序，
+        // 避免框架日志（Microsoft.Hosting.Lifetime 等）直接输出到控制台
+        builder.ClearProviders();
+
         builder.Services.Configure<LuBanLoggingOptions>(configuration.GetSection("LuBanLoggingOptions"));
 
         if (configure != null)
