@@ -432,14 +432,24 @@ public class FileSystemToolGroup
     [Description("获取工作区概览：目录树（限3层）+ 文件类型统计 + 关键文件。一次调用了解工作区结构，避免多次ListDirectory。")]
     public Task<ToolResult<string>> GetWorkspaceOverviewAsync(string rootPath)
     {
-        if (!_pathGuard.IsAllowed(rootPath))
-            return Task.FromResult(ToolResult.Fail<string>($"错误：路径 {rootPath} 不在允许访问的范围内"));
+        var resolvedPath = string.IsNullOrEmpty(rootPath) || rootPath == "."
+            ? Path.GetFullPath(".")
+            : rootPath;
+
+        if (!_confirmationService.TryConfirmByPath("GetWorkspaceOverviewAsync", resolvedPath,
+            new Dictionary<string, object?> { ["rootPath"] = resolvedPath }))
+        {
+            return Task.FromResult(ToolResult.Cancelled<string>());
+        }
+
+        if (!_pathGuard.IsAllowed(resolvedPath))
+            return Task.FromResult(ToolResult.Fail<string>($"错误：路径 {resolvedPath} 不在允许访问的范围内"));
 
         try
         {
-            var fullPath = Path.GetFullPath(rootPath);
+            var fullPath = Path.GetFullPath(resolvedPath);
             if (!Directory.Exists(fullPath))
-                return Task.FromResult(ToolResult.Fail<string>($"未找到工作区: {rootPath}。请检查路径是否正确。"));
+                return Task.FromResult(ToolResult.Fail<string>($"未找到工作区: {resolvedPath}。请检查路径是否正确。"));
 
             var sb = new StringBuilder();
             sb.AppendLine($"# 工作区概览: {Path.GetFileName(fullPath)}");
