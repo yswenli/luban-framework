@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net8.0
 *机器名称：WALLE
@@ -62,7 +62,7 @@ public class SwaggerSafeComparisonFilter : IOperationFilter
         if (isSafeComparison && !allowUnSafeComparison && !allowUnSafe)
         {
             if (operation.Parameters == null)
-                operation.Parameters = new List<OpenApiParameter>();
+                operation.Parameters = new List<IOpenApiParameter>();
 
             operation.Parameters.Add(new OpenApiParameter
             {
@@ -72,8 +72,8 @@ public class SwaggerSafeComparisonFilter : IOperationFilter
                 Required = true,
                 Schema = new OpenApiSchema
                 {
-                    Type = "string",
-                    Default = new OpenApiString(Common.DateTimeUtil.Now.ToUnixTimeStamp(false).ToString())
+                    Type = JsonSchemaType.String,
+                    Default = Common.DateTimeUtil.Now.ToUnixTimeStamp(false).ToString()
                 }
             });
             operation.Parameters.Add(new OpenApiParameter
@@ -84,8 +84,8 @@ public class SwaggerSafeComparisonFilter : IOperationFilter
                 Required = true,
                 Schema = new OpenApiSchema
                 {
-                    Type = "string",
-                    Default = new OpenApiString(GuidUtil.New)
+                    Type = JsonSchemaType.String,
+                    Default = GuidUtil.New
                 }
             });
             operation.Parameters.Add(new OpenApiParameter
@@ -96,8 +96,8 @@ public class SwaggerSafeComparisonFilter : IOperationFilter
                 Required = true,
                 Schema = new OpenApiSchema
                 {
-                    Type = "string",
-                    Default = new OpenApiString("yswenli".GetMD5Str())
+                    Type = JsonSchemaType.String,
+                    Default = "yswenli".GetMD5Str()
                 }
             });
         }

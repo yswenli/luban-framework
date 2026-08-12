@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net8.0
 *机器名称：YSWENLI
@@ -37,56 +37,56 @@ public class SwaggerFileUploadFilter : IOperationFilter
     {
         if (context.ApiDescription.ActionDescriptor.Parameters.Any(w => w.ParameterType == typeof(IFormFile)))
         {
-            Dictionary<string, OpenApiSchema> schema = new Dictionary<string, OpenApiSchema>();
+            Dictionary<string, IOpenApiSchema> schema = new Dictionary<string, IOpenApiSchema>();
 
-            schema["file"] = new OpenApiSchema { Description = "Select file", Type = "string", Format = "binary" };
+            schema["file"] = new OpenApiSchema { Description = "Select file", Type = JsonSchemaType.String, Format = "binary" };
 
             Dictionary<string, OpenApiMediaType> content = new Dictionary<string, OpenApiMediaType>();
 
-            content["multipart/form-data"] = new OpenApiMediaType { Schema = new OpenApiSchema { Type = "object", Properties = schema } };
+            content["multipart/form-data"] = new OpenApiMediaType { Schema = new OpenApiSchema { Type = JsonSchemaType.Object, Properties = schema } };
 
             operation.RequestBody = new OpenApiRequestBody() { Content = content };
 
         }
         else if (context.ApiDescription.ActionDescriptor.Parameters.Any(w => w.ParameterType == typeof(IFormCollection) || w.ParameterType == typeof(List<IFormFile>) || w.ParameterType == typeof(IFormFileCollection)))
         {
-            Dictionary<string, OpenApiSchema> schema = new Dictionary<string, OpenApiSchema>();
+            Dictionary<string, IOpenApiSchema> schema = new Dictionary<string, IOpenApiSchema>();
 
-            schema["file1"] = new OpenApiSchema { Description = "Select file", Type = "string", Format = "binary" };
-            schema["file2"] = new OpenApiSchema { Description = "Select file", Type = "string", Format = "binary" };
-            schema["file3"] = new OpenApiSchema { Description = "Select file", Type = "string", Format = "binary" };
+            schema["file1"] = new OpenApiSchema { Description = "Select file", Type = JsonSchemaType.String, Format = "binary" };
+            schema["file2"] = new OpenApiSchema { Description = "Select file", Type = JsonSchemaType.String, Format = "binary" };
+            schema["file3"] = new OpenApiSchema { Description = "Select file", Type = JsonSchemaType.String, Format = "binary" };
 
             Dictionary<string, OpenApiMediaType> content = new Dictionary<string, OpenApiMediaType>();
 
-            content["multipart/form-data"] = new OpenApiMediaType { Schema = new OpenApiSchema { Type = "object", Properties = schema } };
+            content["multipart/form-data"] = new OpenApiMediaType { Schema = new OpenApiSchema { Type = JsonSchemaType.Object, Properties = schema } };
 
             operation.RequestBody = new OpenApiRequestBody() { Content = content };
 
         }
         if (context.ApiDescription.ActionDescriptor.EndpointMetadata.Any(q => q is SwaggerUIUploadFileAttribute))
         {
-            Dictionary<string, OpenApiSchema> schema = new Dictionary<string, OpenApiSchema>();
+            Dictionary<string, IOpenApiSchema> schema = new Dictionary<string, IOpenApiSchema>();
 
-            schema["file"] = new OpenApiSchema { Description = "Select file", Type = "string", Format = "binary" };
+            schema["file"] = new OpenApiSchema { Description = "Select file", Type = JsonSchemaType.String, Format = "binary" };
 
             Dictionary<string, OpenApiMediaType> content = new Dictionary<string, OpenApiMediaType>();
 
-            content["multipart/form-data"] = new OpenApiMediaType { Schema = new OpenApiSchema { Type = "object", Properties = schema } };
+            content["multipart/form-data"] = new OpenApiMediaType { Schema = new OpenApiSchema { Type = JsonSchemaType.Object, Properties = schema } };
 
             operation.RequestBody = new OpenApiRequestBody() { Content = content };
         }
 
         if (context.ApiDescription.ActionDescriptor.EndpointMetadata.Any(q => q is SwaggerUIUploadFilesAttribute))
         {
-            Dictionary<string, OpenApiSchema> schema = new Dictionary<string, OpenApiSchema>();
+            Dictionary<string, IOpenApiSchema> schema = new Dictionary<string, IOpenApiSchema>();
 
-            schema["file1"] = new OpenApiSchema { Description = "Select file", Type = "string", Format = "binary" };
-            schema["file2"] = new OpenApiSchema { Description = "Select file", Type = "string", Format = "binary" };
-            schema["file3"] = new OpenApiSchema { Description = "Select file", Type = "string", Format = "binary" };
+            schema["file1"] = new OpenApiSchema { Description = "Select file", Type = JsonSchemaType.String, Format = "binary" };
+            schema["file2"] = new OpenApiSchema { Description = "Select file", Type = JsonSchemaType.String, Format = "binary" };
+            schema["file3"] = new OpenApiSchema { Description = "Select file", Type = JsonSchemaType.String, Format = "binary" };
 
             Dictionary<string, OpenApiMediaType> content = new Dictionary<string, OpenApiMediaType>();
 
-            content["multipart/form-data"] = new OpenApiMediaType { Schema = new OpenApiSchema { Type = "object", Properties = schema } };
+            content["multipart/form-data"] = new OpenApiMediaType { Schema = new OpenApiSchema { Type = JsonSchemaType.Object, Properties = schema } };
 
             operation.RequestBody = new OpenApiRequestBody() { Content = content };
         }

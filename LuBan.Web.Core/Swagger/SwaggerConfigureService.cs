@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net8.0
 *机器名称：YSWENLI
@@ -129,26 +129,20 @@ public static class SwaggerConfigureService
 
 
 
-            //Swagger 文档中添加较验            
+            //Swagger 文档中添加较验
             var scheme = new OpenApiSecurityScheme()
             {
                 Description = "Authorization header. \r\nExample: 'Bearer yswenli'",
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "Authorization"
-                },
                 Scheme = "oauth2",
                 Name = "Authorization",
                 In = ParameterLocation.Header,
                 Type = SecuritySchemeType.ApiKey
             };
             options.AddSecurityDefinition("Authorization", scheme);
-            var requirement = new OpenApiSecurityRequirement
+            options.AddSecurityRequirement(doc => new OpenApiSecurityRequirement
             {
-                [scheme] = []
-            };
-            options.AddSecurityRequirement(requirement);
+                [new OpenApiSecuritySchemeReference("Authorization", doc)] = []
+            });
 
             //swagger分组
             options.DocInclusionPredicate((docName, apiDescription) =>

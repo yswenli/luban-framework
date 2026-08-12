@@ -1,7 +1,7 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+<Project Sdk="Microsoft.NET.Sdk.Web">
 
 	<PropertyGroup>
-		<TargetFramework>net8.0</TargetFramework>
+		<TargetFramework>net10.0</TargetFramework>
 		<Nullable>enable</Nullable>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<InvariantGlobalization>false</InvariantGlobalization>
@@ -20,11 +20,11 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="LuBan.EMailKit" Version="2026.7.29.1" />
-		<PackageReference Include="LuBan.Web.Core" Version="2026.7.29.1" />
-		<PackageReference Include="LuBan.Wechat" Version="2026.7.29.1" />
+		<ProjectReference Include="..\LuBan.EMailKit\LuBan.EMailKit.csproj" />
+		<ProjectReference Include="..\LuBan.Web.Core\LuBan.Web.Core.csproj" />
+		<ProjectReference Include="..\LuBan.Wechat\LuBan.Wechat.csproj" />
 		<PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.28.0" />
-		<PackageReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Design" Version="9.0.0" />
+		<PackageReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Design" Version="10.0.0" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -38,7 +38,6 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <PackageReference Include="SqlSugarCore" Version="5.1.4.216" />
 	  <PackageReference Update="System.Security.Cryptography.Xml" Version="10.0.11" />
 	</ItemGroup>
 

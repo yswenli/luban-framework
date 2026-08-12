@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c) YSWenli All Rights Reserved.
 *CLR版本： .net8.0
 *机器名称：WALLE
@@ -48,7 +48,8 @@ public class OpenApiAccessAttribute : BaseFilterAttribute
         {
             var jwtConfig = HostingOptions.Default.AppOptions.JwtAuthConfig;
             var token = context.HttpContext.Request.GetJwtTokenString()?.Replace("Bearer ", "") ?? "";
-            var data = JWTPackage<JwtUserInfo>.Parse(token, HostingOptions.Default.AppOptions.JwtAuthConfig.Secret).Payload.Data;
+            var payload = JwtEncryption.Parse(token, jwtConfig.Secret);
+            var data = (JwtUserInfo)payload;
             if (data == null)
                 throw FriendlyError.Ex("Unauthorized", EnumErrorCode.D1011, 401);
         }

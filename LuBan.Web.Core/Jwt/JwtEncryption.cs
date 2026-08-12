@@ -1,6 +1,6 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
-*CLR版本： .net8.0
+*CLR版本： .net10.0
 *机器名称：WALLE
 *公司名称：Walle
 *命名空间：LuBan.Web.Core.JWT
@@ -15,18 +15,19 @@
 *
 *=================================================
 *修改标记
-*修改时间：2023/12/4 17:05:36
+*修改时间：2026/8/12 00:00:00
 *修改人： yswenli
-*版本号： V1.0.0.0
-*描述：JWT 加解密
+*版本号： V2.0.0.0
+*描述：迁移到 System.IdentityModel.Tokens.Jwt，移除 JWT.Standard 依赖
 *
 *****************************************************************************/
+
+using System.IdentityModel.Tokens.Jwt;
 
 namespace LuBan.Web.Core.Jwt;
 
 /// <summary>
-/// JWT 加解密,
-/// Microsoft.IdentityModel.Tokens 高版本有兼容性问题
+/// JWT 加解密
 /// </summary>
 public class JwtEncryption
 {
@@ -60,7 +61,6 @@ public class JwtEncryption
     public static string Encrypt(Dictionary<string, object> payload, long? expiredTime = null)
     {
         var jwtSettings = GetJwtSettings();
-        JwtUserInfo jwtUserInfo = payload;
         var et = jwtSettings.AccessExpiration;
         if (expiredTime.HasValue)
         {
@@ -69,10 +69,78 @@ public class JwtEncryption
         var secret = jwtSettings.Secret;
         if (secret.StartsWith("base64:", StringComparison.OrdinalIgnoreCase))
             secret = secret["base64:".Length..];
-        var jwtPackage = new JWTPackage<JwtUserInfo>(jwtUserInfo, et, secret);
-        jwtPackage.Payload["aud"] = jwtSettings.Audience;
-        jwtPackage.Payload["iss"] = jwtSettings.Issuer;
-        return jwtPackage.GetToken();
+
+        var keyBytes = Encoding.UTF8.GetBytes(secret);
+        var securityKey = new SymmetricSecurityKey(keyBytes);
+        var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
+
+        var claims = new List<Claim>
+        {
+            new(JwtRegisteredClaimNames.Aud, jwtSettings.Audience),
+            new(JwtRegisteredClaimNames.Iss, jwtSettings.Issuer)
+        };
+
+        foreach (var kv in payload)
+        {
+            claims.Add(new Claim(kv.Key, kv.Value?.ToString() ?? ""));
+        }
+
+        var now = DateTime.UtcNow;
+        var token = new JwtSecurityToken(
+            issuer: jwtSettings.Issuer,
+            audience: jwtSettings.Audience,
+            claims: claims,
+            notBefore: now,
+            expires: now.AddSeconds(et),
+            signingCredentials: credentials
+        );
+
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
+    /// <summary>
+    /// 解析 Token，返回 payload 字典
+    /// </summary>
+    /// <param name="token"></param>
+    /// <param name="secret"></param>
+    /// <returns></returns>
+    public static Dictionary<string, object> Parse(string token, string secret)
+    {
+        if (secret.StartsWith("base64:", StringComparison.OrdinalIgnoreCase))
+            secret = secret["base64:".Length..];
+
+        var keyBytes = Encoding.UTF8.GetBytes(secret);
+        var securityKey = new SymmetricSecurityKey(keyBytes);
+
+        var tokenHandler = new JwtSecurityTokenHandler();
+        var validationParameters = new TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = securityKey,
+            ValidateIssuer = false,
+            ValidateAudience = false,
+            ValidateLifetime = false,
+            ClockSkew = TimeSpan.Zero
+        };
+
+        tokenHandler.ValidateToken(token, validationParameters, out var validatedToken);
+
+        var jwtToken = (JwtSecurityToken)validatedToken;
+        var result = new Dictionary<string, object>();
+        foreach (var claim in jwtToken.Claims)
+        {
+            // 跳过标准注册声明
+            if (claim.Type == JwtRegisteredClaimNames.Iss
+                || claim.Type == JwtRegisteredClaimNames.Aud
+                || claim.Type == JwtRegisteredClaimNames.Exp
+                || claim.Type == JwtRegisteredClaimNames.Nbf
+                || claim.Type == JwtRegisteredClaimNames.Iat
+                || claim.Type == JwtRegisteredClaimNames.Jti)
+                continue;
+
+            result[claim.Type] = claim.Value;
+        }
+        return result;
     }
 
 

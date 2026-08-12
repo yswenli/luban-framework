@@ -62,7 +62,7 @@ global using LuBan.Web.Core.Utils;
 global using Encrypt.Library;
 global using Encrypt.Library.Core.Extensions;
 
-global using JWT.Net;
+global using System.IdentityModel.Tokens.Jwt;
 
 global using Mapster;
 
@@ -101,8 +101,6 @@ global using Microsoft.Extensions.Primitives;
 global using Microsoft.IdentityModel.Tokens;
 global using Microsoft.Net.Http.Headers;
 global using Microsoft.OpenApi;
-global using Microsoft.OpenApi.Any;
-global using Microsoft.OpenApi.Models;
 
 global using Nacos.V2;
 global using Nacos.V2.DependencyInjection;

@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net8.0
 *机器名称：YSWENLI
@@ -40,13 +40,29 @@ public static class SwaggerDocGeneratorExtension
         return services;
     }
     /// <summary>
-    /// 判断是否为 Object 类型
+    /// 获取schema的引用ID
     /// </summary>
     /// <param name="openApiSchema"></param>
     /// <returns></returns>
-    public static bool IsObject(this OpenApiSchema openApiSchema, IDictionary<string, OpenApiSchema> schemas)
+    private static string? GetReferenceId(this IOpenApiSchema openApiSchema)
     {
-        return openApiSchema.Type == null && openApiSchema.Reference != null && schemas.FirstOrDefault(x => x.Key == openApiSchema.Reference.Id).Value.Enum.Count == 0;
+        if (openApiSchema is OpenApiSchemaReference refSchema)
+            return refSchema.Reference.Id;
+        return null;
+    }
+    /// <summary>
+    /// 判断是否为 Object 类型
+    /// </summary>
+    /// <param name="openApiSchema"></param>
+    /// <param name="schemas"></param>
+    /// <returns></returns>
+    public static bool IsObject(this IOpenApiSchema openApiSchema, IDictionary<string, IOpenApiSchema> schemas)
+    {
+        if (openApiSchema.Type != null) return false;
+        var refId = openApiSchema.GetReferenceId();
+        if (refId == null) return false;
+        var target = schemas.FirstOrDefault(x => x.Key == refId).Value;
+        return (target?.Enum?.Count ?? 0) == 0;
     }
     /// <summary>
     /// 判断是否为枚举类型
@@ -54,34 +70,40 @@ public static class SwaggerDocGeneratorExtension
     /// <param name="openApiSchema"></param>
     /// <param name="schemas"></param>
     /// <returns></returns>
-    public static bool IsEnum(this OpenApiSchema openApiSchema, IDictionary<string, OpenApiSchema> schemas)
+    public static bool IsEnum(this IOpenApiSchema openApiSchema, IDictionary<string, IOpenApiSchema> schemas)
     {
-        return openApiSchema.Reference != null && schemas.FirstOrDefault(x => x.Key == openApiSchema.Reference.Id).Value.Enum.Count != 0;
+        var refId = openApiSchema.GetReferenceId();
+        if (refId == null) return false;
+        var target = schemas.FirstOrDefault(x => x.Key == refId).Value;
+        return (target?.Enum?.Count ?? 0) > 0;
     }
     /// <summary>
     /// 判断是否为数组类型
     /// </summary>
     /// <param name="openApiSchema"></param>
     /// <returns></returns>
-    public static bool IsArray(this OpenApiSchema openApiSchema)
+    public static bool IsArray(this IOpenApiSchema openApiSchema)
     {
-        return openApiSchema.Type == "array" && openApiSchema.Items != null;
+        return openApiSchema.Type == JsonSchemaType.Array && openApiSchema.Items != null;
     }
     /// <summary>
     /// 判断是否为基础数组类型
     /// </summary>
     /// <param name="openApiSchema"></param>
     /// <returns></returns>
-    public static bool IsBaseTypeArray(this OpenApiSchema openApiSchema)
+    public static bool IsBaseTypeArray(this IOpenApiSchema openApiSchema)
     {
-        return openApiSchema.Type == "array" && openApiSchema.Items != null && openApiSchema.Items.Type != null && openApiSchema.Items.Reference == null;
+        return openApiSchema.Type == JsonSchemaType.Array
+            && openApiSchema.Items != null
+            && openApiSchema.Items.Type != null
+            && openApiSchema.Items is not OpenApiSchemaReference;
     }
 
     /// <summary>
     /// 判断是否为基本类型
     /// </summary>
     /// <param name="openApiSchema"></param>
-    public static bool IsBaseType(this OpenApiSchema openApiSchema)
+    public static bool IsBaseType(this IOpenApiSchema openApiSchema)
     {
         return openApiSchema.Type != null;
     }

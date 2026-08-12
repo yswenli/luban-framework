@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c) YSWenli All Rights Reserved.
 *CLR版本： .net8.0
 *机器名称：WALLE
@@ -33,17 +33,19 @@ public class ExcludeKeyValuePairSchemaFilter : ISchemaFilter
     /// </summary>
     /// <param name="schema"></param>
     /// <param name="context"></param>
-    public void Apply(OpenApiSchema schema, SchemaFilterContext context)
+    public void Apply(IOpenApiSchema schema, SchemaFilterContext context)
     {
         var targetType = typeof(KeyValuePair<string, StringValues>);
 
         if (context.Type != targetType || context.Type.FullName?.StartsWith("System.Collections.Generic.KeyValuePair") != true)
             return;
 
-        schema.Reference = null;
-        schema.Type = null;
-        schema.Properties = null;
-        schema.AdditionalPropertiesAllowed = false;
+        if (schema is OpenApiSchema concreteSchema)
+        {
+            concreteSchema.Type = null;
+            concreteSchema.Properties = null;
+            concreteSchema.AdditionalPropertiesAllowed = false;
+        }
 
         var targetSchemaId = targetType.Name;
         var keysToRemove = context.SchemaRepository.Schemas

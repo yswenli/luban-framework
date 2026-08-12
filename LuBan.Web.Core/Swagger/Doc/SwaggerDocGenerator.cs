@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net8.0
 *机器名称：YSWENLI
@@ -22,6 +22,7 @@
 *
 *****************************************************************************/
 using LuBan.Web.Core.Swagger.Doc.Models;
+using System.Text.Json.Nodes;
 
 namespace LuBan.Web.Core.Swagger.Doc;
 
@@ -39,7 +40,7 @@ public class SwaggerDocGenerator : ISwaggerDocGenerator
     /// <summary>
     /// Schemas
     /// </summary>
-    private IDictionary<string, OpenApiSchema> Schemas;
+    private IDictionary<string, IOpenApiSchema> Schemas;
     /// <summary>
     /// contentType
     /// </summary>
@@ -158,7 +159,7 @@ public class SwaggerDocGenerator : ISwaggerDocGenerator
     /// </summary>
     /// <param name="apiParameters"></param>
     /// <returns></returns>
-    private string GetMarkdownForParameters(IList<OpenApiParameter> apiParameters)
+    private string GetMarkdownForParameters(IList<IOpenApiParameter> apiParameters)
     {
         var str = new StringPlus();
         if (apiParameters == null || apiParameters.Count < 1) return str.ToString();
@@ -168,7 +169,7 @@ public class SwaggerDocGenerator : ISwaggerDocGenerator
         {
             var des = parameter.Description;
             if (des.IsNullOrEmpty()) des = "-";
-            str.AppendLine($"|{parameter.Name}|{parameter.Schema.Type ?? parameter.Schema.Reference.Id}|{parameter.In}|{(parameter.Required ? "否" : "是")}|{des}|");
+            str.AppendLine($"|{parameter.Name}|{GetTypeString(parameter.Schema?.Type) ?? GetRefId(parameter.Schema)}|{parameter.In}|{(parameter.Required ? "否" : "是")}|{des}|");
         }
         return str.ToString();
     }
@@ -177,7 +178,7 @@ public class SwaggerDocGenerator : ISwaggerDocGenerator
     /// </summary>
     /// <param name="body"></param>
     /// <returns></returns>
-    private (string? exampleJson, string? markdownText) GetMarkdownForRequestBody(OpenApiRequestBody body)
+    private (string? exampleJson, string? markdownText) GetMarkdownForRequestBody(IOpenApiRequestBody body)
     {
         if (body == null || body.Content.ContainsKey(contentType) == false) return (null, null);
         string? exampleJson = null, markdownText = null;
@@ -207,37 +208,38 @@ public class SwaggerDocGenerator : ISwaggerDocGenerator
     /// <param name="apiSchema"></param>
     /// <param name="level"></param>
     /// <returns></returns>
-    private object? GetExapmple(OpenApiSchema apiSchema, int level = 1)
+    private object? GetExapmple(IOpenApiSchema apiSchema, int level = 1)
     {
         if (apiSchema == null) return null;
         if (level > 2) return null;
         object? exapmle = null;
         if (apiSchema.IsObject(Schemas))
         {
-            var key = apiSchema.Reference.Id;
+            var key = GetRefId(apiSchema);
             level++;
             exapmle = GetExapmple(key, level);
         }
         else if (apiSchema.IsArray())
         {
             if (apiSchema.IsBaseTypeArray())
-                exapmle = new[] { GetDefaultValue(apiSchema.Items.Type) };
+                exapmle = new[] { GetDefaultValue(GetTypeString(apiSchema.Items?.Type)) };
             else
             {
                 level++;
-                if (apiSchema.Items != null && apiSchema.Items.Reference != null && apiSchema.Items.Reference.Id != null)
-                    exapmle = new[] { GetExapmple(apiSchema.Items.Reference.Id, level) };
+                var itemsRefId = GetRefId(apiSchema.Items);
+                if (itemsRefId != null)
+                    exapmle = new[] { GetExapmple(itemsRefId, level) };
             }
 
         }
         else if (apiSchema.IsEnum(Schemas))
         {
-            var key = apiSchema.Reference.Id;
-            exapmle = GetEnum(key).Select(x => x.Value).Min();
+            var key = GetRefId(apiSchema);
+            exapmle = GetEnum(key).Min();
         }
         else
         {
-            exapmle = GetDefaultValue(apiSchema.Type);
+            exapmle = GetDefaultValue(GetTypeString(apiSchema.Type));
         }
         return exapmle;
     }
@@ -247,19 +249,20 @@ public class SwaggerDocGenerator : ISwaggerDocGenerator
     /// </summary>
     /// <param name="enumType"></param>
     /// <returns></returns>
-    private int[] GetEnumValues(string enumType) => GetEnum(enumType).Select(x => x.Value).ToArray();
+    private int[] GetEnumValues(string enumType) => GetEnum(enumType).ToArray();
     /// <summary>
     /// 获取枚举
     /// </summary>
     /// <param name="enumType"></param>
     /// <returns></returns>
-    private IEnumerable<OpenApiInteger> GetEnum(string enumType) => GetEnumSchema(enumType).Enum.Select(x => ((OpenApiInteger)x));
+    private IEnumerable<int> GetEnum(string enumType)
+        => GetEnumSchema(enumType)?.Enum?.Select(x => x?.GetValue<int>() ?? 0) ?? Enumerable.Empty<int>();
     /// <summary>
     /// 获取枚举Schema
     /// </summary>
     /// <param name="enumType"></param>
     /// <returns></returns>
-    private OpenApiSchema GetEnumSchema(string enumType) => Schemas.SingleOrDefault(x => x.Key == enumType).Value;
+    private IOpenApiSchema GetEnumSchema(string enumType) => Schemas.SingleOrDefault(x => x.Key == enumType).Value;
 
     /// <summary>
     /// 递归获取 Body 示例
@@ -272,7 +275,7 @@ public class SwaggerDocGenerator : ISwaggerDocGenerator
         if (string.IsNullOrEmpty(key) || !Schemas.ContainsKey(key)) return null;
         if (level > 2) return null;
         var schema = Schemas.SingleOrDefault(x => x.Key == key).Value;
-        if (schema.Properties.Any() == false) return null;
+        if (schema?.Properties == null || schema.Properties.Count == 0) return null;
         var exapmle = new ModelExample();
         foreach (var item in schema.Properties)
         {
@@ -283,7 +286,7 @@ public class SwaggerDocGenerator : ISwaggerDocGenerator
             }
             else if (item.Value.IsObject(Schemas))
             {
-                var objKey = item.Value.Reference.Id;
+                var objKey = GetRefId(item.Value);
                 if (objKey == key)
                     exapmle.Add(item.Key, null);
                 else
@@ -297,14 +300,14 @@ public class SwaggerDocGenerator : ISwaggerDocGenerator
                 if (item.Value.IsBaseTypeArray())
                 {
                     level++;
-                    var data = GetExapmple(item.Value.Items.Type, level);
+                    var data = GetExapmple(GetTypeString(item.Value.Items?.Type), level);
                     if (data != null)
                         exapmle.Add(item.Key, new[] { data });
                 }
                 else
                 {
                     level++;
-                    var data = GetExapmple(item.Value.Items.Reference.Id, level);
+                    var data = GetExapmple(GetRefId(item.Value.Items), level);
                     if (data != null)
                         exapmle.Add(item.Key, new[] { data });
                 }
@@ -312,9 +315,9 @@ public class SwaggerDocGenerator : ISwaggerDocGenerator
             else
             {
                 if (item.Value.IsEnum(Schemas))
-                    exapmle.Add(item.Key, GetEnumValues(item.Value.Reference.Id).Min());
+                    exapmle.Add(item.Key, GetEnumValues(GetRefId(item.Value)).Min());
                 else
-                    exapmle.Add(item.Key, GetDefaultValue(item.Value.Format ?? item.Value.Type));
+                    exapmle.Add(item.Key, GetDefaultValue(item.Value.Format ?? GetTypeString(item.Value.Type)));
             }
         }
         return exapmle;
@@ -327,7 +330,7 @@ public class SwaggerDocGenerator : ISwaggerDocGenerator
     /// <param name="apiSchema">OpenApiSchema对象</param>
     /// <param name="func">递归获取属性信息的委托</param>
     /// <returns>markdown表格字符串</returns>
-    private string GetMarkDownForModelInfo(OpenApiSchema apiSchema, Func<string, object> func)
+    private string GetMarkDownForModelInfo(IOpenApiSchema apiSchema, Func<string, object> func)
     {
         var markdown = new StringPlus();
         void AppendRows(object info, string parent = "", string position = "Body")
@@ -417,18 +420,18 @@ public class SwaggerDocGenerator : ISwaggerDocGenerator
                 return;
             }
 
-            markdown.AppendLine($"|{parent ?? "-"}|{apiSchema.Type}|{position}|{(apiSchema.Nullable ? "是" : "否")}|{apiSchema.Description ?? "-"}|");
+            markdown.AppendLine($"|{parent ?? "-"}|{GetTypeString(apiSchema.Type) ?? "-"}|{position}|{((apiSchema.Type.HasValue && apiSchema.Type.Value.HasFlag(JsonSchemaType.Null)) ? "是" : "否")}|{apiSchema.Description ?? "-"}|");
             return;
         }
         // 获取根对象信息
         object? rootInfo = null;
         var key = "";
         if (apiSchema.IsObject(Schemas) || apiSchema.IsEnum(Schemas))
-            key = apiSchema.Reference.Id;
+            key = GetRefId(apiSchema);
         else if (apiSchema.IsArray())
-            key = apiSchema.Items.Type ?? apiSchema.Items.Reference.Id;
+            key = GetTypeString(apiSchema.Items?.Type) ?? GetRefId(apiSchema.Items);
         else if (apiSchema.IsBaseType())
-            key = apiSchema.Type;
+            key = GetTypeString(apiSchema.Type);
         if (key != null)
             rootInfo = func(key);
         if (rootInfo != null)
@@ -448,7 +451,7 @@ public class SwaggerDocGenerator : ISwaggerDocGenerator
         if (level > 2) return null;
         if (key == null || Schemas.ContainsKey(key) == false) return key;
         var schema = Schemas.SingleOrDefault(x => x.Key == key).Value;
-        if (schema.Properties.Any() == false)
+        if (schema?.Properties == null || schema.Properties.Count == 0)
             return new Models.EnumInfo()
             {
                 枚举范围 = GetEnumValues(key),
@@ -462,7 +465,7 @@ public class SwaggerDocGenerator : ISwaggerDocGenerator
             object? obj = "object";
             if (item.Value.IsObject(Schemas))
             {
-                var objKey = item.Value.Reference.Id;
+                var objKey = GetRefId(item.Value);
                 if (objKey == key)
                     obj = objKey;
                 else
@@ -476,15 +479,15 @@ public class SwaggerDocGenerator : ISwaggerDocGenerator
             {
                 var arrayKey = "";
                 if (item.Value.IsBaseTypeArray())
-                    arrayKey = item.Value.Items.Type;
+                    arrayKey = GetTypeString(item.Value.Items?.Type);
                 else
-                    arrayKey = item.Value.Items.Reference.Id;
+                    arrayKey = GetRefId(item.Value.Items);
                 level++;
                 obj = new[] { GetModelInfo(arrayKey, isShowRequired, level) };
             }
             else if (item.Value.IsEnum(Schemas))
             {
-                var enumKey = item.Value.Reference.Id;
+                var enumKey = GetRefId(item.Value);
                 var enumObj = GetEnumSchema(enumKey);
                 obj = new Models.EnumInfo()
                 {
@@ -496,7 +499,7 @@ public class SwaggerDocGenerator : ISwaggerDocGenerator
             }
             else
             {
-                obj = item.Value.Format ?? item.Value.Type;
+                obj = item.Value.Format ?? GetTypeString(item.Value.Type);
             }
 
             if (isShowRequired)
@@ -506,7 +509,7 @@ public class SwaggerDocGenerator : ISwaggerDocGenerator
                     参数类型 = obj ?? "",
                     描述 = item.Value.Description,
                     是否必传 = schema.Required.Any(x => x == item.Key),
-                    可空类型 = item.Value.Nullable
+                    可空类型 = (item.Value.Type.HasValue && item.Value.Type.Value.HasFlag(JsonSchemaType.Null))
                 };
                 properties.Add(item.Key, requestModelInfo);
             }
@@ -516,7 +519,7 @@ public class SwaggerDocGenerator : ISwaggerDocGenerator
                 {
                     参数类型 = obj ?? "",
                     描述 = item.Value.Description,
-                    可空类型 = item.Value.Nullable
+                    可空类型 = (item.Value.Type.HasValue && item.Value.Type.Value.HasFlag(JsonSchemaType.Null))
                 };
                 properties.Add(item.Key, responseModelInfo);
             }
@@ -536,6 +539,34 @@ public class SwaggerDocGenerator : ISwaggerDocGenerator
         if (type == "bool" || type == "boolean") return false;
         if (type == "date-time") return DateTime.Now;
         return null;
+    }
+
+    /// <summary>
+    /// 将JsonSchemaType转换为字符串
+    /// </summary>
+    private static string? GetTypeString(JsonSchemaType? type)
+    {
+        if (!type.HasValue) return null;
+        var t = type.Value;
+        if (t.HasFlag(JsonSchemaType.Null)) t &= ~JsonSchemaType.Null;
+        return t switch
+        {
+            JsonSchemaType.String => "string",
+            JsonSchemaType.Integer => "integer",
+            JsonSchemaType.Number => "number",
+            JsonSchemaType.Boolean => "boolean",
+            JsonSchemaType.Array => "array",
+            JsonSchemaType.Object => "object",
+            _ => t.ToString().ToLowerInvariant()
+        };
+    }
+
+    /// <summary>
+    /// 获取schema的引用ID
+    /// </summary>
+    private static string? GetRefId(IOpenApiSchema? schema)
+    {
+        return schema is OpenApiSchemaReference refSchema ? refSchema.Reference.Id : null;
     }
 
     /// <summary>
