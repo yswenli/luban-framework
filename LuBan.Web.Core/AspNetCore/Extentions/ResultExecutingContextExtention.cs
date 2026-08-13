@@ -35,8 +35,18 @@ public static class ResultExecutingContextExtention
     /// <returns></returns>
     public static string? GetResultLogText(this ResultExecutingContext resultContext)
     {
-        IActionResult actionResult = resultContext.Result;
-        string? result = "";
+        return resultContext.Result.GetResultLogText(resultContext.HttpContext.Request.Path);
+    }
+
+    /// <summary>
+    /// 获取值
+    /// </summary>
+    /// <param name="actionResult"></param>
+    /// <param name="path"></param>
+    /// <returns></returns>
+    public static string GetResultLogText(this IActionResult actionResult, string path)
+    {
+        string result = "";
         try
         {
             if (actionResult != null)
@@ -52,11 +62,11 @@ public static class ResultExecutingContextExtention
                 }
                 else if (actionResult is ViewResult vr)
                 {
-                    result = $"访问页面:{resultContext.HttpContext.Request.Path}";
+                    result = $"访问页面:{path}";
                 }
                 else if (actionResult is ContentResult cr)
                 {
-                    result = cr.Content;
+                    result = cr.Content ?? "";
                 }
                 else if (actionResult is RedirectResult rr)
                 {

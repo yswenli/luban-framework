@@ -100,7 +100,7 @@ public class ErrorHandlingMiddleware(RequestDelegate next)
             return;
         }
         //如果是其他异常，则返回默认异常信息
-        var result = SerializeUtil.Serialize(new Fail("Server API error, please contact administrator support to resolve this issue.", 999));
+        var result = SerializeUtil.Serialize(new Fail("Server API error, please contact administrator support to resolve this issue.", 500));
         context.Response.ContentType = "application/json";
         context.Response.StatusCode = StatusCodes.Status500InternalServerError;
         await context.Response.WriteAsync(result);

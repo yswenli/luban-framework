@@ -33,7 +33,7 @@ public abstract class BaseFilterAttribute : Attribute, IAsyncActionFilter, IAsyn
     /// <summary>
     /// 顺序
     /// </summary>
-    public int Order { get; set; } = 2;
+    public int Order { get; set; } = 1;
 
     /// <summary>
     /// 方法执行前

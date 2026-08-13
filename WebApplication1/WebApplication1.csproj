@@ -24,7 +24,6 @@
 		<ProjectReference Include="..\LuBan.Web.Core\LuBan.Web.Core.csproj" />
 		<ProjectReference Include="..\LuBan.Wechat\LuBan.Wechat.csproj" />
 		<PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.29.0" />
-		<PackageReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Design" Version="10.0.2" />
 	</ItemGroup>
 
 	<ItemGroup>
