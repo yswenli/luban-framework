@@ -45,22 +45,13 @@ internal class ReportExcel<T> : ReportBase<T> where T : class, new()
     /// <param name="filePath"></param>
     public override void Save(string filePath)
     {
-        var fileName = Path.GetFileName(filePath);
-        var is2003 = fileName.EndsWith(".xls");
         var path = Path.GetDirectoryName(filePath);
         if (path.IsNotNullOrEmpty() && !Directory.Exists(path))
         {
             Directory.CreateDirectory(path);
         }
         var dataTable = GetDataTable();
-        if (is2003)
-        {
-            ExcelUtil.ExportFileFromDataTable(dataTable, filePath);
-        }
-        else
-        {
-            ExcelUtil.ExportFileFromDataTable(dataTable, filePath);
-        }
+        ExcelUtil.ExportFileFromDataTable(dataTable, filePath);
     }
 
     /// <summary>
@@ -69,21 +60,7 @@ internal class ReportExcel<T> : ReportBase<T> where T : class, new()
     /// <returns></returns>
     public override Stream SaveStream()
     {
-        return SaveStream(false);
-    }
-
-    /// <summary>
-    /// 保存
-    /// </summary>
-    /// <param name="is2003"></param>
-    /// <returns></returns>
-    Stream SaveStream(bool is2003)
-    {
         var dataTable = GetDataTable();
-        if (is2003)
-        {
-            return ExcelUtil.ExportStreamFromDataTable(dataTable, $"{typeof(T).Name}-{DateTime.Now:yyyyMMddHHmmss}.xls");
-        }
         return ExcelUtil.ExportStreamFromDataTable(dataTable, $"{typeof(T).Name}-{DateTime.Now:yyyyMMddHHmmss}.xlsx");
     }
 }

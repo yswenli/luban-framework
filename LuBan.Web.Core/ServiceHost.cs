@@ -174,6 +174,13 @@ internal static class ServiceHost
         service.ConfigureServices(builder.Configuration);
 
         var webApp = builder.Build();
+
+        //从实际应用容器注入ILoggerFactory和STJ序列化器给static Logger
+        var loggerFactory = webApp.Services.GetRequiredService<ILoggerFactory>();
+        Logger.SetLogger(loggerFactory);
+        Logger.SetSerializer(LuBan.Logging.LuBanLoggingServiceExtensions.CreateLuBanSerializer());
+        Logger.EnableConsoleOutput = webApp.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<LuBan.Logging.Configuration.LuBanLoggingOptions>>().Value.EnableConsole;
+
         webApp.Configure(webApp.Environment, null);
 
         //注册事件        

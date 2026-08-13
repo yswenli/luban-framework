@@ -116,7 +116,6 @@ internal sealed class RollingFileWriter : IDisposable
 
         var fs = new FileStream(_currentFilePath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
         _streamWriter = new StreamWriter(fs, System.Text.Encoding.UTF8);
-        _lastFlushTime = DateTime.Now;
     }
 
     private void RollFile(DateTime today)

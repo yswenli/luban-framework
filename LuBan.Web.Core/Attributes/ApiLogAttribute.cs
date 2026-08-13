@@ -27,7 +27,7 @@ namespace LuBan.Web.Core.Attributes;
 /// 接口调用日志,可使用NoApiLogAttribute移除
 /// </summary>
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, AllowMultiple = false, Inherited = true)]
-public class ApiLogAttribute : BaseFilterAttribute, IAsyncActionFilter, IAsyncResultFilter, IOrderedFilter
+public class ApiLogAttribute : BaseFilterAttribute, IAsyncActionFilter, IAsyncExceptionFilter, IAsyncResultFilter, IOrderedFilter
 {
     static readonly AsyncLocal<Stopwatch> _stopwatchLocal = new();
     static readonly AsyncLocal<string> _inputLocal = new();
@@ -35,6 +35,13 @@ public class ApiLogAttribute : BaseFilterAttribute, IAsyncActionFilter, IAsyncRe
 
     public new int Order => 99999;
 
+
+    /// <summary>
+    /// 执行前
+    /// </summary>
+    /// <param name="context"></param>
+    /// <param name="next"></param>
+    /// <returns></returns>
     public override async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
     {
         var stopwatch = Stopwatch.StartNew();
@@ -110,17 +117,71 @@ public class ApiLogAttribute : BaseFilterAttribute, IAsyncActionFilter, IAsyncRe
         await next.Invoke();
     }
 
+    /// <summary>
+    /// 异常处理
+    /// </summary>
+    /// <param name="context"></param>
+    /// <returns></returns>
+    public Task OnExceptionAsync(ExceptionContext context)
+    {
+        _stopwatchLocal.Value?.Stop();
+
+        context.HttpContext.Response.ContentType = "application/json; charset=utf-8";
+
+        Exception? exception = null;
+
+        if (context.Exception is FriendlyException friendlyException)
+        {
+            var message = new Fail(friendlyException.Message, (int)friendlyException.ErrorCode).ToJson();
+            context.HttpContext.Response.StatusCode = StatusCodes.Status200OK;
+            context.Result = new ContentResult
+            {
+                Content = message,
+                ContentType = "application/json; charset=utf-8",
+                StatusCode = StatusCodes.Status200OK
+            };
+        }
+        else if (context.Exception is Microsoft.AspNetCore.Http.BadHttpRequestException)
+        {
+            context.HttpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
+            exception = context.Exception;
+        }
+        else
+        {
+            var result = SerializeUtil.Serialize(new Fail("Server API error, please contact administrator support to resolve this issue.", 500));
+            context.HttpContext.Response.StatusCode = StatusCodes.Status500InternalServerError;
+            context.Result = new ContentResult
+            {
+                Content = result,
+                ContentType = "application/json",
+                StatusCode = StatusCodes.Status500InternalServerError
+            };
+            exception = context.Exception;
+        }
+
+        context.ExceptionHandled = true;
+
+        GetResultLogText(context.HttpContext, context.Result, exception);
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// 执行后
+    /// </summary>
+    /// <param name="context"></param>
+    /// <param name="next"></param>
+    /// <returns></returns>
     public override async Task OnResultExecutionAsync(ResultExecutingContext context, ResultExecutionDelegate next)
     {
-        Exception? exception = null;
-        try
-        {
-            await next.Invoke();
-        }
-        catch (Exception ex)
-        {
-            exception = ex;
-        }
+        await next.Invoke();
+
+        GetResultLogText(context.HttpContext, context.Result, null);
+    }
+
+
+    void GetResultLogText(HttpContext httpContext, IActionResult? actionResult, Exception? exception)
+    {
         _stopwatchLocal.Value?.Stop();
 
         try
@@ -129,9 +190,9 @@ public class ApiLogAttribute : BaseFilterAttribute, IAsyncActionFilter, IAsyncRe
 
             var result = string.Empty;
 
-            if (context.Result != null)
+            if (actionResult != null)
             {
-                result = context.GetResultLogText();
+                result = actionResult.GetResultLogText(httpContext.Request.Path);
                 if (result.IsNotNullOrEmpty() && result.Length > 10240)
                 {
                     result = result.Substring(0, 10240);
@@ -145,7 +206,7 @@ public class ApiLogAttribute : BaseFilterAttribute, IAsyncActionFilter, IAsyncRe
                 userId = SessionUser.UserId;
             }
 
-            var host = context.HttpContext.Request.Host.Value;
+            var host = httpContext.Request.Host.Value ?? "";
 
             if (host.EndsWith(":80"))
             {
@@ -157,7 +218,7 @@ public class ApiLogAttribute : BaseFilterAttribute, IAsyncActionFilter, IAsyncRe
                 host = host[..^4];
             }
 
-            if (context.HttpContext.Request.Headers.TryGetValue("X-Forwarded-Prefix", out StringValues values) && values.Count > 0)
+            if (httpContext.Request.Headers.TryGetValue("X-Forwarded-Prefix", out StringValues values) && values.Count > 0)
             {
                 var prefix = values.FirstOrDefault();
                 if (prefix.IsNotNullOrEmpty())
@@ -166,10 +227,7 @@ public class ApiLogAttribute : BaseFilterAttribute, IAsyncActionFilter, IAsyncRe
                 }
             }
 
-            var url = $"{context.HttpContext.Request.Scheme}://{host}{context.HttpContext.Request.Path}{(context.HttpContext.Request.QueryString.HasValue ? context.HttpContext.Request.QueryString.Value : "")}";
-
-            if (exception == null)
-                exception = ServiceProviderUtil.GetExceptionScope()?.Exception ?? null;
+            var url = $"{httpContext.Request.Scheme}://{host}{httpContext.Request.Path}{(httpContext.Request.QueryString.HasValue ? httpContext.Request.QueryString.Value : "")}";
 
             var input = _inputLocal.Value ?? string.Empty;
             if (input.IsNotNullOrEmpty() && input.Length > 10240)
@@ -177,14 +235,14 @@ public class ApiLogAttribute : BaseFilterAttribute, IAsyncActionFilter, IAsyncRe
                 input = input.Substring(0, 10240);
             }
 
-            Logger.ApiCallLog(context.HttpContext.TraceIdentifier,
-                $"{context.HttpContext.GetClientIp()}:{context.HttpContext.Connection.RemotePort}",
+            Logger.ApiCallLog(httpContext.TraceIdentifier,
+                $"{httpContext.GetClientIp()}:{httpContext.Connection.RemotePort}",
                 url,
-                context.HttpContext.Request.Method,
-                SerializeUtil.Serialize(context.HttpContext.Request.Headers),
+                httpContext.Request.Method,
+                SerializeUtil.Serialize(httpContext.Request.Headers),
                 input,
                 _stopwatchLocal.Value?.ElapsedMilliseconds ?? 0,
-                context.HttpContext.Response.StatusCode,
+                httpContext.Response.StatusCode,
                 result ?? "",
                 userId.ToString(),
                 exception);
@@ -194,8 +252,6 @@ public class ApiLogAttribute : BaseFilterAttribute, IAsyncActionFilter, IAsyncRe
             Logger.Warn($"ApiLogAttribute记录日志失败", ex);
         }
     }
-
-
 }
 
 

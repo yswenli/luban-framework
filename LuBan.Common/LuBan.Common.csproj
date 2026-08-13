@@ -6,15 +6,14 @@
     <Nullable>enable</Nullable>
     <IsTrimmable>true</IsTrimmable>
     <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
-    <AcceptNPOIOSMFLicense>true</AcceptNPOIOSMFLicense>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <Title>$(AssemblyName)</Title>
     <Version>2026.8.12.1</Version>
     <Authors>yswenli</Authors>
-    <Description>LuBan Framework工具类项目，三方引用包主要有：Encrypt.Library、HtmlAgilityPack、ICSharpCode.SharpZipLib、NPOI、SkiaSharp、ZXing等（JSON 序列化已迁移至 System.Text.Json）</Description>
+    <Description>LuBan Framework工具类项目，三方引用包主要有：Encrypt.Library、HtmlAgilityPack、ICSharpCode.SharpZipLib、MiniExcel、SkiaSharp、ZXing等（JSON 序列化已迁移至 System.Text.Json）</Description>
     <PackageIcon>favicon.png</PackageIcon>
     <PackageTags>$(AssemblyName);web;api;aspnet;aspnetcore;LuBan;yswenli</PackageTags>
-    <PackageReleaseNotes>LuBan Framework工具类项目，三方引用包主要有：Encrypt.Library、HtmlAgilityPack、ICSharpCode.SharpZipLib、NPOI、SkiaSharp、ZXing等（JSON 序列化已迁移至 System.Text.Json）</PackageReleaseNotes>
+    <PackageReleaseNotes>LuBan Framework工具类项目，三方引用包主要有：Encrypt.Library、HtmlAgilityPack、ICSharpCode.SharpZipLib、MiniExcel、SkiaSharp、ZXing等（JSON 序列化已迁移至 System.Text.Json）</PackageReleaseNotes>
     <PackageId>$(AssemblyName)</PackageId>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <Copyright>$(Authors)</Copyright>
@@ -44,7 +43,8 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.11" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.11" />
     <PackageReference Include="Microsoft.Extensions.DependencyModel" Version="10.0.11" />
-    <PackageReference Include="NPOI" Version="2.8.0" />
+    <PackageReference Include="MiniExcel" Version="1.45.0" />
+    <PackageReference Include="DocumentFormat.OpenXml" Version="3.5.1" />
     <PackageReference Include="SharpZipLib" Version="1.4.2" />
     <PackageReference Include="SkiaSharp" Version="4.151.1" />
     <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.151.1" />

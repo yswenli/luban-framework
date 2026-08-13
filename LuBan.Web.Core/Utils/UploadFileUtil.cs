@@ -150,12 +150,12 @@ public static class UploadFileUtil
     {
         file.ValidateFile();
 
-        if (file.FileName.EndsWith(".xls") || file.FileName.EndsWith(".xlsx"))
+        if (file.FileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
         {
             using var ms = new MemoryStream();
             file.OpenReadStream().CopyTo(ms);
             ms.Position = 0;
-            return ExcelUtil.ImportFromStream(ms, !file.FileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase), sheetName, startRow, hasHeader) ?? new DataTable();
+            return ExcelUtil.ImportFromStream(ms, sheetName, startRow, hasHeader) ?? new DataTable();
         }
         if (file.FileName.EndsWith(".csv"))
         {

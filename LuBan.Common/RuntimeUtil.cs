@@ -69,7 +69,6 @@ public static class RuntimeUtil
         "nacos-sdk-csharp",
         "Nito",
         "Npgsql",
-        "NPOI",
         "NuGet",
         "Oracle",
         "Oscar",

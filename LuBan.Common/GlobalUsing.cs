@@ -46,10 +46,6 @@ global using Microsoft.Extensions.DependencyModel;
 global using Microsoft.Extensions.Logging;
 global using Microsoft.Extensions.Logging.Abstractions;
 
-global using NPOI.HSSF.UserModel;
-global using NPOI.SS.UserModel;
-global using NPOI.XSSF.UserModel;
-
 global using SkiaSharp;
 
 global using Spectre.Console;

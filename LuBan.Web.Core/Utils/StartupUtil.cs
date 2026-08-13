@@ -112,9 +112,6 @@ public static class StartupUtil
             //正在初始化全局DI集合
             services.BuildProvider();
 
-            //注入ILoggerFactory和STJ序列化器给static Logger
-            services.InitLuBanLogger();
-
         }
         catch (Exception ex)
         {

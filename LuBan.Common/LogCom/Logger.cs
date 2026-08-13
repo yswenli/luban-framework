@@ -547,7 +547,15 @@ public static class Logger
             if (!string.IsNullOrEmpty(header))
             {
                 var jObject = JsonNode.Parse(header);
-                userAgent = jObject?["User-Agent"]?.GetValue<string>() ?? "";
+                var userAgentNode = jObject?["User-Agent"];
+                if (userAgentNode is JsonArray array && array.Count > 0)
+                {
+                    userAgent = array[0]?.GetValue<string>() ?? "";
+                }
+                else if (userAgentNode != null)
+                {
+                    userAgent = userAgentNode.GetValue<string>() ?? "";
+                }
             }
 
             apiLogModel = new ApiLogInfo
@@ -638,7 +646,15 @@ public static class Logger
             if (header.IsNotNullOrEmpty())
             {
                 var jObject = JsonNode.Parse(header);
-                userAgent = jObject?["User-Agent"]?.GetValue<string>() ?? "";
+                var userAgentNode = jObject?["User-Agent"];
+                if (userAgentNode is JsonArray array && array.Count > 0)
+                {
+                    userAgent = array[0]?.GetValue<string>() ?? "";
+                }
+                else if (userAgentNode != null)
+                {
+                    userAgent = userAgentNode.GetValue<string>() ?? "";
+                }
             }
 
             apiLogModel = new ApiLogInfo
