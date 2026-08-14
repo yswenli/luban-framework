@@ -68,15 +68,14 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
             return Array.Empty<ChatMessage>();
 
         var active = (await _sessionManager.GetActiveMessagesAsync(sessionId)).ToList();
-        if (active.Count == 0)
-            return Array.Empty<ChatMessage>();
 
         // 分离摘要消息与正文消息（摘要在库中按 CreateTime 排序，位置不固定）
         var summaries = active.Where(m => m.Role == "summary").OrderByDescending(m => m.Id).ToList();
         var messages = active.Where(m => m.Role != "summary").ToList();
         SessionMessage? latestSummary = summaries.FirstOrDefault();
 
-        // context-build 规则注入（如记忆召回），仅消费 Inject，忽略 Allow
+        // context-build 规则注入（如记忆召回），仅消费 Inject，忽略 Allow。
+        // 必须先于空历史判断：新会话首轮无消息时也要能召回长期记忆。
         var recallMessages = new List<ChatMessage>();
         if (_ruleEngine != null)
         {
@@ -101,6 +100,10 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
                 }
             }
         }
+
+        // 无历史消息：仍返回召回内容
+        if (active.Count == 0)
+            return recallMessages;
 
         var history = messages
             .Select(m => new ChatMessage(m.Role == "user" ? ChatRole.User : ChatRole.Assistant, m.Content))
@@ -152,7 +155,7 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
         if (string.IsNullOrEmpty(sessionId))
             return;
 
-        // RequestMessages 包含历史消息 + 本轮新输入，历史已在之前轮次持久化，
+        // RequestMessages 仅含本轮新输入（框架默认存储过滤器已排除 ChatHistory 来源的历史消息），
         // 仅持久化最后一条 user 消息（本轮新输入）
         var newUserText = context.RequestMessages
             .LastOrDefault(m => m.Role == ChatRole.User)?.Text;

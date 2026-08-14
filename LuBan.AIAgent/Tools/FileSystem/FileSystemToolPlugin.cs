@@ -273,7 +273,9 @@ public class FileSystemToolGroup
             if (fileInfo.Length > 50 * 1024 * 1024)
                 return ToolResult.Fail<string>($"错误：文件过大 ({fileInfo.Length / 1024 / 1024}MB)，最大支持 50MB");
 
-            return ToolResult.Ok<string>(await File.ReadAllTextAsync(path));
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            using var reader = new StreamReader(stream);
+            return ToolResult.Ok<string>(await reader.ReadToEndAsync());
         }
         catch (FileNotFoundException ex)
         {
@@ -302,8 +304,8 @@ public class FileSystemToolGroup
         }
         catch (IOException ex)
         {
-            Logger.Error("文件读取异常：IO 错误", ex, path);
-            return ToolResult.Fail<string>($"IO 错误: {path}。{ex.Message}");
+            Logger.Error("文件读取异常：文件可能被独占锁定", ex, path);
+            return ToolResult.Fail<string>($"无法读取文件: {path}。文件可能被其他程序独占锁定，请关闭占用该文件的程序后重试。");
         }
         catch (Exception ex)
         {
@@ -1005,7 +1007,16 @@ public class FileSystemToolGroup
             if (!File.Exists(sourcePath))
                 return Task.FromResult(ToolResult.Fail<string>($"错误：源文件不存在 ({sourcePath})"));
 
-            File.Copy(sourcePath, destPath, overwrite);
+            var sourceInfo = new FileInfo(sourcePath);
+            if (sourceInfo.Length > 500 * 1024 * 1024)
+                return Task.FromResult(ToolResult.Fail<string>($"错误：源文件过大 ({sourceInfo.Length / 1024 / 1024}MB)，复制操作最大支持 500MB"));
+
+            if (!overwrite && File.Exists(destPath))
+                return Task.FromResult(ToolResult.Fail<string>($"错误：目标文件已存在 ({destPath})，如需覆盖请设置 overwrite=true"));
+
+            using var sourceStream = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            using var destStream = new FileStream(destPath, FileMode.Create, FileAccess.Write, FileShare.None);
+            sourceStream.CopyTo(destStream);
             return Task.FromResult(ToolResult.Ok<string>($"已复制文件 {sourcePath} -> {destPath}"));
         }
         catch (FileNotFoundException ex)
@@ -1035,8 +1046,8 @@ public class FileSystemToolGroup
         }
         catch (IOException ex)
         {
-            Logger.Error("复制文件异常：IO 错误", ex, destPath);
-            return Task.FromResult(ToolResult.Fail<string>($"IO 错误: {destPath}。{ex.Message}"));
+            Logger.Error("复制文件异常：文件可能被独占锁定", ex, destPath);
+            return Task.FromResult(ToolResult.Fail<string>($"无法复制文件: 文件可能被其他程序独占锁定，请关闭占用该文件的程序后重试。详细信息: {ex.Message}"));
         }
         catch (Exception ex)
         {
