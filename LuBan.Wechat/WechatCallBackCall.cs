@@ -22,6 +22,8 @@
 *
 *****************************************************************************/
 
+using LuBan.Wechat.Errors;
+
 namespace LuBan.Wechat;
 
 
@@ -78,7 +80,7 @@ public class WechatCallBackCall
         }
         catch (Exception ex)
         {
-            throw new Exception("WeChatCallBackCall.AccessValid:" + ex.Message);
+            throw FriendlyError.Ex("WeChatCallBackCall.AccessValid:" + ex.Message, WeChatErrors.CallbackFailed);
         }
     }
 

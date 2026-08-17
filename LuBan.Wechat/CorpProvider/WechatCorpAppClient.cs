@@ -21,6 +21,9 @@
 *描述：企业微信代开发授权应用客户端
 *
 *****************************************************************************/
+
+using LuBan.Wechat.Errors;
+
 namespace LuBan.Wechat.CorpProvider;
 
 /// <summary>
@@ -61,7 +64,7 @@ public class WechatCorpAppClient : IWechatCorpClient
     /// <exception cref="Exception"></exception>
     public async Task<AccessToken?> GetAccessToken(string? suiteAccessToken = null)
     {
-        if (suiteAccessToken.IsNullOrEmpty()) throw new Exception("获取企业微信授权应用AccessToken时，必须传入有效的suiteAccessToken");
+        if (suiteAccessToken.IsNullOrEmpty()) throw FriendlyError.Ex("获取企业微信授权应用AccessToken时，必须传入有效的suiteAccessToken", WeChatErrors.SuiteTokenFailed);
 
         AccessToken? tokenResult = null;
 
@@ -74,7 +77,7 @@ public class WechatCorpAppClient : IWechatCorpClient
 
             if (!result.IsSuccessful())
             {
-                throw new Exception($"获取企业微信授权应用AccessToken失败:code:{result.ErrorCode},msg:{result.ErrorMessage}");
+                throw FriendlyError.Ex($"获取企业微信授权应用AccessToken失败:code:{result.ErrorCode},msg:{result.ErrorMessage}", WeChatErrors.AccessTokenFailed);
             }
             tokenResult = new AccessToken()
             {
@@ -104,7 +107,7 @@ public class WechatCorpAppClient : IWechatCorpClient
             };
             var result = await Client.ExecuteCgibinGetJsapiTicketAsync(request);
             if (!result.IsSuccessful())
-                throw new Exception($"获取企业微信授权应用CorpJsApiTicket失败:code:{result.ErrorCode},msg:{result.ErrorMessage}");
+                throw FriendlyError.Ex($"获取企业微信授权应用CorpJsApiTicket失败:code:{result.ErrorCode},msg:{result.ErrorMessage}", WeChatErrors.CorpJsApiTicketFailed);
             jsApiTicket = new JsApiTicket()
             {
                 Ticket = result.Ticket,
@@ -134,7 +137,7 @@ public class WechatCorpAppClient : IWechatCorpClient
             };
             var result = await Client.ExecuteCgibinTicketGetAsync(request);
             if (!result.IsSuccessful())
-                throw new Exception($"获取企业微信授权应用AgentJsApiTicket失败:code:{result.ErrorCode},msg:{result.ErrorMessage}");
+                throw FriendlyError.Ex($"获取企业微信授权应用AgentJsApiTicket失败:code:{result.ErrorCode},msg:{result.ErrorMessage}", WeChatErrors.CorpJsApiTicketFailed);
             jsApiTicket = new JsApiTicket()
             {
                 Ticket = result.Ticket,

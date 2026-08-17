@@ -21,6 +21,9 @@
 *描述：腾讯位置服务客户端
 *
 *****************************************************************************/
+
+using LuBan.Wechat.Errors;
+
 namespace LuBan.Wechat;
 
 
@@ -44,7 +47,7 @@ public class TencentLocationServiceClient : BaseSingleInstance<TencentLocationSe
     /// <exception cref="Exception"></exception>
     public TencentLocationServiceClient(string? key)
     {
-        if (key.IsNullOrEmpty()) throw new Exception("开发密钥（Key）不能为空");
+        if (key.IsNullOrEmpty()) throw FriendlyError.Ex("开发密钥（Key）不能为空", WeChatErrors.ConfigMissing);
         Key = key;
         _httpClientUtil = HttpClientProxy.Create("https://apis.map.qq.com", useLog: true);
     }
@@ -73,7 +76,7 @@ public class TencentLocationServiceClient : BaseSingleInstance<TencentLocationSe
         var responseBytes = await _httpClientUtil.GetBytesAsync(url);
         if (responseBytes == null || responseBytes.Length == 0)
         {
-            throw new Exception("获取位置失败: 响应内容为空");
+            throw FriendlyError.Ex("获取位置失败: 响应内容为空", WeChatErrors.LocationFailed);
         }
         var json = System.Text.Encoding.UTF8.GetString(responseBytes);
         // 反序列化为结构化对象
@@ -102,7 +105,7 @@ public class TencentLocationServiceClient : BaseSingleInstance<TencentLocationSe
         var responseBytes = await _httpClientUtil.GetBytesAsync(url);
         if (responseBytes == null || responseBytes.Length == 0)
         {
-            throw new Exception("地点搜索失败: 响应内容为空");
+            throw FriendlyError.Ex("地点搜索失败: 响应内容为空", WeChatErrors.LocationFailed);
         }
         var json = System.Text.Encoding.UTF8.GetString(responseBytes);
         return json.ToObject<TencentPlaceSearchResult>();
@@ -127,7 +130,7 @@ public class TencentLocationServiceClient : BaseSingleInstance<TencentLocationSe
         var responseBytes = await _httpClientUtil.GetBytesAsync(url);
         if (responseBytes == null || responseBytes.Length == 0)
         {
-            throw new Exception("区域地点搜索失败: 响应内容为空");
+            throw FriendlyError.Ex("区域地点搜索失败: 响应内容为空", WeChatErrors.LocationFailed);
         }
         var json = System.Text.Encoding.UTF8.GetString(responseBytes);
         return json.ToObject<TencentPlaceSearchResult>();
@@ -149,7 +152,7 @@ public class TencentLocationServiceClient : BaseSingleInstance<TencentLocationSe
         var responseBytes = await _httpClientUtil.GetBytesAsync(url);
         if (responseBytes == null || responseBytes.Length == 0)
         {
-            throw new Exception("坐标转换失败: 响应内容为空");
+            throw FriendlyError.Ex("坐标转换失败: 响应内容为空", WeChatErrors.LocationFailed);
         }
         var json = System.Text.Encoding.UTF8.GetString(responseBytes);
         return json.ToObject<TencentCoordTranslateResult>();
@@ -167,7 +170,7 @@ public class TencentLocationServiceClient : BaseSingleInstance<TencentLocationSe
         var responseBytes = await _httpClientUtil.GetBytesAsync(url);
         if (responseBytes == null || responseBytes.Length == 0)
         {
-            throw new Exception("获取省市区列表失败: 响应内容为空");
+            throw FriendlyError.Ex("获取省市区列表失败: 响应内容为空", WeChatErrors.LocationFailed);
         }
         var json = System.Text.Encoding.UTF8.GetString(responseBytes);
         return json.ToObject<TencentDistrictResult>();
@@ -189,7 +192,7 @@ public class TencentLocationServiceClient : BaseSingleInstance<TencentLocationSe
         var responseBytes = await _httpClientUtil.GetBytesAsync(url);
         if (responseBytes == null || responseBytes.Length == 0)
         {
-            throw new Exception("获取下级行政区划失败: 响应内容为空");
+            throw FriendlyError.Ex("获取下级行政区划失败: 响应内容为空", WeChatErrors.LocationFailed);
         }
         var json = System.Text.Encoding.UTF8.GetString(responseBytes);
         return json.ToObject<TencentDistrictResult>();
@@ -208,7 +211,7 @@ public class TencentLocationServiceClient : BaseSingleInstance<TencentLocationSe
         var responseBytes = await _httpClientUtil.GetBytesAsync(url);
         if (responseBytes == null || responseBytes.Length == 0)
         {
-            throw new Exception("行政区划搜索失败: 响应内容为空");
+            throw FriendlyError.Ex("行政区划搜索失败: 响应内容为空", WeChatErrors.LocationFailed);
         }
         var json = System.Text.Encoding.UTF8.GetString(responseBytes);
         return json.ToObject<Models.TencentDistrictResult>();

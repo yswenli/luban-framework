@@ -22,6 +22,8 @@
 *
 *****************************************************************************/
 
+using LuBan.Wechat.Errors;
+
 namespace LuBan.Wechat;
 
 /// <summary>
@@ -54,7 +56,7 @@ public static class WechatClientFactory
             {
                 case EnumWechatType.Pay:
                     var _wechatPayOptions = ConfigUtil.Read<WechatPayOptions>();
-                    if (_wechatPayOptions == null) throw new Exception("请配置微信支付参数");
+                    if (_wechatPayOptions == null) throw FriendlyError.Ex("请配置微信支付参数", WeChatErrors.ConfigMissing);
                     var cerFilePath = WebApp.WebHostEnvironment.ContentRootPath + _wechatPayOptions.MerchantCertificatePrivateKey;
                     var tenpayClientOptions = new WechatTenpayClientOptions()
                     {
@@ -69,7 +71,7 @@ public static class WechatClientFactory
                     break;
 
                 case EnumWechatType.App:
-                    if (wechatOption == null) throw new Exception("请配置微信App参数");
+                    if (wechatOption == null) throw FriendlyError.Ex("请配置微信App参数", WeChatErrors.ConfigMissing);
                     commonClient = new WechatApiClient(new WechatApiClientOptions
                     {
                         AppId = wechatOption.WxOpenAppId,
@@ -78,11 +80,11 @@ public static class WechatClientFactory
                     });
                     break;
                 case EnumWechatType.Corp:
-                    if (wechatOption == null) throw new Exception("请配置企微参数");                    
+                    if (wechatOption == null) throw FriendlyError.Ex("请配置企微参数", WeChatErrors.ConfigMissing);                    
                     commonClient = new WechatCorpClient(wechatOption);
                     break;
                 default:
-                    if (wechatOption == null) throw new Exception("请配置微信参数");
+                    if (wechatOption == null) throw FriendlyError.Ex("请配置微信参数", WeChatErrors.ConfigMissing);
                     commonClient = new WechatApiClient(new WechatApiClientOptions
                     {
                         AppId = wechatOption.WechatAppId,
@@ -106,7 +108,7 @@ public static class WechatClientFactory
     {
         return _cache.GetOrAdd(EnumWechatType.Pay, (key) =>
         {
-            if (wechatPayOptions == null) throw new Exception("请配置微信支付参数");
+            if (wechatPayOptions == null) throw FriendlyError.Ex("请配置微信支付参数", WeChatErrors.ConfigMissing);
             var cerFilePath = WebApp.WebHostEnvironment.ContentRootPath + wechatPayOptions.MerchantCertificatePrivateKey;
             var tenpayClientOptions = new WechatTenpayClientOptions()
             {
@@ -131,7 +133,7 @@ public static class WechatClientFactory
     {
         return _cache.GetOrAdd(EnumWechatType.Api, (key) =>
         {
-            if (wechatOption == null) throw new Exception("请配置微信参数");
+            if (wechatOption == null) throw FriendlyError.Ex("请配置微信参数", WeChatErrors.ConfigMissing);
             return new WechatApiClient(new WechatApiClientOptions
             {
                 AppId = wechatOption.WechatAppId,
@@ -149,7 +151,7 @@ public static class WechatClientFactory
     {
         return _cache.GetOrAdd(EnumWechatType.App, (key) =>
         {
-            if (wechatOption == null) throw new Exception("请配置微信参数");
+            if (wechatOption == null) throw FriendlyError.Ex("请配置微信参数", WeChatErrors.ConfigMissing);
             return new WechatApiClient(new WechatApiClientOptions
             {
                 AppId = wechatOption.WxOpenAppId,
@@ -169,7 +171,7 @@ public static class WechatClientFactory
     {
         return _cache.GetOrAdd(EnumWechatType.App, (key) =>
         {
-            if (wechatOption == null) throw new Exception("请配置微信参数");
+            if (wechatOption == null) throw FriendlyError.Ex("请配置微信参数", WeChatErrors.ConfigMissing);
             return new WechatCorpClient(wechatOption);
         });
 

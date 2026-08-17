@@ -22,6 +22,8 @@
 *
 *****************************************************************************/
 
+using LuBan.Wechat.Errors;
+
 using static LuBan.Wechat.Models.WechatCorpOptions;
 
 namespace LuBan.Wechat.CorpProvider;
@@ -62,7 +64,7 @@ public class WechatCorpSuiteClient : IWechatCorpClient
     /// <param name="suiteOptions"></param>
     public WechatCorpSuiteClient(WechatCorpSuiteOptions suiteOptions)
     {
-        if (suiteOptions.SuiteId.IsNullOrEmpty()) throw new Exception("企业微信代开发应用模板SuiteId不能为空");
+        if (suiteOptions.SuiteId.IsNullOrEmpty()) throw FriendlyError.Ex("企业微信代开发应用模板SuiteId不能为空", WeChatErrors.ConfigMissing);
         SuiteOptions = suiteOptions;
         Client = new WechatWorkClient(new WechatWorkClientOptions()
         {
@@ -84,7 +86,7 @@ public class WechatCorpSuiteClient : IWechatCorpClient
     {
         //未获取ticket时，直接返回
         if (SuiteTicket.IsNullOrEmpty())
-            throw new Exception($"获取企业微信SuiteAccessToken失败:SuiteTicket不能为空");
+            throw FriendlyError.Ex($"获取企业微信SuiteAccessToken失败:SuiteTicket不能为空", WeChatErrors.SuiteTokenFailed);
 
         var cacheKey = $"WechatCorpSuiteAccessToken_{SuiteOptions.SuiteId}";
 
@@ -97,7 +99,7 @@ public class WechatCorpSuiteClient : IWechatCorpClient
             });
             if (result.ErrorCode != 0 || result.SuiteAccessToken.IsNullOrEmpty())
             {
-                throw new Exception($"获取企业微信SuiteAccessToken失败:code:{result.ErrorCode},msg:{result.ErrorMessage}");
+                throw FriendlyError.Ex($"获取企业微信SuiteAccessToken失败:code:{result.ErrorCode},msg:{result.ErrorMessage}", WeChatErrors.SuiteTokenFailed);
             }
             tokenResult = new AccessToken()
             {

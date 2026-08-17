@@ -21,6 +21,9 @@
 *描述：企业微信客户端
 *
 *****************************************************************************/
+
+using LuBan.Wechat.Errors;
+
 namespace LuBan.Wechat;
 
 /// <summary>
@@ -78,14 +81,14 @@ public class WechatCorpClient : ICommonClient, IDisposable, IWechatCorpClient
     public WechatCorpClient(WechatOptions wechatOptions)
     {
         WechatOptions = wechatOptions;
-        if (WechatOptions == null) throw new Exception("请配置企业微信");
+        if (WechatOptions == null) throw FriendlyError.Ex("请配置企业微信", WeChatErrors.ConfigMissing);
         if (WechatOptions.WechatCorpOptions.Type == EnumWechatCorpType.SelfApp)
         {
             var options = WechatOptions.WechatCorpOptions.SelfAppOptions;
             if (options == null
                 || options.CorpId.IsNullOrEmpty()
                 || options.AgentId == null
-                || options.AgentSecret.IsNullOrEmpty()) throw new Exception("请配置企业微信自建应用");
+                || options.AgentSecret.IsNullOrEmpty()) throw FriendlyError.Ex("请配置企业微信自建应用", WeChatErrors.ConfigMissing);
             Client = WechatWorkClientBuilder.Create(new WechatWorkClientOptions()
             {
                 CorpId = options.CorpId,
@@ -100,7 +103,7 @@ public class WechatCorpClient : ICommonClient, IDisposable, IWechatCorpClient
             var options = WechatOptions.WechatCorpOptions.DevelopersOptions;
             if (options == null
                 || options.CorpId.IsNullOrEmpty()
-                || options.ProviderSecret.IsNullOrEmpty()) throw new Exception("请配置企业微信开发者应用");
+                || options.ProviderSecret.IsNullOrEmpty()) throw FriendlyError.Ex("请配置企业微信开发者应用", WeChatErrors.ConfigMissing);
             Client = WechatWorkClientBuilder.Create(new WechatWorkClientOptions()
             {
                 CorpId = options.CorpId,
@@ -123,7 +126,7 @@ public class WechatCorpClient : ICommonClient, IDisposable, IWechatCorpClient
         else
         {
             var options = wechatOptions.WechatCorpOptions.SmartHardwareOptions;
-            if (options == null) throw new Exception("请配置企业微信智能硬件应用");
+            if (options == null) throw FriendlyError.Ex("请配置企业微信智能硬件应用", WeChatErrors.ConfigMissing);
             Client = WechatWorkClientBuilder.Create(new WechatWorkClientOptions()
             {
                 CorpId = options.CorpId,
@@ -147,7 +150,7 @@ public class WechatCorpClient : ICommonClient, IDisposable, IWechatCorpClient
     /// <exception cref="Exception"></exception>
     public async Task<AccessToken?> GetAccessToken(string? suiteAccessToken = null)
     {
-        if (WechatOptions == null) throw new Exception("请配置企业微信");
+        if (WechatOptions == null) throw FriendlyError.Ex("请配置企业微信", WeChatErrors.ConfigMissing);
 
         AccessToken? tokenResult = null;
 
@@ -159,7 +162,7 @@ public class WechatCorpClient : ICommonClient, IDisposable, IWechatCorpClient
                 var result = await Client.ExecuteCgibinGetTokenAsync(new CgibinGetTokenRequest());
                 if (result.ErrorCode != 0 || result.AccessToken.IsNullOrEmpty())
                 {
-                    throw new Exception($"获取企业微信AccessToken失败:code:{result.ErrorCode},msg:{result.ErrorMessage}");
+                    throw FriendlyError.Ex($"获取企业微信AccessToken失败:code:{result.ErrorCode},msg:{result.ErrorMessage}", WeChatErrors.AccessTokenFailed);
                 }
                 tokenResult = new AccessToken()
                 {
@@ -178,7 +181,7 @@ public class WechatCorpClient : ICommonClient, IDisposable, IWechatCorpClient
                 var result = await Client.ExecuteCgibinServiceGetProviderTokenAsync(new CgibinServiceGetProviderTokenRequest());
                 if (result.ErrorCode != 0 || result.ProviderAccessToken.IsNullOrEmpty())
                 {
-                    throw new Exception($"获取企业微信ProviderAccessToken失败:code:{result.ErrorCode},msg:{result.ErrorMessage}");
+                    throw FriendlyError.Ex($"获取企业微信ProviderAccessToken失败:code:{result.ErrorCode},msg:{result.ErrorMessage}", WeChatErrors.AccessTokenFailed);
                 }
                 tokenResult = new AccessToken()
                 {
@@ -191,7 +194,7 @@ public class WechatCorpClient : ICommonClient, IDisposable, IWechatCorpClient
         }
         else
         {
-            throw new Exception("企业微信类型配置错误");
+            throw FriendlyError.Ex("企业微信类型配置错误", WeChatErrors.ConfigMissing);
         }
         return tokenResult;
     }

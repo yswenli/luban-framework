@@ -21,6 +21,9 @@
 *描述：企业微信服务器回调处理类
 *
 *****************************************************************************/
+
+using LuBan.Wechat.Errors;
+
 namespace LuBan.Wechat;
 
 /// <summary>
@@ -72,7 +75,7 @@ public class WechatCorpCallBackCall
         }
         else
         {
-            throw new Exception($"WorkWeChatCallBackCall.AccessValid:{result.Error}");
+            throw FriendlyError.Ex($"WorkWeChatCallBackCall.AccessValid:{result.Error}", WeChatErrors.CallbackFailed);
         }
     }
 
