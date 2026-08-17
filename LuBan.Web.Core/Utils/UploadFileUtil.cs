@@ -21,6 +21,7 @@
 *描述：aspnetcore中文件上传处理工具类
 *
 *****************************************************************************/
+using LuBan.Common.Errors;
 
 namespace System;
 
@@ -56,17 +57,17 @@ public static class UploadFileUtil
         var sizeKb = (long)(file.Length / 1024.0); // 大小KB
 
         if (sizeKb > _uploadOptions.MaxSize)
-            throw FriendlyError.Ex(EnumErrorCode.D8002);
+            throw FriendlyError.Ex(FrameworkErrors.File.FileTooLarge);
 
         var suffix = Path.GetExtension(file.FileName).ToLower(); // 后缀
 
         if (string.IsNullOrWhiteSpace(suffix))
-            throw FriendlyError.Ex(EnumErrorCode.D8003);
+            throw FriendlyError.Ex(FrameworkErrors.File.FileExtError);
 
         if (_uploadOptions.ExtensionNames == null
            || _uploadOptions.ExtensionNames.Count < 1
            || !_uploadOptions.ExtensionNames.Contains(suffix))
-            throw FriendlyError.Ex(EnumErrorCode.D8001);
+            throw FriendlyError.Ex(FrameworkErrors.File.FileTypeNotAllowed);
     }
 
 

@@ -21,6 +21,8 @@
 *描述：系统用户服务
 *
 *****************************************************************************/
+using LuBan.Common.Errors;
+
 using WebApplication1.Models.Entities;
 using WebApplication1.Models.Vos;
 
@@ -140,7 +142,7 @@ public class UserService : BaseService<UserService>
     public async Task<long> AddUserAsync(AddUserInput input)
     {
         var isExist = await _sysUserRep.ExistAsync(u => u.Account == input.Account);
-        if (isExist) throw FriendlyError.Ex(EnumErrorCode.D1003);
+        if (isExist) throw FriendlyError.Ex(FrameworkErrors.User.AccountExists);
 
         var password = await ConfigService.Instance.GetConfigValueAsync(CommonConst.SysPasswordCode);
         var salt = await ConfigService.Instance.GetConfigValueAsync(CommonConst.SysPasswordSaltCode);
@@ -187,7 +189,7 @@ public class UserService : BaseService<UserService>
     public async Task<bool> UpdateUserAsync(UpdateUserInput input)
     {
         if (await _sysUserRep.ExistAsync(u => u.Account == input.Account && u.Id != input.Id))
-            throw FriendlyError.Ex(EnumErrorCode.D1003);
+            throw FriendlyError.Ex(FrameworkErrors.User.AccountExists);
 
         //当前逻辑中不允许改此值
         input.IsDelete = false;
@@ -254,12 +256,12 @@ public class UserService : BaseService<UserService>
     /// <returns></returns>
     public async Task<bool> DeleteUserAsync(DeleteUserInput input, long userID)
     {
-        var user = await _sysUserRep.FirstAsync(u => u.Id == input.Id) ?? throw FriendlyError.Ex(EnumErrorCode.D0009);
+        var user = await _sysUserRep.FirstAsync(u => u.Id == input.Id) ?? throw FriendlyError.Ex(FrameworkErrors.User.AccountNotFound);
         if (user.Id == userID)
-            throw FriendlyError.Ex(EnumErrorCode.D1001);
+            throw FriendlyError.Ex(FrameworkErrors.User.CannotDeleteSelf);
         if (userID == LuBanOrmConst.SuperAdminId)
         {
-            throw FriendlyError.Ex(EnumErrorCode.D1014);
+            throw FriendlyError.Ex(FrameworkErrors.User.CannotDeleteSuperAdmin);
         }
 
         await _sysUserRep.DeleteAsync(user);
@@ -302,12 +304,12 @@ public class UserService : BaseService<UserService>
     /// <returns></returns>
     public async Task<int> SetStatusAsync(UserInput input)
     {
-        var user = await _sysUserRep.FirstAsync(u => u.Id == input.Id) ?? throw FriendlyError.Ex(EnumErrorCode.D0009);
+        var user = await _sysUserRep.FirstAsync(u => u.Id == input.Id) ?? throw FriendlyError.Ex(FrameworkErrors.User.AccountNotFound);
         if (user.Id == LuBanOrmConst.SuperAdminId)
-            throw FriendlyError.Ex(EnumErrorCode.D1015);
+            throw FriendlyError.Ex(FrameworkErrors.User.CannotModifySuperAdminStatus);
 
         if (!Enum.IsDefined(typeof(EnumEnableStatus), input.Status))
-            throw FriendlyError.Ex(EnumErrorCode.D3005);
+            throw FriendlyError.Ex(FrameworkErrors.Dict.DictStatusError);
 
         user.Status = input.Status;
         return await _sysUserRep.AsUpdateable(user).UpdateColumns(u => new { u.Status }).ExecuteCommandAsync();
@@ -321,9 +323,9 @@ public class UserService : BaseService<UserService>
     /// <returns></returns>
     public async Task<bool> GrantRoleAsync(UserRoleInput input)
     {
-        var user = await _sysUserRep.FirstAsync(u => u.Id == input.UserId) ?? throw FriendlyError.Ex(EnumErrorCode.D0009);
+        var user = await _sysUserRep.FirstAsync(u => u.Id == input.UserId) ?? throw FriendlyError.Ex(FrameworkErrors.User.AccountNotFound);
         if (user.Id == LuBanOrmConst.SuperAdminId)
-            throw FriendlyError.Ex(EnumErrorCode.D1022);
+            throw FriendlyError.Ex(FrameworkErrors.Role.CannotAssignRoleToSuperAdmin);
 
         return await UserRoleService.Instance.GrantUserRoleAsync(input);
     }
@@ -335,7 +337,7 @@ public class UserService : BaseService<UserService>
     /// <returns></returns>
     public async Task<int> ChangePwdAsync(ChangePwdInput input, long userID)
     {
-        var user = await _sysUserRep.FirstAsync(u => u.Id == userID) ?? throw FriendlyError.Ex(EnumErrorCode.D0009);
+        var user = await _sysUserRep.FirstAsync(u => u.Id == userID) ?? throw FriendlyError.Ex(FrameworkErrors.User.AccountNotFound);
         var salt = await ConfigService.Instance.GetConfigValueAsync(CommonConst.SysPasswordSaltCode);
         user.Password = PasswordUtil.Encrypt(input.PasswordNew, salt);
         return await _sysUserRep.AsUpdateable(user).UpdateColumns(u => u.Password).ExecuteCommandAsync();
@@ -348,7 +350,7 @@ public class UserService : BaseService<UserService>
     /// <returns></returns>
     public async Task<string?> ResetPwdAsync(ResetPwdUserInput input)
     {
-        var user = await _sysUserRep.FirstAsync(u => u.Id == input.Id) ?? throw FriendlyError.Ex(EnumErrorCode.D0009);
+        var user = await _sysUserRep.FirstAsync(u => u.Id == input.Id) ?? throw FriendlyError.Ex(FrameworkErrors.User.AccountNotFound);
         var password = await ConfigService.Instance.GetConfigValueAsync(CommonConst.SysPasswordCode);
         var salt = await ConfigService.Instance.GetConfigValueAsync(CommonConst.SysPasswordSaltCode);
         user.Password = PasswordUtil.Encrypt(password, salt);

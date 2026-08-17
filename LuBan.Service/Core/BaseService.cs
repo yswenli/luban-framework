@@ -21,6 +21,7 @@
 *描述：基础业务实现类
 *
 *****************************************************************************/
+using LuBan.Common.Errors;
 using Result = LuBan.Common.Data.Result;
 
 namespace System;
@@ -72,13 +73,13 @@ public abstract class BaseService
     /// <param name="data"></param>
     /// <param name="code"></param>
     /// <returns></returns>
-    public Result SuccessResult(dynamic data, EnumErrorCode code)
+    public Result SuccessResult(dynamic data, ErrorDescriptor code)
     {
         if (data is Result result)
         {
             return result;
         }
-        return new Success(data, code);
+        return new Success(data, code.Code);
     }
 
     /// <summary>
@@ -95,7 +96,7 @@ public abstract class BaseService
         {
             if (ex is FriendlyException friendlyException)
             {
-                return ErrorResult(friendlyException.Message, int.Parse(friendlyException.ErrorCode.ToString()));
+                return ErrorResult(friendlyException.Message, friendlyException.Error.Code);
             }
             string targetName = "";
             var t = ReflectionUtil.GetCurrentMethodFullName();
@@ -120,7 +121,7 @@ public abstract class BaseService
     /// <param name="code"></param>
     /// <param name="args"></param>
     /// <returns></returns>
-    public Result ErrorResult(string errorMsg, Exception ex, EnumErrorCode code, params object[] args) => ErrorResult(errorMsg, ex, (int)code, args);
+    public Result ErrorResult(string errorMsg, Exception ex, ErrorDescriptor code, params object[] args) => ErrorResult(errorMsg, ex, code.Code, args);
 
     /// <summary>
     /// 返回失败
@@ -141,7 +142,7 @@ public abstract class BaseService
     /// <param name="ex"></param>
     /// <param name="args"></param>
     /// <returns></returns>
-    public Result ErrorResult(Exception ex, EnumErrorCode code, params object[] args) => ErrorResult(ex, (int)code, args);
+    public Result ErrorResult(Exception ex, ErrorDescriptor code, params object[] args) => ErrorResult(ex, code.Code, args);
 
     /// <summary>
     /// 返回失败
@@ -151,7 +152,7 @@ public abstract class BaseService
     /// <returns></returns>
     public Result ErrorResult(Exception ex, params object[] args)
     {
-        return ErrorResult("系统异常，详情请在管理系统中查阅", ex, EnumErrorCode.SystemError999, args);
+        return ErrorResult("系统异常，详情请在管理系统中查阅", ex, FrameworkErrors.System.InternalError.Code, args);
     }
 
 

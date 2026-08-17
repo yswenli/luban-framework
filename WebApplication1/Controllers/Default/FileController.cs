@@ -1,4 +1,6 @@
-﻿using WebApplication1.Models.Vos;
+﻿using LuBan.Common.Errors;
+
+using WebApplication1.Models.Vos;
 using WebApplication1.Services;
 
 namespace WebApplication1.Controllers.Default;
@@ -31,7 +33,7 @@ public class FileController : BaseApiController
     public async Task<FileOutput?> UploadFileAsync(IFormFile? formFile, [FromQuery] string path = "", [FromQuery] bool isPrivate = false)
     {
         formFile = Request.Form?.Files?.FirstOrDefault() ?? null;
-        if (formFile == null) throw FriendlyError.Ex(EnumErrorCode.D8005);
+        if (formFile == null) throw FriendlyError.Ex(FrameworkErrors.File.FileNameEmpty);
         return await FileService.Instance.UploadFileAsync(formFile, path, isPrivate);
     }
 
@@ -71,7 +73,7 @@ public class FileController : BaseApiController
     public async Task<FileOutput> UploadAvatarAsync(IFormFile? formFile)
     {
         formFile = Request.Form?.Files?.FirstOrDefault() ?? null;
-        if (formFile == null) throw FriendlyError.Ex(EnumErrorCode.D8005);
+        if (formFile == null) throw FriendlyError.Ex(FrameworkErrors.File.FileNameEmpty);
         return await FileService.Instance.UploadAvatarAsync(formFile, SessionUser.UserId);
     }
 
@@ -84,7 +86,7 @@ public class FileController : BaseApiController
     public async Task<FileOutput> UploadSignatureAsync(IFormFile? formFile)
     {
         formFile = Request.Form?.Files?.FirstOrDefault() ?? null;
-        if (formFile == null) throw FriendlyError.Ex(EnumErrorCode.D8005);
+        if (formFile == null) throw FriendlyError.Ex(FrameworkErrors.File.FileNameEmpty);
         return await FileService.Instance.UploadSignatureAsync(formFile, SessionUser.UserId);
     }
 
@@ -99,7 +101,7 @@ public class FileController : BaseApiController
     public async Task<VideoFileOutput> UploadVideoAsync([FromQuery, DefaultValue("00:00:01")] string posterTime, [FromQuery, DefaultValue(false)] bool isPrivate, IFormFile? formFile)
     {
         formFile = Request.Form?.Files?.FirstOrDefault() ?? null;
-        if (formFile == null) throw FriendlyError.Ex(EnumErrorCode.D8005);
+        if (formFile == null) throw FriendlyError.Ex(FrameworkErrors.File.FileNameEmpty);
         return await FileService.Instance.UploadVideoAsync(formFile, posterTime, isPrivate);
     }
 

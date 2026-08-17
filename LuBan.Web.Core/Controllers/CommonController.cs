@@ -21,6 +21,7 @@
 *描述：数据库配置的通用接口
 *
 *****************************************************************************/
+using LuBan.Common.Errors;
 using System.Web;
 
 namespace LuBan.Web.Core.Controllers;
@@ -48,7 +49,7 @@ public sealed class CommonController : BaseApiController
     [HttpGet("/swagger-resources")]
     public async Task<List<SwaggerNameUrl>> SwaggerGroups()
     {
-        if (SessionUser.UserId != LuBanOrmConst.SuperAdminId) throw FriendlyError.Ex(EnumErrorCode.D1016);
+        if (SessionUser.UserId != LuBanOrmConst.SuperAdminId) throw FriendlyError.Ex(FrameworkErrors.User.NoPermission);
         var result = new List<SwaggerNameUrl>
         {
             new () { Name = "admin", Url = "/swagger/admin/swagger.json" },

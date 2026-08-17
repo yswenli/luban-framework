@@ -7,6 +7,15 @@
 		<InvariantGlobalization>false</InvariantGlobalization>
 		<GenerateDocumentationFile>True</GenerateDocumentationFile>
 		<NoWarn>CS1591;CS1572;CS1573</NoWarn>
+
+		<!-- 只保留当前平台运行时，减少 bin 目录体积 -->
+		<RuntimeIdentifier>win-x64</RuntimeIdentifier>
+		<IncludeNativeLibrariesForSelfExtract>false</IncludeNativeLibrariesForSelfExtract>
+
+		<!-- 屏蔽语言包 -->
+		<SatelliteResourceLanguages>none</SatelliteResourceLanguages>
+		<GenerateSatelliteAssemblies>false</GenerateSatelliteAssemblies>
+		<UseResourceManifest>false</UseResourceManifest>
 	</PropertyGroup>
 
 	<ItemGroup>

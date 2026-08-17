@@ -45,6 +45,8 @@
 *描述：
 *
 *****************************************************************************/
+using LuBan.Common.Errors;
+
 using WebApplication1.Models.Entities;
 
 namespace WebApplication1.Services.ApiServices;
@@ -90,7 +92,7 @@ public class SysDictDataService : BaseService<SysDictDataService>
         {
             var isExist = await _sysDictDataRep.IsAnyAsync(u => u.Code == input.Code && u.DictTypeId == input.DictTypeId);
             if (isExist)
-                throw FriendlyError.Ex(EnumErrorCode.D3003);
+                throw FriendlyError.Ex(FrameworkErrors.Dict.DictDataDuplicate);
 
 
             return await _sysDictDataRep.InsertAsync(input.Adapt<DbDictData>());
@@ -108,10 +110,10 @@ public class SysDictDataService : BaseService<SysDictDataService>
         return await GetResultAsync(async () =>
         {
             var isExist = await _sysDictDataRep.IsAnyAsync(u => u.Id == input.Id);
-            if (!isExist) throw FriendlyError.Ex(EnumErrorCode.D3004);
+            if (!isExist) throw FriendlyError.Ex(FrameworkErrors.Dict.DictDataNotFound);
 
             isExist = await _sysDictDataRep.IsAnyAsync(u => u.Code == input.Code && u.DictTypeId == input.DictTypeId && u.Id != input.Id);
-            if (isExist) throw FriendlyError.Ex(EnumErrorCode.D3003);
+            if (isExist) throw FriendlyError.Ex(FrameworkErrors.Dict.DictDataDuplicate);
 
             return await _sysDictDataRep.UpdateAsync(input.Adapt<DbDictData>());
         });
@@ -130,7 +132,7 @@ public class SysDictDataService : BaseService<SysDictDataService>
         {
             var dictData = await _sysDictDataRep.FirstAsync(u => u.Id == input.Id);
             if (dictData == null)
-                throw FriendlyError.Ex(EnumErrorCode.D3004);
+                throw FriendlyError.Ex(FrameworkErrors.Dict.DictDataNotFound);
 
             return await _sysDictDataRep.DeleteAsync(dictData);
         });
@@ -164,10 +166,10 @@ public class SysDictDataService : BaseService<SysDictDataService>
         {
             var dictData = await _sysDictDataRep.FirstAsync(u => u.Id == input.Id);
             if (dictData == null)
-                throw FriendlyError.Ex(EnumErrorCode.D3004);
+                throw FriendlyError.Ex(FrameworkErrors.Dict.DictDataNotFound);
 
             if (!Enum.IsDefined(typeof(EnumEnableStatus), input.Status))
-                throw FriendlyError.Ex(EnumErrorCode.D3005);
+                throw FriendlyError.Ex(FrameworkErrors.Dict.DictStatusError);
 
             dictData.Status = input.Status;
             return await _sysDictDataRep.UpdateAsync(dictData);

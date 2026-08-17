@@ -21,6 +21,8 @@
 *描述：内容业务
 *
 *****************************************************************************/
+using LuBan.Common.Errors;
+
 using WebApplication1.Models.Entities;
 using WebApplication1.Models.Vos;
 
@@ -88,7 +90,7 @@ public class BlockService : BaseService<BlockService>
     public async Task<bool> UpdateInfoAsync(BlockInfo data)
     {
         var notice = data.Adapt<DbBlock>();
-        var old = await _busBlockRep.FirstAsync(u => u.IsDelete == false && u.Id == data.Id) ?? throw FriendlyError.Ex(EnumErrorCode.D1001);
+        var old = await _busBlockRep.FirstAsync(u => u.IsDelete == false && u.Id == data.Id) ?? throw FriendlyError.Ex(FrameworkErrors.User.CannotDeleteSelf);
         old.FillFrom(data);
         return await _busBlockRep.UpdateAsync(old);
     }

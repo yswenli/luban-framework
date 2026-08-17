@@ -1,4 +1,5 @@
-﻿using LuBan.Redis;
+﻿using LuBan.Common.Errors;
+using LuBan.Redis;
 using LuBan.Web.Core.Caches;
 
 using System.Diagnostics;
@@ -49,7 +50,7 @@ public class HomeController : BaseApiController
     [HttpGet]
     public async Task<Result> Hello3([FromQuery, Required] int a)
     {
-        if (a < 1) throw FriendlyError.Ex(EnumErrorCode.D1002);
+        if (a < 1) throw FriendlyError.Ex(FrameworkErrors.User.RecordNotFound);
         return await HomeService.Instance.Hello3(a);
     }
 
@@ -61,7 +62,7 @@ public class HomeController : BaseApiController
     [HttpGet]
     public Result Hello4()
     {
-        return new Fail(FriendlyError.Ex(EnumErrorCode.D1002));
+        return new Fail(FriendlyError.Ex(FrameworkErrors.User.RecordNotFound));
     }
 
     /// <summary>

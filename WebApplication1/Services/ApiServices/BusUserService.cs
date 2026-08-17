@@ -1,4 +1,6 @@
-﻿namespace WebApplication1.Services.ApiServices;
+﻿using LuBan.Common.Errors;
+
+namespace WebApplication1.Services.ApiServices;
 
 public class BusUserService : BaseService<BusUserService>
 {
@@ -26,7 +28,7 @@ public class BusUserService : BaseService<BusUserService>
         return await GetResultAsync(async () =>
         {
             var user = await _busUserDbRes.FirstAsync(q => q.RealName == busUser.RealName);
-            if (user != null) throw FriendlyError.Ex(EnumErrorCode.D1003);
+            if (user != null) throw FriendlyError.Ex(FrameworkErrors.User.AccountExists);
             return await _busUserDbRes.InsertAsync(busUser);
         });
     }

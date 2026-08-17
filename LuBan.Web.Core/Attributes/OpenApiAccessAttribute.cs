@@ -21,6 +21,8 @@
 *描述：开放接口验证
 *
 *****************************************************************************/
+using LuBan.Common.Errors;
+
 namespace LuBan.Web.Core.Attributes;
 
 /// <summary>
@@ -51,11 +53,11 @@ public class OpenApiAccessAttribute : BaseFilterAttribute
             var payload = JwtEncryption.Parse(token, jwtConfig.Secret);
             var data = (JwtUserInfo)payload;
             if (data == null)
-                throw FriendlyError.Ex("Unauthorized", EnumErrorCode.D1011, 401);
+                throw FriendlyError.Ex(FrameworkErrors.Auth.NotLoggedIn);
         }
         catch
         {
-            throw FriendlyError.Ex("Unauthorized", EnumErrorCode.D1011, 401);
+            throw FriendlyError.Ex(FrameworkErrors.Auth.NotLoggedIn);
         }
         await next.Invoke();
     }

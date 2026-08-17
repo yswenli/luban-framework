@@ -21,6 +21,8 @@
 *描述：banner业务
 *
 *****************************************************************************/
+using LuBan.Common.Errors;
+
 using WebApplication1.Models.Entities;
 using WebApplication1.Models.Vos;
 
@@ -81,7 +83,7 @@ public class BannerService : BaseService<BannerService>
     public async Task<bool> UpdateInfoAsync(BannerRequest request)
     {
         var data = request.Adapt<DbBanner>();
-        var old = await _butBannerRep.FirstAsync(u => u.IsDelete == false && u.Id == data.Id) ?? throw FriendlyError.Ex(EnumErrorCode.D1001);
+        var old = await _butBannerRep.FirstAsync(u => u.IsDelete == false && u.Id == data.Id) ?? throw FriendlyError.Ex(FrameworkErrors.User.CannotDeleteSelf);
         old.FillFromEntity(data);
         return await _butBannerRep.UpdateAsync(old);
     }

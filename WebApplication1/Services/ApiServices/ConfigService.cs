@@ -21,6 +21,8 @@
 *描述：系统参数配置服务
 *
 *****************************************************************************/
+using LuBan.Common.Errors;
+
 using WebApplication1.Models.Entities;
 
 namespace Services.ApiServices;
@@ -67,7 +69,7 @@ public class ConfigService : BaseService<ConfigService>
     {
         var isExist = await _sysConfigRep.IsAnyAsync(u => u.Name == input.Name || u.Code == input.Code);
         if (isExist)
-            throw FriendlyError.Ex(EnumErrorCode.D9000);
+            throw FriendlyError.Ex(FrameworkErrors.Config.ConfigDuplicate);
 
         return await _sysConfigRep.InsertAsync(input.Adapt<DbConfig>());
     }
@@ -82,7 +84,7 @@ public class ConfigService : BaseService<ConfigService>
     {
         var isExist = await _sysConfigRep.IsAnyAsync(u => (u.Name == input.Name || u.Code == input.Code) && u.Id != input.Id);
         if (isExist)
-            throw FriendlyError.Ex(EnumErrorCode.db1000);
+            throw FriendlyError.Ex(FrameworkErrors.Database.NoDataColumns);
 
         var config = input.Adapt<DbConfig>();
         if (config == null || config.Code.IsNullOrEmpty()) return false;
@@ -100,7 +102,7 @@ public class ConfigService : BaseService<ConfigService>
     {
         var config = await _sysConfigRep.FirstAsync(u => u.Id == input.Id);
         if (config == null || config.SysFlag == EnumYesNo.Y) // 禁止删除系统参数
-            throw FriendlyError.Ex(EnumErrorCode.D9001);
+            throw FriendlyError.Ex(FrameworkErrors.Config.CannotDeleteSystemParam);
         if (await _sysConfigRep.DeleteAsync(config))
         {
             if (config.Code.IsNotNullOrEmpty())

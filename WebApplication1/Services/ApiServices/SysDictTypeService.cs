@@ -22,6 +22,8 @@
 *
 *****************************************************************************/
 
+using LuBan.Common.Errors;
+
 using WebApplication1.Models.Vos;
 
 namespace WebApplication1.Services.ApiServices;
@@ -88,7 +90,7 @@ public class SysDictTypeService : BaseService<SysDictTypeService>
         {
             var dictType = await _sysDictTypeRep.FirstAsync(u => u.Code == input.Code);
             if (dictType == null)
-                throw FriendlyError.Ex(EnumErrorCode.D3000);
+                throw FriendlyError.Ex(FrameworkErrors.Dict.DictTypeNotFound);
 
             return await _sysDictDataService.GetDictDataListByDictTypeId(dictType.Id);
 
@@ -106,7 +108,7 @@ public class SysDictTypeService : BaseService<SysDictTypeService>
         {
             var isExist = await _sysDictTypeRep.IsAnyAsync(u => u.Code == input.Code);
             if (isExist)
-                throw FriendlyError.Ex(EnumErrorCode.D3001);
+                throw FriendlyError.Ex(FrameworkErrors.Dict.DictTypeDuplicate);
 
             return await _sysDictTypeRep.InsertAsync(input.Adapt<DbDictType>());
         });
@@ -125,11 +127,11 @@ public class SysDictTypeService : BaseService<SysDictTypeService>
         {
             var isExist = await _sysDictTypeRep.IsAnyAsync(u => u.Id == input.Id);
             if (!isExist)
-                throw FriendlyError.Ex(EnumErrorCode.D3000);
+                throw FriendlyError.Ex(FrameworkErrors.Dict.DictTypeNotFound);
 
             isExist = await _sysDictTypeRep.IsAnyAsync(u => u.Code == input.Code && u.Id != input.Id);
             if (isExist)
-                throw FriendlyError.Ex(EnumErrorCode.D3001);
+                throw FriendlyError.Ex(FrameworkErrors.Dict.DictTypeDuplicate);
 
             return await _sysDictTypeRep.UpdateAsync(input.Adapt<DbDictType>());
         });
@@ -147,7 +149,7 @@ public class SysDictTypeService : BaseService<SysDictTypeService>
         {
             var dictType = await _sysDictTypeRep.FirstAsync(u => u.Id == input.Id);
             if (dictType == null)
-                throw FriendlyError.Ex(EnumErrorCode.D3000);
+                throw FriendlyError.Ex(FrameworkErrors.Dict.DictTypeNotFound);
 
             // 删除字典值
             var data = await _sysDictTypeRep.DeleteAsync(dictType);
@@ -182,10 +184,10 @@ public class SysDictTypeService : BaseService<SysDictTypeService>
         {
             var dictType = await _sysDictTypeRep.FirstAsync(u => u.Id == input.Id);
             if (dictType == null)
-                throw FriendlyError.Ex(EnumErrorCode.D3000);
+                throw FriendlyError.Ex(FrameworkErrors.Dict.DictTypeNotFound);
 
             if (!Enum.IsDefined(typeof(EnumEnableStatus), input.Status))
-                throw FriendlyError.Ex(EnumErrorCode.D3005);
+                throw FriendlyError.Ex(FrameworkErrors.Dict.DictStatusError);
 
             dictType.Status = input.Status;
             return await _sysDictTypeRep.UpdateAsync(dictType);

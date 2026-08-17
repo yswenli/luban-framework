@@ -1,4 +1,5 @@
 ﻿using LuBan.CloudStorage;
+using LuBan.Common.Errors;
 
 using System.Text;
 using System.Text.RegularExpressions;
@@ -228,7 +229,7 @@ public partial class FileService : BaseService<FileService>
     public async Task<bool> UpdateFileAsync(FileInput input)
     {
         var isExist = await _sysFileRep.IsAnyAsync(u => u.Id == input.Id);
-        if (!isExist) throw FriendlyError.Ex(EnumErrorCode.D8000);
+        if (!isExist) throw FriendlyError.Ex(FrameworkErrors.File.FileNotFound);
         return await _sysFileRep.UpdateAsync(u => new DbFile() { FileName = input.FileName }, u => u.Id == input.Id);
     }
 
@@ -241,9 +242,9 @@ public partial class FileService : BaseService<FileService>
     /// <returns></returns>
     private async Task<DbFile?> HandleUploadFile(IFormFile file, string savePath, bool isPrivate = false)
     {
-        if (file == null) throw FriendlyError.Ex(EnumErrorCode.D8000);
+        if (file == null) throw FriendlyError.Ex(FrameworkErrors.File.FileNotFound);
         using var fileStream = file.OpenReadStream();
-        if (fileStream == null) throw FriendlyError.Ex(EnumErrorCode.D8000);
+        if (fileStream == null) throw FriendlyError.Ex(FrameworkErrors.File.FileNotFound);
         var fileName = file.FileName;
         return await new FileHandler().HandleUploadFileAsync(HostingOptions.Default.Domain, WebApp.WebHostEnvironment?.ContentRootPath ?? "", fileStream, fileName, file.Length, GetSavePath(savePath), isPrivate);
     }
@@ -259,8 +260,8 @@ public partial class FileService : BaseService<FileService>
     /// <returns></returns>
     private async Task<VideoFileOutput?> HandleUploadVideoFile(IFormFile formFile, string savePath, string posterTime = "00:00:01", bool isPrivate = false)
     {
-        if (formFile == null) throw FriendlyError.Ex(EnumErrorCode.D8005);
-        using var videoContentStream = formFile.OpenReadStream() ?? throw FriendlyError.Ex(EnumErrorCode.D8005);
+        if (formFile == null) throw FriendlyError.Ex(FrameworkErrors.File.FileNameEmpty);
+        using var videoContentStream = formFile.OpenReadStream() ?? throw FriendlyError.Ex(FrameworkErrors.File.FileNameEmpty);
         var fileName = formFile.FileName;
         var dbFileInfo = await new FileHandler().HandleUploadVideoFileAsync(HostingOptions.Default.Domain, WebApp.WebHostEnvironment?.ContentRootPath ?? "", videoContentStream, fileName, (int)videoContentStream.Length, GetSavePath(savePath), posterTime, isPrivate);
         return dbFileInfo?.Adapt<VideoFileOutput>();

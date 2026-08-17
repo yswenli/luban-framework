@@ -165,7 +165,7 @@ public class BrowserToolGroup
         // 浏览器未安装
         if (msg.Contains("Executable doesn't exist") || msg.Contains("playwright install"))
         {
-            return $"导航失败: 浏览器未安装。\n\n请运行以下命令安装:\n  npx playwright@1.61.0 install chromium";
+            return $"导航失败: 浏览器未安装。\n\n请运行以下命令安装:\n  {PlaywrightDriverResolver.GetInstallBrowsersHint()}";
         }
 
         // 网络超时 / 连接失败

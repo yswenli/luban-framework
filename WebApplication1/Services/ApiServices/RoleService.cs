@@ -22,6 +22,8 @@
 *
 *****************************************************************************/
 
+using LuBan.Common.Errors;
+
 using WebApplication1.Models.Entities;
 using WebApplication1.Models.Vos;
 
@@ -74,7 +76,7 @@ public class RoleService : BaseService<RoleService>
     public async Task<bool> AddRoleAsync(AddRoleInput input)
     {
         if (await _sysRoleRep.IsAnyAsync(u => u.Name == input.Name && u.Code == input.Code))
-            throw FriendlyError.Ex(EnumErrorCode.D1006);
+            throw FriendlyError.Ex(FrameworkErrors.User.DataExists);
 
         var newRole = await _sysRoleRep.AsInsertable(input.Adapt<DbRole>()).ExecuteReturnEntityAsync();
         input.Id = newRole.Id;
@@ -109,7 +111,7 @@ public class RoleService : BaseService<RoleService>
     public async Task<bool> UpdateRoleAsync(UpdateRoleInput input)
     {
         if (await _sysRoleRep.IsAnyAsync(u => u.Name == input.Name && u.Code == input.Code && u.Id != input.Id))
-            throw FriendlyError.Ex(EnumErrorCode.D1006);
+            throw FriendlyError.Ex(FrameworkErrors.User.DataExists);
 
         await _sysRoleRep.AsUpdateable(input.Adapt<DbRole>()).IgnoreColumns(u => new { u.DataScope }).ExecuteCommandAsync();
 
@@ -123,9 +125,9 @@ public class RoleService : BaseService<RoleService>
     /// <returns></returns>
     public async Task<bool> DeleteRoleAsync(DeleteRoleInput input)
     {
-        var sysRole = await _sysRoleRep.FirstAsync(u => u.Id == input.Id) ?? throw FriendlyError.Ex(EnumErrorCode.D1002);
+        var sysRole = await _sysRoleRep.FirstAsync(u => u.Id == input.Id) ?? throw FriendlyError.Ex(FrameworkErrors.User.RecordNotFound);
         if (sysRole.Code == CommonConst.SysAdminRole)
-            throw FriendlyError.Ex(EnumErrorCode.D1019);
+            throw FriendlyError.Ex(FrameworkErrors.Role.CannotDeleteAdminRole);
 
         // 级联删除角色机构数据
         await RoleOrgService.Instance.DeleteRoleOrgByRoleIdAsync(sysRole.Id);
@@ -170,7 +172,7 @@ public class RoleService : BaseService<RoleService>
         {
             // 非超级管理员没有全部数据范围权限
             if (dataScope == (int)EnumDataScope.All)
-                throw FriendlyError.Ex(EnumErrorCode.D1016);
+                throw FriendlyError.Ex(FrameworkErrors.User.NoPermission);
 
             // 若数据范围自定义，则判断授权数据范围是否有权限
             if (dataScope == (int)EnumDataScope.Define)
@@ -180,9 +182,9 @@ public class RoleService : BaseService<RoleService>
                 {
                     var orgIdList = await OrgService.Instance.GetUserOrgIdList();
                     if (orgIdList.Count < 1)
-                        throw FriendlyError.Ex(EnumErrorCode.D1016);
+                        throw FriendlyError.Ex(FrameworkErrors.User.NoPermission);
                     else if (!grantOrgIdList.All(u => orgIdList.Any(c => c == u)))
-                        throw FriendlyError.Ex(EnumErrorCode.D1016);
+                        throw FriendlyError.Ex(FrameworkErrors.User.NoPermission);
                 }
             }
         }
@@ -219,7 +221,7 @@ public class RoleService : BaseService<RoleService>
     public async Task<int> SetStatusAsync(RoleInput input)
     {
         if (!Enum.IsDefined(typeof(EnumEnableStatus), input.Status))
-            throw FriendlyError.Ex(EnumErrorCode.D3005);
+            throw FriendlyError.Ex(FrameworkErrors.Dict.DictStatusError);
 
         return await _sysRoleRep.AsUpdateable()
             .SetColumns(u => u.Status == input.Status)

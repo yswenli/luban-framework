@@ -784,8 +784,8 @@ public enum EnumErrorCode
     [ErrorCodeItemMetadata("操作成功")]
     SystemOk200 = 200,
     /// <summary>
-    /// 系统异常，详情请在管理系统中查阅
+    /// 系统异常，详情请在系统日志中查阅
     /// </summary>
-    [ErrorCodeItemMetadata("系统异常，详情请在管理系统中查阅")]
-    SystemError999 = 999
+    [ErrorCodeItemMetadata("系统异常，详情请在系统日志中查阅")]
+    SystemError500 = 500
 }

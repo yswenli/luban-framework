@@ -21,6 +21,7 @@
 *描述：库表管理业务
 *
 *****************************************************************************/
+using LuBan.Common.Errors;
 using LuBan.Orm.Attributes;
 using LuBan.Orm.Interfaces;
 
@@ -317,10 +318,10 @@ public class DatabaseService
     public void AddTable(DbTableInput input)
     {
         if (input.DbColumnInfoList == null || !input.DbColumnInfoList.Any())
-            throw FriendlyError.Ex(EnumErrorCode.db1000);
+            throw FriendlyError.Ex(FrameworkErrors.Database.NoDataColumns);
 
         if (input.DbColumnInfoList.GroupBy(u => u.DbColumnName).Any(u => u.Count() > 1))
-            throw FriendlyError.Ex(EnumErrorCode.db1002);
+            throw FriendlyError.Ex(FrameworkErrors.Database.DuplicateFieldName);
 
         var config = NacosConfigUtil.Read<DbConnectionOptions>()!.ConnectionConfigs.FirstOrDefault(u => u.ConfigId.ToString() == input.ConfigId);
         var db = _db.AsTenant().GetConnectionScope(input.ConfigId);
@@ -406,7 +407,7 @@ public class DatabaseService
         //var templatePath = GetEntityTemplatePath();
         //var targetPath = GetEntityTargetPath(input);
         var db = _db.AsTenant().GetConnectionScope(input.ConfigId);
-        DbTableInfo dbTableInfo = db.DbMaintenance.GetTableInfoList(false).FirstOrDefault(u => u.Name == input.TableName || u.Name == input.TableName.ToLower()) ?? throw FriendlyError.Ex(EnumErrorCode.db1001);
+        DbTableInfo dbTableInfo = db.DbMaintenance.GetTableInfoList(false).FirstOrDefault(u => u.Name == input.TableName || u.Name == input.TableName.ToLower()) ?? throw FriendlyError.Ex(FrameworkErrors.Database.TableNotFound);
         List<DbColumnInfo> dbColumnInfos = db.DbMaintenance.GetColumnInfosByTableName(input.TableName, false);
         dbColumnInfos.ForEach(u =>
         {
@@ -457,7 +458,7 @@ public class DatabaseService
             entityType = item.Type;
             break;
         }
-        if (entityType == null) throw FriendlyError.Ex(EnumErrorCode.db1001);
+        if (entityType == null) throw FriendlyError.Ex(FrameworkErrors.Database.TableNotFound);
 
         input.EntityName = entityType.Name;
         input.SeedDataName = entityType.Name + "SeedData";

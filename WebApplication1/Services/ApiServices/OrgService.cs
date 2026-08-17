@@ -23,6 +23,8 @@
 *****************************************************************************/
 
 
+using LuBan.Common.Errors;
+
 using WebApplication1.Models.Entities;
 
 namespace Services.ApiServices;
@@ -100,10 +102,10 @@ public class OrgService : BaseService<OrgService>
     public async Task<long> AddOrgAsync(AddOrgInput input)
     {
         if (!SessionUser.IsSuperAdmin && input.Pid == 0)
-            throw FriendlyError.Ex(EnumErrorCode.D2009);
+            throw FriendlyError.Ex(FrameworkErrors.Org.CannotAddRootOrg);
 
         if (await _sysOrgRep.IsAnyAsync(u => u.Name == input.Name && u.Code == input.Code))
-            throw FriendlyError.Ex(EnumErrorCode.D2002);
+            throw FriendlyError.Ex(FrameworkErrors.Org.OrgDuplicate);
 
         if (!SessionUser.IsSuperAdmin && input.Pid != 0)
         {
@@ -111,7 +113,7 @@ public class OrgService : BaseService<OrgService>
             var orgIdList = await GetUserOrgIdList();
             // 新增机构的父机构不在自己的数据范围内
             if (orgIdList.Count < 1 || !orgIdList.Contains(input.Pid))
-                throw FriendlyError.Ex(EnumErrorCode.D2003);
+                throw FriendlyError.Ex(FrameworkErrors.Org.NoPermissionOnOrg);
         }
 
         // 删除与此父机构有关的用户机构缓存
@@ -132,7 +134,7 @@ public class OrgService : BaseService<OrgService>
     public async Task<bool> UpdateOrgAsync(UpdateOrgInput input)
     {
         if (!SessionUser.IsSuperAdmin && input.Pid == 0)
-            throw FriendlyError.Ex(EnumErrorCode.D2009);
+            throw FriendlyError.Ex(FrameworkErrors.Org.CannotAddRootOrg);
 
         if (input.Pid != 0)
         {
@@ -148,22 +150,22 @@ public class OrgService : BaseService<OrgService>
             }
         }
         if (input.Id == input.Pid)
-            throw FriendlyError.Ex(EnumErrorCode.D2001);
+            throw FriendlyError.Ex(FrameworkErrors.Org.ParentOrgIsSelf);
 
         if (await _sysOrgRep.IsAnyAsync(u => u.Name == input.Name && u.Code == input.Code && u.Id != input.Id))
-            throw FriendlyError.Ex(EnumErrorCode.D2002);
+            throw FriendlyError.Ex(FrameworkErrors.Org.OrgDuplicate);
 
         // 父Id不能为自己的子节点
         var childIdList = await GetChildIdListWithSelfById(input.Id);
         if (childIdList.Contains(input.Pid))
-            throw FriendlyError.Ex(EnumErrorCode.D2001);
+            throw FriendlyError.Ex(FrameworkErrors.Org.ParentOrgIsSelf);
 
         // 是否有权限操作此机构
         if (!SessionUser.IsSuperAdmin)
         {
             var orgIdList = await GetUserOrgIdList();
             if (orgIdList.Count < 1 || !orgIdList.Contains(input.Id))
-                throw FriendlyError.Ex(EnumErrorCode.D2003);
+                throw FriendlyError.Ex(FrameworkErrors.Org.NoPermissionOnOrg);
         }
         await _sysOrgRep.UpdateAsync(input.Adapt<DbOrg>());
         return true;
@@ -177,32 +179,32 @@ public class OrgService : BaseService<OrgService>
     /// <returns></returns>
     public async Task<bool> DeleteOrgAsync(DeleteOrgInput input)
     {
-        var sysOrg = await _sysOrgRep.FirstAsync(u => u.Id == input.Id) ?? throw FriendlyError.Ex(EnumErrorCode.D1002);
+        var sysOrg = await _sysOrgRep.FirstAsync(u => u.Id == input.Id) ?? throw FriendlyError.Ex(FrameworkErrors.User.RecordNotFound);
 
         // 是否有权限操作此机构
         if (!SessionUser.IsSuperAdmin)
         {
             var orgIdList = await GetUserOrgIdList();
             if (orgIdList.Count < 1 || !orgIdList.Contains(sysOrg.Id))
-                throw FriendlyError.Ex(EnumErrorCode.D2003);
+                throw FriendlyError.Ex(FrameworkErrors.Org.NoPermissionOnOrg);
         }
 
         // 若机构为租户默认机构禁止删除
         var isTenantOrg = await _sysOrgRep.ChangeRepository<DbTenant>()
             .IsAnyAsync(u => u.OrgId == input.Id);
         if (isTenantOrg)
-            throw FriendlyError.Ex(EnumErrorCode.D2008);
+            throw FriendlyError.Ex(FrameworkErrors.Org.CannotDeleteTenantDefaultOrg);
 
         // 若机构有用户则禁止删除
         var orgHasEmp = await _sysOrgRep.ChangeRepository<DbUser>()
             .IsAnyAsync(u => u.OrgId == input.Id);
         if (orgHasEmp)
-            throw FriendlyError.Ex(EnumErrorCode.D2004);
+            throw FriendlyError.Ex(FrameworkErrors.Org.OrgHasUsers);
 
         // 若扩展机构有用户则禁止删除
         var hasExtOrgEmp = await _sysUserExtOrgService.HasUserOrgAsync(sysOrg.Id);
         if (hasExtOrgEmp)
-            throw FriendlyError.Ex(EnumErrorCode.D2005);
+            throw FriendlyError.Ex(FrameworkErrors.Org.SubOrgHasUsers);
 
         // 若子机构有用户则禁止删除
         var childOrgTreeList = await _sysOrgRep.AsQueryable().ToChildListAsync(u => u.Pid, input.Id, true);
@@ -212,7 +214,7 @@ public class OrgService : BaseService<OrgService>
         var cOrgHasEmp = await _sysOrgRep.ChangeRepository<DbUser>()
             .IsAnyAsync(u => childOrgIdList.Contains(u.OrgId));
         if (cOrgHasEmp)
-            throw FriendlyError.Ex(EnumErrorCode.D2007);
+            throw FriendlyError.Ex(FrameworkErrors.Org.ChildOrgHasUsers);
 
         // 删除与此机构、父机构有关的用户机构缓存
         DeleteUserOrgCache(sysOrg.Id, sysOrg.Pid);

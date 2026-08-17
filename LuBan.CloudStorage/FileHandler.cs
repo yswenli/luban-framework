@@ -23,6 +23,7 @@
 *****************************************************************************/
 
 using System.Buffers;
+using LuBan.Common.Errors;
 using LuBan.VideoKit;
 
 namespace LuBan.CloudStorage;
@@ -309,22 +310,22 @@ public partial class FileHandler : IScoped
     /// <param name="fileSize"></param>
     (long SizeKb, string Suffix) ValidateFile(string fileName, long fileSize)
     {
-        if (fileName.IsNullOrEmpty()) throw FriendlyError.Ex(EnumErrorCode.D8006);
+        if (fileName.IsNullOrEmpty()) throw FriendlyError.Ex(FrameworkErrors.File.FileContentEmpty);
 
         var sizeKb = (long)(fileSize / 1024.0);
 
         if (_uploadOptions.MaxSize <= 0 || sizeKb > _uploadOptions.MaxSize)
-            throw FriendlyError.Ex(EnumErrorCode.D8002);
+            throw FriendlyError.Ex(FrameworkErrors.File.FileTooLarge);
 
         var suffix = Path.GetExtension(fileName).ToLower();
 
         if (suffix.IsNullOrEmpty())
-            throw FriendlyError.Ex(EnumErrorCode.D8003);
+            throw FriendlyError.Ex(FrameworkErrors.File.FileExtError);
 
         if (_uploadOptions.ExtensionNames == null
             || _uploadOptions.ExtensionNames.Count < 1
             || !_uploadOptions.ExtensionNames.Contains(suffix))
-            throw FriendlyError.Ex(EnumErrorCode.D8001);
+            throw FriendlyError.Ex(FrameworkErrors.File.FileTypeNotAllowed);
 
         return (sizeKb, suffix);
     }

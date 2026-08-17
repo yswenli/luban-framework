@@ -71,13 +71,14 @@ public sealed class PlaywrightSession : IAsyncDisposable, IDisposable
 
             try
             {
+                await PlaywrightDriverResolver.EnsureDriverAsync(cancellationToken);
                 _playwright = await Playwright.CreateAsync();
             }
             catch (Exception ex)
             {
                 Logger.Error("Playwright 初始化失败", ex);
                 throw new InvalidOperationException(
-                    $"Playwright 初始化失败: {ex.Message}\n\n请安装 Playwright 浏览器:\n  npx playwright@1.61.0 install chromium", ex);
+                    $"Playwright 初始化失败: {ex.Message}\n\n请安装 Playwright 浏览器:\n  {PlaywrightDriverResolver.GetInstallBrowsersHint()}", ex);
             }
 
             var launchOptions = new BrowserTypeLaunchOptions
@@ -99,7 +100,7 @@ public sealed class PlaywrightSession : IAsyncDisposable, IDisposable
             {
                 Logger.Error("浏览器启动失败", ex, _options.Engine);
                 throw new InvalidOperationException(
-                    $"浏览器启动失败: {ex.Message}\n\n请安装 Playwright 浏览器:\n  npx playwright@1.61.0 install chromium", ex);
+                    $"浏览器启动失败: {ex.Message}\n\n请安装 Playwright 浏览器:\n  {PlaywrightDriverResolver.GetInstallBrowsersHint()}", ex);
             }
 
             _page = await _browser.NewPageAsync();

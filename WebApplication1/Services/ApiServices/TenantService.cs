@@ -22,6 +22,8 @@
 *
 *****************************************************************************/
 
+using LuBan.Common.Errors;
+
 using WebApplication1.Models.Entities;
 using WebApplication1.Models.Vos;
 
@@ -89,10 +91,10 @@ public class TenantService : BaseService<TenantService>
     public async Task<bool> AddTenantAsync(AddTenantInput input)
     {
         var isExist = await _sysOrgRep.IsAnyAsync(u => u.Name == input.Name);
-        if (isExist) throw FriendlyError.Ex(EnumErrorCode.D1300);
+        if (isExist) throw FriendlyError.Ex(FrameworkErrors.Tenant.TenantNameDuplicate);
 
         isExist = await _sysUserRep.ExistAsync(u => u.Account == input.AdminAccount);
-        if (isExist) throw FriendlyError.Ex(EnumErrorCode.D1301);
+        if (isExist) throw FriendlyError.Ex(FrameworkErrors.Tenant.TenantAdminDuplicate);
 
         // ID隔离时设置与主库一致
         if (input.TenantType == EnumTenantType.Id)
@@ -118,10 +120,10 @@ public class TenantService : BaseService<TenantService>
     {
         var tenant = await _sysTenantRep.FirstAsync(u => u.Id == input.Id);
         if (tenant == null || tenant.ConfigId == LuBanOrmConst.MainConfigId)
-            throw FriendlyError.Ex(EnumErrorCode.Z1001);
+            throw FriendlyError.Ex(FrameworkErrors.Tenant.DefaultTenantStatusLocked);
 
         if (!Enum.IsDefined(typeof(EnumEnableStatus), input.Status))
-            throw FriendlyError.Ex(EnumErrorCode.D3005);
+            throw FriendlyError.Ex(FrameworkErrors.Dict.DictStatusError);
 
         tenant.Status = input.Status;
         return await _sysTenantRep.AsUpdateable(tenant).UpdateColumns(u => new { u.Status }).ExecuteCommandAsync();
@@ -219,7 +221,7 @@ public class TenantService : BaseService<TenantService>
     {
         // 禁止删除默认租户
         if (input.Id.ToString() == LuBanOrmConst.MainConfigId)
-            throw FriendlyError.Ex(EnumErrorCode.D1023);
+            throw FriendlyError.Ex(FrameworkErrors.Tenant.CannotDeleteDefaultTenant);
 
         await _sysTenantRep.DeleteAsync(u => u.Id == input.Id);
 
@@ -256,10 +258,10 @@ public class TenantService : BaseService<TenantService>
     {
         var isExist = await _sysOrgRep.IsAnyAsync(u => u.Name == input.Name && u.Id != input.OrgId);
         if (isExist)
-            throw FriendlyError.Ex(EnumErrorCode.D1300);
+            throw FriendlyError.Ex(FrameworkErrors.Tenant.TenantNameDuplicate);
         isExist = await _sysUserRep.IsAnyAsync(u => u.Account == input.AdminAccount && u.Id != input.UserId);
         if (isExist)
-            throw FriendlyError.Ex(EnumErrorCode.D1301);
+            throw FriendlyError.Ex(FrameworkErrors.Tenant.TenantAdminDuplicate);
 
         await _sysTenantRep.AsUpdateable(input.Adapt<TenantOutput>()).IgnoreColumns(true).ExecuteCommandAsync();
 

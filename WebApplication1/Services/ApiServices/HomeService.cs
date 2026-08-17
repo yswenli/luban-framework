@@ -1,4 +1,6 @@
-﻿namespace WebApplication1.Services.ApiServices
+﻿using LuBan.Common.Errors;
+
+namespace WebApplication1.Services.ApiServices
 {
     public class HomeService : BaseService<HomeService>
     {
@@ -7,7 +9,7 @@
             return await GetResultAsync(async () =>
             {
                 if (a == 1) throw new Exception("异常了");
-                if (a == 2) throw FriendlyError.Ex(EnumErrorCode.D3003);
+                if (a == 2) throw FriendlyError.Ex(FrameworkErrors.Dict.DictDataDuplicate);
                 return await Task.FromResult(3);
 
             });

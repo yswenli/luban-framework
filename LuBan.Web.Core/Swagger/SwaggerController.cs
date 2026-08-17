@@ -21,6 +21,8 @@
 *描述：Swagger生成markdown
 *
 *****************************************************************************/
+using LuBan.Common.Errors;
+
 namespace LuBan.Web.Core.Swagger;
 
 /// <summary>
@@ -50,7 +52,7 @@ public class SwaggerController : ControllerBase
         }
         catch (Exception ex)
         {
-            throw FriendlyError.Ex($"请在地址栏中输入参数 ?documents=，且参数 documents 的值仅支持\"default\",\"admin\",\"mobile\",\"internal\",\"open\";ex:{ex}", 500);
+            throw FriendlyError.Ex($"请在地址栏中输入参数 ?documents=，且参数 documents 的值仅支持\"default\",\"admin\",\"mobile\",\"internal\",\"open\";ex:{ex}", FrameworkErrors.System.InternalError);
         }
     }
 
@@ -74,7 +76,7 @@ public class SwaggerController : ControllerBase
         }
         catch (Exception ex)
         {
-            throw FriendlyError.Ex($"请在地址栏中输入参数 ?documents=，且参数 documents 的值仅支持\"default\",\"admin\",\"mobile\",\"internal\",\"open\";ex:{ex}", 500);
+            throw FriendlyError.Ex($"请在地址栏中输入参数 ?documents=，且参数 documents 的值仅支持\"default\",\"admin\",\"mobile\",\"internal\",\"open\";ex:{ex}", FrameworkErrors.System.InternalError);
         }
     }
 }

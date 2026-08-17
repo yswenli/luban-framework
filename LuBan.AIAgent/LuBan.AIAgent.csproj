@@ -16,6 +16,8 @@
     <PackageIcon>favicon.png</PackageIcon>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>$(AssemblyName);ai;agent;Microsoft.Agents;LuBan;yswenli</PackageTags>
+    <!-- 不复制 Playwright 驱动（约 101MB）到输出目录，运行时由 PlaywrightDriverResolver 按需安装到用户目录 -->
+    <PlaywrightPlatform>none</PlaywrightPlatform>
   </PropertyGroup>
 
   <ItemGroup>

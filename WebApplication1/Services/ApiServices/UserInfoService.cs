@@ -21,6 +21,8 @@
 *描述：用户扩展信息业务类
 *
 *****************************************************************************/
+using LuBan.Common.Errors;
+
 using WebApplication1.Models.Entities;
 
 namespace Services.ApiServices;
@@ -49,7 +51,7 @@ public class UserInfoService : BaseService<UserInfoService>
     /// <returns></returns>
     public async Task<bool> UpdateUserInfo(DbUserInfo data)
     {
-        var old = await _busUserRep.FirstAsync(u => u.IsDelete == false && u.Id == data.Id) ?? throw FriendlyError.Ex(EnumErrorCode.D1001);
+        var old = await _busUserRep.FirstAsync(u => u.IsDelete == false && u.Id == data.Id) ?? throw FriendlyError.Ex(FrameworkErrors.User.CannotDeleteSelf);
         old.FillFromEntity(data);
         return await _busUserRep.UpdateAsync(data);
     }
