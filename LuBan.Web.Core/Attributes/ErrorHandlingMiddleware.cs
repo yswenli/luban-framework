@@ -82,11 +82,11 @@ public class ErrorHandlingMiddleware(RequestDelegate next)
         //如果是自定义异常，则返回自定义异常信息
         if (ex is FriendlyException friendlyException)
         {
-            var message = new Fail(friendlyException.Message, (int)friendlyException.ErrorCode).ToJson();
+            var message = new Fail(friendlyException).ToJson();
             if (message.IsNotNullOrEmpty())
             {
                 context.Response.ContentType = "application/json; charset=utf-8";
-                context.Response.StatusCode = StatusCodes.Status200OK;
+                context.Response.StatusCode = friendlyException.HttpStatusCode;
                 await context.Response.WriteAsync(message);
                 stopwatch.Stop();
                 return;

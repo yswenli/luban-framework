@@ -132,13 +132,13 @@ public class ApiLogAttribute : BaseFilterAttribute, IAsyncActionFilter, IAsyncEx
 
         if (context.Exception is FriendlyException friendlyException)
         {
-            var message = new Fail(friendlyException.Message, (int)friendlyException.ErrorCode).ToJson();
-            context.HttpContext.Response.StatusCode = StatusCodes.Status200OK;
+            var message = new Fail(friendlyException).ToJson();
+            context.HttpContext.Response.StatusCode = friendlyException.HttpStatusCode;
             context.Result = new ContentResult
             {
                 Content = message,
                 ContentType = "application/json; charset=utf-8",
-                StatusCode = StatusCodes.Status200OK
+                StatusCode = friendlyException.HttpStatusCode
             };
         }
         else if (context.Exception is Microsoft.AspNetCore.Http.BadHttpRequestException)
