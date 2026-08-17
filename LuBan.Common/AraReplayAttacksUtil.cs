@@ -22,6 +22,7 @@
 *
 *****************************************************************************/
 using Result = LuBan.Common.Data.Result;
+using LuBan.Common.Errors;
 
 
 namespace LuBan.Common;
@@ -174,7 +175,7 @@ public static class AraReplayAttacksUtil
     {
         if (data == null || data.Count < 1)
         {
-            throw FriendlyError.Ex("The required parameter cannot be empty.", EnumErrorCode.D0001, 200);
+            throw FriendlyError.Ex("The required parameter cannot be empty.", FrameworkErrors.Common.InputEmpty);
         }
 
         if (safeComparisonExpired <= 0) safeComparisonExpired = 5;
@@ -205,20 +206,20 @@ public static class AraReplayAttacksUtil
                         {
                             if (DateTimeUtil.ToUtcTime(timeStamp, false).AddMinutes(safeComparisonExpired) < DateTimeUtil.UtcNow)
                             {
-                                throw FriendlyError.Ex("The timestamp of the current operation has expired.", EnumErrorCode.P0002, 410);
+                                throw FriendlyError.Ex("The timestamp of the current operation has expired.", FrameworkErrors.Security.OperationExpired).SetStatusCode(410);
                             }
                         }
                         else
                         {
                             if (DateTimeUtil.ToUtcTime(timeStamp, true).AddMinutes(safeComparisonExpired) < DateTimeUtil.UtcNow)
                             {
-                                throw FriendlyError.Ex("The timestamp of the current operation has expired.", EnumErrorCode.P0002, 410);
+                                throw FriendlyError.Ex("The timestamp of the current operation has expired.", FrameworkErrors.Security.OperationExpired).SetStatusCode(410);
                             }
                         }
                     }
                     else
                     {
-                        throw FriendlyError.Ex("The timestamp of the current operation cannot be empty or .", EnumErrorCode.D0001, 200);
+                        throw FriendlyError.Ex("The timestamp of the current operation cannot be empty or .", FrameworkErrors.Common.InputEmpty);
                     }
                 }
 
@@ -231,7 +232,7 @@ public static class AraReplayAttacksUtil
                         if (!string.IsNullOrEmpty(old) &&
                             old.Equals(value))
                         {
-                            throw FriendlyError.Ex("The current operation cannot be repeated.", EnumErrorCode.P0001, 400);
+                            throw FriendlyError.Ex("The current operation cannot be repeated.", FrameworkErrors.Security.DuplicateOperation);
                         }
                         else
                         {
@@ -240,7 +241,7 @@ public static class AraReplayAttacksUtil
                     }
                     else
                     {
-                        throw FriendlyError.Ex("The nonce of the current operation cannot be empty.", EnumErrorCode.D0001, 200);
+throw FriendlyError.Ex("The nonce of the current operation cannot be empty.", FrameworkErrors.Common.InputEmpty);
                     }
                 }
             }
@@ -248,31 +249,31 @@ public static class AraReplayAttacksUtil
 
         if (sp.Length < 1)
         {
-            throw FriendlyError.Ex("The required parameter cannot be empty.", EnumErrorCode.D0001, 200);
+            throw FriendlyError.Ex("The required parameter cannot be empty.", FrameworkErrors.Common.InputEmpty);
         }
 
         if (timeStamp < 0)
         {
-            throw FriendlyError.Ex("The timestamp of the current operation cannot be empty.", EnumErrorCode.D0001, 200);
+            throw FriendlyError.Ex("The timestamp of the current operation cannot be empty.", FrameworkErrors.Common.InputEmpty);
         }
 
         if (nonce.IsNullOrEmpty())
         {
-            throw FriendlyError.Ex("The nonce of the current operation cannot be empty.", EnumErrorCode.D0001, 200);
+            throw FriendlyError.Ex("The nonce of the current operation cannot be empty.", FrameworkErrors.Common.InputEmpty);
         }
 
         var ps = sp.ToString(0, sp.Length - 1);
 
         if (ps.IsNullOrEmpty())
         {
-            throw FriendlyError.Ex("The current operation signature cannot be empty.", EnumErrorCode.D0001, 200);
+            throw FriendlyError.Ex("The current operation signature cannot be empty.", FrameworkErrors.Common.InputEmpty);
         }
 
         var sign = ps.GetMD5Str();
 
         if (!sign.Equals(signature, StringComparison.InvariantCultureIgnoreCase))
         {
-            throw FriendlyError.Ex("The current operation signature error.", EnumErrorCode.P0003, 400);
+            throw FriendlyError.Ex("The current operation signature error.", FrameworkErrors.Security.InvalidSignature);
         }
 
         result = new Success();
