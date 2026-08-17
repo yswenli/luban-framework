@@ -151,6 +151,6 @@ public class DbMenu : EntityBase
     /// <summary>
     /// 菜单子项
     /// </summary>
-    [SugarColumn(IsIgnore = true), JsonIgnore]
+    [SugarColumn(IsIgnore = true)]
     public List<DbMenu> Children { get; set; } = [];
 }
