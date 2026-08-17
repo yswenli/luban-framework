@@ -29,19 +29,19 @@ namespace LuBan.Common.Data;
 /// </summary>
 public sealed class Success : Result
 {
-    /// <summary>
-    /// api 返回成功结果
-    /// </summary>
-    public Success()
+/// <summary>
+/// api 返回成功结果
+/// </summary>
+public Success()
     {
-        Code = (int)EnumErrorCode.SystemOk200;
+        Code = 200;
         Message = "OK";
         Type = "Success";
         Time = DateTimeUtil.Now;
     }
     /// <summary>
-    /// api 返回成功结果
-    /// </summary>
+/// api 返回成功结果
+/// </summary>
     /// <param name="d"></param>
     public Success(object? d, int code = 200)
     {
@@ -50,15 +50,6 @@ public sealed class Success : Result
         Message = "OK";
         Type = "Success";
         Time = DateTimeUtil.Now;
-    }
-    /// <summary>
-    /// api 返回成功结果
-    /// </summary>
-    /// <param name="d"></param>
-    /// <param name="code"></param>
-    public Success(object? d, EnumErrorCode code) : this(d, (int)code)
-    {
-
     }
 }
 /// <summary>
@@ -72,14 +63,14 @@ public sealed class Success<T> : Result<T>
     /// </summary>
     public Success()
     {
-        Code = (int)EnumErrorCode.SystemOk200;
+        Code = 200;
         Message = "OK";
         Type = "Success";
         Time = DateTimeUtil.Now;
     }
 
     /// <summary>
-    /// api 返回成功结果
+/// api 返回成功结果
     /// </summary>
     /// <param name="t"></param>
     /// <param name="code"></param>
@@ -90,14 +81,5 @@ public sealed class Success<T> : Result<T>
         Message = "OK";
         Type = "Success";
         Time = DateTimeUtil.Now;
-    }
-    /// <summary>
-    /// api 返回成功结果
-    /// </summary>
-    /// <param name="t"></param>
-    /// <param name="code"></param>
-    public Success(T t, EnumErrorCode code) : this(t, (int)code)
-    {
-
     }
 }

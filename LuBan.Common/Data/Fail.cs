@@ -35,7 +35,7 @@ public sealed class Fail : Result
     public Fail()
     {
         Message = "Server API error, please contact administrator support to resolve this issue.";
-        Code = (int)EnumErrorCode.SystemError999;
+        Code = 500;
         Type = "Fail";
         Time = DateTimeUtil.Now;
     }
@@ -44,8 +44,20 @@ public sealed class Fail : Result
     /// api 返回失败结果
     /// </summary>
     /// <param name="ex"></param>
+    public Fail(FriendlyException ex)
+    {
+        Code = ex.Error.Code;
+        Message = ex.Message;
+        Type = ex.Error.Category.ToString();
+        Time = DateTimeUtil.Now;
+    }
+
+    /// <summary>
+    /// api 返回失败结果
+    /// </summary>
+    /// <param name="ex"></param>
     /// <param name="code"></param>
-    public Fail(Exception? ex, int code = 999)
+    public Fail(Exception? ex, int code = 500)
     {
         Code = code;
         if (ex == null)
@@ -56,7 +68,7 @@ public sealed class Fail : Result
             {
                 if (ex is FriendlyException fe)
                 {
-                    Message = $"{fe.ErrorMessage?.ToString() ?? ""}";
+                    Message = fe.Message;
                 }
                 else
                 {
@@ -69,15 +81,6 @@ public sealed class Fail : Result
 
         Type = "Fail";
         Time = DateTimeUtil.Now;
-    }
-    /// <summary>
-    /// api 返回失败结果
-    /// </summary>
-    /// <param name="ex"></param>
-    /// <param name="code"></param>
-    public Fail(Exception? ex, EnumErrorCode code) : this(ex, (int)code)
-    {
-
     }
     /// <summary>
     /// api 返回失败结果
@@ -115,16 +118,29 @@ public sealed class Fail<T> : Result<T>
     public Fail()
     {
         Message = "Server API error, please contact administrator support to resolve this issue.";
-        Code = (int)EnumErrorCode.SystemError999;
+        Code = 500;
         Type = "Fail";
         Time = DateTimeUtil.Now;
     }
+
+    /// <summary>
+    /// api 返回失败结果
+    /// </summary>
+    /// <param name="ex"></param>
+    public Fail(FriendlyException ex)
+    {
+        Code = ex.Error.Code;
+        Message = ex.Message;
+        Type = ex.Error.Category.ToString();
+        Time = DateTimeUtil.Now;
+    }
+
     /// <summary>
     /// api 返回失败结果
     /// </summary>
     /// <param name="ex"></param>
     /// <param name="code"></param>
-    public Fail(Exception? ex, int code = 999)
+    public Fail(Exception? ex, int code = 500)
     {
         Code = code;
         if (ex == null)
@@ -133,15 +149,6 @@ public sealed class Fail<T> : Result<T>
             Message = ex.ToString();
         Type = "Fail";
         Time = DateTimeUtil.Now;
-    }
-    /// <summary>
-    /// api 返回失败结果
-    /// </summary>
-    /// <param name="ex"></param>
-    /// <param name="code"></param>
-    public Fail(Exception? ex, EnumErrorCode code) : this(ex, (int)code)
-    {
-
     }
     /// <summary>
     /// api 返回失败结果
