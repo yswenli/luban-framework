@@ -83,6 +83,14 @@ public interface ISessionManager
     Task<IEnumerable<SessionMessage>> GetMessagesAsync(string sessionId, int? limit = null);
 
     /// <summary>
+    /// 获取会话最近 N 条消息。
+    /// </summary>
+    /// <param name="sessionId">会话ID</param>
+    /// <param name="count">消息数量。</param>
+    /// <returns>消息列表（时间正序）。</returns>
+    Task<IEnumerable<SessionMessage>> GetLatestMessagesAsync(string sessionId, int count);
+
+    /// <summary>
     /// 清除会话消息
     /// </summary>
     /// <param name="sessionId">会话ID</param>

@@ -27,7 +27,7 @@ public static class FriendlyError
 
     public static FriendlyException WithData(this FriendlyException exception, params object[] data)
     {
-        exception.Data = data;
+        exception.Data["ErrorData"] = data;
         return exception;
     }
 }

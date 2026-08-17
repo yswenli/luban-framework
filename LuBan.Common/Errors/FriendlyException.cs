@@ -12,7 +12,7 @@ public class FriendlyException : Exception
     }
 
     public FriendlyException(string customMessage, ErrorDescriptor error, params object[] args)
-        : base($"{customMessage}.{FormatMessage(error.Message, args)}")
+        : base(customMessage)
     {
         Error = error;
         HttpStatusCode = error.HttpStatusCode;
@@ -34,7 +34,6 @@ public class FriendlyException : Exception
 
     public ErrorDescriptor Error { get; }
     public int HttpStatusCode { get; set; }
-    public new object[]? Data { get; set; }
 
     private static string FormatMessage(string template, object[] args)
     {

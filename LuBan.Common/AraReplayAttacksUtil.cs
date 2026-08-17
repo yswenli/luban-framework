@@ -241,7 +241,7 @@ public static class AraReplayAttacksUtil
                     }
                     else
                     {
-throw FriendlyError.Ex("The nonce of the current operation cannot be empty.", FrameworkErrors.Common.InputEmpty);
+                        throw FriendlyError.Ex("The nonce of the current operation cannot be empty.", FrameworkErrors.Common.InputEmpty);
                     }
                 }
             }

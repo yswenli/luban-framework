@@ -50,7 +50,7 @@ public sealed class Fail : Result
     {
         Code = ex.Error.Code;
         Message = ex.Message;
-        Type = ex.Error.Category.ToString();
+        Type = "Fail";
         Time = DateTimeUtil.Now;
     }
 
@@ -133,7 +133,7 @@ public sealed class Fail<T> : Result<T>
     {
         Code = ex.Error.Code;
         Message = ex.Message;
-        Type = ex.Error.Category.ToString();
+        Type = "Fail";
         Time = DateTimeUtil.Now;
     }
 

@@ -198,7 +198,6 @@ public static class FrameworkErrors
 
     public static class System
     {
-        public static readonly ErrorDescriptor Ok = new(200, "操作成功", ErrorCategory.System);
         public static readonly ErrorDescriptor InternalError = new(500, "系统异常，详情请在系统日志中查阅", ErrorCategory.System);
     }
 
