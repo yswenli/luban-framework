@@ -208,9 +208,11 @@ if (OptUtil.ValidateTotp(userInput, secret))
 
 ### 错误处理
 
-`Errors.FriendlyException`、`Errors.EnumErrorCode`
+`Errors.ErrorCategory`、`Errors.ErrorDescriptor`、`Errors.FrameworkErrors`、`Errors.FriendlyException`、`Errors.FriendlyError`、`Errors.ErrorCodeRegistry`
 
-> 业务异常规范化，前端拿到错误码，后端抛出友好提示。
+> 结构化错误码体系：`ErrorDescriptor` 包含错误码、消息和分类（自动推导 HTTP 状态码）。
+> `FrameworkErrors` 按领域分组（Common/User/Tenant/Dict/Role/...），业务项目可通过 `ErrorCodeRegistry` 注册自定义错误码。
+> 抛出 `FriendlyError.Ex(FrameworkErrors.User.AccountNotFound)` 即可，全局中间件自动返回对应 HTTP 状态码和 JSON。
 
 ### 事件总线接口
 
@@ -324,13 +326,24 @@ int workDays = DateTimeUtil.GetWorkDays(now, now.AddDays(10));
 ```csharp
 using LuBan.Common.Errors;
 
+// 使用预定义错误码
+throw FriendlyError.Ex(FrameworkErrors.User.AccountNotFound);
+
+// 使用自定义消息 + 错误码
+throw FriendlyError.Ex("手机号格式不正确", FrameworkErrors.Common.PhoneInvalid);
+
+// 临时/快速抛出（无预定义错误码）
+throw FriendlyError.Ex("操作失败", ErrorCategory.Business);
+
+// 捕获并读取错误信息
 try
 {
-    throw new FriendlyException(EnumErrorCode.InvalidParameter, "手机号格式不正确");
+    throw FriendlyError.Ex(FrameworkErrors.User.RecordNotFound);
 }
 catch (FriendlyException ex)
 {
-    Console.WriteLine($"[{ex.ErrorCode}] {ex.Message}");
+    Console.WriteLine($"[{ex.Error.Code}] {ex.Message}");
+    Console.WriteLine($"HTTP 状态码: {ex.HttpStatusCode}");
 }
 ```
 

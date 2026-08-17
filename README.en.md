@@ -279,7 +279,7 @@ All APIs automatically return a unified format:
 **Success Response** (HTTP 200):
 ```json
 {
-  "code": "200",
+  "code": 200,
   "type": "Success",
   "message": "OK",
   "result": { ... },
@@ -288,22 +288,33 @@ All APIs automatically return a unified format:
 }
 ```
 
-**Business Exception** (HTTP 200):
+**Business Exception** (HTTP status code auto-derived from error category):
 ```json
 {
-  "code": "200",
+  "code": 11007,
   "type": "Fail",
-  "message": "[D1002] Record not found",
+  "message": "Record not found",
   "result": null,
   "extras": null,
   "time": "2026-07-11 12:00:00"
 }
 ```
 
+Error category to HTTP status code mapping:
+| Category | HTTP Status | Scenario |
+|----------|-------------|----------|
+| Validation | 400 | Parameter validation failed |
+| Authentication | 401 | Not authenticated |
+| Authorization | 403 | Not authorized |
+| NotFound | 404 | Resource not found |
+| Conflict | 409 | Data conflict/duplicate |
+| Business | 422 | Business logic error |
+| System | 500 | Internal server error |
+
 **System Exception** (HTTP 500):
 ```json
 {
-  "code": 999,
+  "code": 500,
   "type": "Fail",
   "message": "Server API error, please contact administrator.",
   "result": null,

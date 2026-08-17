@@ -179,9 +179,11 @@ Note: `MemoryCache<T>`, `IServiceCache`, `Logger` are in the `System` namespace.
 
 ### Error Handling
 
-`Errors.FriendlyException`, `Errors.EnumErrorCode`
+`Errors.ErrorCategory`, `Errors.ErrorDescriptor`, `Errors.FrameworkErrors`, `Errors.FriendlyException`, `Errors.FriendlyError`, `Errors.ErrorCodeRegistry`
 
-> Standardized business exceptions, frontend gets error codes, backend throws friendly messages.
+> Structured error code system: `ErrorDescriptor` contains error code, message, and category (auto-derives HTTP status code).
+> `FrameworkErrors` is organized by domain (Common/User/Tenant/Dict/Role/...), business projects can register custom error codes via `ErrorCodeRegistry`.
+> Just throw `FriendlyError.Ex(FrameworkErrors.User.AccountNotFound)`, the global middleware automatically returns the corresponding HTTP status code and JSON.
 
 ### Event Bus Interfaces
 
@@ -295,13 +297,24 @@ int workDays = DateTimeUtil.GetWorkDays(now, now.AddDays(10));
 ```csharp
 using LuBan.Common.Errors;
 
+// Use predefined error codes
+throw FriendlyError.Ex(FrameworkErrors.User.AccountNotFound);
+
+// Use custom message + error code
+throw FriendlyError.Ex("Invalid phone number format", FrameworkErrors.Common.PhoneInvalid);
+
+// Ad-hoc throw (no predefined error code)
+throw FriendlyError.Ex("Operation failed", ErrorCategory.Business);
+
+// Catch and read error info
 try
 {
-    throw new FriendlyException(EnumErrorCode.InvalidParameter, "Invalid phone number format");
+    throw FriendlyError.Ex(FrameworkErrors.User.RecordNotFound);
 }
 catch (FriendlyException ex)
 {
-    Console.WriteLine($"[{ex.ErrorCode}] {ex.Message}");
+    Console.WriteLine($"[{ex.Error.Code}] {ex.Message}");
+    Console.WriteLine($"HTTP status: {ex.HttpStatusCode}");
 }
 ```
 

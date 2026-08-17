@@ -279,7 +279,7 @@ public class UserController : BaseApiController
 **成功响应** (HTTP 200)：
 ```json
 {
-  "code": "200",
+  "code": 200,
   "type": "Success",
   "message": "OK",
   "result": { ... },
@@ -288,22 +288,33 @@ public class UserController : BaseApiController
 }
 ```
 
-**业务异常** (HTTP 200)：
+**业务异常**（HTTP 状态码由错误分类自动推导）：
 ```json
 {
-  "code": "200",
+  "code": 11007,
   "type": "Fail",
-  "message": "[D1002] 记录不存在",
+  "message": "记录不存在",
   "result": null,
   "extras": null,
   "time": "2026-07-11 12:00:00"
 }
 ```
 
+错误分类与 HTTP 状态码映射：
+| 分类 | HTTP 状态码 | 场景 |
+|------|------------|------|
+| Validation | 400 | 参数校验失败 |
+| Authentication | 401 | 未登录/认证失败 |
+| Authorization | 403 | 无权限 |
+| NotFound | 404 | 资源不存在 |
+| Conflict | 409 | 数据冲突/重复 |
+| Business | 422 | 业务逻辑错误 |
+| System | 500 | 系统内部错误 |
+
 **系统异常** (HTTP 500)：
 ```json
 {
-  "code": 999,
+  "code": 500,
   "type": "Fail",
   "message": "Server API error, please contact administrator.",
   "result": null,

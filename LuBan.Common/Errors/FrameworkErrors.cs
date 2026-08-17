@@ -1,7 +1,15 @@
 namespace LuBan.Common.Errors;
 
+/// <summary>
+/// 框架内置错误码定义。按业务领域分组（嵌套静态类），
+/// 每个 ErrorDescriptor 包含错误码、消息和分类（自动推导 HTTP 状态码）。
+/// <para>错误码范围：Common 10xxx, User 11xxx, Tenant 12xxx, Dict 13xxx,
+/// Menu 14xxx, Role 15xxx, Org 16xxx, File 17xxx, Task 18xxx,
+/// Auth 20xxx, Security 21xxx, ... System 500</para>
+/// </summary>
 public static class FrameworkErrors
 {
+    /// <summary>通用错误（10001-10008）</summary>
     public static class Common
     {
         public static readonly ErrorDescriptor InputEmpty = new(10001, "输入值不能为空", ErrorCategory.Validation);
