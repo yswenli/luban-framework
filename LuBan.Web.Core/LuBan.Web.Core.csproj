@@ -8,7 +8,7 @@
 		<DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
 		<GeneratePackageOnBuild>True</GeneratePackageOnBuild>
 		<Title>$(AssemblyName)</Title>
-		<Version>2026.8.12.1</Version>
+		<Version>2026.8.171</Version>
 		<Authors>yswenli</Authors>
 		<Description>LuBan Framework中api核心功能项目，基于aspnetcore集成di、jwt、swagger、codefirtst、支持多种常见数据库、nacos配置中心、统一接口回复参数、全局异常捕获、全局接口日志、防重放攻击、图形验证码、快捷上下文对象、上传下载、数据导入导出等功能</Description>
 		<Copyright>yswenli</Copyright>
@@ -46,7 +46,7 @@
 		<PackageReference Include="nacos-sdk-csharp.AspNetCore" Version="1.3.10" />
 		<PackageReference Include="nacos-sdk-csharp.Extensions.Configuration" Version="1.3.10" />
 		<PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.151.1" />
-		<PackageReference Include="SKIT.FlurlHttpClient.Wechat.TenpayV3" Version="3.16.0" />
+		<PackageReference Include="SKIT.FlurlHttpClient.Wechat.TenpayV3" Version="3.17.0" />
 		<PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.3" />
 		<PackageReference Include="Swashbuckle.AspNetCore.Newtonsoft" Version="10.2.3" />
 	</ItemGroup>
