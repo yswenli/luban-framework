@@ -56,8 +56,8 @@ public static class ApiConfiguration
                 UnicodeRanges.CjkSymbolsandPunctuation
             );
 
-            //格式化输出内容
-            options.JsonSerializerOptions.WriteIndented = true;
+            //紧凑输出内容
+            options.JsonSerializerOptions.WriteIndented = false;
             //命名规则
             options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
             options.JsonSerializerOptions.DictionaryKeyPolicy = null;
