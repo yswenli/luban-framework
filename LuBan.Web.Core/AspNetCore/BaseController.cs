@@ -21,6 +21,7 @@
 *描述：LuBan.Web.Core.AspNetCore 基础控制器类
 *
 *****************************************************************************/
+using LuBan.Common.Errors;
 
 namespace LuBan.Web.Core.AspNetCore;
 
@@ -204,7 +205,7 @@ public abstract class BaseController : Controller
     /// <param name="t"></param>
     /// <param name="code"></param>
     /// <returns></returns>
-    protected Success SuccessResult(dynamic t, EnumErrorCode code) => SuccessResult(t, (int)code);
+    protected Success SuccessResult(dynamic t, ErrorDescriptor code) => SuccessResult(t, code.Code);
 
     /// <summary>
     /// 返回成功的结果
@@ -240,7 +241,7 @@ public abstract class BaseController : Controller
     /// <param name="msg"></param>
     /// <param name="code"></param>
     /// <returns></returns>
-    protected Fail ErrorResult(string msg, EnumErrorCode code) => ErrorResult(msg, (int)code);
+    protected Fail ErrorResult(string msg, ErrorDescriptor code) => ErrorResult(msg, code.Code);
 
     /// <summary>
     /// 返回错误的结果
@@ -258,7 +259,7 @@ public abstract class BaseController : Controller
     /// <param name="ex"></param>
     /// <param name="code"></param>
     /// <returns></returns>
-    protected Fail ErrorResult(Exception ex, EnumErrorCode code) => ErrorResult(ex, (int)code);
+    protected Fail ErrorResult(Exception ex, ErrorDescriptor code) => ErrorResult(ex, code.Code);
 
 
     #region aspnetcore 其它内容

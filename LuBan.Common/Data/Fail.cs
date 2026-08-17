@@ -21,6 +21,8 @@
 *描述：api 返回失败结果
 *
 *****************************************************************************/
+using LuBan.Common.Errors;
+
 namespace LuBan.Common.Data;
 
 
@@ -100,7 +102,7 @@ public sealed class Fail : Result
     /// </summary>
     /// <param name="msg"></param>
     /// <param name="code"></param>
-    public Fail(string msg, EnumErrorCode code) : this(msg, (int)code)
+    public Fail(string msg, ErrorDescriptor code) : this(msg, code.Code)
     {
 
     }
@@ -168,7 +170,7 @@ public sealed class Fail<T> : Result<T>
     /// </summary>
     /// <param name="msg"></param>
     /// <param name="code"></param>
-    public Fail(string msg, EnumErrorCode code) : this(msg, (int)code)
+    public Fail(string msg, ErrorDescriptor code) : this(msg, code.Code)
     {
 
     }
