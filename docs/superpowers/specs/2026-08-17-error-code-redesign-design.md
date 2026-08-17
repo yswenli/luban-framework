@@ -15,7 +15,7 @@ This is a breaking change. The existing `EnumErrorCode`, `ErrorCodeTypeAttribute
 
 - Refactor `LuBan.Common` error handling infrastructure
 - Migrate `WebApplication1` demo project error codes to the new system
-- Migrate `LuBan.Wechat` WeChat-specific error codes to the new system
+- Add `WeChatErrors` to `LuBan.Wechat` and replace plain `throw new Exception(...)` call sites with `FriendlyException` (the old W-series enum members were never referenced; WeChat failures currently surface as generic HTTP 500 system errors, which hides their business semantics)
 - Update `LuBan.Web.Core` middleware and filters
 
 ## Core Types
@@ -74,16 +74,14 @@ public readonly struct ErrorDescriptor : IEquatable<ErrorDescriptor>
     public int Code { get; }
     public string Message { get; }
     public ErrorCategory Category { get; }
-    public string? Name { get; }
 
     public int HttpStatusCode => Category.ToHttpStatus();
 
-    public ErrorDescriptor(int code, string message, ErrorCategory category, string? name = null)
+    public ErrorDescriptor(int code, string message, ErrorCategory category)
     {
         Code = code;
         Message = message;
         Category = category;
-        Name = name;
     }
 
     public bool Equals(ErrorDescriptor other) => Code == other.Code;
@@ -98,28 +96,19 @@ public readonly struct ErrorDescriptor : IEquatable<ErrorDescriptor>
 
 ### Numeric Range Allocation
 
-| Range | Category | Description |
-|-------|----------|-------------|
-| 10000-19999 | Validation | Input / data validation |
-| 20000-29999 | Authentication | Auth / login |
-| 30000-39999 | Authorization | Permissions / roles |
-| 40000-49999 | NotFound | Resource not found |
-| 50000-59999 | Conflict | Data duplicate / conflict |
-| 60000-69999 | Business | Business rule violation |
-| 70000-79999 | System | System-level |
-| 80000+ | Any | Business project extension |
+Ranges are allocated **by domain**, not by category. `ErrorDescriptor.Category` is an independent dimension that determines the HTTP status code; the numeric range only groups related domains together.
 
-Within each ten-thousand range, sub-domains use thousand-level segments. For example, Validation (10000-19999):
+| Range | Assignment |
+|-------|------------|
+| 10000-19999 | Core management domains (Common, User, Tenant, Dict, Menu, Role, Org, File, Task) |
+| 20000-29999 | Extended system domains (Auth, Security, Print, App, Position, Notice, Config, CodeGen, Resource, Demo) |
+| 30000-39999 | Infrastructure domains (Identity, Database) |
+| 40000-69999 | Reserved for future framework domains |
+| 70000-79999 | Reserved for additional system-level errors |
+| 80000-89999 | Framework module extensions (e.g., WeChat at 81xxx) |
+| 90000-99999 | Business project error codes |
 
-- 10000-10999: Common validation (empty, type, captcha)
-- 11000-11999: User / account validation
-- 12000-12999: Tenant validation
-- 13000-13999: Dictionary validation
-- 14000-14999: Menu / resource validation
-- 15000-15999: Role / permission validation
-- 16000-16999: Organization validation
-- 17000-17999: File validation
-- 18000-18999: Task / job validation
+Special case: `FrameworkErrors.System.Ok = 200` and `FrameworkErrors.System.InternalError = 500` intentionally use HTTP-aligned values instead of the 70000 range, because `200` is the established success convention checked by `Result<T>`'s implicit operator and API consumers.
 
 ## Framework Error Codes Organization
 
@@ -132,11 +121,11 @@ FrameworkErrors
 +-- Tenant        (12000-12999)   Tenant: name duplicate, default tenant protection
 +-- Dict          (13000-13999)   Dictionary: type / data CRUD
 +-- Menu          (14000-14999)   Menu / permission identifier
-+-- Role          (15000-15999)   Role / permission assignment
++-- Role          (15000-15999)   Role protection / role-permission assignment
 +-- Org           (16000-16999)   Organization tree
 +-- File          (17000-17999)   File upload / type / size
 +-- Task          (18000-18999)   Task scheduling / jobs
-+-- Auth          (20000-20999)   Authentication: not logged in, token expired
++-- Auth          (20000-20999)   Authentication: not logged in, kicked offline
 +-- Security      (21000-21999)   Security: anti-replay, signature
 +-- Print         (22000-22999)   Print templates
 +-- App           (23000-23999)   Application management
@@ -148,7 +137,7 @@ FrameworkErrors
 +-- Demo          (29000-29999)   Demo environment restrictions
 +-- Identity      (30000-30999)   Identity / identifier conflicts
 +-- Database      (31000-31999)   Database operations
-+-- System        (70000-70999)   System: OK / internal error
++-- System        (200 / 500)     System status codes (HTTP-aligned special case)
 ```
 
 ### Example Structure
@@ -185,16 +174,10 @@ public static class FrameworkErrors
         public static readonly ErrorDescriptor CannotDeleteSelf = new(11011, "非法操作，禁止删除自己", ErrorCategory.Business);
         public static readonly ErrorDescriptor NoPermissionOnData = new(11012, "没有权限操作该数据", ErrorCategory.Authorization);
         public static readonly ErrorDescriptor AdminPasswordProtected = new(11013, "测试数据禁止更改用户【admin】密码", ErrorCategory.Authorization);
-        public static readonly ErrorDescriptor CannotAssignRoleToAdmin = new(11014, "禁止为管理员分配角色", ErrorCategory.Authorization);
-        public static readonly ErrorDescriptor CannotAssignPermToSuperAdmin = new(11015, "禁止为超级管理员角色分配权限", ErrorCategory.Authorization);
-        public static readonly ErrorDescriptor NoPermission = new(11016, "没有权限", ErrorCategory.Authorization);
-        public static readonly ErrorDescriptor CannotDeleteSuperAdmin = new(11017, "禁止删除超级管理员", ErrorCategory.Authorization);
-        public static readonly ErrorDescriptor CannotModifySuperAdminStatus = new(11018, "禁止修改超级管理员状态", ErrorCategory.Authorization);
-        public static readonly ErrorDescriptor CannotDeleteAdmin = new(11019, "禁止删除管理员", ErrorCategory.Authorization);
-        public static readonly ErrorDescriptor CannotDeleteAdminRole = new(11020, "禁止删除系统管理员角色", ErrorCategory.Authorization);
-        public static readonly ErrorDescriptor CannotModifyAdminRole = new(11021, "禁止修改系统管理员角色", ErrorCategory.Authorization);
-        public static readonly ErrorDescriptor CannotAssignPermToAdminRole = new(11022, "禁止为系统管理员角色分配权限", ErrorCategory.Authorization);
-        public static readonly ErrorDescriptor CannotAssignRoleToSuperAdmin = new(11023, "禁止为超级管理员分配角色", ErrorCategory.Authorization);
+        public static readonly ErrorDescriptor NoPermission = new(11014, "没有权限", ErrorCategory.Authorization);
+        public static readonly ErrorDescriptor CannotDeleteSuperAdmin = new(11015, "禁止删除超级管理员", ErrorCategory.Authorization);
+        public static readonly ErrorDescriptor CannotModifySuperAdminStatus = new(11016, "禁止修改超级管理员状态", ErrorCategory.Authorization);
+        public static readonly ErrorDescriptor CannotDeleteAdmin = new(11017, "禁止删除管理员", ErrorCategory.Authorization);
     }
 
     public static class Tenant
@@ -233,10 +216,12 @@ public static class FrameworkErrors
 
     public static class Role
     {
-        public static readonly ErrorDescriptor PositionDuplicate = new(15000, "已存在同名或同编码职位", ErrorCategory.Conflict);
-        public static readonly ErrorDescriptor PositionHasUsers = new(15001, "该职位下有用户禁止删除", ErrorCategory.Conflict);
-        public static readonly ErrorDescriptor CannotModifyPosition = new(15002, "无权修改本职位", ErrorCategory.Authorization);
-        public static readonly ErrorDescriptor PositionNotFound = new(15003, "职位不存在", ErrorCategory.NotFound);
+        public static readonly ErrorDescriptor CannotAssignRoleToAdmin = new(15001, "禁止为管理员分配角色", ErrorCategory.Authorization);
+        public static readonly ErrorDescriptor CannotAssignPermToSuperAdmin = new(15002, "禁止为超级管理员角色分配权限", ErrorCategory.Authorization);
+        public static readonly ErrorDescriptor CannotDeleteAdminRole = new(15003, "禁止删除系统管理员角色", ErrorCategory.Authorization);
+        public static readonly ErrorDescriptor CannotModifyAdminRole = new(15004, "禁止修改系统管理员角色", ErrorCategory.Authorization);
+        public static readonly ErrorDescriptor CannotAssignPermToAdminRole = new(15005, "禁止为系统管理员角色分配权限", ErrorCategory.Authorization);
+        public static readonly ErrorDescriptor CannotAssignRoleToSuperAdmin = new(15006, "禁止为超级管理员分配角色", ErrorCategory.Authorization);
     }
 
     public static class Org
@@ -298,6 +283,14 @@ public static class FrameworkErrors
         public static readonly ErrorDescriptor AppDuplicate = new(23001, "已存在同名或同编码应用", ErrorCategory.Conflict);
         public static readonly ErrorDescriptor OnlyOneActiveSystem = new(23002, "默认激活系统只能有一个", ErrorCategory.Business);
         public static readonly ErrorDescriptor AppHasMenus = new(23003, "该应用下有菜单禁止删除", ErrorCategory.Conflict);
+    }
+
+    public static class Position
+    {
+        public static readonly ErrorDescriptor PositionDuplicate = new(24001, "已存在同名或同编码职位", ErrorCategory.Conflict);
+        public static readonly ErrorDescriptor PositionHasUsers = new(24002, "该职位下有用户禁止删除", ErrorCategory.Conflict);
+        public static readonly ErrorDescriptor CannotModifyPosition = new(24003, "无权修改本职位", ErrorCategory.Authorization);
+        public static readonly ErrorDescriptor PositionNotFound = new(24004, "职位不存在", ErrorCategory.NotFound);
     }
 
     public static class Notice
@@ -367,9 +360,9 @@ namespace WebApplication1.Errors;
 
 public static class AppErrors
 {
-    public static readonly ErrorDescriptor ProjectDuplicate = new(80001, "已存在同名或同编码项目", ErrorCategory.Conflict);
-    public static readonly ErrorDescriptor IdNumberDuplicate = new(80002, "已存在相同证件号码人员", ErrorCategory.Conflict);
-    public static readonly ErrorDescriptor TestDataNotFound = new(80003, "检测数据不存在", ErrorCategory.NotFound);
+    public static readonly ErrorDescriptor ProjectDuplicate = new(90001, "已存在同名或同编码项目", ErrorCategory.Conflict);
+    public static readonly ErrorDescriptor IdNumberDuplicate = new(90002, "已存在相同证件号码人员", ErrorCategory.Conflict);
+    public static readonly ErrorDescriptor TestDataNotFound = new(90003, "检测数据不存在", ErrorCategory.NotFound);
 
     public static IReadOnlyList<ErrorDescriptor> All => new[]
     {
@@ -387,14 +380,19 @@ builder.Services.AddErrorCodes(AppErrors.All);
 
 `AddErrorCodes` is an extension method on `IServiceCollection` that:
 
-1. Stores the error descriptors in a singleton `ErrorCodeRegistry`
-2. Validates no duplicate codes exist across all registered sets
-3. Makes the registry available for lookup if needed
+1. Creates (or reuses) the singleton `ErrorCodeRegistry`, which is **pre-populated with all `FrameworkErrors` descriptors**
+2. Registers the provided business descriptors, rejecting any code that collides with framework codes or previously registered codes
+3. Makes the registry available via DI for lookup scenarios (e.g., an error-code dictionary endpoint for frontend sync)
 
 ```csharp
 public sealed class ErrorCodeRegistry
 {
     private readonly Dictionary<int, ErrorDescriptor> _byCode = new();
+
+    public ErrorCodeRegistry()
+    {
+        Register(FrameworkErrors.All); // framework codes pre-registered
+    }
 
     public void Register(IEnumerable<ErrorDescriptor> descriptors)
     {
@@ -410,12 +408,14 @@ public sealed class ErrorCodeRegistry
 }
 ```
 
-### Numeric Range for Business Projects
+`FrameworkErrors.All` is an `IReadOnlyList<ErrorDescriptor>` on `FrameworkErrors` enumerating every framework descriptor (built once via reflection over the nested static classes).
+
+### Numeric Range for Extensions
 
 | Range | Purpose |
 |-------|---------|
-| 80000-89999 | Business project A |
-| 90000-99999 | Business project B (when multiple projects share the framework) |
+| 80000-89999 | Framework module extensions (e.g., `LuBan.Wechat` at 81xxx; other modules take 82xxx, 83xxx, ...) |
+| 90000-99999 | Business project error codes (each project allocates thousand-level segments: 90xxx, 91xxx, ...) |
 
 ### Module-Specific Error Codes (e.g., WeChat)
 
@@ -444,6 +444,13 @@ public class FriendlyException : Exception
 {
     public FriendlyException(ErrorDescriptor error, params object[] args)
         : base(FormatMessage(error.Message, args))
+    {
+        Error = error;
+        HttpStatusCode = error.HttpStatusCode;
+    }
+
+    public FriendlyException(string customMessage, ErrorDescriptor error, params object[] args)
+        : base($"{customMessage}.{FormatMessage(error.Message, args)}")
     {
         Error = error;
         HttpStatusCode = error.HttpStatusCode;
@@ -480,8 +487,10 @@ Key changes from current:
 
 - `ErrorCode: EnumErrorCode` replaced by `Error: ErrorDescriptor`
 - `HttpStatusCode` auto-derived from `ErrorDescriptor.Category`
-- `ValidationException` boolean removed (replaced by `ErrorCategory.Validation`)
-- `ErrorMessage: object` simplified to standard `Exception.Message`
+- `ValidationException` boolean removed (verified: it was only ever set inside `FriendlyError`, never read anywhere)
+- `ErrorMessage: object` removed in favor of standard `Exception.Message` (only consumer was `Fail.cs`)
+- Untyped exceptions (`new FriendlyException(string, ...)`) get `Error.Code = 0`. This fixes an existing bug: the old `FriendlyError.Ex(string)` set `ErrorCode = SystemOk200`, causing plain validation errors to return body `code = 200` (the success code). Untyped errors now return `code = 0`, which no longer collides with the success convention.
+- `HttpStatusCode` remains settable for the rare cases that need a specific status (e.g., anti-replay returning 410 Gone); `SetStatusCode()` extension covers this.
 
 ## FriendlyError Redesign
 
@@ -491,20 +500,18 @@ public static class FriendlyError
     public static FriendlyException Ex(ErrorDescriptor error, params object[] args)
         => new(error, args);
 
+    // Custom message prefixed to the descriptor's message: "{message}.{error.Message}"
     public static FriendlyException Ex(string message, ErrorDescriptor error, params object[] args)
-    {
-        var ex = new FriendlyException(error, args);
-        return ex;
-    }
+        => new(message, error, args);
 
     public static FriendlyException Ex(string message, ErrorCategory category = ErrorCategory.Business)
         => new(message, category);
 
-    public static FriendlyException Ex(Exception exception)
-        => new(exception.Message, ErrorCategory.System);
+    public static FriendlyException Ex(string message, Exception exception, ErrorCategory category = ErrorCategory.System)
+        => new(message, exception, category);
 
-    public static FriendlyException Ex(Exception exception, ErrorCategory category)
-        => new(exception.Message, category);
+    public static FriendlyException Ex(Exception exception)
+        => new(exception.Message, exception, ErrorCategory.System);
 
     public static FriendlyException SetStatusCode(this FriendlyException exception, int statusCode)
     {
@@ -559,9 +566,9 @@ if (ex is FriendlyException friendlyException)
 
 ```json
 {
-    "code": 50001,
+    "code": 90001,
     "type": "Conflict",
-    "message": "已存在同名项目",
+    "message": "已存在同名或同编码项目",
     "result": null,
     "extras": null,
     "time": "2026-08-17T10:00:00"
@@ -627,13 +634,17 @@ public sealed class Fail : Result
 |------|--------|
 | `FriendlyException.cs` | Replace `EnumErrorCode` with `ErrorDescriptor` |
 | `FriendlyError.cs` | Replace `EnumErrorCode` overloads with `ErrorDescriptor` overloads |
-| `Success.cs` | Remove `EnumErrorCode` constructor overloads |
-| `Fail.cs` | Add `FriendlyException` constructor, remove `EnumErrorCode` overloads |
+| `Success.cs` / `Success<T>` | Remove `EnumErrorCode` constructor overloads |
+| `Fail.cs` / `Fail<T>` | Add `FriendlyException` constructor, remove `EnumErrorCode` overloads |
 | `ErrorHandlingMiddleware.cs` | Use `friendlyException.HttpStatusCode` instead of hardcoded 200 |
-| `ApiLogAttribute.cs` | Same middleware changes |
-| `AraReplayAttacksUtil.cs` | Update error code references |
-| `CloudStorage/FileHandler.cs` | Update error code references |
-| `WebApplication1/Services/**/*.cs` | Migrate all `EnumErrorCode.X` to `FrameworkErrors.X.Y` |
+| `ApiLogAttribute.cs` | Same exception-handling change as middleware |
+| `AraReplayAttacksUtil.cs` | Migrate `Ex(string, EnumErrorCode, int)` calls; see "Behavior Changes" below |
+| `CloudStorage/FileHandler.cs` | Migrate `EnumErrorCode.D8001/D8002/D8003/D8006` to `FrameworkErrors.File.X` |
+| `OpenApiAccessAttribute.cs` | Migrate `Ex(string, EnumErrorCode.D1011, 401)` to `Ex(string, FrameworkErrors.Auth.NotLoggedIn)` (auto-401) |
+| `SwaggerController.cs` | Migrate `Ex(string, 500)` to `Ex(string, ErrorCategory.System)` |
+| `OnlineUserMiddleware.cs` | No functional change required (returns fixed 401 response), but can simplify to use `ex.Error.Category` |
+| `LuBan.Wechat/**/*.cs` | Replace `throw new Exception(...)` with `throw FriendlyError.Ex(WeChatErrors.X)` |
+| `WebApplication1/Services/**/*.cs` | Migrate all `EnumErrorCode.X` to `FrameworkErrors.X.Y` / `AppErrors.X` |
 
 ## Files to Add
 
@@ -646,6 +657,49 @@ public sealed class Fail : Result
 | `LuBan.Common/Errors/ErrorCodeServiceCollectionExtensions.cs` | AddErrorCodes extension method |
 | `WebApplication1/Errors/AppErrors.cs` | Demo project error codes |
 | `LuBan.Wechat/Errors/WeChatErrors.cs` | WeChat module error codes |
+
+## API Migration Reference
+
+| Old API (removed) | New API |
+|-------------------|---------|
+| `FriendlyError.Ex(EnumErrorCode.X)` | `FriendlyError.Ex(FrameworkErrors.A.B)` |
+| `FriendlyError.Ex(EnumErrorCode.X, statusCode, args)` | `FriendlyError.Ex(FrameworkErrors.A.B, args)` (+ `.SetStatusCode(n)` only if a non-default status is truly required) |
+| `FriendlyError.Ex(string, EnumErrorCode.X, statusCode)` | `FriendlyError.Ex(string, FrameworkErrors.A.B)` |
+| `FriendlyError.Ex(string, statusCode)` | `FriendlyError.Ex(string, ErrorCategory.X)` |
+| `FriendlyError.Ex(string, Exception, args)` | `FriendlyError.Ex(string, Exception, ErrorCategory.X)` (+ `.WithData(args)` for the old `Data` payload) |
+| `FriendlyError.Ex(string, args)` (args went to `Data`, not the message) | `FriendlyError.Ex(string, ErrorCategory.X).WithData(args)` |
+| `FriendlyError.Ex(Exception, args)` | `FriendlyError.Ex(Exception)` + `.WithData(args)` |
+| `friendlyException.ErrorCode` (EnumErrorCode) | `friendlyException.Error` (ErrorDescriptor) |
+| `friendlyException.ErrorMessage` | `friendlyException.Message` |
+| `friendlyException.ValidationException` | `friendlyException.Error.Category == ErrorCategory.Validation` |
+| `new Success(data, EnumErrorCode.X)` | `new Success(data, int)` |
+| `new Fail(ex, EnumErrorCode.X)` | `new Fail(friendlyException)` |
+| `new Fail(msg, EnumErrorCode.X)` | `new Fail(msg, int)` |
+
+## Behavior Changes
+
+Callers must be aware of these intentional behavior changes:
+
+1. **HTTP status codes now vary.** `FriendlyException` previously always produced HTTP 200; it now produces the status mapped from its category (400/401/403/404/409/422/500). Frontend interceptors should treat HTTP status as the primary signal and `body.code` for fine-grained handling. `code == 200` still means success.
+
+2. **`type` field semantics.** Error responses now carry the category name (`"Validation"`, `"Conflict"`, ...) instead of the fixed string `"Fail"`. `"Success"` is unchanged.
+
+3. **Anti-replay status codes** (`AraReplayAttacksUtil`): expired timestamp changes from 410 to 400 (Validation); invalid signature changes from 400 to 401 (Authentication); missing parameters change from 200 to 400. If 410 must be preserved, use `.SetStatusCode(410)`.
+
+4. **Untyped string exceptions** (`FriendlyError.Ex(string)`) previously returned body `code = 200` (a bug — indistinguishable from success). They now return `code = 0` with the appropriate HTTP status.
+
+5. **WeChat module errors** previously surfaced as generic HTTP 500 ("Server API error..."). They now surface as their actual messages with category-appropriate statuses.
+
+6. **Message format.** Old messages carried a `[D1003] ` code prefix; new messages contain only the message text. The numeric code is available separately in the response's `code` field, so no information is lost.
+
+## Dropped Legacy Codes
+
+| Old member | Disposition |
+|------------|-------------|
+| `EnumErrorCode.R2000/R2001/R2002` | **Removed, not migrated.** Verified zero references anywhere in the codebase; messages duplicate the Resource domain (`D1600-D1602`). |
+| `EnumErrorCode.W1000-W1007` | **Removed, replaced by `WeChatErrors`** in the `LuBan.Wechat` module (verified zero references; the module threw plain `Exception`s). |
+| `EnumErrorCode.D5003` | **Merged into `App.AppDuplicate`.** Was an exact duplicate of `D5000`. |
+| `EnumErrorCode.xg1000-xg1002` | **Moved to `WebApplication1/Errors/AppErrors.cs`** as the business-extension example. |
 
 ## i18n Extension Point
 
