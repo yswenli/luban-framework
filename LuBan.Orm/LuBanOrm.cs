@@ -119,7 +119,23 @@ public static class LuBanOrm
             }
             else
             {
+                // 创建 SqlSugarScope 并传入回调
+                // 注意：SqlSugarScope 的回调是延迟执行的（在第一次访问数据库时）
+                // 为了确保数据库初始化在应用启动前完成，需要立即触发回调执行
                 sqlSugarScope = new([.. DbConnectionOptions.ConnectionConfigs], configAction);
+                
+                // 通过获取第一个数据库连接来触发回调立即执行
+                // 回调中会执行：CheckDbConnection 和 InitDatabase
+                if (DbConnectionOptions.ConnectionConfigs.Count > 0)
+                {
+                    var firstConfig = DbConnectionOptions.ConnectionConfigs[0];
+                    if (firstConfig.ConfigId != null)
+                    {
+                        // GetConnectionScope 会触发回调执行
+                        // 回调会对所有配置执行初始化，包括 CheckDbConnection 和 InitDatabase
+                        _ = sqlSugarScope.GetConnectionScope(firstConfig.ConfigId);
+                    }
+                }
             }
             SqlSugarScope = sqlSugarScope;
         }
