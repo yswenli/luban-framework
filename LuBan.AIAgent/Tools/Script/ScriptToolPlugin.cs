@@ -147,14 +147,14 @@ public class ScriptToolGroup
                 }
             }
 
-            return ToolResult.Ok<string>(JsonSerializer.Serialize(new
+            return ToolResult.Ok<string>(new
             {
                 exitCode = result.ExitCode,
                 stdout = result.StandardOutput,
                 stderr = result.StandardError,
                 durationMs = result.DurationMs,
                 timedOut = result.TimedOut
-            }));
+            }.ToJson());
         }
         catch (Exception ex)
         {

@@ -183,7 +183,8 @@ public static class SerializeUtil
         {
             var options = new JsonSerializerOptions
             {
-                PropertyNameCaseInsensitive = true
+                PropertyNameCaseInsensitive = true,
+                Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
             };
             options.Converters.Add(new DateTimeJsonConverter("yyyy-MM-dd HH:mm:ss.fff"));
             options.Converters.Add(new ExceptionJsonConverter());
@@ -286,7 +287,7 @@ public static class SerializeUtil
         try
         {
             using var doc = JsonDocument.Parse(str);
-            var options = new JsonSerializerOptions { WriteIndented = true };
+            var options = new JsonSerializerOptions { WriteIndented = true, Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
             return JsonSerializer.Serialize(doc.RootElement, options);
         }
         catch
