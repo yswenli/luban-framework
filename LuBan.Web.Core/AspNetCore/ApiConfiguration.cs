@@ -49,12 +49,7 @@ public static class ApiConfiguration
         })
         .AddJsonOptions(options =>
         {
-            // 避免过度转义非ASCII字符（如中文、特殊符号），同时保持基本安全
-            options.JsonSerializerOptions.Encoder = JavaScriptEncoder.Create(
-                UnicodeRanges.BasicLatin,
-                UnicodeRanges.CjkUnifiedIdeographs,
-                UnicodeRanges.CjkSymbolsandPunctuation
-            );
+            options.JsonSerializerOptions.Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping;
 
             //紧凑输出内容
             options.JsonSerializerOptions.WriteIndented = false;
