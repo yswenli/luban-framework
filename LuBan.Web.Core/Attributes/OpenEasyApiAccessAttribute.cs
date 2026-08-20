@@ -4,33 +4,28 @@
 *机器名称：WALLE
 *Author：yswenli
 *命名空间：LuBan.Web.Core.Attributes
-*文件名： OpenApiAccessAttribute
+*文件名： OpenEasyApiAccessAttribute
 *版本号： V1.0.0.0
-*唯一标识：c373aa8e-7735-425e-a5f8-7417ab42e7c2
+*唯一标识：easy-open-api-access
 *当前的用户域：WALLE
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
-*创建时间：2025/4/10 10:16:47
-*描述：开放接口验证
-*
-*=================================================
-*修改标记
-*修改时间：2025/4/10 10:16:47
-*修改人： yswenli
-*版本号： V1.0.0.0
-*描述：开放接口验证
+*创建时间：2026/8/20
+*描述：简化版开放接口验证，只需传入 Bearer {RefreshToken}
 *
 *****************************************************************************/
 using LuBan.Common.Errors;
+using LuBan.Web.Core.Utils;
 
 namespace LuBan.Web.Core.Attributes;
 
 /// <summary>
-/// 开放接口jwt验证，
-/// 对应无需认证 NoOpenApiAccessAttribute
+/// 简化版开放接口验证，
+/// 只需传入 Bearer {RefreshToken} 即可，
+/// 无需走完整的 AccessToken 流程
 /// </summary>
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, AllowMultiple = false, Inherited = true)]
-public class OpenApiAccessAttribute : BaseFilterAttribute
+public class OpenEasyApiAccessAttribute : BaseFilterAttribute
 {
     /// <summary>
     /// 执行业务前
@@ -38,28 +33,38 @@ public class OpenApiAccessAttribute : BaseFilterAttribute
     /// <param name="context"></param>
     /// <param name="next"></param>
     /// <returns></returns>
-    /// <exception cref="NotImplementedException"></exception>
     public override async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
     {
-        // 如果标记了 NoOpenApiAccess 或 OpenEasyApiAccess，则跳过此验证
-        if (context.HasAttribute<NoOpenApiAccessAttribute>() || context.HasAttribute<OpenEasyApiAccessAttribute>())
-        {
-            await next.Invoke();
-            return;
-        }
         try
         {
-            var jwtConfig = HostingOptions.Default.AppOptions.JwtAuthConfig;
             var token = context.HttpContext.Request.GetJwtTokenString()?.Replace("Bearer ", "") ?? "";
-            var payload = JwtEncryption.Parse(token, jwtConfig.Secret);
-            var data = (JwtUserInfo)payload;
-            if (data == null)
+            
+            if (string.IsNullOrEmpty(token))
+            {
                 throw FriendlyError.Ex(FrameworkErrors.Auth.NotLoggedIn);
+            }
+
+            // 使用 RefreshToken 直接获取 AccessToken（验证 RefreshToken 有效性）
+            var accessToken = await OpenApiAccessUtil.GetAccessTokenAsync(token, 7200);
+            
+            if (accessToken == null || string.IsNullOrEmpty(accessToken.Token))
+            {
+                throw FriendlyError.Ex(FrameworkErrors.Auth.NotLoggedIn);
+            }
+
+            // 将生成的 AccessToken 存入 HttpContext，供后续使用
+            context.HttpContext.Items["EasyApiAccessToken"] = accessToken.Token;
+            context.HttpContext.Items["EasyApiRefreshToken"] = token;
         }
-        catch
+        catch (FriendlyException)
+        {
+            throw;
+        }
+        catch (Exception)
         {
             throw FriendlyError.Ex(FrameworkErrors.Auth.NotLoggedIn);
         }
+        
         await next.Invoke();
     }
 
@@ -74,6 +79,3 @@ public class OpenApiAccessAttribute : BaseFilterAttribute
         await next.Invoke();
     }
 }
-
-
-
