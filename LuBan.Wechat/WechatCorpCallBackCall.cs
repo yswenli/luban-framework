@@ -22,8 +22,6 @@
 *
 *****************************************************************************/
 
-using LuBan.Wechat.Errors;
-
 namespace LuBan.Wechat;
 
 /// <summary>
@@ -75,7 +73,7 @@ public class WechatCorpCallBackCall
         }
         else
         {
-            throw FriendlyError.Ex($"WorkWeChatCallBackCall.AccessValid:{result.Error}", WeChatErrors.CallbackFailed);
+            throw FriendlyError.Ex($"WorkWeChatCallBackCall.AccessValid:{result.Error}", WeChatErrors.CallbackFailed, input);
         }
     }
 
@@ -152,51 +150,44 @@ public class WechatCorpCallBackCall
         where TEvent : WechatWorkEvent, new()
         where TReply : WechatWorkEvent, new()
     {
-        try
+        var encryptText = "";
+        using (StreamReader streamReader = new(stream))
         {
-            var encryptText = "";
-            using (StreamReader streamReader = new StreamReader(stream))
+            encryptText = streamReader.ReadToEnd();
+        }
+
+        //验证签名
+        //var valideResult = _workClient.VerifyEventSignatureForEcho(input.timestamp, input.nonce, msg, input.msg_signature, out string? reply);
+
+        TEvent ev;
+        if (isJson)
+        {
+            ev = _WechatCorpClient.Client.DeserializeEventFromJson<TEvent>(encryptText);
+            if (onReceive != null)
             {
-                encryptText = streamReader.ReadToEnd();
+                onReceive.Invoke(_WechatCorpClient, encryptText, ev);
             }
-
-            //验证签名
-            //var valideResult = _workClient.VerifyEventSignatureForEcho(input.timestamp, input.nonce, msg, input.msg_signature, out string? reply);
-
-            TEvent ev;
+        }
+        else
+        {
+            ev = _WechatCorpClient.Client.DeserializeEventFromXml<TEvent>(encryptText);
+            if (onReceive != null)
+            {
+                onReceive.Invoke(_WechatCorpClient, encryptText, ev);
+            }
+        }
+        if (onReply != null)
+        {
+            var replay = onReply.Invoke(_WechatCorpClient, ev);
+            if (replay == null) return string.Empty;
             if (isJson)
             {
-                ev = _WechatCorpClient.Client.DeserializeEventFromJson<TEvent>(encryptText);
-                if (onReceive != null)
-                {
-                    onReceive.Invoke(_WechatCorpClient, encryptText, ev);
-                }
+                return _WechatCorpClient.Client.SerializeEventToJson(replay);
             }
             else
             {
-                ev = _WechatCorpClient.Client.DeserializeEventFromXml<TEvent>(encryptText);
-                if (onReceive != null)
-                {
-                    onReceive.Invoke(_WechatCorpClient, encryptText, ev);
-                }
+                return _WechatCorpClient.Client.SerializeEventToXml(replay);
             }
-            if (onReply != null)
-            {
-                var replay = onReply.Invoke(_WechatCorpClient, ev);
-                if (replay == null) return string.Empty;
-                if (isJson)
-                {
-                    return _WechatCorpClient.Client.SerializeEventToJson(replay);
-                }
-                else
-                {
-                    return _WechatCorpClient.Client.SerializeEventToXml(replay);
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger.Error("WorkWeChatCallBackCall.Receive<TEvent>", ex);
         }
         return string.Empty;
     }

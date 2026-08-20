@@ -21,12 +21,13 @@
 *描述：
 *
 *****************************************************************************/
+global using Encrypt.Library;
+
 global using LuBan.Common;
 global using LuBan.Common.Data;
 global using LuBan.Wechat.CorpProvider;
+global using LuBan.Wechat.Errors;
 global using LuBan.Wechat.Models;
-
-global using Encrypt.Library;
 
 global using SKIT.FlurlHttpClient;
 global using SKIT.FlurlHttpClient.Wechat.Api;
