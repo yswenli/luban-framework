@@ -1,6 +1,6 @@
 ﻿/****************************************************************************
 *Copyright (c) YSWenli All Rights Reserved.
-*CLR版本： .net8.0
+*CLR版本： .net10.0
 *命名空间：LuBan.ApprovalFlow.Core
 *文件名： HttpCallbackEventHandler
 *描述：默认的审批流 HTTP 回调事件处理器

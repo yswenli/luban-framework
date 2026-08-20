@@ -1,6 +1,6 @@
 ﻿/****************************************************************************
 *Copyright (c) YSWenli All Rights Reserved.
-*CLR版本： .net8.0
+*CLR版本： .net10.0
 *命名空间：LuBan.ApprovalFlow.Abstractions
 *文件名： IFlowEventHandler
 *描述：审批流 EventBus 事件处理器接口

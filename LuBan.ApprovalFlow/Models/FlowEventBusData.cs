@@ -1,6 +1,6 @@
 ﻿/****************************************************************************
 *Copyright (c) YSWenli All Rights Reserved.
-*CLR版本： .net8.0
+*CLR版本： .net10.0
 *命名空间：LuBan.ApprovalFlow.Models
 *文件名： FlowEventBusData
 *描述：审批流 EventBus 事件数据基类

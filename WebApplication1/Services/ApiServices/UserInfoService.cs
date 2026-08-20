@@ -1,6 +1,6 @@
 ﻿/****************************************************************************
 *Copyright (c) 2024 RiverLand All Rights Reserved.
-*CLR版本： .net8
+*CLR版本： .net10
 *机器名称：WALLE
 *公司名称：Walle
 *命名空间：Services.ApiServices

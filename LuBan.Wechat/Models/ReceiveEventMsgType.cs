@@ -1,6 +1,6 @@
 ﻿/****************************************************************************
 *Copyright @ 2023-2024 Walle All Rights Reserved.
-*CLR版本： .net8.0
+*CLR版本： .net10.0
 *机器名称：WALLE
 *公司名称：Walle
 *命名空间：LuBan.Wechat.Models

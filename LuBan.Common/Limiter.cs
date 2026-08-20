@@ -1,6 +1,6 @@
 ﻿/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
-*CLR版本： .net8.0
+*CLR版本： .net10.0
 *机器名称：YSWENLI
 *公司名称：yswenli
 *命名空间：LuBan.Common

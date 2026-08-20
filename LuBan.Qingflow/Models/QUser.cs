@@ -1,6 +1,6 @@
 ﻿/****************************************************************************
 *Copyright (c) YSWenli All Rights Reserved.
-*CLR版本： .net8.0
+*CLR版本： .net10.0
 *机器名称：WALLE
 *Author：yswenli
 *命名空间：LuBan.Qingflow.Models
