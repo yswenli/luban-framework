@@ -176,6 +176,12 @@ public class ToolConfirmationService : IToolConfirmationService
             return false;
         }
 
+        // 本轮已允许的工具跳过确认
+        if (_context.AllowedThisTurn.Contains(toolName))
+        {
+            return true;
+        }
+
         var callback = _context.Callback;
         if (callback == null)
             return false;

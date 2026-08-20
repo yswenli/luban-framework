@@ -57,8 +57,7 @@ public class DatabaseToolPlugin : ILuBanToolPlugin
     /// <returns>工具函数列表</returns>
     public IReadOnlyList<AIFunction> GetTools(IServiceProvider sp)
     {
-        var confirmationService = sp.GetService(typeof(IToolConfirmationService)) as IToolConfirmationService
-            ?? new ToolConfirmationService(new ToolConfirmationContext());
+        var confirmationService = sp.GetRequiredService<IToolConfirmationService>();
         var toolGroup = new DatabaseToolGroup(_options, confirmationService);
         return new List<AIFunction>
         {
