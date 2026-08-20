@@ -116,6 +116,7 @@ BaseWebController       — Cookie 认证，管理后台 Web 页面
 - **JWT 认证**：`JwtConfigureService` 自动配置，`SessionUser` 获取当前用户
 - **角色访问控制**：`[ForbiddenAccess]` 限制管理端、`[AllowAccess]` 放行移动端/内部接口
 - **Open API 认证**：`[OpenApiAccess]` 基于 refresh/access token 的开放接口鉴权
+- **简化 Open API 认证**：`[OpenEasyApiAccess]` 只需传入 Bearer {RefreshToken}，无需走完整 AccessToken 流程
 - **Cookie Web 认证**：`[WebLoginAuth]` 用于管理后台页面
 
 ### 统一响应格式
@@ -219,6 +220,18 @@ public class DataSyncController : BaseOpenController
         return Success();
     }
 }
+
+// 简化版开放接口（只需 Bearer {RefreshToken}）
+public class EasyApiController : BaseOpenController
+{
+    [OpenEasyApiAccess]
+    [HttpPost]
+    public async Task<ApiResult> GetData([FromBody] GetDataInput input)
+    {
+        // 无需 AccessToken，直接使用 RefreshToken 认证
+        return Success();
+    }
+}
 ```
 
 ### 注册启动事件
@@ -252,8 +265,9 @@ dotnet run --environment Production
 1. **启动前检查**：确保 `appsettings.json` 中 `HostingOptions` 配置完整，特别是 `ServiceName`、`Domain`、`AppOptions.Urls`
 2. **多租户**：JWT 中需包含 `TenantId` Claim，否则默认使用主库
 3. **开放接口**：`BaseOpenController` 同时要求 `[AllowAnonymous]` + `[OpenApiAccess]` + `[AraParameterFilter]`，缺一不可
-4. **后台任务**：通过 `BackgroundJobNames` 可精确控制启用哪些后台任务，空列表则全部启用
-5. **审批流联动**：当 `ApprovalFlowOptions.AutoApproval = true` 时，`FlowEngine` 会随服务自动启停
+4. **简化开放接口**：使用 `[OpenEasyApiAccess]` 标签时，只需传入 `Bearer {RefreshToken}`，无需获取 AccessToken
+5. **后台任务**：通过 `BackgroundJobNames` 可精确控制启用哪些后台任务，空列表则全部启用
+6. **审批流联动**：当 `ApprovalFlowOptions.AutoApproval = true` 时，`FlowEngine` 会随服务自动启停
 
 ---
 

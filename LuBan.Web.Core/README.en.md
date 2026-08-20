@@ -116,6 +116,7 @@ BaseWebController       — Cookie auth, admin web pages
 - **JWT Authentication**: `JwtConfigureService` auto-configuration, `SessionUser` to get current user
 - **Role Access Control**: `[ForbiddenAccess]` restricts admin, `[AllowAccess]` allows mobile/internal
 - **Open API Authentication**: `[OpenApiAccess]` refresh/access token-based open API authentication
+- **Simplified Open API Authentication**: `[OpenEasyApiAccess]` only requires Bearer {RefreshToken}, no need for full AccessToken flow
 - **Cookie Web Authentication**: `[WebLoginAuth]` for admin web pages
 
 ### Unified Response Format
@@ -219,6 +220,18 @@ public class DataSyncController : BaseOpenController
         return Success();
     }
 }
+
+// Simplified Open API (only requires Bearer {RefreshToken})
+public class EasyApiController : BaseOpenController
+{
+    [OpenEasyApiAccess]
+    [HttpPost]
+    public async Task<ApiResult> GetData([FromBody] GetDataInput input)
+    {
+        // No AccessToken needed, directly use RefreshToken for authentication
+        return Success();
+    }
+}
 ```
 
 ### Register Startup Events
@@ -252,8 +265,9 @@ dotnet run --environment Production
 1. **Pre-launch Check**: Ensure `HostingOptions` configuration in `appsettings.json` is complete, especially `ServiceName`, `Domain`, `AppOptions.Urls`
 2. **Multi-tenancy**: JWT must contain `TenantId` Claim, otherwise the primary database is used by default
 3. **Open API**: `BaseOpenController` requires all three: `[AllowAnonymous]` + `[OpenApiAccess]` + `[AraParameterFilter]`
-4. **Background Jobs**: Use `BackgroundJobNames` to precisely control which background jobs are enabled; an empty list enables all
-5. **Approval Flow Integration**: When `ApprovalFlowOptions.AutoApproval = true`, `FlowEngine` starts and stops with the service automatically
+4. **Simplified Open API**: Use `[OpenEasyApiAccess]` attribute, only requires `Bearer {RefreshToken}` without obtaining AccessToken
+5. **Background Jobs**: Use `BackgroundJobNames` to precisely control which background jobs are enabled; an empty list enables all
+6. **Approval Flow Integration**: When `ApprovalFlowOptions.AutoApproval = true`, `FlowEngine` starts and stops with the service automatically
 
 ---
 
