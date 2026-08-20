@@ -9,7 +9,7 @@
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <PackageId>$(AssemblyName)</PackageId>
     <Title>$(AssemblyName)</Title>
-    <Version>2026.8.202</Version>
+    <Version>2026.8.203</Version>
     <Authors>yswenli</Authors>
     <Description>LuBan.AIAgent 是基于 Microsoft Agent Framework 的 AI Agent 库，支持自然语言操作浏览器、文件系统、脚本执行、数据库、Redis 等。</Description>
     <Copyright>$(Authors)</Copyright>

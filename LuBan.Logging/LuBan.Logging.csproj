@@ -7,7 +7,7 @@
     <IsTrimmable>true</IsTrimmable>
     <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
-    <Version>2026.8.202</Version>
+    <Version>2026.8.203</Version>
     <PackageId>$(AssemblyName)</PackageId>
     <Title>$(AssemblyName)</Title>
     <Authors>yswenli</Authors>
