@@ -289,7 +289,8 @@ public static partial class WebApp
             encoding = Encoding.UTF8;
         }
         var txt = string.Empty;
-        if (context.Request.ContentLength > 0 && context.Request.Body != null)
+        //ContentLength为null表示chunked传输或HTTP/2无内容长度头，body仍可能有内容
+        if (context.Request.ContentLength is null or > 0 && context.Request.Body != null)
         {
             if (!context.Request.Body.CanSeek)
             {

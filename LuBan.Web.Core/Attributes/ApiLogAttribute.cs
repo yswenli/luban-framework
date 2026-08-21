@@ -69,7 +69,9 @@ public class ApiLogAttribute : BaseFilterAttribute, IAsyncActionFilter, IAsyncEx
                     if (files != null && files.Count > 0)
                     {
                         isFile = true;
-                        input = files.Select(q => new { q.Name, q.FileName, q.ContentType, q.Length }).ToJson() ?? "文件";
+                        //ToJson失败时返回空字符串而非null，需显式判空兜底
+                        var filesJson = files.Select(q => new { q.Name, q.FileName, q.ContentType, q.Length }).ToJson();
+                        input = filesJson.IsNotNullOrEmpty() ? filesJson : "文件";
                     }
                 }
 
@@ -103,11 +105,7 @@ public class ApiLogAttribute : BaseFilterAttribute, IAsyncActionFilter, IAsyncEx
                     }
                     else
                     {
-                        var body = await context.HttpContext.GetRequestBodyTextAsync();
-                        if (body.IsNotNullOrEmpty())
-                        {
-                            input = $"body={body}";
-                        }
+                        input = await ReadBodyForLogAsync(context.HttpContext);
                     }
                 }
             }
@@ -134,12 +132,68 @@ public class ApiLogAttribute : BaseFilterAttribute, IAsyncActionFilter, IAsyncEx
     }
 
     /// <summary>
+    /// 读取请求body用于日志记录；multipart及二进制内容不读取原文，仅记录元信息
+    /// </summary>
+    static async Task<string> ReadBodyForLogAsync(HttpContext httpContext)
+    {
+        try
+        {
+            var request = httpContext.Request;
+            var contentType = request.ContentType;
+            //multipart可能包含文件二进制内容，不读原文
+            if (contentType?.StartsWith("multipart/", StringComparison.OrdinalIgnoreCase) == true)
+            {
+                return $"[multipart: {contentType}, {request.ContentLength?.ToString() ?? "unknown"} bytes]";
+            }
+            //非文本类型（如application/octet-stream）按二进制处理，避免日志乱码
+            if (!request.HasFormContentType && !IsTextualContentType(contentType))
+            {
+                return $"[binary: {contentType}, {request.ContentLength?.ToString() ?? "unknown"} bytes]";
+            }
+            var body = await httpContext.GetRequestBodyTextAsync();
+            return body.IsNotNullOrEmpty() ? $"body={body}" : string.Empty;
+        }
+        catch
+        {
+            return string.Empty;
+        }
+    }
+
+    /// <summary>
+    /// 判断是否为可安全按文本读取的ContentType
+    /// </summary>
+    static bool IsTextualContentType(string? contentType)
+    {
+        if (string.IsNullOrWhiteSpace(contentType)) return true;
+        var mime = contentType.Split(';')[0].Trim();
+        return mime.StartsWith("text/", StringComparison.OrdinalIgnoreCase)
+            || mime.Equals("application/json", StringComparison.OrdinalIgnoreCase)
+            || mime.Equals("application/xml", StringComparison.OrdinalIgnoreCase)
+            || mime.EndsWith("+json", StringComparison.OrdinalIgnoreCase)
+            || mime.EndsWith("+xml", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
     /// 异常处理
     /// </summary>
     /// <param name="context"></param>
     /// <returns></returns>
     public async Task OnExceptionAsync(ExceptionContext context)
     {
+        //异常可能发生在action过滤器之前（如模型绑定失败），此时NoLog标记未写入Items，需直接检查元数据
+        var noLog = context.ActionDescriptor.EndpointMetadata.OfType<NoApiLogAttribute>().Any();
+
+        if (context.HttpContext.Response.HasStarted)
+        {
+            //响应已开始输出，无法改写为标准错误响应；仅记录日志，Result留空由MVC以EmptyResult收尾
+            context.ExceptionHandled = true;
+            if (!noLog)
+            {
+                await GetResultLogTextAsync(context.HttpContext, null, context.Exception);
+            }
+            return;
+        }
+
         context.HttpContext.Response.ContentType = "application/json; charset=utf-8";
 
         Exception? exception = null;
@@ -175,8 +229,7 @@ public class ApiLogAttribute : BaseFilterAttribute, IAsyncActionFilter, IAsyncEx
 
         context.ExceptionHandled = true;
 
-        //异常可能发生在action过滤器之前（如模型绑定失败），此时NoLog标记未写入Items，需直接检查元数据
-        if (context.ActionDescriptor.EndpointMetadata.OfType<NoApiLogAttribute>().Any())
+        if (noLog)
         {
             return;
         }
@@ -250,20 +303,10 @@ public class ApiLogAttribute : BaseFilterAttribute, IAsyncActionFilter, IAsyncEx
 
             var input = httpContext.Items[InputItemKey] as string ?? string.Empty;
 
-            //异常发生在action过滤器之前（如模型绑定失败）时input未捕获，回退读取body；form表单可能含文件二进制内容，跳过
-            if (input.IsNullOrEmpty() && exception != null && !httpContext.Request.HasFormContentType)
+            //action过滤器未执行（外层过滤器短路）或异常发生在其之前（如模型绑定失败）时，input未捕获，兜底读取body
+            if (!httpContext.Items.ContainsKey(InputItemKey))
             {
-                try
-                {
-                    var body = await httpContext.GetRequestBodyTextAsync();
-                    if (body.IsNotNullOrEmpty())
-                    {
-                        input = $"body={body}";
-                    }
-                }
-                catch
-                {
-                }
+                input = await ReadBodyForLogAsync(httpContext);
             }
 
             if (input.IsNotNullOrEmpty() && input.Length > 10240)
