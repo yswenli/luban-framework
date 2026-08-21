@@ -29,9 +29,12 @@ namespace LuBan.Web.Core.Attributes;
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, AllowMultiple = false, Inherited = true)]
 public class ApiLogAttribute : BaseFilterAttribute, IAsyncActionFilter, IAsyncExceptionFilter, IAsyncResultFilter, IOrderedFilter
 {
-    static readonly AsyncLocal<Stopwatch> _stopwatchLocal = new();
-    static readonly AsyncLocal<string> _inputLocal = new();
-    static readonly AsyncLocal<bool> _noLogLocal = new();
+    //同一请求的action/result/exception过滤器运行在相互独立的异步流中，
+    //AsyncLocal无法跨阶段传递（值在result/exception阶段读到null），
+    //必须使用HttpContext.Items共享请求级状态。
+    const string StopwatchItemKey = "__ApiLogAttribute_Stopwatch";
+    const string InputItemKey = "__ApiLogAttribute_Input";
+    const string NoLogItemKey = "__ApiLogAttribute_NoLog";
 
     public new int Order => 99999;
 
@@ -45,19 +48,20 @@ public class ApiLogAttribute : BaseFilterAttribute, IAsyncActionFilter, IAsyncEx
     public override async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
     {
         var stopwatch = Stopwatch.StartNew();
-        _stopwatchLocal.Value = stopwatch;
-        _inputLocal.Value = string.Empty;
-        _noLogLocal.Value = false;
+        var items = context.HttpContext.Items;
+        items[StopwatchItemKey] = stopwatch;
+        items[InputItemKey] = string.Empty;
+        items[NoLogItemKey] = false;
 
         if (context.HasAttribute<NoApiLogAttribute>())
         {
-            _noLogLocal.Value = true;
+            items[NoLogItemKey] = true;
         }
         else
         {
+            var input = string.Empty;
             try
             {
-                var input = string.Empty;
                 bool isFile = false;
                 if (context.HttpContext.Request.HasFormContentType)
                 {
@@ -75,7 +79,7 @@ public class ApiLogAttribute : BaseFilterAttribute, IAsyncActionFilter, IAsyncEx
                     {
                         if (!isFile)
                         {
-                            if (!string.IsNullOrEmpty(arg.Key) && arg.Key.IndexOf("base64") > -1)
+                            if (!string.IsNullOrEmpty(arg.Key) && arg.Key.IndexOf("base64", StringComparison.OrdinalIgnoreCase) > -1)
                             {
                                 isFile = true;
                                 input = "base64 文件";
@@ -102,16 +106,28 @@ public class ApiLogAttribute : BaseFilterAttribute, IAsyncActionFilter, IAsyncEx
                         var body = await context.HttpContext.GetRequestBodyTextAsync();
                         if (body.IsNotNullOrEmpty())
                         {
-                            input = $"{input},body={body}";
+                            input = $"body={body}";
                         }
                     }
                 }
-                _inputLocal.Value = input;
             }
             catch (Exception ex)
             {
                 Logger.Warn($"接口调用日志记录失败", ex);
+                //序列化失败时至少保留参数名，避免input完全丢失
+                try
+                {
+                    var keys = context.ActionArguments?.Keys;
+                    if (keys != null && keys.Count > 0)
+                    {
+                        input = $"args keys: {string.Join(",", keys)}";
+                    }
+                }
+                catch
+                {
+                }
             }
+            items[InputItemKey] = input;
         }
 
         await next.Invoke();
@@ -122,10 +138,8 @@ public class ApiLogAttribute : BaseFilterAttribute, IAsyncActionFilter, IAsyncEx
     /// </summary>
     /// <param name="context"></param>
     /// <returns></returns>
-    public Task OnExceptionAsync(ExceptionContext context)
+    public async Task OnExceptionAsync(ExceptionContext context)
     {
-        _stopwatchLocal.Value?.Stop();
-
         context.HttpContext.Response.ContentType = "application/json; charset=utf-8";
 
         Exception? exception = null;
@@ -161,9 +175,13 @@ public class ApiLogAttribute : BaseFilterAttribute, IAsyncActionFilter, IAsyncEx
 
         context.ExceptionHandled = true;
 
-        GetResultLogText(context.HttpContext, context.Result, exception);
+        //异常可能发生在action过滤器之前（如模型绑定失败），此时NoLog标记未写入Items，需直接检查元数据
+        if (context.ActionDescriptor.EndpointMetadata.OfType<NoApiLogAttribute>().Any())
+        {
+            return;
+        }
 
-        return Task.CompletedTask;
+        await GetResultLogTextAsync(context.HttpContext, context.Result, exception);
     }
 
     /// <summary>
@@ -176,17 +194,18 @@ public class ApiLogAttribute : BaseFilterAttribute, IAsyncActionFilter, IAsyncEx
     {
         await next.Invoke();
 
-        GetResultLogText(context.HttpContext, context.Result, null);
+        await GetResultLogTextAsync(context.HttpContext, context.Result, null);
     }
 
 
-    void GetResultLogText(HttpContext httpContext, IActionResult? actionResult, Exception? exception)
+    async Task GetResultLogTextAsync(HttpContext httpContext, IActionResult? actionResult, Exception? exception)
     {
-        _stopwatchLocal.Value?.Stop();
+        var stopwatch = httpContext.Items[StopwatchItemKey] as Stopwatch;
+        stopwatch?.Stop();
 
         try
         {
-            if (_noLogLocal.Value) return;
+            if (httpContext.Items[NoLogItemKey] is bool noLog && noLog) return;
 
             var result = string.Empty;
 
@@ -229,7 +248,24 @@ public class ApiLogAttribute : BaseFilterAttribute, IAsyncActionFilter, IAsyncEx
 
             var url = $"{httpContext.Request.Scheme}://{host}{httpContext.Request.Path}{(httpContext.Request.QueryString.HasValue ? httpContext.Request.QueryString.Value : "")}";
 
-            var input = _inputLocal.Value ?? string.Empty;
+            var input = httpContext.Items[InputItemKey] as string ?? string.Empty;
+
+            //异常发生在action过滤器之前（如模型绑定失败）时input未捕获，回退读取body；form表单可能含文件二进制内容，跳过
+            if (input.IsNullOrEmpty() && exception != null && !httpContext.Request.HasFormContentType)
+            {
+                try
+                {
+                    var body = await httpContext.GetRequestBodyTextAsync();
+                    if (body.IsNotNullOrEmpty())
+                    {
+                        input = $"body={body}";
+                    }
+                }
+                catch
+                {
+                }
+            }
+
             if (input.IsNotNullOrEmpty() && input.Length > 10240)
             {
                 input = input.Substring(0, 10240);
@@ -241,7 +277,7 @@ public class ApiLogAttribute : BaseFilterAttribute, IAsyncActionFilter, IAsyncEx
                 httpContext.Request.Method,
                 SerializeUtil.Serialize(httpContext.Request.Headers),
                 input,
-                _stopwatchLocal.Value?.ElapsedMilliseconds ?? 0,
+                stopwatch?.ElapsedMilliseconds ?? 0,
                 httpContext.Response.StatusCode,
                 result ?? "",
                 userId.ToString(),
