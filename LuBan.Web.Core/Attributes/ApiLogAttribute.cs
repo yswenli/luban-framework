@@ -63,7 +63,9 @@ public class ApiLogAttribute : BaseFilterAttribute, IAsyncActionFilter, IAsyncEx
             try
             {
                 bool isFile = false;
-                if (context.HttpContext.Request.HasFormContentType)
+                //流式上传接口由MultipartReader自行处理，访问Request.Form会触发整个body的解析与缓冲，直接跳过
+                var isStreamUpload = context.HttpContext.Request.Path.Value?.IndexOf("/api/ExtraFile/Upload", true) >= 0;
+                if (!isStreamUpload && context.HttpContext.Request.HasFormContentType)
                 {
                     var files = context.HttpContext.Request.Form?.Files ?? null;
                     if (files != null && files.Count > 0)
@@ -134,7 +136,7 @@ public class ApiLogAttribute : BaseFilterAttribute, IAsyncActionFilter, IAsyncEx
     /// <summary>
     /// 读取请求body用于日志记录；multipart及二进制内容不读取原文，仅记录元信息
     /// </summary>
-    static async Task<string> ReadBodyForLogAsync(HttpContext httpContext)
+    internal static async Task<string> ReadBodyForLogAsync(HttpContext httpContext)
     {
         try
         {

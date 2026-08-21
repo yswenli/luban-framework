@@ -153,14 +153,14 @@ public static class StreamUtil
     }
 
     /// <summary>
-    /// 读取流中的文本
+    /// 读取流中的文本，累积到 maxLength 个字符即停止，不再读取剩余流
     /// </summary>
     /// <param name="stream"></param>
     /// <param name="encoding"></param>
-    /// <param name="bufferSize"></param>
+    /// <param name="maxLength">最大读取字符数，默认 64KB；&lt;= 0 表示不限长度读取全部</param>
     /// <param name="leaveOpen"></param>
     /// <returns></returns>
-    public static async Task<string> ReadToEndAsync(this Stream? stream, Encoding? encoding, int bufferSize = 64 * 1024, bool leaveOpen = false)
+    public static async Task<string> ReadToEndAsync(this Stream? stream, Encoding? encoding, int maxLength = 64 * 1024, bool leaveOpen = false)
     {
         string requestBody = string.Empty;
         if (stream == null) return requestBody;
@@ -169,12 +169,27 @@ public static class StreamUtil
             stream: stream,
             encoding: encoding,
             detectEncodingFromByteOrderMarks: false,
-            bufferSize: bufferSize,
+            bufferSize: 4096,
             leaveOpen: true
         ))
         {
-            requestBody = await reader.ReadToEndAsync();
-            if (leaveOpen) stream.Position = 0;
+            if (maxLength <= 0)
+            {
+                requestBody = await reader.ReadToEndAsync();
+            }
+            else
+            {
+                var sb = new StringBuilder(maxLength);
+                var buffer = new char[Math.Min(4096, maxLength)];
+                int read;
+                while (sb.Length < maxLength
+                    && (read = await reader.ReadAsync(buffer, 0, Math.Min(buffer.Length, maxLength - sb.Length))) > 0)
+                {
+                    sb.Append(buffer, 0, read);
+                }
+                requestBody = sb.ToString();
+            }
+            if (leaveOpen && stream.CanSeek) stream.Position = 0;
         }
         return requestBody;
     }

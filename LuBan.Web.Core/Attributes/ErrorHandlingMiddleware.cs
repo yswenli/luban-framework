@@ -51,7 +51,8 @@ public class ErrorHandlingMiddleware(RequestDelegate next)
                     userId = SessionUser.UserId;
                 }
                 url = context.Request.GetRequestUrl();
-                input = await context.GetRequestBodyTextAsync();
+                //仅文本类型读取body原文（有长度上限），multipart/二进制只记录元信息，避免大文件上传时整个body被读入内存
+                input = await ApiLogAttribute.ReadBodyForLogAsync(context);
                 await _next.Invoke(context);
             }
         }
