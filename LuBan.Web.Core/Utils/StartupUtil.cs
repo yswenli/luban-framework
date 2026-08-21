@@ -115,7 +115,7 @@ public static class StartupUtil
         }
         catch (Exception ex)
         {
-            ConsoleUtil.WriteLine($"An exception occurred during the api initialization of CylopsFramework: {ex}", color: ConsoleColor.Red);
+            ConsoleUtil.WriteLine($"An exception occurred during the api initialization of LuBanFramework: {ex}", color: ConsoleColor.Red);
             Thread.Sleep(5000);
             Environment.Exit(-1);
         }
@@ -191,7 +191,7 @@ public static class StartupUtil
 
         catch (Exception ex)
         {
-            Logger.Error($"CylopsFramework api configure error", ex);
+            Logger.Error($"LuBanFramework api configure error", ex);
         }
     }
 }

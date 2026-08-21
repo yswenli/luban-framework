@@ -157,7 +157,7 @@ public static class StreamUtil
     /// </summary>
     /// <param name="stream"></param>
     /// <param name="encoding"></param>
-    /// <param name="maxLength">最大读取字符数，默认 64KB；&lt;= 0 表示不限长度读取全部</param>
+    /// <param name="maxLength">最大读取字符数，默认 64K 字符；&lt;= 0 表示不限长度读取全部</param>
     /// <param name="leaveOpen"></param>
     /// <returns></returns>
     public static async Task<string> ReadToEndAsync(this Stream? stream, Encoding? encoding, int maxLength = 64 * 1024, bool leaveOpen = false)
@@ -179,7 +179,8 @@ public static class StreamUtil
             }
             else
             {
-                var sb = new StringBuilder(maxLength);
+                //不预分配maxLength，避免小body也产生64K字符的LOH分配
+                var sb = new StringBuilder(Math.Min(maxLength, 4096));
                 var buffer = new char[Math.Min(4096, maxLength)];
                 int read;
                 while (sb.Length < maxLength

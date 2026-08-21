@@ -4,28 +4,25 @@
 *机器名称：WALLE
 *Author：yswenli
 *命名空间：LuBan.Web.Core.Attributes
-*文件名： OpenEasyApiAccessAttribute
+*文件名： InternalApiAccessAttribute
 *版本号： V1.0.0.0
-*唯一标识：easy-open-api-access
+*唯一标识：internal-api-access
 *当前的用户域：WALLE
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2026/8/20
-*描述：简化版开放接口验证，只需传入 Bearer {RefreshToken}
+*描述：内部服务接口验证，只需传入 Bearer {RefreshToken}
 *
 *****************************************************************************/
-using LuBan.Common.Errors;
-using LuBan.Web.Core.Utils;
-
 namespace LuBan.Web.Core.Attributes;
 
 /// <summary>
-/// 简化版开放接口验证，
+/// 内部服务接口验证，
 /// 只需传入 Bearer {RefreshToken} 即可，
 /// 无需走完整的 AccessToken 流程
 /// </summary>
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, AllowMultiple = false, Inherited = true)]
-public class OpenEasyApiAccessAttribute : BaseFilterAttribute
+public class InternalApiAccessAttribute : BaseFilterAttribute
 {
     /// <summary>
     /// 执行业务前
@@ -53,8 +50,8 @@ public class OpenEasyApiAccessAttribute : BaseFilterAttribute
             }
 
             // 将生成的 AccessToken 存入 HttpContext，供后续使用
-            context.HttpContext.Items["EasyApiAccessToken"] = accessToken.Token;
-            context.HttpContext.Items["EasyApiRefreshToken"] = token;
+            context.HttpContext.Items["InternalApiAccessToken"] = accessToken.Token;
+            context.HttpContext.Items["InternalApiRefreshToken"] = token;
         }
         catch (FriendlyException)
         {

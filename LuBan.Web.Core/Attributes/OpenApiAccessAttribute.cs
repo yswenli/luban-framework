@@ -21,8 +21,6 @@
 *描述：开放接口验证
 *
 *****************************************************************************/
-using LuBan.Common.Errors;
-
 namespace LuBan.Web.Core.Attributes;
 
 /// <summary>
@@ -41,8 +39,8 @@ public class OpenApiAccessAttribute : BaseFilterAttribute
     /// <exception cref="NotImplementedException"></exception>
     public override async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
     {
-        // 如果标记了 NoOpenApiAccess 或 OpenEasyApiAccess，则跳过此验证
-        if (context.HasAttribute<NoOpenApiAccessAttribute>() || context.HasAttribute<OpenEasyApiAccessAttribute>())
+        // 如果标记了 NoOpenApiAccess 或 InternalApiAccess，则跳过此验证
+        if (context.HasAttribute<NoOpenApiAccessAttribute>() || context.HasAttribute<InternalApiAccessAttribute>())
         {
             await next.Invoke();
             return;

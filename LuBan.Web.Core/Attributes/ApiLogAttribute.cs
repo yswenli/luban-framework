@@ -35,6 +35,7 @@ public class ApiLogAttribute : BaseFilterAttribute, IAsyncActionFilter, IAsyncEx
     const string StopwatchItemKey = "__ApiLogAttribute_Stopwatch";
     const string InputItemKey = "__ApiLogAttribute_Input";
     const string NoLogItemKey = "__ApiLogAttribute_NoLog";
+    const string StreamUploadPath = "/api/ExtraFile/Upload";
 
     public new int Order => 99999;
 
@@ -64,7 +65,7 @@ public class ApiLogAttribute : BaseFilterAttribute, IAsyncActionFilter, IAsyncEx
             {
                 bool isFile = false;
                 //流式上传接口由MultipartReader自行处理，访问Request.Form会触发整个body的解析与缓冲，直接跳过
-                var isStreamUpload = context.HttpContext.Request.Path.Value?.IndexOf("/api/ExtraFile/Upload", true) >= 0;
+                var isStreamUpload = context.HttpContext.Request.Path.Value?.IndexOf(StreamUploadPath, true) >= 0;
                 if (!isStreamUpload && context.HttpContext.Request.HasFormContentType)
                 {
                     var files = context.HttpContext.Request.Form?.Files ?? null;
@@ -100,7 +101,7 @@ public class ApiLogAttribute : BaseFilterAttribute, IAsyncActionFilter, IAsyncEx
                 {
                     if (args != null && args.Count > 0)
                     {
-                        if (context.HttpContext.Request.Path.Value.IndexOf("/api/ExtraFile/Upload", true) < 0)
+                        if (!isStreamUpload)
                         {
                             input = SerializeUtil.Serialize(args);
                         }
@@ -155,8 +156,9 @@ public class ApiLogAttribute : BaseFilterAttribute, IAsyncActionFilter, IAsyncEx
             var body = await httpContext.GetRequestBodyTextAsync();
             return body.IsNotNullOrEmpty() ? $"body={body}" : string.Empty;
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.Warn("读取请求body用于日志记录失败", ex);
             return string.Empty;
         }
     }
