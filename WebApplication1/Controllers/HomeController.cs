@@ -159,20 +159,13 @@ public class HomeController : BaseApiController
         TempFile? tf = null;
         DbUser? sysUser2 = null;
 
-        var task1 = Task.Run(async () =>
-        {
-            await Task.Delay(500);
-            tf = await sysUser1.ToTempFileAsync();
-        });
+        await Task.Delay(500);
+        tf = await sysUser1.ToTempFileAsync();
 
-        var task2 = Task.Run(async () =>
-        {
-            await Task.Delay(1500);
-            sysUser2 = await tf!.ToObjectAsync<DbUser>();
-            tf!.Dispose();
-        });
+        await Task.Delay(1500);
+        sysUser2 = await tf!.ToObjectAsync<DbUser>();
+        tf!.Dispose();
 
-        await Task.WhenAll(task1, task2);
 
         return sysUser2!;
     }
