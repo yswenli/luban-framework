@@ -186,6 +186,7 @@ public static class SwaggerConfigureService
             //增加接口安全参数
             options.OperationFilter<SwaggerSafeComparisonFilter>();
             options.OperationFilter<SwaggerJwtFilter>();
+            options.OperationFilter<SwaggerDisplayNameFilter>();
             //返回控制器和方法名称
             options.CustomOperationIds(apiDesc =>
             {
