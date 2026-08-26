@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -55,6 +55,7 @@ public class HealthCheckService : BaseJobService
         if (!_hostOptions.EnableHealthCheck) return;
 
         Result<string>? data = null;
+        Exception? caughtEx = null;
         try
         {
             data = _httpClientUtil.Get<Result<string>>(_path);
@@ -62,6 +63,7 @@ public class HealthCheckService : BaseJobService
         }
         catch (Exception ex)
         {
+            caughtEx = ex;
             Logger.Error(ex);
         }
         if (data == null || data.Code != 200)
@@ -73,6 +75,11 @@ public class HealthCheckService : BaseJobService
             var msg = $"【健康检测】\r\n[时间]{DateTime.Now:F}\r\n[服务]{_hostOptions.ServiceName}\r\n[域名]{_domain}\r\n[消息]当前服务已在连续3分钟内检测到联通性异常，请核查";
             WeChatRobot.Instance.SendMsg(msg);
             _errorCount = 0;
+        }
+        // 向上抛出异常，让 RunAsyncWithLog 记录失败日志；否则 Run() 吞掉异常会导致 LogJobSuccess 被错误调用
+        if (caughtEx != null)
+        {
+            throw caughtEx;
         }
     }
 }

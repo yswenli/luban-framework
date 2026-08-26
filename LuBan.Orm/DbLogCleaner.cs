@@ -79,8 +79,9 @@ public class DbLogCleaner
         if (!_stated) return _stated;
         try
         {
-            var apiLogRepo = new BaseRepository<DbLogApi>();
-            var errorLogRepo = new BaseRepository<DbLogError>();
+            // 隔离连接，避免后台清理线程与主任务数据库操作并发时共享 SqlSugarScope 连接状态冲突
+            using var apiLogRepo = new BaseRepository<DbLogApi>(isolated: true);
+            using var errorLogRepo = new BaseRepository<DbLogError>(isolated: true);
 
             if (LogLimit.ApiLogMaxSize > 0)
             {

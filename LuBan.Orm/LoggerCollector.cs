@@ -128,7 +128,8 @@ public class LoggerCollector : BaseSingleInstance<LoggerCollector>
             }
             try
             {
-                var repo = new BaseRepository<DbLogError>();
+                // 隔离连接，避免 Batcher 后台线程与主任务数据库操作并发时共享 SqlSugarScope 连接状态冲突
+                using var repo = new BaseRepository<DbLogError>(isolated: true);
                 repo.InsertRange(list);
             }
             catch (Exception ex)
@@ -195,7 +196,8 @@ public class LoggerCollector : BaseSingleInstance<LoggerCollector>
             }
             try
             {
-                var repo = new BaseRepository<DbLogApi>();
+                // 隔离连接，避免 Batcher 后台线程与主任务数据库操作并发时共享 SqlSugarScope 连接状态冲突
+                using var repo = new BaseRepository<DbLogApi>(isolated: true);
                 repo.InsertRange(list);
             }
             catch (Exception ex)

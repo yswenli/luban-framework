@@ -627,7 +627,25 @@ public static class LuBanOrm
     {
         if (SqlSugarScope == null) throw new Exception("LuBanOrm未初始化，请先调用LuBanOrm.Init(configAction)");
 
-        var config = GetDbConnectionConfig(configId);
+        var source = GetDbConnectionConfig(configId);
+        // 创建副本，切断与共享 config 的引用链，
+        // 避免 SqlSugarScope 运行时往共享 config 挂载的 Connection 被隔离 client 复用，
+        // 导致跨线程共享 MySqlConnection（表现为 "This MySqlConnection is already in use"、
+        // "Packet received out-of-order"、"Cannot Open when State is Connecting"）
+        var config = new DbConnectionConfig
+        {
+            ConfigId = source.ConfigId,
+            ConnectionString = source.ConnectionString,
+            DbType = source.DbType,
+            IsAutoCloseConnection = true,
+            DbNickName = source.DbNickName,
+            DbSettings = source.DbSettings,
+            TableSettings = source.TableSettings,
+            SeedSettings = source.SeedSettings,
+            TenantType = source.TenantType,
+            DatabaseDirectory = source.DatabaseDirectory
+            // Connection 不复制，保持 null，强制 new SqlSugarClient 自建独立 IDbConnection
+        };
         // SetDbConfig 会配置 IsAutoCloseConnection=true 等通用属性，
         // 确保 using 释放时连接自动归还连接池
         SetDbConfig(config);
