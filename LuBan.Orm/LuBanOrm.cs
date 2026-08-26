@@ -123,7 +123,7 @@ public static class LuBanOrm
                 // 注意：SqlSugarScope 的回调是延迟执行的（在第一次访问数据库时）
                 // 为了确保数据库初始化在应用启动前完成，需要立即触发回调执行
                 sqlSugarScope = new([.. DbConnectionOptions.ConnectionConfigs], configAction);
-                
+
                 // 通过获取第一个数据库连接来触发回调立即执行
                 // 回调中会执行：CheckDbConnection 和 InitDatabase
                 if (DbConnectionOptions.ConnectionConfigs.Count > 0)
@@ -647,12 +647,13 @@ public static class LuBanOrm
     /// 自动根据实体类型（TenantAttribute/LogTableAttribute）选择正确的库配置
     /// </summary>
     /// <typeparam name="TEntity"></typeparam>
+    /// <param name="tenantId">租户ID，默认使用主库 LuBanOrmConst.MainConfigId</param>
     /// <returns>独立的 SqlSugarClient 实例</returns>
-    public static SqlSugarClient GetIsolatedClient<TEntity>() where TEntity : EntityBase, IDeletedFilter, new()
+    public static SqlSugarClient GetIsolatedClient<TEntity>(string tenantId = LuBanOrmConst.MainConfigId) where TEntity : EntityBase, IDeletedFilter, new()
     {
         // 复用 GetProvider 的逻辑确定 TEntity 对应的库，
         // GetProvider 仅做 GetConnectionScope（只读，不会改变连接状态），安全
-        var ormProvider = GetProvider<TEntity>();
+        var ormProvider = GetProvider<TEntity>(tenantId);
         var configId = ormProvider.Provider.CurrentConnectionConfig.ConfigId?.ToString();
         return GetIsolatedClient(configId);
     }
