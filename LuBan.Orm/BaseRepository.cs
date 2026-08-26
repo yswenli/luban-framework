@@ -92,7 +92,8 @@ public class BaseRepository<TEntity> : SimpleClient<TEntity>, IDisposable
     /// 使用方需要 using 释放，以归还连接池资源。
     /// </summary>
     /// <param name="isolated">true 表示创建独立连接；false 等同于默认构造（使用共享 Scope）</param>
-    public BaseRepository(bool isolated)
+    /// <param name="tenantId"></param>
+    public BaseRepository(bool isolated, long tenantId = LuBanOrmConst.DefaultTenantId)
     {
         if (isolated)
         {
@@ -224,7 +225,7 @@ public class BaseRepository<TEntity> : SimpleClient<TEntity>, IDisposable
     {
         if (list == null || list.Count == 0) return 0;
         return AsInsertable(list).ExecuteCommand();
-    }    
+    }
 
 
     /// <summary>

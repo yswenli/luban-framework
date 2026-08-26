@@ -53,7 +53,7 @@ public sealed class OnlineUserCleanupJob : BaseJobService
 
             try
             {
-                var rep = new BaseRepository<DbOnlineUser>(tenantId);
+                var rep = new BaseRepository<DbOnlineUser>(true, tenantId);
                 await rep.AsUpdateable()
                     .SetColumns(q => new DbOnlineUser { IsDelete = true })
                     .Where(q => q.IsDelete == false && q.LastActiveTime < expireTime)
