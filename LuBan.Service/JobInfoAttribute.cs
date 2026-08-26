@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c) YSWenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -37,6 +37,21 @@ public class JobInfoAttribute : Attribute
     /// 任务描述
     /// </summary>
     public string Description { get; private set; }
+
+    /// <summary>
+    /// 获取任务名称，
+    /// 优先返回 JobInfoAttribute.Name（友好中文名），
+    /// 类型未标注特性时退回 type.Name（类名）。
+    /// 此为全链路统一的任务标识来源：JobServiceLoader 注册/启停、
+    /// BaseBackgroundService 写日志、JobsController 查询均应使用本方法，
+    /// 避免"任务列表展示类名、日志表存中文名"的双轨不一致问题。
+    /// </summary>
+    /// <param name="type">任务类型</param>
+    /// <returns>任务名称</returns>
+    public static string GetJobName(Type type)
+    {
+        return type.GetCustomAttribute<JobInfoAttribute>()?.Name ?? type.Name;
+    }
 
     /// <summary>
     /// 任务信息

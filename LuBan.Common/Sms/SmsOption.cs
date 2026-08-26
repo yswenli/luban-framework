@@ -43,7 +43,7 @@ public sealed class ZhuTongSmsSetting
     /// <summary>
     /// 用户名
     /// </summary>
-    public string UserName { get; set; } = "LuBan";
+    public string UserName { get; set; } = "LuBanFramework";
     /// <summary>
     /// 密码
     /// </summary>

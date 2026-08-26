@@ -102,7 +102,7 @@ public static class SwaggerConfigureService
                 .Where(a => !string.IsNullOrEmpty(a.FullName))
                 .Where(a => 
                     a.FullName.StartsWith("WebApplication1") || 
-                    a.FullName.StartsWith("LuBan") ||
+                    a.FullName.StartsWith("LuBanFramework") ||
                     a.FullName.StartsWith("System")) // 只加载系统核心程序集
                 .Distinct();
             

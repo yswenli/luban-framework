@@ -24,7 +24,7 @@ public class SkillLoader
 {
     private static readonly string UserSkillsRoot = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "LuBan", "AIAgent", "skills");
+        "LuBanFramework", "AIAgent", "skills");
 
     /// <summary>
     /// 从指定工作区目录和用户目录加载所有 SKILL.md 文件。

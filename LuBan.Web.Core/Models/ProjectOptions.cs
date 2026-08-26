@@ -55,7 +55,7 @@ public class ProjectOptions
     /// <summary>
     /// 项目名称
     /// </summary>
-    public string Name { get; set; } = "LuBan";
+    public string Name { get; set; } = "LuBanFramework";
     /// <summary>
     /// 项目描述
     /// </summary>
