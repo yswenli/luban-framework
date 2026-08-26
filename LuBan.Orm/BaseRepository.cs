@@ -152,11 +152,15 @@ public class BaseRepository<TEntity> : SimpleClient<TEntity>, IDisposable
     }
 
     /// <summary>
-    /// 创建跨库事务
+    /// 创建跨库事务，
+    /// 隔离连接实例（isolated=true 构造）不支持跨库事务，会抛出 NotSupportedException
     /// </summary>
     /// <returns></returns>
+    /// <exception cref="NotSupportedException">隔离连接实例不支持跨库事务</exception>
     public DbTran CreateMultiTran()
     {
+        if (_isolatedClient != null)
+            throw new NotSupportedException("隔离连接的仓储实例不支持跨库事务，请使用 CreateTran() 进行单库事务");
         return new DbTran(_iTenant);
     }
 
