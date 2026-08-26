@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -30,13 +30,24 @@ namespace LuBan.Orm;
 /// https://www.donet5.com/home/doc?masterId=1&amp;typeId=1228
 /// </summary>
 /// <typeparam name="TEntity"></typeparam>
-public class BaseRepository<TEntity> : SimpleClient<TEntity>
+public class BaseRepository<TEntity> : SimpleClient<TEntity>, IDisposable
     where TEntity : EntityBase, IDeletedFilter, new()
 {
     /// <summary>
     /// _iTenant
     /// </summary>
     protected readonly ITenant _iTenant;
+
+    /// <summary>
+    /// 隔离连接的 SqlSugarClient 实例（仅在 isolated 构造时创建），
+    /// 非 isolated 构造时为 null，由共享 SqlSugarScope 管理生命周期
+    /// </summary>
+    private SqlSugarClient? _isolatedClient;
+
+    /// <summary>
+    /// 是否已释放，防止重复 Dispose
+    /// </summary>
+    private bool _disposed;
 
     /// <summary>
     /// db 连接配置
@@ -71,6 +82,42 @@ public class BaseRepository<TEntity> : SimpleClient<TEntity>
     public BaseRepository(long tenantId = LuBanOrmConst.DefaultTenantId) : this(tenantId.ToString())
     {
 
+    }
+
+    /// <summary>
+    /// LuBan.Orm db 实体仓储（隔离连接版本），
+    /// isolated=true 时创建独立的 SqlSugarClient 实例，避免共享 SqlSugarScope 的连接状态冲突，
+    /// 典型场景：作业执行失败后写入日志时，主连接可能正处于 Connecting 状态，
+    /// 使用独立连接可确保日志写入不受主连接状态影响。
+    /// 使用方需要 using 释放，以归还连接池资源。
+    /// </summary>
+    /// <param name="isolated">true 表示创建独立连接；false 等同于默认构造（使用共享 Scope）</param>
+    public BaseRepository(bool isolated)
+    {
+        if (isolated)
+        {
+            // 创建独立的 SqlSugarClient，并根据 TEntity 特性自动选择库配置
+            _isolatedClient = LuBanOrm.GetIsolatedClient<TEntity>();
+            _iTenant = _isolatedClient;
+            Context = _isolatedClient;
+        }
+        else
+        {
+            var ormProvider = LuBanOrm.GetProvider<TEntity>();
+            _iTenant = ormProvider.Tenant;
+            Context = ormProvider.Provider;
+        }
+    }
+
+    /// <summary>
+    /// 释放隔离连接资源，
+    /// 仅对 isolated 构造的实例有效，非 isolated 构造时为空操作
+    /// </summary>
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        _isolatedClient?.Dispose();
     }
 
 

@@ -21,6 +21,8 @@
 *描述：日志清理器
 *
 *****************************************************************************/
+using LuBan.Logging.Configuration;
+
 namespace LuBan.Orm;
 
 /// <summary>
@@ -33,14 +35,14 @@ public class DbLogCleaner
     /// <summary>
     /// 日志配置
     /// </summary>
-    public DbLogOptions DbLogOptions { get; private set; }
+    public LogLimitConfig LogLimit { get; private set; }
     /// <summary>
     /// 日志清理器
     /// </summary>
-    /// <param name="logOptions"></param>
-    public DbLogCleaner(DbLogOptions logOptions)
+    /// <param name="logLimit"></param>
+    public DbLogCleaner(LogLimitConfig logLimit)
     {
-        DbLogOptions = logOptions;
+        LogLimit = logLimit;
     }
 
     /// <summary>
@@ -80,12 +82,12 @@ public class DbLogCleaner
             var apiLogRepo = new BaseRepository<DbLogApi>();
             var errorLogRepo = new BaseRepository<DbLogError>();
 
-            if (DbLogOptions.ApiLogMaxSize > 0)
+            if (LogLimit.ApiLogMaxSize > 0)
             {
                 var total = apiLogRepo.Count(q => q.Id > 0);
-                if (total > DbLogOptions.ApiLogMaxSize)
+                if (total > LogLimit.ApiLogMaxSize)
                 {
-                    var deleteCount = total - DbLogOptions.ApiLogMaxSize;
+                    var deleteCount = total - LogLimit.ApiLogMaxSize;
                     var toDeleteIds = apiLogRepo.OrderBy(q => q.Id)
                         .Take(deleteCount)
                         .Select(q => q.Id)
@@ -93,17 +95,17 @@ public class DbLogCleaner
                     apiLogRepo.Delete(q => toDeleteIds.Contains(q.Id));
                 }
             }
-            if (DbLogOptions.ApiLogExpiredSeconds > 0)
+            if (LogLimit.ApiLogExpiredSeconds > 0)
             {
-                var expiredTime = DateTime.Now.AddSeconds(-DbLogOptions.ApiLogExpiredSeconds);
+                var expiredTime = DateTime.Now.AddSeconds(-LogLimit.ApiLogExpiredSeconds);
                 apiLogRepo.Delete(q => q.CreateTime < expiredTime);
             }
-            if (DbLogOptions.ErrorLogMaxSize > 0)
+            if (LogLimit.ErrorLogMaxSize > 0)
             {
                 var total = errorLogRepo.Count(q => q.Id > 0);
-                if (total > DbLogOptions.ApiLogMaxSize)
+                if (total > LogLimit.ErrorLogMaxSize)
                 {
-                    var deleteCount = total - DbLogOptions.ApiLogMaxSize;
+                    var deleteCount = total - LogLimit.ErrorLogMaxSize;
                     var toDeleteIds = errorLogRepo.OrderBy(q => q.Id)
                         .Take(deleteCount)
                         .Select(q => q.Id)
@@ -111,9 +113,9 @@ public class DbLogCleaner
                     errorLogRepo.Delete(q => toDeleteIds.Contains(q.Id));
                 }
             }
-            if (DbLogOptions.ApiLogExpiredSeconds > 0)
+            if (LogLimit.ErrorLogExpiredSeconds > 0)
             {
-                var expiredTime = DateTime.Now.AddSeconds(-DbLogOptions.ApiLogExpiredSeconds);
+                var expiredTime = DateTime.Now.AddSeconds(-LogLimit.ErrorLogExpiredSeconds);
                 errorLogRepo.Delete(q => q.CreateTime < expiredTime);
             }
         }

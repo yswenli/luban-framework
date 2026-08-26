@@ -28,7 +28,7 @@ internal sealed class FileLogger : ILogger
     /// <inheritdoc/>
     public bool IsEnabled(LogLevel logLevel)
     {
-        return true;
+        return _provider.IsEnabledForCategory(_categoryName);
     }
 
     /// <inheritdoc/>

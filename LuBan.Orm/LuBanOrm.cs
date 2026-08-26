@@ -158,13 +158,16 @@ public static class LuBanOrm
     }
 
     /// <summary>
-    /// 配置日志
+    /// 配置日志，
+    /// 泛型版本：兼容 SqlSugarScopeProvider（共享 Scope）与 SqlSugarClient（隔离连接），
+    /// 仅约束为 ISqlSugarClient，调用方代码无需改动
     /// </summary>
+    /// <typeparam name="T"></typeparam>
     /// <param name="dbProvider"></param>
     /// <param name="enableConsoleLog"></param>
     /// <param name="config"></param>
     /// <returns></returns>
-    public static SqlSugarScopeProvider SetSqlSugarLogs(SqlSugarScopeProvider dbProvider, bool enableConsoleLog, DbConnectionConfig config)
+    public static T SetSqlSugarLogs<T>(T dbProvider, bool enableConsoleLog, DbConnectionConfig config) where T : ISqlSugarClient
     {
         // 设置超时时间
         dbProvider.Ado.CommandTimeOut = 180;
@@ -176,36 +179,44 @@ public static class LuBanOrm
                 ConsoleUtil.WriteLine("【" + DateTime.Now + "执行的SQL语句】\r\n" + UtilMethods.GetSqlString(config.DbType, sql, pars) + "\r\n", color: ConsoleColor.Green);
                 Logger.Info("SqlSugar", "Info", sql + "\r\n" + dbProvider.Utilities.SerializeObject(pars.ToDictionary(it => it.ParameterName, it => it.Value)));
             };
-            dbProvider.Aop.OnError = ex =>
-            {
-                if (ex.Parametres == null) return;
-                var pars = dbProvider.Utilities.SerializeObject(((SugarParameter[])ex.Parametres).ToDictionary(it => it.ParameterName, it => it.Value));
-                ConsoleUtil.WriteLine("【" + DateTime.Now + "出现异常的SQL】\r\n" + UtilMethods.GetSqlString(config.DbType, ex.Sql, (SugarParameter[])ex.Parametres) + "\r\n", color: ConsoleColor.Red);
-                Logger.Error("SqlSugar", $"{ex.Message}{Environment.NewLine}{ex.Sql}{pars}{Environment.NewLine}");
-            };
-            dbProvider.Aop.OnLogExecuted = (sql, pars) =>
-            {
-                // 执行时间超过5秒
-                if (dbProvider.Ado.SqlExecutionTime.TotalSeconds > 5)
-                {
-                    var fileName = dbProvider.Ado.SqlStackTrace.FirstFileName; // 文件名
-                    var fileLine = dbProvider.Ado.SqlStackTrace.FirstLine; // 行号
-                    var firstMethodName = dbProvider.Ado.SqlStackTrace.FirstMethodName; // 方法名
-                    var log = $"【所在文件名】：{fileName}\r\n【代码行数】：{fileLine}\r\n【方法名】：{firstMethodName}\r\n" + $"【sql语句】：{UtilMethods.GetSqlString(config.DbType, sql, pars)}";
-                    Logger.Warn("执行时间超过5秒的Sql", new Exception(log));
-                    ConsoleUtil.WriteLine(log, color: ConsoleColor.DarkYellow);
-                }
-            };
         }
+
+        // SQL 执行异常始终记录到文件/数据库日志
+        dbProvider.Aop.OnError = ex =>
+        {
+            if (ex.Parametres == null) return;
+            var pars = dbProvider.Utilities.SerializeObject(((SugarParameter[])ex.Parametres).ToDictionary(it => it.ParameterName, it => it.Value));
+            if (enableConsoleLog)
+                ConsoleUtil.WriteLine("【" + DateTime.Now + "出现异常的SQL】\r\n" + UtilMethods.GetSqlString(config.DbType, ex.Sql, (SugarParameter[])ex.Parametres) + "\r\n", color: ConsoleColor.Red);
+            Logger.Error("SqlSugar", $"{ex.Message}{Environment.NewLine}{ex.Sql}{pars}{Environment.NewLine}【连接字符串】：{config.ConnectionString}{Environment.NewLine}");
+        };
+
+        // 慢查询（>5秒）始终记录
+        dbProvider.Aop.OnLogExecuted = (sql, pars) =>
+        {
+            // 执行时间超过5秒
+            if (dbProvider.Ado.SqlExecutionTime.TotalSeconds > 5)
+            {
+                var fileName = dbProvider.Ado.SqlStackTrace.FirstFileName; // 文件名
+                var fileLine = dbProvider.Ado.SqlStackTrace.FirstLine; // 行号
+                var firstMethodName = dbProvider.Ado.SqlStackTrace.FirstMethodName; // 方法名
+                var log = $"【所在文件名】：{fileName}\r\n【代码行数】：{fileLine}\r\n【方法名】：{firstMethodName}\r\n" + $"【sql语句】：{UtilMethods.GetSqlString(config.DbType, sql, pars)}";
+                Logger.Warn("执行时间超过5秒的Sql", new Exception(log));
+                if (enableConsoleLog)
+                    ConsoleUtil.WriteLine(log, color: ConsoleColor.DarkYellow);
+            }
+        };
         return dbProvider;
     }
 
     /// <summary>
     /// 配置自定义实体过滤器，
-    /// IEntityFilter，TableFilterItem
+    /// IEntityFilter，TableFilterItem，
+    /// 泛型版本：兼容 SqlSugarScopeProvider 与 SqlSugarClient
     /// </summary>
+    /// <typeparam name="T"></typeparam>
     /// <param name="dbProvider"></param>
-    public static void SetEntityFilter(SqlSugarScopeProvider dbProvider)
+    public static void SetEntityFilter<T>(T dbProvider) where T : ISqlSugarClient
     {
         try
         {
@@ -518,10 +529,12 @@ public static class LuBanOrm
     public static volatile bool IsInitTableAndDataComplete = false;
 
     /// <summary>
-    /// 初始化默认值
+    /// 初始化默认值，
+    /// 泛型版本：兼容 SqlSugarScopeProvider 与 SqlSugarClient
     /// </summary>
+    /// <typeparam name="T"></typeparam>
     /// <param name="dbProvider"></param>
-    static void SetDefaultValue(SqlSugarScopeProvider dbProvider)
+    static void SetDefaultValue<T>(T dbProvider) where T : ISqlSugarClient
     {
         dbProvider.Aop.DataExecuting = (oldValue, entityInfo) =>
         {
@@ -599,6 +612,65 @@ public static class LuBanOrm
             Tenant = tenant,
             Provider = provider
         };
+    }
+
+    /// <summary>
+    /// 获取一个独立的 SqlSugarClient 实例（非共享 Scope），
+    /// 用于隔离连接状态，避免并发场景下共享 SqlSugarScope 的连接状态冲突。
+    /// 典型场景：作业执行失败后写入日志时，主连接可能正处于 Connecting 状态，
+    /// 使用独立连接可确保日志写入不受主连接状态影响。
+    /// 注意：调用方需要自行 Dispose 以归还连接池资源，推荐使用 using 模式。
+    /// </summary>
+    /// <param name="configId">配置ID，默认使用主库 LuBanOrmConst.MainConfigId</param>
+    /// <returns>独立的 SqlSugarClient 实例</returns>
+    public static SqlSugarClient GetIsolatedClient(string? configId = null)
+    {
+        if (SqlSugarScope == null) throw new Exception("LuBanOrm未初始化，请先调用LuBanOrm.Init(configAction)");
+
+        var config = GetDbConnectionConfig(configId);
+        // SetDbConfig 会配置 IsAutoCloseConnection=true 等通用属性，
+        // 确保 using 释放时连接自动归还连接池
+        SetDbConfig(config);
+        var client = new SqlSugarClient(config);
+
+        // 应用与主连接一致的 AOP 配置（日志、默认值、过滤器），
+        // 保证隔离客户端的行为与共享 Scope 一致
+        SetSqlSugarLogs(client, DbConnectionOptions.EnableConsoleSql, config);
+        SetDefaultValue(client);
+        SetEntityFilter(client);
+
+        return client;
+    }
+
+    /// <summary>
+    /// 获取独立 SqlSugarClient 实例的泛型版本，
+    /// 自动根据实体类型（TenantAttribute/LogTableAttribute）选择正确的库配置
+    /// </summary>
+    /// <typeparam name="TEntity"></typeparam>
+    /// <returns>独立的 SqlSugarClient 实例</returns>
+    public static SqlSugarClient GetIsolatedClient<TEntity>() where TEntity : EntityBase, IDeletedFilter, new()
+    {
+        // 复用 GetProvider 的逻辑确定 TEntity 对应的库，
+        // GetProvider 仅做 GetConnectionScope（只读，不会改变连接状态），安全
+        var ormProvider = GetProvider<TEntity>();
+        var configId = ormProvider.Provider.CurrentConnectionConfig.ConfigId?.ToString();
+        return GetIsolatedClient(configId);
+    }
+
+    /// <summary>
+    /// 根据 configId 获取数据库连接配置
+    /// </summary>
+    /// <param name="configId"></param>
+    /// <returns></returns>
+    static DbConnectionConfig GetDbConnectionConfig(string? configId)
+    {
+        if (string.IsNullOrEmpty(configId) || configId == "0")
+            configId = LuBanOrmConst.MainConfigId;
+
+        var config = DbConnectionOptions.ConnectionConfigs
+            .FirstOrDefault(c => c.ConfigId?.ToString() == configId);
+        if (config == null) throw new Exception($"未找到数据库配置：{configId}");
+        return config;
     }
 
     #endregion

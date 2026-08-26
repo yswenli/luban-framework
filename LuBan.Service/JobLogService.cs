@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -96,7 +96,9 @@ public class JobLogService : BaseService<JobLogService>
     }
 
     /// <summary>
-    /// 更新作业日志
+    /// 更新作业日志，
+    /// 使用隔离连接，避免共享 SqlSugarScope 在异常场景下连接状态冲突
+    /// （例如 RunAsync 抛异常后主连接处于 Connecting 状态，导致日志写入失败 "Cannot Open when State is Connecting"）
     /// </summary>
     /// <param name="logId">日志ID</param>
     /// <param name="status">运行状态</param>
@@ -104,7 +106,7 @@ public class JobLogService : BaseService<JobLogService>
     /// <param name="message">消息</param>
     private void UpdateJobLog(long logId, EnumJobStatus status, EnumJobResult? result, string message)
     {
-        var resp = new BaseRepository<DbLogJob>();
+        using var resp = new BaseRepository<DbLogJob>(isolated: true);
         var jobLog = resp.GetById(logId);
 
         if (jobLog != null)

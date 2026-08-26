@@ -46,4 +46,35 @@ public class LuBanLoggingOptions
         ["logerror"] = true,
         ["logcall"] = true
     };
+
+    /// <summary>
+    /// 数据库日志容量与过期配置。
+    /// </summary>
+    public LogLimitConfig? LogLimit { get; set; }
+}
+
+/// <summary>
+/// 数据库日志容量与过期配置。
+/// </summary>
+public class LogLimitConfig
+{
+    /// <summary>
+    /// api日志最大条数
+    /// </summary>
+    public int ApiLogMaxSize { get; set; } = 10240;
+
+    /// <summary>
+    /// api日志过期时间，单位秒
+    /// </summary>
+    public int ApiLogExpiredSeconds { get; set; } = 604800;
+
+    /// <summary>
+    /// 错误日志最大条数
+    /// </summary>
+    public int ErrorLogMaxSize { get; set; } = 1024;
+
+    /// <summary>
+    /// 错误日志过期时间，单位秒
+    /// </summary>
+    public int ErrorLogExpiredSeconds { get; set; } = 604800;
 }

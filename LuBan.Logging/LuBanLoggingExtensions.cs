@@ -46,6 +46,7 @@ public static class LuBanLoggingExtensions
             {
                 var options = sp.GetRequiredService<IOptions<LuBanLoggingOptions>>().Value;
                 Logger.EnableConsoleOutput = options.EnableConsole;
+                Logger.SetCategories(options.Categories);
 
                 var fileOptions = FileLoggerOptions.FromLuBanOptions(options);
                 if (!options.Enabled)
@@ -87,6 +88,7 @@ public static class LuBanLoggingExtensions
             {
                 var options = sp.GetRequiredService<IOptions<LuBanLoggingOptions>>().Value;
                 Logger.EnableConsoleOutput = options.EnableConsole;
+                Logger.SetCategories(options.Categories);
 
                 var fileOptions = FileLoggerOptions.FromLuBanOptions(options);
                 if (!options.Enabled)

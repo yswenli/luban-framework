@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -35,11 +35,6 @@ public sealed class DbConnectionOptions
     /// 启用控制台打印SQL
     /// </summary>
     public bool EnableConsoleSql { get; set; } = false;
-
-    /// <summary>
-    /// 数据库日志配置
-    /// </summary>
-    public DbLogOptions DbLogOptions { get; set; } = new DbLogOptions();
 
     /// <summary>
     /// 数据库集合

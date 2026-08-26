@@ -53,16 +53,19 @@ public class LoggerCollector : BaseSingleInstance<LoggerCollector>
         _enableDbLogs = loggingOptions?.EnableDb ?? false;
         if (!_enableDbLogs) return;
 
-        DbConnectionOptions dbConnectionOptions;
+        // 验证数据库连接可用
         try
         {
             var tempRepo = new BaseRepository<DbLogError>();
-            dbConnectionOptions = tempRepo.DbConnectionOptions;
+            _ = tempRepo.DbConnectionOptions;
         }
         catch (Exception ex)
         {
             throw new Exception("在配置文件中找不到数据库连接字符串", ex);
         }
+
+        // 从 LuBanLoggingOptions.LogLimit 读取日志容量与过期配置
+        var logLimit = loggingOptions?.LogLimit ?? new LogLimitConfig();
 
         _logBatcher = new Batcher<LogInfo>();
         _logBatcher.OnBatched += _batcher1_OnBatched;
@@ -72,7 +75,7 @@ public class LoggerCollector : BaseSingleInstance<LoggerCollector>
         _apiLogbatcher.OnBatched += _batcher4_OnBatched;
         _apiLogbatcher.OnError += _batcher4_OnError;
 
-        _dbLogCleaner = new(dbConnectionOptions.DbLogOptions);
+        _dbLogCleaner = new(logLimit);
     }
 
 

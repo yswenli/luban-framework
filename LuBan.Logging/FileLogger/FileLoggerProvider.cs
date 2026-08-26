@@ -38,6 +38,14 @@ internal sealed class FileLoggerProvider : ILoggerProvider
     }
 
     /// <summary>
+    /// 检查指定类别是否启用。
+    /// </summary>
+    public bool IsEnabledForCategory(string categoryName)
+    {
+        return _enabledCategories.Contains(categoryName);
+    }
+
+    /// <summary>
     /// 按 category name 写入对应的文件。
     /// </summary>
     /// <param name="categoryName">类别名称。</param>

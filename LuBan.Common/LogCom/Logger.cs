@@ -33,6 +33,38 @@ public static class Logger
     /// </summary>
     public static bool EnableConsoleOutput { get; set; } = false;
 
+    /// <summary>
+    /// 各类别是否启用，由 LuBanLoggingOptions.Categories 注入。
+    /// 同时影响文件日志和控制台输出。
+    /// </summary>
+    private static Dictionary<string, bool> _categories = new()
+    {
+        ["loginfo"] = true,
+        ["logdebug"] = true,
+        ["logwarn"] = true,
+        ["logerror"] = true,
+        ["logcall"] = true
+    };
+
+    /// <summary>
+    /// 设置类别开关（线程安全）。
+    /// </summary>
+    public static void SetCategories(Dictionary<string, bool> categories)
+    {
+        lock (_gate)
+        {
+            _categories = categories ?? new Dictionary<string, bool>();
+        }
+    }
+
+    /// <summary>
+    /// 检查指定类别是否启用。
+    /// </summary>
+    private static bool IsCategoryEnabled(string categoryName)
+    {
+        return _categories.TryGetValue(categoryName, out var enabled) && enabled;
+    }
+
     private static ILogger _loginfo = NullLogger.Instance;
     private static ILogger _logdebug = NullLogger.Instance;
     private static ILogger _logwarn = NullLogger.Instance;
@@ -122,7 +154,7 @@ public static class Logger
         {
             string text = _serializer(logInfo);
             _loginfo.LogInformation(text);
-            if (EnableConsoleOutput)
+            if (EnableConsoleOutput && IsCategoryEnabled("loginfo"))
                 des.WriteLine(color: console);
         }
         catch
@@ -199,7 +231,7 @@ public static class Logger
             {
                 string text = _serializer(obj);
                 _logdebug.LogDebug(text);
-                if (EnableConsoleOutput)
+                if (EnableConsoleOutput && IsCategoryEnabled("logdebug"))
                     text.WriteLine(withTime: true, "HH:mm:ss.fff", ConsoleColor.DarkYellow);
             }
             catch
@@ -256,7 +288,7 @@ public static class Logger
             {
                 string text = _serializer(obj);
                 _logdebug.LogDebug(text);
-                if (EnableConsoleOutput)
+                if (EnableConsoleOutput && IsCategoryEnabled("logdebug"))
                     text.WriteLine(withTime: true, "HH:mm:ss.fff", ConsoleColor.DarkYellow);
             }
             catch
@@ -310,7 +342,7 @@ public static class Logger
         {
             string text = _serializer(obj);
             _logwarn.LogWarning(text);
-            if (EnableConsoleOutput)
+            if (EnableConsoleOutput && IsCategoryEnabled("logwarn"))
                 text.WriteLine(withTime: true, "HH:mm:ss.fff", ConsoleColor.DarkYellow);
         }
         catch
@@ -448,7 +480,7 @@ public static class Logger
             if (text.IsNotNullOrEmpty())
             {
                 _logerror.LogError(text);
-                if (EnableConsoleOutput)
+                if (EnableConsoleOutput && IsCategoryEnabled("logerror"))
                     text.WriteLine(withTime: true, "HH:mm:ss.fff", ConsoleColor.Red);
             }
         }
@@ -493,7 +525,7 @@ public static class Logger
         {
             string text = _serializer(obj);
             _logerror.LogError(text);
-            if (EnableConsoleOutput)
+            if (EnableConsoleOutput && IsCategoryEnabled("logerror"))
                 text.WriteLine(color: ConsoleColor.Red);
         }
         catch
@@ -593,7 +625,7 @@ public static class Logger
             var text = _serializer(apiLogModel);
             if (text.IsNotNullOrEmpty())
             {
-                if (EnableConsoleOutput)
+                if (EnableConsoleOutput && IsCategoryEnabled("logcall"))
                 {
                     if (apiLogModel.Exception == null)
                     {
