@@ -21,6 +21,8 @@
 *描述：任务信息
 *
 *****************************************************************************/
+using System.Collections.Concurrent;
+
 namespace LuBan.Service;
 
 /// <summary>
@@ -39,9 +41,15 @@ public class JobInfoAttribute : Attribute
     public string Description { get; private set; }
 
     /// <summary>
+    /// 任务名称缓存，避免高频调用时重复反射 GetCustomAttribute
+    /// </summary>
+    private static readonly ConcurrentDictionary<Type, string> _jobNameCache = new();
+
+    /// <summary>
     /// 获取任务名称，
     /// 优先返回 JobInfoAttribute.Name（友好中文名），
-    /// 类型未标注特性时退回 type.Name（类名）。
+    /// 特性不存在或 Name 为 null/空字符串时退回 type.Name（类名）。
+    /// 结果按类型缓存，避免高频调用时的反射开销。
     /// 此为全链路统一的任务标识来源：JobServiceLoader 注册/启停、
     /// BaseBackgroundService 写日志、JobsController 查询均应使用本方法，
     /// 避免"任务列表展示类名、日志表存中文名"的双轨不一致问题。
@@ -50,7 +58,11 @@ public class JobInfoAttribute : Attribute
     /// <returns>任务名称</returns>
     public static string GetJobName(Type type)
     {
-        return type.GetCustomAttribute<JobInfoAttribute>()?.Name ?? type.Name;
+        return _jobNameCache.GetOrAdd(type, t =>
+        {
+            var name = t.GetCustomAttribute<JobInfoAttribute>()?.Name;
+            return string.IsNullOrEmpty(name) ? t.Name : name!;
+        });
     }
 
     /// <summary>

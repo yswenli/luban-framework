@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -64,10 +64,10 @@ public static class JobServiceLoader
         {
             if (type == null || type.IsAbstract || type.IsInterface) continue;
 
-            if (_jobNamesFilter == null || _jobNamesFilter.Count < 1 || _jobNamesFilter.Contains(type.Name, StringComparison.InvariantCultureIgnoreCase))
+            if (_jobNamesFilter == null || _jobNamesFilter.Count < 1 || _jobNamesFilter.Contains(JobInfoAttribute.GetJobName(type), StringComparison.InvariantCultureIgnoreCase))
             {
                 _jobFactories.TryAdd(type, () => (IJob)Activator.CreateInstance(type)!);
-                JobInfosCache.Instance.Add(type.Name, "后台任务");
+                JobInfosCache.Instance.Add(JobInfoAttribute.GetJobName(type), "后台任务");
             }
         }
     }
@@ -98,7 +98,7 @@ public static class JobServiceLoader
 
                 foreach (var item in _runningJobs)
                 {
-                    JobInfosCache.Instance.Start(item.Value.GetType().Name);
+                    JobInfosCache.Instance.Start(JobInfoAttribute.GetJobName(item.Value.GetType()));
                 }
             }
         }
@@ -133,7 +133,7 @@ public static class JobServiceLoader
                 {
                     try
                     {
-                        var jobName = item.Value.GetType().Name;
+                        var jobName = JobInfoAttribute.GetJobName(item.Value.GetType());
 
                         // 优先调用带有CancellationToken的Stop方法
                         if (methodName == "Stop")
@@ -168,12 +168,12 @@ public static class JobServiceLoader
                     catch (OperationCanceledException)
                     {
                         // 超时异常，记录日志
-                        Logger.Warn($"任务 {item.Key.Name} 的 {methodName} 方法执行超时");
+                        Logger.Warn($"任务 {JobInfoAttribute.GetJobName(item.Key)} 的 {methodName} 方法执行超时");
                     }
                     catch (Exception ex)
                     {
                         // 其他异常，记录日志
-                        Logger.Error(ex, $"任务 {item.Key.Name} 的 {methodName} 方法执行失败");
+                        Logger.Error(ex, $"任务 {JobInfoAttribute.GetJobName(item.Key)} 的 {methodName} 方法执行失败");
                     }
                 });
 
@@ -211,7 +211,7 @@ public static class JobServiceLoader
     public static void StartJob(string jobName)
     {
         // 先检查是否已经在运行中
-        var runningJob = _runningJobs.FirstOrDefault(u => u.Key.Name.Equals(jobName, StringComparison.InvariantCultureIgnoreCase)).Value;
+        var runningJob = _runningJobs.FirstOrDefault(u => JobInfoAttribute.GetJobName(u.Key).Equals(jobName, StringComparison.InvariantCultureIgnoreCase)).Value;
         if (runningJob != null)
         {
             runningJob.DynamicExecute("Start");
@@ -220,7 +220,7 @@ public static class JobServiceLoader
         }
 
         // 如果不在运行中，检查工厂集合
-        var factoryItem = _jobFactories.FirstOrDefault(u => u.Key.Name.Equals(jobName, StringComparison.InvariantCultureIgnoreCase));
+        var factoryItem = _jobFactories.FirstOrDefault(u => JobInfoAttribute.GetJobName(u.Key).Equals(jobName, StringComparison.InvariantCultureIgnoreCase));
         if (factoryItem.Value != null)
         {
             // 延迟实例化
@@ -239,7 +239,7 @@ public static class JobServiceLoader
     public static void StopJob(string jobName, int timeoutMilliseconds = 5000)
     {
         // 从运行中的任务集合中获取任务
-        var runningItem = _runningJobs.FirstOrDefault(u => u.Key.Name.Equals(jobName, StringComparison.InvariantCultureIgnoreCase));
+        var runningItem = _runningJobs.FirstOrDefault(u => JobInfoAttribute.GetJobName(u.Key).Equals(jobName, StringComparison.InvariantCultureIgnoreCase));
         if (runningItem.Value != null)
         {
             using var cts = new CancellationTokenSource(timeoutMilliseconds);

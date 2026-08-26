@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -273,8 +273,7 @@ public abstract class BaseBackgroundService : BaseService, IJob
     /// <returns></returns>
     private string GetJobName()
     {
-        var attr = GetType().GetCustomAttribute<JobInfoAttribute>();
-        return attr?.Name ?? GetType().Name;
+        return JobInfoAttribute.GetJobName(GetType());
     }
 
     /// <summary>
