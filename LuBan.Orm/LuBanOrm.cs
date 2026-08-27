@@ -675,7 +675,8 @@ public static class LuBanOrm
         if (typeof(TEntity).IsDefined(typeof(TenantAttribute), false))
         {
             var attr = (TenantAttribute)typeof(TEntity).GetCustomAttributes(typeof(TenantAttribute), false)[0];
-            configId = attr.configId.ToString();
+            if (attr.configId != null)
+                configId = attr.configId.ToString();
         }
         if (typeof(TEntity).IsDefined(typeof(LogTableAttribute), false))
         {

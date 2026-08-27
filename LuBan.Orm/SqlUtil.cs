@@ -28,7 +28,18 @@ namespace LuBan.Orm;
 /// </summary>
 public static class SqlUtil
 {
-    static ISqlSugarClient GetClient() => LuBanOrm.SqlSugarScope.CopyNew();
+    static readonly Lazy<ISqlSugarClient> _client = new(() =>
+    {
+        var tenant = ServiceProviderUtil.GetRequiredService<ISqlSugarClient>().AsTenant();
+        return tenant.GetConnectionScope(LuBanOrmConst.MainConfigId);
+    }, LazyThreadSafetyMode.PublicationOnly);
+
+    /// <summary>
+    /// 获取SqlSugar客户端（延迟初始化，PublicationOnly模式初始化失败可重试，避免静态构造函数依赖DI容器导致类型永久损坏）
+    /// 注意：SqlSugarScope 通过 AsyncLocal 实现请求级线程隔离，HTTP 请求上下文中安全。
+    /// 后台线程/Job 场景请勿使用 SqlUtil，应通过 BaseRepository(isolated: true) 或 GetIsolatedClient。
+    /// </summary>
+    static ISqlSugarClient GetClient() => _client.Value;
 
     static readonly Regex _safeNameRegex = new(@"^[a-zA-Z0-9_]+$", RegexOptions.Compiled);
 

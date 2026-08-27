@@ -282,31 +282,24 @@ public abstract class BaseBackgroundService : BaseService, IJob
     private async Task RunAsyncWithLog()
     {
         var jobName = GetJobName();
-        var (logId, startTime) = (0L, DateTime.Now);
+        var (logId, startTickMs) = (0L, 0L);
 
         try
         {
-            // 记录作业开始，返回logId与startTime（startTime用于后续Duration计算，避免从数据库读回导致时间偏差）
-            (logId, startTime) = JobLogService.Instance.LogJobStart(jobName);
+            (logId, startTickMs) = JobLogService.Instance.LogJobStart(jobName);
 
-            // 记录运行次数
             JobInfosCache.Instance.RecordRun(jobName);
 
-            // 执行实际的作业逻辑
             await RunAsync();
 
-            // 执行实际的作业逻辑
             Run();
 
-            // 记录作业成功
-            JobLogService.Instance.LogJobSuccess(logId, startTime, "作业执行成功");
+            JobLogService.Instance.LogJobSuccess(logId, startTickMs, "作业执行成功");
         }
         catch (Exception ex)
         {
-            // 记录作业失败
-            JobLogService.Instance.LogJobFailed(logId, startTime, ex.ToString());
+            JobLogService.Instance.LogJobFailed(logId, startTickMs, ex.ToString());
 
-            // 记录错误次数和最后一次错误信息
             JobInfosCache.Instance.RecordError(jobName, ex.ToString());
 
             if (_userLog)
