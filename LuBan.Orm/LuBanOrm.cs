@@ -669,10 +669,19 @@ public static class LuBanOrm
     /// <returns>独立的 SqlSugarClient 实例</returns>
     public static SqlSugarClient GetIsolatedClient<TEntity>(string tenantId = LuBanOrmConst.MainConfigId) where TEntity : EntityBase, IDeletedFilter, new()
     {
-        // 复用 GetProvider 的逻辑确定 TEntity 对应的库，
-        // GetProvider 仅做 GetConnectionScope（只读，不会改变连接状态），安全
-        var ormProvider = GetProvider<TEntity>(tenantId);
-        var configId = ormProvider.Provider.CurrentConnectionConfig.ConfigId?.ToString();
+        var configId = LuBanOrmConst.MainConfigId;
+        if (!string.IsNullOrEmpty(tenantId) && tenantId != "0")
+            configId = tenantId;
+        if (typeof(TEntity).IsDefined(typeof(TenantAttribute), false))
+        {
+            var attr = (TenantAttribute)typeof(TEntity).GetCustomAttributes(typeof(TenantAttribute), false)[0];
+            configId = attr.configId.ToString();
+        }
+        if (typeof(TEntity).IsDefined(typeof(LogTableAttribute), false))
+        {
+            if (SqlSugarScope.AsTenant().IsAnyConnection(LuBanOrmConst.LogConfigId))
+                configId = LuBanOrmConst.LogConfigId;
+        }
         return GetIsolatedClient(configId);
     }
 

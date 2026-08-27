@@ -97,7 +97,6 @@ public class BaseRepository<TEntity> : SimpleClient<TEntity>, IDisposable
     {
         if (isolated)
         {
-            // 创建独立的 SqlSugarClient，并根据 TEntity 特性自动选择库配置
             _isolatedClient = LuBanOrm.GetIsolatedClient<TEntity>(tenantId.ToString());
             _iTenant = _isolatedClient;
             Context = _isolatedClient;
