@@ -22,28 +22,41 @@
 *
 *****************************************************************************/
 
+using System.Text.Json.Serialization;
+
 namespace LuBan.Web.Core.Swagger.Doc.Models
 {
     /// <summary>
     /// 枚举信息
     /// </summary>
+    /// <remarks>
+    /// 属性名使用英文标识符以符合 C# 命名规范，序列化输出通过
+    /// <see cref="JsonPropertyNameAttribute"/> 保持中文列名，不影响生成的文档内容。
+    /// </remarks>
     public class EnumInfo
     {
         /// <summary>
         /// 枚举类型
         /// </summary>
-        public string 枚举名称 { get; set; }
+        [JsonPropertyName("枚举名称")]
+        public string Name { get; set; }
+
         /// <summary>
         /// 枚举值类型
         /// </summary>
-        public string 枚举类型 { get; set; }
+        [JsonPropertyName("枚举类型")]
+        public string Type { get; set; }
+
         /// <summary>
         /// 枚举值
         /// </summary>
-        public int[] 枚举范围 { get; set; }
+        [JsonPropertyName("枚举范围")]
+        public int[] Range { get; set; }
+
         /// <summary>
         /// 描述
         /// </summary>
-        public string 枚举描述 { get; set; }
+        [JsonPropertyName("枚举描述")]
+        public string Description { get; set; }
     }
 }

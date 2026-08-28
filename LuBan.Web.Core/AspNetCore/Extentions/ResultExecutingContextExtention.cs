@@ -29,6 +29,11 @@ namespace LuBan.Web.Core.AspNetCore.Extentions;
 public static class ResultExecutingContextExtention
 {
     /// <summary>
+    /// 写入日志时结果内容的截断长度（字符数），避免超大响应体占满日志。
+    /// </summary>
+    private const int MaxLogTextLength = 10240;
+
+    /// <summary>
     /// 获取值
     /// </summary>
     /// <param name="resultContext"></param>
@@ -84,7 +89,8 @@ public static class ResultExecutingContextExtention
                         {
                             if (jr.Value is string json)
                             {
-                                result = json.Substring(0, 10240);
+                                // 长度不足时直接取全串，避免 Substring 越界抛异常
+                                result = json.Length <= MaxLogTextLength ? json : json[..MaxLogTextLength];
                             }
                             else
                             {
@@ -113,7 +119,11 @@ public static class ResultExecutingContextExtention
                 }
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            // 日志文本获取失败不应影响请求本身，但需留下痕迹便于排查
+            Logger.Warn($"序列化响应结果用于日志记录失败: {ex.Message}");
+        }
         return result;
     }
 }

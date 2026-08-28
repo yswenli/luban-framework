@@ -138,7 +138,7 @@ public class PptShape
     /// <returns></returns>
     public bool ReplaceTextInTable(string oldStr, string newStr)
     {
-        if (oldStr.IsNotNullOrEmpty()) return false;
+        if (oldStr.IsNullOrEmpty()) return false;
         if (_shape is Table table && table != null && table.Rows != null && table.Rows.Count > 0)
         {
             for (int rowIndex = 0; rowIndex < table.Rows.Count; rowIndex++)
@@ -148,7 +148,7 @@ public class PptShape
                     var cell = table.Rows[rowIndex][cellIndex];
                     if (cell != null && cell.TextFrame != null && cell.TextFrame.Text.IsNotNullOrEmpty() && cell.TextFrame.Text.IndexOf(oldStr) > -1)
                     {
-                        cell.TextFrame.Text.Replace(oldStr, newStr);
+                        cell.TextFrame.Text = cell.TextFrame.Text.Replace(oldStr, newStr);
                     }
                 }
             }

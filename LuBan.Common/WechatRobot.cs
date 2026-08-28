@@ -56,12 +56,25 @@ public class WeChatRobot : BaseSingleInstance<WeChatRobot>
 
 
     /// <summary>
-    /// 发送消息
+    /// 发送消息（使用配置中的默认Key）
     /// </summary>
     /// <param name="msg"></param>
-    /// <param name="key"></param>
+    /// <param name="mentioneds"></param>
     public void SendMsg(string msg, params string[] mentioneds)
     {
-        SendMsg(msg, "d1910225-bbc5-4c00-8889-c7f50359e163", mentioneds);
+        var key = NacosConfigUtil.Read<WechatRobotOptions>()?.WebhookKey
+            ?? throw new InvalidOperationException("未配置企业微信机器人WebhookKey，请在配置文件中设置 WechatRobotOptions:WebhookKey");
+        SendMsg(msg, key, mentioneds);
     }
+}
+
+/// <summary>
+/// 企业微信机器人配置
+/// </summary>
+public class WechatRobotOptions
+{
+    /// <summary>
+    /// Webhook Key
+    /// </summary>
+    public string WebhookKey { get; set; } = "";
 }

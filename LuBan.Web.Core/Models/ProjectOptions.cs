@@ -84,4 +84,16 @@ public class ProjectOptions
     /// 水印文本
     /// </summary>
     public string Watermark { get; set; } = "LuBan管理平台";
+    /// <summary>
+    /// 启用用户名密码登录
+    /// </summary>
+    public bool LoginByUserName { get; set; } = true;
+    /// <summary>
+    /// 启用手机号登录
+    /// </summary>
+    public bool LoginByMobile { get; set; } = true;
+    /// <summary>
+    /// 启用扫码登录
+    /// </summary>
+    public bool LoginByScan { get; set; } = false;
 }

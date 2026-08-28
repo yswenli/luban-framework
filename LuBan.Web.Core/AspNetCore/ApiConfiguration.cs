@@ -117,16 +117,31 @@ public static class ApiConfiguration
     public static void SetDefaultCors(this IServiceCollection services)
     {
         ConsoleUtil.WriteLineWithCount("正在设置跨域", color: ConsoleColor.Green);
+
+        var allowedOrigins = HostingOptions.Default?.AppOptions?.AllowedOrigins;
+        var hasConfiguredOrigins = allowedOrigins != null && allowedOrigins.Length > 0;
+
         services.AddCors(options =>
         {
             options.AddDefaultPolicy(
                 builder =>
                 {
-                    builder.AllowAnyOrigin()
-                    .AllowAnyMethod()
-                    .AllowAnyHeader()
-                    .WithExposedHeaders("x-elsa-workflow-instance-id");
-                    //.AllowCredentials();
+                    if (hasConfiguredOrigins)
+                    {
+                        builder.WithOrigins(allowedOrigins!)
+                        .AllowAnyMethod()
+                        .AllowAnyHeader()
+                        .AllowCredentials()
+                        .WithExposedHeaders("x-elsa-workflow-instance-id");
+                    }
+                    else
+                    {
+                        // WARNING: 未配置 AllowedOrigins，允许任意来源跨域，不建议在生产环境使用
+                        builder.AllowAnyOrigin()
+                        .AllowAnyMethod()
+                        .AllowAnyHeader()
+                        .WithExposedHeaders("x-elsa-workflow-instance-id");
+                    }
                 });
         });
     }

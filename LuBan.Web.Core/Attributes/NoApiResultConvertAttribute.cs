@@ -28,7 +28,20 @@ namespace LuBan.Web.Core.Attributes;
 /// 不进行全局ApiResult转换
 /// </summary>
 [AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = true)]
-public class NoApiResultConvertAtrribute : Attribute
+public class NoApiResultConvertAttribute : Attribute
+{
+
+}
+
+/// <summary>
+/// 不进行全局ApiResult转换（旧拼写兼容类型）。
+/// </summary>
+/// <remarks>
+/// 原类型名 <c>NoApiResultConvertAtrribute</c> 多了一个字母 r，已修正为
+/// <see cref="NoApiResultConvertAttribute"/>。此处保留空子类仅为兼容既有代码，请改用新名称。
+/// </remarks>
+[Obsolete("拼写错误已修正，请改用 NoApiResultConvertAttribute。")]
+public class NoApiResultConvertAtrribute : NoApiResultConvertAttribute
 {
 
 }

@@ -34,10 +34,15 @@ public class OpenApiClient : BaseSingleInstance<OpenApiClient>
 {
     const string CacheKey = $"{CacheConst.KeySystem}Qingflow:AccessToken";
 
+    private const int QingflowTokenExpiredCode = 49300;
+    private const int HttpTimeoutSeconds = 180;
+
     /// <summary>
     /// 轻流接口客户端配置
     /// </summary>
     public QingflowOptions Options { get; private set; }
+
+    private readonly Lazy<List<QAppInfo>> _appList;
 
 
     /// <summary>
@@ -117,7 +122,11 @@ public class OpenApiClient : BaseSingleInstance<OpenApiClient>
         {
             Options = options;
         }
-        _ = GetAppListAsync().Result;
+        _appList = new Lazy<List<QAppInfo>>(() =>
+        {
+            var result = GetAppListAsync().GetAwaiter().GetResult();
+            return result?.Result?.AppList ?? new List<QAppInfo>();
+        });
     }
 
     /// <summary>
@@ -136,6 +145,28 @@ public class OpenApiClient : BaseSingleInstance<OpenApiClient>
     /// https://exiao.yuque.com/ixwxsb/cqfg2y/wqwm2f6byxobl55e
     /// </summary>
     /// <returns></returns>
+    /// <summary>
+    /// 处理轻流接口返回的错误码：Token 过期时刷新并允许重试一次，其余错误码直接抛异常。
+    /// 用于消除各 API 方法中重复的错误处理逻辑。
+    /// </summary>
+    /// <param name="errCode">接口返回的错误码</param>
+    /// <param name="errMsg">接口返回的错误信息</param>
+    /// <param name="url">请求的 url，用于异常信息</param>
+    /// <param name="isRetry">是否已经重试过</param>
+    private static void HandleErrCode(int errCode, string? errMsg, string url, bool isRetry)
+    {
+        if (errCode == 0) return;
+
+        if (errCode == QingflowTokenExpiredCode)
+        {
+            if (isRetry)
+                throw new Exception($"调用轻流接口失败，Token刷新后仍无效，url:{url}");
+            return;
+        }
+
+        throw new Exception($"调用轻流接口失败,url:{url}，{errCode}:{errMsg}");
+    }
+
     public async Task<QResult<AppInfoList>?> GetAppListAsync()
     {
         var dic = GetHeaders();
@@ -143,7 +174,7 @@ public class OpenApiClient : BaseSingleInstance<OpenApiClient>
         {
             dic["accessToken"] = Options.SuperAdminToken;
             var url = $"{Options.Domain}/app";
-            var result = await url.HttpGetAsync<QResult<AppInfoList>>(dic, 180);
+            var result = await url.HttpGetAsync<QResult<AppInfoList>>(dic, HttpTimeoutSeconds);
             if (result != null && result.ErrCode == 0 && result.Result != null && result.Result.AppList != null)
             {
                 Options.QingflowApps.Clear();
@@ -181,13 +212,13 @@ public class OpenApiClient : BaseSingleInstance<OpenApiClient>
     /// <param name="pageNum"></param>
     /// <param name="pageSize"></param>
     /// <returns></returns>
-    public async Task<QResult<QPagedList<AppData>>> GetAppDataListAsync(GetAppDataListInput input)
+    public async Task<QResult<QPagedList<AppData>>> GetAppDataListAsync(GetAppDataListInput input, bool isRetry = false)
     {
         QResult<QPagedList<AppData>>? result = null;
         do
         {
             var url = $"{Options.Domain}/app/{input.AppId}/apply/filter";
-            var data = await url.HttpPostAsync<QResult<QPagedList<AppData>>>(input, GetHeaders(), 180);
+            var data = await url.HttpPostAsync<QResult<QPagedList<AppData>>>(input, GetHeaders(), HttpTimeoutSeconds);
             if (data == null)
             {
                 throw new Exception($"调用轻流接口失败，url:{url},{data?.ErrCode}:{data?.ErrMsg}");
@@ -196,12 +227,12 @@ public class OpenApiClient : BaseSingleInstance<OpenApiClient>
             {
                 if (data.ErrCode != 0)
                 {
-                    if (data.ErrCode == 49300)
+                    HandleErrCode(data.ErrCode, data.ErrMsg, url, isRetry);
+                    if (data.ErrCode == QingflowTokenExpiredCode)
                     {
                         GetAccessToken(true);
-                        return await GetAppDataListAsync(input);
+                        return await GetAppDataListAsync(input, isRetry: true);
                     }
-                    throw new Exception($"调用轻流接口失败，url:{url}，{data?.ErrCode}:{data?.ErrMsg}");
                 }
                 if (data.Result != null && data.Result.Result != null)
                 {
@@ -242,7 +273,7 @@ public class OpenApiClient : BaseSingleInstance<OpenApiClient>
         List<TitleValueCollection> result = [];
         foreach (var item in appData.Result.Result)
         {
-            var tvc = item.FiledInfos.Select(q => new TitleValue(q.QueTitle, q.Values?.FirstOrDefault()?.Value ?? "")).ToList().ConvertToTitleValueCollection();
+            var tvc = item.FieldInfos.Select(q => new TitleValue(q.QueTitle, q.Values?.FirstOrDefault()?.Value ?? "")).ToList().ConvertToTitleValueCollection();
             result.Add(tvc);
         }
         return result;
@@ -254,24 +285,21 @@ public class OpenApiClient : BaseSingleInstance<OpenApiClient>
     /// <param name="appDataId"></param>
     /// <returns></returns>
     /// <exception cref="Exception"></exception>
-    public async Task<QResult<AppData>> GetAppDataByIdAsync(long appDataId)
+    public async Task<QResult<AppData>> GetAppDataByIdAsync(long appDataId, bool isRetry = false)
     {
         var url = $"{Options.Domain}/apply/{appDataId}";
-        var result = await url.HttpGetAsync<QResult<AppData>>(GetHeaders(), 180);
+        var result = await url.HttpGetAsync<QResult<AppData>>(GetHeaders(), HttpTimeoutSeconds);
         if (result == null)
         {
             throw new Exception($"调用轻流接口失败,url:{url}，{result?.ErrCode}:{result?.ErrMsg}");
         }
         else
         {
-            if (result.ErrCode != 0)
+            HandleErrCode(result.ErrCode, result.ErrMsg, url, isRetry);
+            if (result.ErrCode == QingflowTokenExpiredCode)
             {
-                if (result.ErrCode == 49300)
-                {
-                    GetAccessToken(true);
-                    return await GetAppDataByIdAsync(appDataId);
-                }
-                throw new Exception($"调用轻流接口失败,url:{url}，{result?.ErrCode}:{result?.ErrMsg}");
+                GetAccessToken(true);
+                return await GetAppDataByIdAsync(appDataId, isRetry: true);
             }
             return result;
         }
@@ -289,7 +317,7 @@ public class OpenApiClient : BaseSingleInstance<OpenApiClient>
         {
             return null;
         }
-        return appData.Result.FiledInfos.Select(q => new TitleValue(q.QueTitle, q.Values?.FirstOrDefault()?.Value ?? "")).ToList().ConvertToTitleValueCollection();
+        return appData.Result.FieldInfos.Select(q => new TitleValue(q.QueTitle, q.Values?.FirstOrDefault()?.Value ?? "")).ToList().ConvertToTitleValueCollection();
     }
 
     /// <summary>
@@ -356,7 +384,7 @@ public class OpenApiClient : BaseSingleInstance<OpenApiClient>
              {
                  new AppDataQuery()
                  {
-                      QueId = 3,
+                      QueId = input.DateQueId,
                       MinValue = input.FromDateTime.ToString("yyyy-MM-dd HH:mm:ss"),
                       MaxValue = input.ToDateTime.ToString("yyyy-MM-dd HH:mm:ss")
                  }
@@ -383,7 +411,7 @@ public class OpenApiClient : BaseSingleInstance<OpenApiClient>
             {
                  new AppDataQuery()
                  {
-                      QueId = 3,
+                      QueId = input.DateQueId,
                       MinValue = input.FromDateTime.ToString("yyyy-MM-dd HH:mm:ss"),
                       MaxValue = input.ToDateTime.ToString("yyyy-MM-dd HH:mm:ss")
                  }
@@ -398,10 +426,10 @@ public class OpenApiClient : BaseSingleInstance<OpenApiClient>
     /// <param name="input"></param>
     /// <returns></returns>
     /// <exception cref="Exception"></exception>
-    public async Task<string> DeleteAppDataAsync(GetAppDataListInput input)
+    public async Task<string> DeleteAppDataAsync(GetAppDataListInput input, bool isRetry = false)
     {
         var url = $"{Options.Domain}/app/{input.AppId}/apply";
-        var result = await url.HttpDeleteAsync<QResult<RequestInfo>>(input, GetHeaders(), 180);
+        var result = await url.HttpDeleteAsync<QResult<RequestInfo>>(input, GetHeaders(), HttpTimeoutSeconds);
         if (result == null)
         {
             throw new Exception($"调用轻流接口失败，url:{url},{result?.ErrCode}:{result?.ErrMsg}");
@@ -410,12 +438,12 @@ public class OpenApiClient : BaseSingleInstance<OpenApiClient>
         {
             if (result.ErrCode != 0)
             {
-                if (result.ErrCode == 49300)
+                HandleErrCode(result.ErrCode, result.ErrMsg, url, isRetry);
+                if (result.ErrCode == QingflowTokenExpiredCode)
                 {
                     GetAccessToken(true);
-                    return await DeleteAppDataAsync(input);
+                    return await DeleteAppDataAsync(input, isRetry: true);
                 }
-                throw new Exception($"调用轻流接口失败，url:{url}，{result?.ErrCode}:{result?.ErrMsg}");
             }
             return result.Result.RequestId;
         }
@@ -454,9 +482,9 @@ public class OpenApiClient : BaseSingleInstance<OpenApiClient>
         {
             if (where != null)
             {
-                if (!item.FiledInfos.Any(where)) continue;
+                if (!item.FieldInfos.Any(where)) continue;
             }
-            var tableValues = item.FiledInfos.Where(q => q.QueTitle == input.QueTitleOfTable).Select(q => q.TableValues).ToList();
+            var tableValues = item.FieldInfos.Where(q => q.QueTitle == input.QueTitleOfTable).Select(q => q.TableValues).ToList();
             if (tableValues == null || tableValues.Count < 1) continue;
 
             foreach (var tableValue in tableValues)
@@ -492,10 +520,10 @@ public class OpenApiClient : BaseSingleInstance<OpenApiClient>
         {
             if (where != null)
             {
-                if (!item.FiledInfos.Any(where)) continue;
+                if (!item.FieldInfos.Any(where)) continue;
             }
 
-            var collection = item.FiledInfos.Select(q => new TitleValue(q.QueTitle, q.Values?.FirstOrDefault()?.Value ?? "")).ToList().ConvertToTitleValueCollection();
+            var collection = item.FieldInfos.Select(q => new TitleValue(q.QueTitle, q.Values?.FirstOrDefault()?.Value ?? "")).ToList().ConvertToTitleValueCollection();
             if (collection == null) continue;
 
             var dataResult = collection.ConvertTo<T1>();
@@ -504,7 +532,7 @@ public class OpenApiClient : BaseSingleInstance<OpenApiClient>
             List<T2> tableResult = [];
             result.TryAdd(dataResult, tableResult);
 
-            var tableValues = item.FiledInfos.Where(q => q.QueTitle == input.QueTitleOfTable).Select(q => q.TableValues).ToList();
+            var tableValues = item.FieldInfos.Where(q => q.QueTitle == input.QueTitleOfTable).Select(q => q.TableValues).ToList();
             if (tableValues == null || tableValues.Count < 1) continue;
 
             foreach (var tableValue in tableValues)
@@ -632,10 +660,10 @@ public class OpenApiClient : BaseSingleInstance<OpenApiClient>
     /// </summary>
     /// <param name="dataId"></param>
     /// <returns></returns>
-    public async Task<QResult<AuditFlowInfo>> GetAuditFlowListAsync(string dataId)
+    public async Task<QResult<AuditFlowInfo>> GetAuditFlowListAsync(string dataId, bool isRetry = false)
     {
         var url = $"{Options.Domain}/apply/{dataId}/auditRecord";
-        var result = await url.HttpGetAsync<QResult<AuditFlowInfo>>(GetHeaders(), 180);
+        var result = await url.HttpGetAsync<QResult<AuditFlowInfo>>(GetHeaders(), HttpTimeoutSeconds);
         if (result == null)
         {
             throw new Exception($"调用轻流接口失败，url:{url},{result?.ErrCode}:{result?.ErrMsg}");
@@ -644,12 +672,13 @@ public class OpenApiClient : BaseSingleInstance<OpenApiClient>
         {
             if (result.ErrCode != 0)
             {
-                if (result.ErrCode == 49300)
+                if (result.ErrCode == QingflowTokenExpiredCode)
+                HandleErrCode(result.ErrCode, result.ErrMsg, url, isRetry);
+                if (result.ErrCode == QingflowTokenExpiredCode)
                 {
                     GetAccessToken(true);
-                    return await GetAuditFlowListAsync(dataId);
+                    return await GetAuditFlowListAsync(dataId, isRetry: true);
                 }
-                throw new Exception($"调用轻流接口失败，{result?.ErrCode}:{result?.ErrMsg}");
             }
             return result;
         }
@@ -715,10 +744,10 @@ public class OpenApiClient : BaseSingleInstance<OpenApiClient>
     /// <param name="userId"></param>
     /// <returns></returns>
     /// <exception cref="Exception"></exception>
-    public async Task<QResult<QUser>> GetUserAsync(string userId)
+    public async Task<QResult<QUser>> GetUserAsync(string userId, bool isRetry = false)
     {
         var url = $"{Options.Domain}/user/{userId}";
-        var result = await url.HttpGetAsync<QResult<QUser>>(GetHeaders(), 180);
+        var result = await url.HttpGetAsync<QResult<QUser>>(GetHeaders(), HttpTimeoutSeconds);
         if (result == null)
         {
             throw new Exception($"调用轻流接口失败,url:{url}，{result?.ErrCode}:{result?.ErrMsg}");
@@ -727,12 +756,12 @@ public class OpenApiClient : BaseSingleInstance<OpenApiClient>
         {
             if (result.ErrCode != 0)
             {
-                if (result.ErrCode == 49300)
+                HandleErrCode(result.ErrCode, result.ErrMsg, url, isRetry);
+                if (result.ErrCode == QingflowTokenExpiredCode)
                 {
                     GetAccessToken(true);
-                    return await GetUserAsync(userId);
+                    return await GetUserAsync(userId, isRetry: true);
                 }
-                throw new Exception($"调用轻流接口失败,url:{url}，{result?.ErrCode}:{result?.ErrMsg}");
             }
             return result;
         }
@@ -748,10 +777,10 @@ public class OpenApiClient : BaseSingleInstance<OpenApiClient>
     /// </summary>
     /// <param name="input"></param>
     /// <returns></returns>
-    public async Task<QResult<QPagedList<AppData>>> GetChartDataAsync(GetChartDataListInput input)
+    public async Task<QResult<QPagedList<AppData>>> GetChartDataAsync(GetChartDataListInput input, bool isRetry = false)
     {
         var url = $"{Options.Domain}/chart/{input.ChartKey}/apply/filter";
-        var result = await url.HttpPostAsync<QResult<QPagedList<AppData>>>(input, GetHeaders(), 180);
+        var result = await url.HttpPostAsync<QResult<QPagedList<AppData>>>(input, GetHeaders(), HttpTimeoutSeconds);
         if (result == null)
         {
             throw new Exception($"调用轻流接口失败,url:{url}，{result?.ErrCode}:{result?.ErrMsg}");
@@ -760,12 +789,12 @@ public class OpenApiClient : BaseSingleInstance<OpenApiClient>
         {
             if (result.ErrCode != 0)
             {
-                if (result.ErrCode == 49300)
+                HandleErrCode(result.ErrCode, result.ErrMsg, url, isRetry);
+                if (result.ErrCode == QingflowTokenExpiredCode)
                 {
                     GetAccessToken(true);
-                    return await GetChartDataAsync(input);
+                    return await GetChartDataAsync(input, isRetry: true);
                 }
-                throw new Exception($"调用轻流接口失败,url:{url}，{result?.ErrCode}:{result?.ErrMsg}");
             }
             return result;
         }

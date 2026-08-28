@@ -62,15 +62,17 @@ public class EmailImap : IDisposable, IEMailClient
     /// 收信
     /// </summary>
     /// <param name="cancellationToken"></param>
+    /// <param name="maxCount">最大接收邮件数量，默认100，防止大邮箱内存溢出</param>
     /// <returns></returns>
-    public async Task<List<Message>> RecieveAsync(CancellationToken cancellationToken = default)
+    public async Task<List<Message>> RecieveAsync(CancellationToken cancellationToken = default, int maxCount = 100)
     {
         var result = new List<Message>();
         var inBox = _imapClient.Inbox;
         inBox.Open(FolderAccess.ReadOnly);
         var count = inBox.Count;
         if (count < 1) return result;
-        for (int i = 0; i < count; i++)
+        var limit = Math.Min(count, maxCount);
+        for (int i = 0; i < limit; i++)
         {
             var message = await inBox.GetMessageAsync(i, cancellationToken);
             if (message != null)

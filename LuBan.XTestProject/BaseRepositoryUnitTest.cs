@@ -111,6 +111,8 @@ namespace LuBan.XTestProject
                         var user = new DbUser
                         {
                             Account = $"concurrent_test_{index}_{Guid.NewGuid():N}",
+                            // ⚠ 安全提示：此处的 YOUR_PASSWORD 为占位符，请勿替换为真实凭据后提交。
+            // 真实凭据请通过环境变量读取，或配置在 appsettings.json 并确保该文件不被提交。
                             Password = "YOUR_PASSWORD",
                             RealName = $"Test User {index}",
                             OrgId = 1,

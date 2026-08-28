@@ -1,4 +1,4 @@
-/****************************************************************************
+﻿/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：YSWENLI
@@ -345,7 +345,7 @@ public class SwaggerDocGenerator : ISwaggerDocGenerator
             // 处理枚举
             if (info is Models.EnumInfo enumInfo)
             {
-                markdown.AppendLine($"|{parent ?? "-"}|enum|{position}|{enumInfo.枚举描述 ?? "-"}|-");
+                markdown.AppendLine($"|{parent ?? "-"}|enum|{position}|{enumInfo.Description ?? "-"}|-");
                 return;
             }
             // 处理属性字典
@@ -358,47 +358,47 @@ public class SwaggerDocGenerator : ISwaggerDocGenerator
                     if (kv.Value is RequestModelInfo req)
                     {
                         // 对象类型递归
-                        if (req.参数类型 is IDictionary<string, object> subDict)
+                        if (req.ParameterType is IDictionary<string, object> subDict)
                         {
                             AppendRows(subDict, name, position);
                         }
                         else
                         {
-                            var argType = req.参数类型;
+                            var argType = req.ParameterType;
                             if (argType == null)
                             {
                                 argType = "-";
                             }
                             if (argType is Models.EnumInfo argEnumInfo)
                             {
-                                markdown.AppendLine($"|{name ?? "-"}|enum|{position}|{(req.是否必传 ? "否" : "是")}|{req.描述 ?? "-"}|");
+                                markdown.AppendLine($"|{name ?? "-"}|enum|{position}|{(req.Required ? "否" : "是")}|{req.Description ?? "-"}|");
                             }
                             else
                             {
-                                markdown.AppendLine($"|{name ?? "-"}|{req.参数类型 ?? "-"}|{position}|{(req.是否必传 ? "否" : "是")}|{req.描述 ?? "-"}|");
+                                markdown.AppendLine($"|{name ?? "-"}|{req.ParameterType ?? "-"}|{position}|{(req.Required ? "否" : "是")}|{req.Description ?? "-"}|");
                             }
                         }
                     }
                     else if (kv.Value is ResponseModelInfo resp)
                     {
-                        if (resp.参数类型 is IDictionary<string, object> subDict)
+                        if (resp.ParameterType is IDictionary<string, object> subDict)
                         {
                             AppendRows(subDict, name, position);
                         }
                         else
                         {
-                            var argType = resp.参数类型;
+                            var argType = resp.ParameterType;
                             if (argType == null)
                             {
                                 argType = "-";
                             }
                             if (argType is Models.EnumInfo argEnumInfo)
                             {
-                                markdown.AppendLine($"|{name ?? "-"}|enum|{position}|{(resp.可空类型 ? "否" : "是")}|{resp.描述 ?? "-"}|");
+                                markdown.AppendLine($"|{name ?? "-"}|enum|{position}|{(resp.Nullable ? "否" : "是")}|{resp.Description ?? "-"}|");
                             }
                             else
                             {
-                                markdown.AppendLine($"|{name ?? "-"}|{resp.参数类型 ?? "-"}|{position}|{(resp.可空类型 ? "是" : "否")}|{resp.描述 ?? "-"}|");
+                                markdown.AppendLine($"|{name ?? "-"}|{resp.ParameterType ?? "-"}|{position}|{(resp.Nullable ? "是" : "否")}|{resp.Description ?? "-"}|");
                             }
                         }
                     }
@@ -454,10 +454,10 @@ public class SwaggerDocGenerator : ISwaggerDocGenerator
         if (schema?.Properties == null || schema.Properties.Count == 0)
             return new Models.EnumInfo()
             {
-                枚举范围 = GetEnumValues(key),
-                枚举描述 = schema.Description,
-                枚举类型 = schema.Format,
-                枚举名称 = key
+                Range = GetEnumValues(key),
+                Description = schema.Description,
+                Type = schema.Format,
+                Name = key
             };
         var properties = new Dictionary<string, object>();
         foreach (var item in schema.Properties)
@@ -491,10 +491,10 @@ public class SwaggerDocGenerator : ISwaggerDocGenerator
                 var enumObj = GetEnumSchema(enumKey);
                 obj = new Models.EnumInfo()
                 {
-                    枚举范围 = GetEnumValues(enumKey),
-                    枚举类型 = enumObj.Format,
-                    枚举名称 = enumKey,
-                    枚举描述 = enumObj.Description
+                    Range = GetEnumValues(enumKey),
+                    Type = enumObj.Format,
+                    Name = enumKey,
+                    Description = enumObj.Description
                 };
             }
             else
@@ -506,10 +506,10 @@ public class SwaggerDocGenerator : ISwaggerDocGenerator
             {
                 var requestModelInfo = new RequestModelInfo
                 {
-                    参数类型 = obj ?? "",
-                    描述 = item.Value.Description,
-                    是否必传 = schema.Required.Any(x => x == item.Key),
-                    可空类型 = (item.Value.Type.HasValue && item.Value.Type.Value.HasFlag(JsonSchemaType.Null))
+                    ParameterType = obj ?? "",
+                    Description = item.Value.Description,
+                    Required = schema.Required.Any(x => x == item.Key),
+                    Nullable = (item.Value.Type.HasValue && item.Value.Type.Value.HasFlag(JsonSchemaType.Null))
                 };
                 properties.Add(item.Key, requestModelInfo);
             }
@@ -517,9 +517,9 @@ public class SwaggerDocGenerator : ISwaggerDocGenerator
             {
                 var responseModelInfo = new ResponseModelInfo
                 {
-                    参数类型 = obj ?? "",
-                    描述 = item.Value.Description,
-                    可空类型 = (item.Value.Type.HasValue && item.Value.Type.Value.HasFlag(JsonSchemaType.Null))
+                    ParameterType = obj ?? "",
+                    Description = item.Value.Description,
+                    Nullable = (item.Value.Type.HasValue && item.Value.Type.Value.HasFlag(JsonSchemaType.Null))
                 };
                 properties.Add(item.Key, responseModelInfo);
             }

@@ -88,7 +88,7 @@ internal abstract class ReportBase<T> where T : class, new()
                     displayType = typeof(string);
                 }
 
-                result.Add(new ReportColumn(displayType, sortNo, property.Name, attribute.Title, attribute.BoolValues, attribute.EnumValues, attribute.DatetimeFormat, attribute.CustormConvert));
+                result.Add(new ReportColumn(displayType, sortNo, property.Name, attribute.Title, attribute.BoolValues, attribute.EnumValues, attribute.DatetimeFormat, attribute.CustomConvert));
             }
         }
 
@@ -126,9 +126,9 @@ internal abstract class ReportBase<T> where T : class, new()
 
                 var val = pi.GetValue(item);
                 if (val == null) continue;
-                if (column.CustormConvert != null)
+                if (column.CustomConvert != null)
                 {
-                    var customConvert = column.CustormConvert.Item1.Invoke(column.CustormConvert.Item2, [val]);
+                    var customConvert = column.CustomConvert.Item1.Invoke(column.CustomConvert.Item2, [val]);
                     newRow[column.Title] = customConvert;
                     continue;
                 }

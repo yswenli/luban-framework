@@ -31,12 +31,12 @@ namespace LuBan.Lives.VZan;
 public class VZLiveClient : BaseLiveClient, ILiveClient
 {
 
-    static readonly VZTokenInfo _tokenInfo = new()
+    readonly VZTokenInfo _tokenInfo = new()
     {
         Date = DateTime.Now.AddYears(-1)
     };
 
-    static readonly object _locker = new();
+    readonly object _locker = new();
 
     /// <summary>
     /// 会议客户端
@@ -68,29 +68,42 @@ public class VZLiveClient : BaseLiveClient, ILiveClient
     protected override Dictionary<string, string> GetBaseHeaders()
     {
         Dictionary<string, string> headers = [];
+
+        // 锁内仅检查 Token 有效性
+        bool needRefresh;
+        string? cachedToken;
         lock (_locker)
         {
-            if (_tokenInfo.Date > DateTime.Now)
-            {
-                headers.Add("Authorization", $"Bearer {_tokenInfo.Token}");
-                return headers;
-            }
-            var timeSpan = DateTime.UtcNow - new DateTime(1970, 1, 1, 0, 0, 0);
-            var ms = (long)timeSpan.TotalMilliseconds;
-            var signkey = $"{_liveOption.AppSecret}{ms}".GetMD5Str();
-            var body = $"{{\"account\":\"{_liveOption.AppId}\",\"signkey\":\"{signkey}\",\"timestamp\":{ms}}}";
-            var response = _httpClient.Post("/api/v2/token/get_token", body);
+            needRefresh = _tokenInfo.Date <= DateTime.Now;
+            cachedToken = _tokenInfo.Token;
+        }
 
-            var data = SerializeUtil.Deserialize<VZResult<VZToken>>(response);
-            if (data != null && data.code == 0)
+        if (!needRefresh)
+        {
+            headers.Add("Authorization", $"Bearer {cachedToken}");
+            return headers;
+        }
+
+        // HTTP 调用在锁外执行，避免锁内同步 HTTP 导致死锁
+        var timeSpan = DateTime.UtcNow - new DateTime(1970, 1, 1, 0, 0, 0);
+        var ms = (long)timeSpan.TotalMilliseconds;
+        var signkey = $"{_liveOption.AppSecret}{ms}".GetMD5Str();
+        var body = $"{{\"account\":\"{_liveOption.AppId}\",\"signkey\":\"{signkey}\",\"timestamp\":{ms}}}";
+        var response = _httpClient.Post("/api/v2/token/get_token", body);
+
+        var data = SerializeUtil.Deserialize<VZResult<VZToken>>(response);
+        if (data != null && data.code == 0)
+        {
+            // 锁内更新 Token 缓存
+            lock (_locker)
             {
                 _tokenInfo.Token = data.data.token;
                 _tokenInfo.Date = DateTime.Now.AddHours(1);
-                headers.Add("Authorization", $"Bearer {_tokenInfo.Token}");
-                return headers;
             }
-            else throw new Exception($"获取vz的token异常，code:{data?.code ?? 999}, msg:{data?.msg ?? ""}");
+            headers.Add("Authorization", $"Bearer {data.data.token}");
+            return headers;
         }
+        else throw new Exception($"获取vz的token异常，code:{data?.code ?? 999}, msg:{data?.msg ?? ""}");
     }
 
     /// <summary>
@@ -172,20 +185,22 @@ public class VZLiveClient : BaseLiveClient, ILiveClient
     /// 获取直播间用户数据
     /// </summary>
     /// <param name="topicId"></param>
+    /// <param name="maxPages">最大分页数，默认100页</param>
     /// <returns></returns>
-    public List<VZLiveUserInfo> GetLiveUserList(long topicId)
+    public List<VZLiveUserInfo> GetLiveUserList(long topicId, int maxPages = 100)
     {
+        const int defaultPageSize = 100;
         var result = new List<VZLiveUserInfo>();
         var pageIndex = 1;
-        var pageSize = 100;
+        var pageSize = defaultPageSize;
         var data = GetLiveUserPagedList(topicId, pageSize, pageIndex);
         if (data.List == null || data.List.Count == 0) return result;
-        while (result.Count < data.Total)
+        while (result.Count < data.Total && pageIndex <= maxPages)
         {
             result.AddRange(data.List);
             var p = data.Total - result.Count;
             if (p <= 0) break;
-            if (p < 100) pageSize = p;
+            if (p < defaultPageSize) pageSize = p;
             pageIndex++;
             data = GetLiveUserPagedList(topicId, pageSize, pageIndex);
         }

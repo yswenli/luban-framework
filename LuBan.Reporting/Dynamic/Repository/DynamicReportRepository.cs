@@ -109,8 +109,16 @@ public class DynamicReportRepository : BaseRepository<DbReportConfig>
     /// <summary>
     /// 根据数据库类型拼接行数限制
     /// </summary>
+    /// <param name="sql">原始查询 SQL。要求本身不含 LIMIT / TOP / ROWNUM 等行数限制子句，
+    /// 否则外层包装会与之冲突（表现为实际返回行数与 maxRows 不符）。</param>
+    /// <param name="maxRows">最大返回行数</param>
+    /// <param name="dbType">数据库类型</param>
+    /// <returns>包装后的 SQL；不支持限制的数据库原样返回</returns>
     private string ApplyRowLimit(string sql, int maxRows, SqlSugar.DbType dbType)
     {
+        // maxRows 为 int 无注入风险，但非正数会导致生成非法 SQL，直接返回原语句
+        if (maxRows <= 0) return sql;
+
         return dbType switch
         {
             // SQL Server: 使用TOP避免子查询列名冲突

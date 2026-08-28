@@ -190,17 +190,22 @@ public class MinIOStorageClient : ICloudStorageClient
     public async Task<bool> UploadAsync(string cloudFileName, string localFilePath, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        using var aesEncryption = Aes.Create();
-        aesEncryption.KeySize = 256;
-        aesEncryption.GenerateKey();
-        var ssec = new SSEC(aesEncryption.Key);
-
         var args = new PutObjectArgs()
         .WithBucket(_option.ContainerName)
         .WithObject(cloudFileName)
         .WithFileName(localFilePath)
-        .WithContentType("application/octet-stream")
-        .WithServerSideEncryption(ssec);
+        .WithContentType("application/octet-stream");
+
+        // 仅在配置了加密密钥时启用服务端加密，避免密钥丢失导致数据不可恢复
+        if (!string.IsNullOrEmpty(_option.EncryptionKey))
+        {
+            using var aesEncryption = Aes.Create();
+            aesEncryption.KeySize = 256;
+            aesEncryption.Key = Convert.FromBase64String(_option.EncryptionKey);
+            var ssec = new SSEC(aesEncryption.Key);
+            args.WithServerSideEncryption(ssec);
+        }
+
         var result = await _minioClient.PutObjectAsync(args);
         return result != null && result.ObjectName.IsNotNullOrEmpty();
     }
@@ -215,17 +220,22 @@ public class MinIOStorageClient : ICloudStorageClient
     public async Task<bool> UploadAsync(string cloudFileName, Stream stream, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        using var aesEncryption = Aes.Create();
-        aesEncryption.KeySize = 256;
-        aesEncryption.GenerateKey();
-        var ssec = new SSEC(aesEncryption.Key);
-
         var args = new PutObjectArgs()
         .WithBucket(_option.ContainerName)
         .WithObject(cloudFileName)
         .WithStreamData(stream)
-        .WithContentType("application/octet-stream")
-        .WithServerSideEncryption(ssec);
+        .WithContentType("application/octet-stream");
+
+        // 仅在配置了加密密钥时启用服务端加密，避免密钥丢失导致数据不可恢复
+        if (!string.IsNullOrEmpty(_option.EncryptionKey))
+        {
+            using var aesEncryption = Aes.Create();
+            aesEncryption.KeySize = 256;
+            aesEncryption.Key = Convert.FromBase64String(_option.EncryptionKey);
+            var ssec = new SSEC(aesEncryption.Key);
+            args.WithServerSideEncryption(ssec);
+        }
+
         var result = await _minioClient.PutObjectAsync(args);
         return result != null && result.ObjectName.IsNotNullOrEmpty();
     }

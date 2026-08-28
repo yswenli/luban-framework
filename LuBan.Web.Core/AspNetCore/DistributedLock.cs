@@ -30,6 +30,12 @@ namespace LuBan.Web.Core.AspNetCore;
 /// </summary>
 public class DistributedLock : IDisposable
 {
+    /// <summary>默认锁超时时间（毫秒）：10 秒</summary>
+    public const int DefaultTimeoutMs = 10000;
+
+    /// <summary>默认最大重试次数：5 次</summary>
+    public const int DefaultMaxRetries = 5;
+
     private readonly IDistributedLock _distributedLock;
     private readonly DistributedLockToken? _token;
 
@@ -37,24 +43,26 @@ public class DistributedLock : IDisposable
     /// 锁名称
     /// </summary>
     public string LockName { get; set; }
-    /// <summary>
-    /// 超时时间
-    /// </summary>
-    public int Timeout { get; set; } = 10000;
 
     /// <summary>
-    /// 最大重试次数
+    /// 获取锁的总超时时间（毫秒）。
+    /// 实际每次重试的等待间隔 = Timeout / MaxRetries，默认 10000/5 = 2000 毫秒。
     /// </summary>
-    public int MaxRetries { get; set; } = 5;
+    public int Timeout { get; set; } = DefaultTimeoutMs;
+
+    /// <summary>
+    /// 最大重试次数。与 <see cref="Timeout"/> 共同决定重试间隔（Timeout / MaxRetries）。
+    /// </summary>
+    public int MaxRetries { get; set; } = DefaultMaxRetries;
 
     /// <summary>
     /// 分布式锁
     /// </summary>
-    /// <param name="lockName"></param>
-    /// <param name="timeout"></param>
-    /// <param name="maxRetries"></param>
-    /// <param name="dbIndex"></param>
-    public DistributedLock(string lockName, int timeout = 10000, int maxRetries = 5, int dbIndex = 0)
+    /// <param name="lockName">锁名称</param>
+    /// <param name="timeout">获取锁的总超时时间（毫秒），重试间隔 = timeout / maxRetries</param>
+    /// <param name="maxRetries">最大重试次数</param>
+    /// <param name="dbIndex">Redis 库索引</param>
+    public DistributedLock(string lockName, int timeout = DefaultTimeoutMs, int maxRetries = DefaultMaxRetries, int dbIndex = 0)
     {
         LockName = lockName;
         Timeout = timeout;

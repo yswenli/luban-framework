@@ -89,7 +89,8 @@ public class CacheableAttribute : Attribute, IAsyncActionFilter, IOrderedFilter
                 {
                     if (Duration < 1)
                     {
-                        context.SetCacheValue(data, TimeSpan.FromDays(9999), Name);
+                        // Duration < 1 表示永久缓存，使用 InfiniteTimeSpan 明确语义
+                        context.SetCacheValue(data, Timeout.InfiniteTimeSpan, Name);
                     }
                     else
                     {

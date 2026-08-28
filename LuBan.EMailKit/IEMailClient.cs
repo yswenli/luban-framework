@@ -38,8 +38,9 @@ public interface IEMailClient : IDisposable
     /// 接收邮件
     /// </summary>
     /// <param name="cancellationToken"></param>
+    /// <param name="maxCount">最大接收邮件数量，默认100，防止大邮箱内存溢出</param>
     /// <returns></returns>
-    Task<List<Message>> RecieveAsync(CancellationToken cancellationToken = default);
+    Task<List<Message>> RecieveAsync(CancellationToken cancellationToken = default, int maxCount = 100);
 
 
     /// <summary>

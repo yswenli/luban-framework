@@ -57,7 +57,7 @@ public class QingflowClientUnitTest
                     PageSize = 10
                 }).Result;
 
-                var fileds = data.Result.Result.Select(q => q.FiledInfos.Select(qq => qq.QueTitle)).ToList();
+                var fileds = data.Result.Result.Select(q => q.FieldInfos.Select(qq => qq.QueTitle)).ToList();
 
                 var dataId = data.Result.Result.First().AppDataId;
 
@@ -104,7 +104,7 @@ public class QingflowClientUnitTest
                     PageSize = 10
                 }).Result;
 
-                var fileds = data.Result.Result.Select(q => q.FiledInfos.Select(qq => qq.QueTitle)).ToList();
+                var fileds = data.Result.Result.Select(q => q.FieldInfos.Select(qq => qq.QueTitle)).ToList();
 
                 var dataId = data.Result.Result.First().AppDataId;
                 var data2 = OpenApiClient.Instance.GetAuditFlowListAsync(dataId.ToString()).Result;
@@ -467,6 +467,8 @@ public class QingflowClientUnitTest
             //领药总明细
             var result = openApiClient.GetChartDataAsync(new GetChartDataListInput()
             {
+                // ⚠ 安全提示：此处的 YOUR_CHART_KEY 为占位符，请勿替换为真实凭据后提交。
+            // 真实凭据请通过环境变量读取，或配置在 appsettings.json 并确保该文件不被提交。
                 ChartKey = "YOUR_CHART_KEY",
                 Filter = new ChartDataListInputFilter()
                 {
@@ -506,6 +508,8 @@ public class QingflowClientUnitTest
             //领药总明细
             var result = openApiClient.GetChartDataByDatetimeAsync(new ChartDataByDatetimeInput()
             {
+                // ⚠ 安全提示：此处的 YOUR_CHART_KEY 为占位符，请勿替换为真实凭据后提交。
+            // 真实凭据请通过环境变量读取，或配置在 appsettings.json 并确保该文件不被提交。
                 ChartKey = "YOUR_CHART_KEY",
                 PageNum = 1,
                 PageSize = 2,
@@ -617,6 +621,8 @@ public class QingflowClientUnitTest
             //领药总明细
             var result = openApiClient.GetChartDataByDatetimeAsync(new ChartDataByDatetimeInput()
             {
+                // ⚠ 安全提示：此处的 YOUR_CHART_KEY 为占位符，请勿替换为真实凭据后提交。
+            // 真实凭据请通过环境变量读取，或配置在 appsettings.json 并确保该文件不被提交。
                 ChartKey = "YOUR_CHART_KEY",
                 PageNum = 1,
                 PageSize = 2,

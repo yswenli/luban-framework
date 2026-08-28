@@ -107,7 +107,7 @@ public class SimpleThreadPool : ISimplePool
         foreach (var task in _taskQueue.GetConsumingEnumerable())
         {
             task.Status = PoolTaskStatus.Running;
-            task.StartTime = DateTime.Now;
+            task.StartTime = DateTime.UtcNow;
             try
             {
                 task.Func().GetAwaiter().GetResult();
@@ -120,7 +120,7 @@ public class SimpleThreadPool : ISimplePool
             }
             finally
             {
-                task.EndTime = DateTime.Now;
+                task.EndTime = DateTime.UtcNow;
             }
         }
     }

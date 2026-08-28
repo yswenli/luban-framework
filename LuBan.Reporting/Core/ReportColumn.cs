@@ -68,7 +68,7 @@ public class ReportColumn
     /// <summary>
     /// 自定义委托转换
     /// </summary>
-    public Tuple<Type, string>? CustormConvert { get; set; }
+    public Tuple<Type, string>? CustomConvert { get; set; }
 
     /// <summary>
     /// 报表列信息
@@ -80,7 +80,7 @@ public class ReportColumn
     /// <param name="boolValues"></param>
     /// <param name="enumValues"></param>
     /// <param name="datetimeFormat"></param>
-    public ReportColumn(Type displayType, int sortNo, string name, string title, List<string>? boolValues = null, List<string>? enumValues = null, string datetimeFormat = "yyyy-MM-dd HH:mm:ss", Tuple<Type, string>? custormConvert = null)
+    public ReportColumn(Type displayType, int sortNo, string name, string title, List<string>? boolValues = null, List<string>? enumValues = null, string datetimeFormat = "yyyy-MM-dd HH:mm:ss", Tuple<Type, string>? customConvert = null)
     {
         DisplayType = displayType;
         if (sortNo <= 0) sortNo = 1;
@@ -91,6 +91,6 @@ public class ReportColumn
         BoolValues = boolValues;
         EnumValues = enumValues;
         DateTimeFormat = datetimeFormat;
-        CustormConvert = custormConvert;
+        CustomConvert = customConvert;
     }
 }

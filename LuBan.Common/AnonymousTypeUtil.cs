@@ -205,11 +205,11 @@ public static class AnonymousTypeUtil
     public static PropertyInfo? GetProperty(this object obj, string propertyName)
     {
         if (obj == null) return null;
-        var propertyInfo = MemoryCache.Instance.Get<PropertyInfo>("ReflectionUtil.GetProperty");
+        var propertyInfo = MemoryCache.Instance.Get<PropertyInfo>("ReflectionUtil.GetProperty"); // 反射结果缓存：PropertyInfo 在运行期间不变，无需过期
         if (propertyInfo == null)
         {
             propertyInfo = obj.GetType().GetProperty(propertyName);
-            MemoryCache.Instance.Set($"{CacheConst.KeySystem}reflectionUtil:getProperty", propertyInfo);
+            MemoryCache.Instance.Set($"{CacheConst.KeySystem}reflectionUtil:getProperty", propertyInfo); // 反射结果缓存：PropertyInfo 在运行期间不变，无需过期
         }
         return propertyInfo;
     }

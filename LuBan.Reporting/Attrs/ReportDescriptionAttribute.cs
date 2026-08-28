@@ -59,7 +59,7 @@ public class ReportDescriptionAttribute : Attribute
     /// <summary>
     /// 自定义委托转换
     /// </summary>
-    public Tuple<Type, string>? CustormConvert { get; set; }
+    public Tuple<Type, string>? CustomConvert { get; set; }
 
     /// <summary>
     /// 报表描述
@@ -116,11 +116,11 @@ public class ReportDescriptionAttribute : Attribute
     /// </summary>
     /// <param name="title">列标题</param>
     /// <param name="sortNo">列位置</param>
-    /// <param name="custormConvert">自定义值的转换方法</param>
-    public ReportDescriptionAttribute(string title, int sortNo, Tuple<Type, string> custormConvert)
+    /// <param name="customConvert">自定义值的转换方法</param>
+    public ReportDescriptionAttribute(string title, int sortNo, Tuple<Type, string> customConvert)
     {
         Title = title;
         SortNo = sortNo;
-        CustormConvert = custormConvert;
+        CustomConvert = customConvert;
     }
 }

@@ -1,4 +1,4 @@
-using LuBan.Orm;
+﻿using LuBan.Orm;
 using LuBan.Orm.Entities;
 using System.Collections.Concurrent;
 using System.Diagnostics;
@@ -139,6 +139,8 @@ public class OrmConcurrentTest
                     var user = new DbUser
                     {
                         Account = $"concurrent_test_{index}_{Guid.NewGuid():N}",
+                        // ⚠ 安全提示：此处的 YOUR_PASSWORD 为占位符，请勿替换为真实凭据后提交。
+            // 真实凭据请通过环境变量读取，或配置在 appsettings.json 并确保该文件不被提交。
                         Password = "YOUR_PASSWORD",
                         RealName = $"Test User {index}",
                         OrgId = 1,
@@ -335,6 +337,8 @@ public class OrmConcurrentTest
                 repo.Insert(new DbUser
                 {
                     Account = marker,
+                    // ⚠ 安全提示：此处的 YOUR_PASSWORD 为占位符，请勿替换为真实凭据后提交。
+            // 真实凭据请通过环境变量读取，或配置在 appsettings.json 并确保该文件不被提交。
                     Password = "YOUR_PASSWORD",
                     RealName = "Rollback Test",
                     OrgId = 1,
@@ -454,6 +458,8 @@ public class OrmConcurrentTest
                         var user = new DbUser
                         {
                             Account = $"stress_{index}_{j}_{Guid.NewGuid():N}",
+                            // ⚠ 安全提示：此处的 YOUR_PASSWORD 为占位符，请勿替换为真实凭据后提交。
+            // 真实凭据请通过环境变量读取，或配置在 appsettings.json 并确保该文件不被提交。
                             Password = "YOUR_PASSWORD",
                             RealName = $"Stress User {index}",
                             OrgId = 1,

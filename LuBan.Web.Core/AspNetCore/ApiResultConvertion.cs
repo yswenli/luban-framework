@@ -82,7 +82,7 @@ public static class ApiResultConvertion
                 }
                 else
                 {
-                    var noApiResultConvertion = value.GetCustomAttribute<NoApiResultConvertAtrribute>() ?? null;
+                    var noApiResultConvertion = value.GetCustomAttribute<NoApiResultConvertAttribute>() ?? null;
                     if (noApiResultConvertion == null)
                     {
                         // 更新value中的URL

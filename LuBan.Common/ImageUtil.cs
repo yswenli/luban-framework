@@ -198,6 +198,8 @@ public class ImageTeplate : IDisposable
 {
     SKMemoryStream _inputStream;
 
+    bool _disposed;
+
     /// <summary>
     /// 图片模板
     /// </summary>
@@ -392,19 +394,34 @@ public class ImageTeplate : IDisposable
         finalImage.Encode(SKEncodedImageFormat.Png, 100).SaveTo(ms);
         ms.Seek(0, SeekOrigin.Begin);
 
-        // 强制垃圾回收以释放SkiaSharp资源
-        GC.Collect();
-        GC.WaitForPendingFinalizers();
-
         return ms;
     }
 
     /// <summary>
     /// 释放资源
     /// </summary>
+    /// <summary>
+    /// 释放图片模板持有的非托管资源。
+    /// 类内其余 SkiaSharp 对象（SKSurface/SKCanvas/SKImage）均为方法内 using 局部变量，无需在此释放。
+    /// </summary>
     public void Dispose()
     {
-        _inputStream.Dispose();
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    /// <summary>
+    /// 释放资源，<paramref name="disposing"/> 为 true 时同时释放托管资源。
+    /// </summary>
+    /// <param name="disposing">是否由 Dispose 显式调用</param>
+    protected virtual void Dispose(bool disposing)
+    {
+        if (_disposed) return;
+        if (disposing)
+        {
+            _inputStream.Dispose();
+        }
+        _disposed = true;
     }
 }
 /// <summary>

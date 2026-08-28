@@ -89,9 +89,9 @@ public sealed class AppOptions
     public bool EnablePartialRequest { get; set; } = true;
 
     /// <summary>
-    /// 默认全局验证码
+    /// 全局验证码（未配置时禁用全局验证码功能）
     /// </summary>
-    public string GloabVerifyCode { get; set; } = "9365";
+    public string GloabVerifyCode { get; set; } = "";
 
     /// <summary>
     /// 是否启用SignalR
@@ -106,6 +106,11 @@ public sealed class AppOptions
     /// 在线用户配置
     /// </summary>
     public OnlineUserOptions OnlineUser { get; set; } = new();
+
+    /// <summary>
+    /// 允许的跨域 Origin 列表，为空时允许所有来源（仅建议开发环境使用）
+    /// </summary>
+    public string[] AllowedOrigins { get; set; } = [];
 }
 
 /// <summary>

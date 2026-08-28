@@ -61,7 +61,9 @@ public class AIClientBuilder
     /// <summary>
     /// 初始化 <see cref="AIClientBuilder"/> 类的新实例。
     /// </summary>    
-    public AIClientBuilder() : this(ConfigUtil.Read<AIOptions>() ?? throw new Exception("找不到ai配置"))
+    public AIClientBuilder() : this(ConfigUtil.Read<AIOptions>()
+        ?? throw new InvalidOperationException(
+            "AI configuration not found. Please configure the AIOptions section (e.g. in appsettings.json) before creating AIClientBuilder."))
     {
     }
 

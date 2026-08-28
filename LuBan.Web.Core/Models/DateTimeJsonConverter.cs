@@ -23,6 +23,8 @@
 *****************************************************************************/
 
 
+using System.Globalization;
+
 namespace LuBan.Web.Core.Models;
 
 /// <summary>
@@ -39,7 +41,16 @@ public class DateTimeJsonConverter : JsonConverter<DateTime>
     /// <returns></returns>
     public override DateTime Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
-        return DateTime.Parse(reader.GetString() ?? "");
+        var str = reader.GetString();
+        // 空值返回 default，避免 DateTime.Parse("") 抛异常
+        if (string.IsNullOrWhiteSpace(str)) return default;
+
+        // RoundtripKind 保留原始时区语义，避免跨时区解析歧义
+        if (DateTime.TryParse(str, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var result))
+            return result;
+
+        // 无法解析时返回 default，交由上层校验；不抛异常避免序列化中断整个请求
+        return default;
     }
 
     /// <summary>

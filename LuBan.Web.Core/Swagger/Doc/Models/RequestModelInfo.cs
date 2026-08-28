@@ -22,6 +22,8 @@
 *
 *****************************************************************************/
 
+using System.Text.Json.Serialization;
+
 namespace LuBan.Web.Core.Swagger.Doc.Models
 {
     /// <summary>
@@ -32,6 +34,7 @@ namespace LuBan.Web.Core.Swagger.Doc.Models
         /// <summary>
         /// 是否必传
         /// </summary>
-        public bool 是否必传 { get; set; }
+        [JsonPropertyName("是否必传")]
+        public bool Required { get; set; }
     }
 }

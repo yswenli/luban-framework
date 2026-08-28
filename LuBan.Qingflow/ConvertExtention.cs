@@ -53,7 +53,7 @@ public static class ConvertExtention
 
         foreach (var appData in appDatas)
         {
-            var model = ConvertTo<T>(appData.FiledInfos);
+            var model = ConvertTo<T>(appData.FieldInfos);
             if (model != null)
             {
                 model.AppDataId = appData.AppDataId;
@@ -73,7 +73,7 @@ public static class ConvertExtention
     public static T? ConvertTo<T>(this AppData appData)
          where T : class, IAppData
     {
-        var model = ConvertTo<T>(appData.FiledInfos);
+        var model = ConvertTo<T>(appData.FieldInfos);
         if (model != null)
         {
             model.AppDataId = appData.AppDataId;

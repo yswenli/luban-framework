@@ -299,8 +299,7 @@ public class FlowExecutor : IDisposable
         }
 
         // 检查流程是否已结束
-        if (string.Equals(state.Status, ConstApprovalFlowStatus.Completed, StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(state.Status, ConstApprovalFlowStatus.Processing, StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(state.Status, ConstApprovalFlowStatus.Completed, StringComparison.OrdinalIgnoreCase))
         {
             return state;
         }
@@ -395,6 +394,8 @@ public class FlowExecutor : IDisposable
         }
     }
 
+    private const int MaxAdvanceDepth = 50;
+
     /// <summary>
     /// 自动推进流程：无需用户操作，系统自动将流程从当前节点推进到下一个节点。
     /// </summary>
@@ -403,6 +404,21 @@ public class FlowExecutor : IDisposable
     /// <returns>推进后的流程状态。</returns>
     public async Task<FlowRuntimeState> AutoAdvanceAsync(long recordId, FlowRuntimeState? state = null)
     {
+        return await AutoAdvanceAsync(recordId, state, 0);
+    }
+
+    /// <summary>
+    /// 自动推进流程（内部方法，带递归深度限制）。
+    /// </summary>
+    /// <param name="recordId">流程记录ID。</param>
+    /// <param name="state">当前流程状态（可选，为空则从记录中获取）。</param>
+    /// <param name="depth">当前递归深度。</param>
+    /// <returns>推进后的流程状态。</returns>
+    private async Task<FlowRuntimeState> AutoAdvanceAsync(long recordId, FlowRuntimeState? state, int depth)
+    {
+        if (depth >= MaxAdvanceDepth)
+            throw new InvalidOperationException($"流程自动推进超过最大深度限制 ({MaxAdvanceDepth})，可能存在环路配置");
+
         try
         {
             // 使用命名锁确保并发安全
@@ -502,7 +518,7 @@ public class FlowExecutor : IDisposable
                 // 继续自动推进（如果是自动节点）
                 if (IsAutoAdvanceNode(nextNode))
                 {
-                    return await AutoAdvanceAsync(recordId, state);
+                    return await AutoAdvanceAsync(recordId, state, depth + 1);
                 }
 
                 return state;

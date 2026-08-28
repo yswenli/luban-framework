@@ -93,7 +93,7 @@ public class SimpleTaskPool : ISimplePool
             await _semaphore.WaitAsync(_cts.Token).ConfigureAwait(false);
             acquired = true;
             poolTask.Status = PoolTaskStatus.Running;
-            poolTask.StartTime = DateTime.Now;
+            poolTask.StartTime = DateTime.UtcNow;
             await poolTask.Func().ConfigureAwait(false);
             poolTask.Status = PoolTaskStatus.Success;
         }
@@ -109,7 +109,7 @@ public class SimpleTaskPool : ISimplePool
         }
         finally
         {
-            poolTask.EndTime = DateTime.Now;
+            poolTask.EndTime = DateTime.UtcNow;
             Interlocked.Decrement(ref _pendingCount);
             if (acquired)
             {
@@ -152,14 +152,45 @@ public class SimpleTaskPool : ISimplePool
         }
     }
 
+    /// <summary>
+    /// 已完成任务在状态字典中的保留时长，超过后清理，避免调用方尚未查询结果就被移除。
+    /// </summary>
+    private static readonly TimeSpan CompletedRetention = TimeSpan.FromMinutes(5);
+
+    /// <summary>
+    /// 状态字典的容量上限，超出后强制清理最旧的已完成任务，防止高吞吐下内存持续增长。
+    /// </summary>
+    private const int MaxTrackedTasks = 10000;
+
     private void CleanupCompletedTasks()
     {
+        var cutoff = DateTime.UtcNow - CompletedRetention;
+
+        // 仅清理已超过保留期的终态任务，避免刚完成就被移除导致调用方查不到状态
         var completedIds = _taskStatusDict
-            .Where(kvp => kvp.Value.Status == PoolTaskStatus.Success || kvp.Value.Status == PoolTaskStatus.Failed)
+            .Where(kvp => (kvp.Value.Status == PoolTaskStatus.Success || kvp.Value.Status == PoolTaskStatus.Failed)
+                          && kvp.Value.EndTime.HasValue
+                          && kvp.Value.EndTime.Value < cutoff)
             .Select(kvp => kvp.Key)
             .ToList();
 
         foreach (var id in completedIds)
+        {
+            _taskStatusDict.TryRemove(id, out _);
+        }
+
+        // 容量兜底：仍超上限时，按 EndTime 从旧到新强制清理终态任务
+        if (_taskStatusDict.Count <= MaxTrackedTasks) return;
+
+        var overflow = _taskStatusDict.Count - MaxTrackedTasks;
+        var oldestIds = _taskStatusDict
+            .Where(kvp => kvp.Value.Status == PoolTaskStatus.Success || kvp.Value.Status == PoolTaskStatus.Failed)
+            .OrderBy(kvp => kvp.Value.EndTime ?? DateTime.MaxValue)
+            .Take(overflow)
+            .Select(kvp => kvp.Key)
+            .ToList();
+
+        foreach (var id in oldestIds)
         {
             _taskStatusDict.TryRemove(id, out _);
         }

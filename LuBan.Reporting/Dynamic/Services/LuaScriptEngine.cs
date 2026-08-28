@@ -22,6 +22,8 @@
 *
 *****************************************************************************/
 
+using System.Collections.Concurrent;
+
 namespace LuBan.Reporting.Dynamic.Services;
 
 /// <summary>
@@ -29,55 +31,61 @@ namespace LuBan.Reporting.Dynamic.Services;
 /// </summary>
 public class LuaScriptEngine : IDisposable
 {
-    private readonly Script _engine;
+    private readonly ConcurrentDictionary<string, Delegate> _customFunctions = new();
     private readonly HttpClient _httpClient;
 
     public LuaScriptEngine()
     {
-        _engine = new Script(CoreModules.Preset_SoftSandbox);
         _httpClient = new HttpClient();
         _httpClient.Timeout = TimeSpan.FromSeconds(30);
-        Initialize();
     }
 
     /// <summary>
-    /// 注入框架函数
+    /// 创建独立的 Lua 脚本引擎实例（每次调用创建新实例，避免全局状态竞态）
     /// </summary>
-    private void Initialize()
+    private Script CreateEngine()
     {
+        var engine = new Script(CoreModules.Preset_SoftSandbox);
+
         // HTTP 调用
-        _engine.Globals["http_get"] = (Func<string, object>)HttpGet;
-        _engine.Globals["http_post"] = (Func<string, string, object>)HttpPost;
-        _engine.Globals["http_put"] = (Func<string, string, object>)HttpPut;
-        _engine.Globals["http_delete"] = (Func<string, object>)HttpDelete;
-        _engine.Globals["http_patch"] = (Func<string, string, object>)HttpPatch;
+        engine.Globals["http_get"] = (Func<string, object>)HttpGet;
+        engine.Globals["http_post"] = (Func<string, string, object>)HttpPost;
+        engine.Globals["http_put"] = (Func<string, string, object>)HttpPut;
+        engine.Globals["http_delete"] = (Func<string, object>)HttpDelete;
+        engine.Globals["http_patch"] = (Func<string, string, object>)HttpPatch;
 
         // JSON 处理
-        _engine.Globals["json_parse"] = (Func<string, object>)JsonParse;
-        _engine.Globals["json_stringify"] = (Func<object, string>)JsonStringify;
+        engine.Globals["json_parse"] = (Func<string, object>)JsonParse;
+        engine.Globals["json_stringify"] = (Func<object, string>)JsonStringify;
 
         // 字符串处理
-        _engine.Globals["string_format"] = (Func<string, DynValue[], string>)StringFormat;
-        _engine.Globals["string_split"] = (Func<string, string, List<string>>)StringSplit;
-        _engine.Globals["string_match"] = (Func<string, string, string?>)StringMatch;
+        engine.Globals["string_format"] = (Func<string, DynValue[], string>)StringFormat;
+        engine.Globals["string_split"] = (Func<string, string, List<string>>)StringSplit;
+        engine.Globals["string_match"] = (Func<string, string, string?>)StringMatch;
 
         // 日期处理
-        _engine.Globals["date_format"] = (Func<object, string, string>)DateFormat;
-        _engine.Globals["date_now"] = (Func<string>)DateNow;
+        engine.Globals["date_format"] = (Func<object, string, string>)DateFormat;
+        engine.Globals["date_now"] = (Func<string>)DateNow;
 
         // 加密
-        _engine.Globals["md5"] = (Func<string, string>)Md5;
-        _engine.Globals["sha256"] = (Func<string, string>)Sha256;
-        _engine.Globals["base64_encode"] = (Func<string, string>)Base64Encode;
-        _engine.Globals["base64_decode"] = (Func<string, string>)Base64Decode;
+        engine.Globals["md5"] = (Func<string, string>)Md5;
+        engine.Globals["sha256"] = (Func<string, string>)Sha256;
+        engine.Globals["base64_encode"] = (Func<string, string>)Base64Encode;
+        engine.Globals["base64_decode"] = (Func<string, string>)Base64Decode;
 
         // 正则
-        _engine.Globals["regex_match"] = (Func<string, string, string?>)RegexMatch;
-        _engine.Globals["regex_replace"] = (Func<string, string, string, string>)RegexReplace;
+        engine.Globals["regex_match"] = (Func<string, string, string?>)RegexMatch;
+        engine.Globals["regex_replace"] = (Func<string, string, string, string>)RegexReplace;
 
         // 日志
-        _engine.Globals["log_info"] = (Action<string>)Logger.Info;
-        _engine.Globals["log_error"] = (Action<string>)Logger.Error;
+        engine.Globals["log_info"] = (Action<string>)Logger.Info;
+        engine.Globals["log_error"] = (Action<string>)Logger.Error;
+
+        // 注册自定义函数
+        foreach (var kvp in _customFunctions)
+            engine.Globals[kvp.Key] = kvp.Value;
+
+        return engine;
     }
 
     /// <summary>
@@ -85,7 +93,7 @@ public class LuaScriptEngine : IDisposable
     /// </summary>
     public void RegisterFunction(string name, Delegate func)
     {
-        _engine.Globals[name] = func;
+        _customFunctions[name] = func;
     }
 
     /// <summary>
@@ -93,8 +101,9 @@ public class LuaScriptEngine : IDisposable
     /// </summary>
     public string GenerateSql(string sqlTemplateScript, Dictionary<string, object>? sqlParams)
     {
-        _engine.Globals["params"] = sqlParams ?? new Dictionary<string, object>();
-        var result = _engine.DoString(sqlTemplateScript);
+        var engine = CreateEngine();
+        engine.Globals["params"] = sqlParams ?? new Dictionary<string, object>();
+        var result = engine.DoString(sqlTemplateScript);
         return result.String;
     }
 
@@ -103,13 +112,14 @@ public class LuaScriptEngine : IDisposable
     /// </summary>
     public string ConvertValue(string converterScript, string expression, object value)
     {
+        var engine = CreateEngine();
         // 1. 先执行转换脚本（定义函数）
         if (!converterScript.IsNullOrEmpty())
-            _engine.DoString(converterScript);
+            engine.DoString(converterScript);
 
         // 2. 设置 value 并执行表达式
-        _engine.Globals["value"] = value?.ToString() ?? "";
-        var result = _engine.DoString(expression);
+        engine.Globals["value"] = value?.ToString() ?? "";
+        var result = engine.DoString(expression);
         return result?.String ?? "";
     }
 
@@ -118,7 +128,8 @@ public class LuaScriptEngine : IDisposable
     /// </summary>
     public string Execute(string script)
     {
-        var result = _engine.DoString(script);
+        var engine = CreateEngine();
+        var result = engine.DoString(script);
         return result?.String ?? "";
     }
 
@@ -135,7 +146,8 @@ public class LuaScriptEngine : IDisposable
         catch (Exception ex)
         {
             Logger.Error($"HTTP GET failed: {ex.Message}");
-            return "";
+            // 抛出异常而非返回空串：返回空串会让脚本无法区分"请求失败"与"响应为空"
+            throw new InvalidOperationException($"HTTP GET failed for url '{url}': {ex.Message}", ex);
         }
     }
 
@@ -151,7 +163,8 @@ public class LuaScriptEngine : IDisposable
         catch (Exception ex)
         {
             Logger.Error($"HTTP POST failed: {ex.Message}");
-            return "";
+            // 抛出异常而非返回空串：返回空串会让脚本无法区分"请求失败"与"响应为空"
+            throw new InvalidOperationException($"HTTP POST failed for url '{url}': {ex.Message}", ex);
         }
     }
 
@@ -167,7 +180,8 @@ public class LuaScriptEngine : IDisposable
         catch (Exception ex)
         {
             Logger.Error($"HTTP PUT failed: {ex.Message}");
-            return "";
+            // 抛出异常而非返回空串：返回空串会让脚本无法区分"请求失败"与"响应为空"
+            throw new InvalidOperationException($"HTTP PUT failed for url '{url}': {ex.Message}", ex);
         }
     }
 
@@ -182,7 +196,8 @@ public class LuaScriptEngine : IDisposable
         catch (Exception ex)
         {
             Logger.Error($"HTTP DELETE failed: {ex.Message}");
-            return "";
+            // 抛出异常而非返回空串：返回空串会让脚本无法区分"请求失败"与"响应为空"
+            throw new InvalidOperationException($"HTTP DELETE failed for url '{url}': {ex.Message}", ex);
         }
     }
 
@@ -202,7 +217,8 @@ public class LuaScriptEngine : IDisposable
         catch (Exception ex)
         {
             Logger.Error($"HTTP PATCH failed: {ex.Message}");
-            return "";
+            // 抛出异常而非返回空串：返回空串会让脚本无法区分"请求失败"与"响应为空"
+            throw new InvalidOperationException($"HTTP PATCH failed for url '{url}': {ex.Message}", ex);
         }
     }
 
@@ -244,7 +260,7 @@ public class LuaScriptEngine : IDisposable
 
     private string? StringMatch(string str, string pattern)
     {
-        var match = Regex.Match(str, pattern);
+        var match = Regex.Match(str, pattern, RegexOptions.None, TimeSpan.FromSeconds(5));
         return match.Success ? match.Value : null;
     }
 
@@ -286,13 +302,13 @@ public class LuaScriptEngine : IDisposable
 
     private string? RegexMatch(string str, string pattern)
     {
-        var match = Regex.Match(str, pattern);
+        var match = Regex.Match(str, pattern, RegexOptions.None, TimeSpan.FromSeconds(5));
         return match.Success ? match.Value : null;
     }
 
     private string RegexReplace(string str, string pattern, string replacement)
     {
-        return Regex.Replace(str, pattern, replacement);
+        return Regex.Replace(str, pattern, replacement, RegexOptions.None, TimeSpan.FromSeconds(5));
     }
 
 

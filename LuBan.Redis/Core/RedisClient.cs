@@ -143,7 +143,7 @@ public class RedisClient
         return MemoryCache.Instance.GetOrSet($"{CacheConst.KeySystem}redis:queue:{topic}", (k) =>
         {
             return new RedisQueue<T>(this, topic, timeout, dbIndex);
-        })!;
+        }, TimeSpan.FromMinutes(10))!;
     }
 
     #region redis stream
@@ -160,7 +160,7 @@ public class RedisClient
         return MemoryCache.Instance.GetOrSet($"{CacheConst.KeySystem}redis:producer:{topic}", (k) =>
         {
             return new RedisProducer(this, topic, dbIndex, maxLength);
-        })!;
+        }, TimeSpan.FromMinutes(10))!;
     }
     /// <summary>
     /// 获取redis消费者
@@ -174,7 +174,7 @@ public class RedisClient
         return MemoryCache.Instance.GetOrSet($"{CacheConst.KeySystem}redis:consumer:{topic}_{groupName}", (k) =>
         {
             return new RedisConsumer(this, topic, dbIndex, groupName);
-        })!;
+        }, TimeSpan.FromMinutes(10))!;
     }
 
     #endregion
@@ -191,7 +191,7 @@ public class RedisClient
         return MemoryCache.Instance.GetOrSet($"{CacheConst.KeySystem}redis:publisher:{channel}", (k) =>
         {
             return new RedisPublisher(this, channel);
-        })!;
+        }, TimeSpan.FromMinutes(10))!;
     }
 
     /// <summary>
@@ -204,7 +204,7 @@ public class RedisClient
         return MemoryCache.Instance.GetOrSet($"{CacheConst.KeySystem}redis:subscriber:{channel}", (k) =>
         {
             return new RedisSubscriber(this, channel);
-        })!;
+        }, TimeSpan.FromMinutes(10))!;
     }
 
     /// <summary>

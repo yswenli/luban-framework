@@ -57,36 +57,39 @@ public class Limiter
     /// <param name="action"></param>
     public void Execut(Action action)
     {
-        using var lockInfo = LockerBuilder.Default.Create("Limiter.GetOrSet");
-
-        if (_size < _maxSize)
+        int sleepMs = 0;
+        using (var lockInfo = LockerBuilder.Default.Create("Limiter.GetOrSet"))
         {
-            _size++;
-        }
-        else if (_size == _maxSize)
-        {
-            _dateTime = DateTimeUtil.Now;
-            _size++;
-        }
-        else
-        {
-            var timeSpan = DateTimeUtil.Now - _dateTime;
-
-            if (timeSpan.TotalSeconds < _recoverySeconds)
+            if (_size < _maxSize)
             {
-                Thread.Sleep((int)((_recoverySeconds - timeSpan.TotalSeconds) * 1000));
+                _size++;
+            }
+            else if (_size == _maxSize)
+            {
                 _dateTime = DateTimeUtil.Now;
+                _size++;
             }
             else
             {
-                _size = _maxSize - ((int)(timeSpan.TotalSeconds / _recoverySeconds));
+                var timeSpan = DateTimeUtil.Now - _dateTime;
 
-                if (_size <= 1)
+                if (timeSpan.TotalSeconds < _recoverySeconds)
                 {
-                    _size = 1;
+                    sleepMs = (int)((_recoverySeconds - timeSpan.TotalSeconds) * 1000);
+                    _dateTime = DateTimeUtil.Now;
+                }
+                else
+                {
+                    _size = _maxSize - ((int)(timeSpan.TotalSeconds / _recoverySeconds));
+
+                    if (_size <= 1)
+                    {
+                        _size = 1;
+                    }
                 }
             }
         }
+        if (sleepMs > 0) Thread.Sleep(sleepMs);
         action.Invoke();
 
     }
@@ -99,36 +102,39 @@ public class Limiter
     /// <returns></returns>
     public T Execut<T>(Func<T> func)
     {
-        using var lockInfo = LockerBuilder.Default.Create("Limiter.GetOrSet");
-
-        if (_size < _maxSize)
+        int sleepMs = 0;
+        using (var lockInfo = LockerBuilder.Default.Create("Limiter.GetOrSet"))
         {
-            _size++;
-        }
-        else if (_size == _maxSize)
-        {
-            _dateTime = DateTimeUtil.Now;
-            _size++;
-        }
-        else
-        {
-            var timeSpan = DateTimeUtil.Now - _dateTime;
-
-            if (timeSpan.TotalSeconds < _recoverySeconds)
+            if (_size < _maxSize)
             {
-                Thread.Sleep((int)((_recoverySeconds - (int)timeSpan.TotalSeconds) * 1000));
+                _size++;
+            }
+            else if (_size == _maxSize)
+            {
                 _dateTime = DateTimeUtil.Now;
+                _size++;
             }
             else
             {
-                _size = _maxSize - ((int)(timeSpan.TotalSeconds / _recoverySeconds));
+                var timeSpan = DateTimeUtil.Now - _dateTime;
 
-                if (_size <= 1)
+                if (timeSpan.TotalSeconds < _recoverySeconds)
                 {
-                    _size = 1;
+                    sleepMs = (int)((_recoverySeconds - (int)timeSpan.TotalSeconds) * 1000);
+                    _dateTime = DateTimeUtil.Now;
+                }
+                else
+                {
+                    _size = _maxSize - ((int)(timeSpan.TotalSeconds / _recoverySeconds));
+
+                    if (_size <= 1)
+                    {
+                        _size = 1;
+                    }
                 }
             }
         }
+        if (sleepMs > 0) Thread.Sleep(sleepMs);
         return func.Invoke();
 
     }

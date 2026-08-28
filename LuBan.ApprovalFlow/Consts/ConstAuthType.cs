@@ -21,7 +21,11 @@ public class ConstAuthType
     public const string Bearer = "bearer";
 
     /// <summary>
-    /// API密钥认证
+    /// API密钥认证（通过请求头或查询参数传递 API Key）
     /// </summary>
+    /// <remarks>
+    /// 常量名与取值一致（"apiKey"）容易造成混淆：此处的 "apiKey" 是认证方式的标识符，
+    /// 并非某个具体的密钥值。配置 <c>AuthConfig.Type</c> 时使用本常量。
+    /// </remarks>
     public const string ApiKey = "apiKey";
 }

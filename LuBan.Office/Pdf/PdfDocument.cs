@@ -71,7 +71,7 @@ public class PdfDocument : IDisposable
         var textFragmentCollection = textFragmentAbsorber.TextFragments;
         foreach (TextFragment textFragment in textFragmentCollection)
         {
-            textFragment.TextState.Font = FontRepository.FindFont(oldText);
+            textFragment.TextState.Font = FontRepository.FindFont(newText);
             textFragment.Text = newText;
             textFragment.TextState.FontSize = 22;
             textFragment.TextState.ForegroundColor = Aspose.Pdf.Color.FromRgb(System.Drawing.Color.Blue);

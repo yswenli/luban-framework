@@ -41,12 +41,26 @@ public static class SqlUtil
     /// </summary>
     static ISqlSugarClient GetClient() => _client.Value;
 
+    /// <summary>简单标识符：仅字母、数字、下划线，用于表名/列名。</summary>
     static readonly Regex _safeNameRegex = new(@"^[a-zA-Z0-9_]+$", RegexOptions.Compiled);
+
+    /// <summary>限定标识符：允许 别名.列名 形式（如 a.ID），用于 GetSqlInString / GetSqlOrString。</summary>
+    static readonly Regex _qualifiedNameRegex = new(@"^[a-zA-Z0-9_]+(\.[a-zA-Z0-9_]+)?$", RegexOptions.Compiled);
 
     static void ValidateSqlIdentifier(string name, string paramName)
     {
         if (string.IsNullOrWhiteSpace(name) || !_safeNameRegex.IsMatch(name))
             throw new ArgumentException($"Invalid {paramName}: '{name}'");
+    }
+
+    /// <summary>
+    /// 校验限定标识符（如 "a.ID"），防止 sqlObject 参数被注入任意 SQL 片段。
+    /// </summary>
+    static void ValidateQualifiedIdentifier(string name, string paramName)
+    {
+        if (string.IsNullOrWhiteSpace(name) || !_qualifiedNameRegex.IsMatch(name))
+            throw new ArgumentException(
+                $"Invalid {paramName}: '{name}'。仅允许 [a-zA-Z0-9_] 或 别名.列名 形式，不得包含 SQL 片段。");
     }
 
     /// <summary>
@@ -235,6 +249,8 @@ public static class SqlUtil
     public static string GetSqlInString<T>(this List<T> data, ref Dictionary<string, object> sqlParamas, string sqlObject, bool isAnd = true)
     {
         if (data == null || data.Count < 1) return string.Empty;
+        // sqlObject 直接拼入 SQL，必须校验，防止注入
+        ValidateQualifiedIdentifier(sqlObject, nameof(sqlObject));
         var sp = new StringPlus("AND(");
         if (!isAnd)
         {
@@ -250,6 +266,7 @@ public static class SqlUtil
             sqlParamas.Add(pName, pValue);
             pNames.Add(pName);
         }
+        if (pNames.Count < 1) return string.Empty;
         sp.Append($"{sqlObject} IN ({string.Join(",", pNames)})) ");
         return sp.ToString();
     }
@@ -280,24 +297,27 @@ public static class SqlUtil
     public static string GetSqlOrString<T>(this List<T> data, ref Dictionary<string, object> sqlParamas, string sqlObject, bool isAnd = true)
     {
         if (data == null || data.Count < 1) return string.Empty;
+        // sqlObject 直接拼入 SQL，必须校验，防止注入
+        ValidateQualifiedIdentifier(sqlObject, nameof(sqlObject));
         var sp = new StringPlus("AND(");
         if (!isAnd)
         {
             sp = new StringPlus("OR(");
         }
         var rnd = RandomUtil.GetRndCodeStr(10, 4);
+        var hasValue = false;
         for (int i = 0; i < data.Count; i++)
         {
             var pName = $"{rnd}{i}";
             var pValue = data[i];
             if (pValue == null) continue;
             sqlParamas.Add(pName, pValue);
+            // 非首个条件前补 OR，避免末尾多余 OR 或全空时生成 "AND() " 非法片段
+            if (hasValue) sp.Append("OR ");
             sp.Append($"{sqlObject}=@{pName} ");
-            if (i < data.Count - 1)
-            {
-                sp.Append("OR ");
-            }
+            hasValue = true;
         }
+        if (!hasValue) return string.Empty;
         sp.Append(") ");
         return sp.ToString();
     }

@@ -40,24 +40,31 @@ internal class LuBanOrmMiddleware(RequestDelegate next)
     /// <returns></returns>
     public async Task Invoke(HttpContext context)
     {
-        try
+        // 数据权限过滤是安全边界：过滤失败必须拒绝请求，不能放行后按未过滤的数据继续执行
+        if (context.GetEndpoint()?.Metadata.GetMetadata<IgnoreDataScopePermissionAttribute>() == null)
         {
-            if (context.GetEndpoint()?.Metadata.GetMetadata<IgnoreDataScopePermissionAttribute>() == null)
+            try
             {
                 if (ServiceProviderUtil.GetRequiredService<ISqlSugarClient>() is not SqlSugarScope client)
-                    throw new Exception("LuBanOrm初始化失败，未配置LuBanORM");
+                    throw new InvalidOperationException("LuBanOrm初始化失败，未配置LuBanORM");
                 client.CurrentConnectionConfig.IsAutoCloseConnection = true;
                 var provider = client.GetConnectionScope(client.CurrentConnectionConfig.ConfigId);
                 DataScopePermissionFilter.SetOrgDataScopeFilter(provider!);
             }
+            catch (Exception ex)
+            {
+                Logger.Error("数据范围权限过滤器异常，已拒绝该请求", ex);
+
+                // 响应已开始时无法改写状态码，只能中断；否则返回 403 拒绝访问
+                if (context.Response.HasStarted) return;
+
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                context.Response.ContentType = "application/json; charset=utf-8";
+                await context.Response.WriteAsync("{\"success\":false,\"msg\":\"数据范围权限校验失败，拒绝访问\"}");
+                return;
+            }
         }
-        catch (Exception ex)
-        {
-            Logger.Error("数据范围权限过滤器异常", ex);
-        }
-        finally
-        {
-            await _next(context);
-        }
+
+        await _next(context);
     }
 }

@@ -253,6 +253,12 @@ public class DatabaseService
     /// <exception cref="Exception"></exception>
     private string GetColumnDefinitionInMySQL(ISqlSugarClient db, string tableName, string columnName, bool noDefault = false)
     {
+        // 安全校验：防止SQL注入
+        if (string.IsNullOrWhiteSpace(tableName) || !System.Text.RegularExpressions.Regex.IsMatch(tableName, @"^[a-zA-Z0-9_]+$"))
+            throw new ArgumentException($"Invalid tableName: '{tableName}'");
+        if (string.IsNullOrWhiteSpace(columnName) || !System.Text.RegularExpressions.Regex.IsMatch(columnName, @"^[a-zA-Z0-9_]+$"))
+            throw new ArgumentException($"Invalid columnName: '{columnName}'");
+
         var columnDef = db.Ado.SqlQuery<dynamic>(
             $"SHOW FULL COLUMNS FROM `{tableName}` WHERE Field = '{columnName}'"
         ).FirstOrDefault();

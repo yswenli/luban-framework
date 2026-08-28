@@ -343,6 +343,13 @@ public class ApprovalFlowEngine
             if (state.Context.TryGetValue("totalCount", out var tc)) totalCount = Convert.ToInt32(tc);
         }
 
+        // totalCount 为 0 时，从节点审批人列表推导
+        if (totalCount <= 0)
+        {
+            var assignees = GetAssignees(node, state);
+            totalCount = assignees?.Count ?? 0;
+        }
+
         // 根据操作更新计数
         switch (action)
         {
@@ -354,11 +361,12 @@ public class ApprovalFlowEngine
                 break;
         }
 
-        // 保存更新后的计数
+        // 保存更新后的计数（包括 totalCount）
         if (state.Context != null)
         {
             state.Context["approvedCount"] = approvedCount;
             state.Context["rejectedCount"] = rejectedCount;
+            state.Context["totalCount"] = totalCount;
         }
 
         await Task.CompletedTask;

@@ -169,12 +169,15 @@ public bool RemoveLock(string lockName)
 
     if (_lockPool.TryRemove(lockName, out var semaphore))
     {
-        if (semaphore.CurrentCount == 1)
+        // 原子性地尝试获取信号量所有权，避免 TOCTOU 竞态
+        if (semaphore.CurrentCount == 1 && semaphore.Wait(0))
         {
+            // 成功获取所有权，可以安全 Dispose
             semaphore.Dispose();
         }
         else
         {
+            // 其他线程持有或正在等待，将信号量放回池中
             _lockPool[lockName] = semaphore;
         }
         return true;
@@ -194,9 +197,18 @@ public bool RemoveLock(string lockName)
         {
             if (semaphore.CurrentCount == 1)
             {
-                if (_lockPool.TryRemove(lockName, out var removedSemaphore) && removedSemaphore.CurrentCount == 1)
+                if (_lockPool.TryRemove(lockName, out var removedSemaphore))
                 {
-                    removedSemaphore.Dispose();
+                    // 原子性地尝试获取信号量所有权，避免 TOCTOU 竞态
+                    if (removedSemaphore.CurrentCount == 1 && removedSemaphore.Wait(0))
+                    {
+                        removedSemaphore.Dispose();
+                    }
+                    else
+                    {
+                        // 其他线程持有或正在等待，将信号量放回池中
+                        _lockPool[lockName] = removedSemaphore;
+                    }
                 }
             }
         }

@@ -42,12 +42,12 @@ public class DataResult : ContentResult, IActionResult
     /// </summary>
     /// <param name="content"></param>
     /// <param name="statusCode"></param>
-    /// <param name="contenType"></param>
-    public DataResult(string content, int statusCode, string contenType = "text/html; charset=utf-8")
+    /// <param name="contentType"></param>
+    public DataResult(string content, int statusCode, string contentType = "text/html; charset=utf-8")
     {
         Content = content;
         StatusCode = statusCode;
-        ContentType = contenType;
+        ContentType = contentType;
     }
 
     /// <summary>

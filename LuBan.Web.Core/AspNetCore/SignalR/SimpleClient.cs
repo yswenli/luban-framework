@@ -13,13 +13,16 @@ public class SimpleClient : IDisposable, IAsyncDisposable
     /// Simple SignalR client
     /// </summary>
     /// <param name="wsUrl"></param>
-    /// <param name="timeOut"></param>
+    /// <param name="timeOut">心跳间隔与服务端超时时间（秒）。服务端超时至少应为心跳间隔的 2 倍。</param>
     public SimpleClient(string wsUrl = "wss://localhost:7000/hubs/common", int timeOut = 30)
     {
+        // 服务端超时设为心跳间隔的 2 倍，避免网络抖动导致误判断连
+        var keepAlive = TimeSpan.FromSeconds(timeOut > 0 ? timeOut : 30);
+        var serverTimeout = TimeSpan.FromSeconds(keepAlive.TotalSeconds * 2);
+
         connection = new HubConnectionBuilder()
-            .WithKeepAliveInterval(TimeSpan.FromSeconds(30))
-            .WithKeepAliveInterval(TimeSpan.FromSeconds(30))
-            .WithServerTimeout(TimeSpan.FromSeconds(30))
+            .WithKeepAliveInterval(keepAlive)
+            .WithServerTimeout(serverTimeout)
             .WithUrl(wsUrl)
             .WithAutomaticReconnect()
             .WithStatefulReconnect()

@@ -77,7 +77,7 @@ public class AzureStorageClient : ICloudStorageClient
         }
         catch (Exception ex)
         {
-            Logger.Error("Azure上传文件失败", ex, cloudFileName, localFilePath);
+            Logger.Error("Azure上传文件失败: " + SanitizeErrorMessage(ex), ex, cloudFileName);
         }
         return false;
     }
@@ -104,7 +104,7 @@ public class AzureStorageClient : ICloudStorageClient
         }
         catch (Exception ex)
         {
-            Logger.Error("Azure上传文件失败", ex, cloudFileName, localFilePath);
+            Logger.Error("Azure上传文件失败: " + SanitizeErrorMessage(ex), ex, cloudFileName);
         }
         return false;
     }
@@ -129,7 +129,7 @@ public class AzureStorageClient : ICloudStorageClient
         }
         catch (Exception ex)
         {
-            Logger.Error("Azure上传文件流失败", ex, cloudFileName);
+            Logger.Error("Azure上传文件流失败: " + SanitizeErrorMessage(ex), cloudFileName);
         }
         return false;
     }
@@ -157,7 +157,7 @@ public class AzureStorageClient : ICloudStorageClient
         }
         catch (Exception ex)
         {
-            Logger.Error("Azure上传文件流失败", ex, cloudFileName);
+            Logger.Error("Azure上传文件流失败: " + SanitizeErrorMessage(ex), cloudFileName);
         }
         return false;
     }
@@ -182,7 +182,7 @@ public class AzureStorageClient : ICloudStorageClient
         }
         catch (Exception ex)
         {
-            Logger.Error("Azure下载文件流失败", ex, cloudFileName);
+            Logger.Error("Azure下载文件流失败: " + SanitizeErrorMessage(ex), cloudFileName);
         }
 
         return null;
@@ -208,10 +208,28 @@ public class AzureStorageClient : ICloudStorageClient
         }
         catch (Exception ex)
         {
-            Logger.Error("Azure下载文件内容", ex, cloudFileName);
+            Logger.Error("Azure下载文件内容: " + SanitizeErrorMessage(ex), cloudFileName);
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// 脱敏异常消息，防止连接字符串中的密钥泄露到日志
+    /// </summary>
+    private static string SanitizeErrorMessage(Exception ex)
+    {
+        var msg = ex.Message ?? "";
+        // 移除可能包含 AccountKey 的连接字符串片段
+        if (msg.Contains("AccountKey=", StringComparison.OrdinalIgnoreCase))
+        {
+            var idx = msg.IndexOf("AccountKey=", StringComparison.OrdinalIgnoreCase);
+            if (idx >= 0 && idx + 11 + 8 <= msg.Length)
+                msg = msg[..(idx + 11 + 4)] + "***" + msg[(idx + 11 + 8)..];
+            else
+                msg = msg[..(idx + 11)] + "***";
+        }
+        return msg;
     }
 
     /// <summary>
@@ -250,7 +268,7 @@ public class AzureStorageClient : ICloudStorageClient
         }
         catch (Exception ex)
         {
-            Logger.Error("Azure删除文件失败", ex, cloudFileName);
+            Logger.Error("Azure删除文件失败: " + SanitizeErrorMessage(ex), cloudFileName);
         }
         return false;
     }
@@ -272,7 +290,7 @@ public class AzureStorageClient : ICloudStorageClient
         }
         catch (Exception ex)
         {
-            Logger.Error("检查Azure文件是否存在失败", ex, cloudFileName);
+            Logger.Error("检查Azure文件是否存在失败: " + SanitizeErrorMessage(ex), cloudFileName);
         }
         return false;
     }

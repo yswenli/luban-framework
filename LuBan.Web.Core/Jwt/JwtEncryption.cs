@@ -119,8 +119,8 @@ public class JwtEncryption
             IssuerSigningKey = securityKey,
             ValidateIssuer = false,
             ValidateAudience = false,
-            ValidateLifetime = false,
-            ClockSkew = TimeSpan.Zero
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.FromSeconds(30)
         };
 
         tokenHandler.ValidateToken(token, validationParameters, out var validatedToken);

@@ -244,12 +244,17 @@ public class HttpCallbackExecutor
         {
             try
             {
-                // 复用 HttpClientProxy，以完整 URL 作为 baseUrl
-                var client = HttpClientProxy.Create(url, timeout / 1000);
+                // 从完整 URL 中提取 base URL（scheme + host）和资源路径，以复用 HttpClient 连接池
+                var uri = new Uri(url);
+                var baseUrl = uri.GetComponents(UriComponents.SchemeAndServer, UriFormat.Unescaped);
+                var resourcePath = uri.PathAndQuery;
+
+                // 复用 HttpClientProxy，以 scheme+host 作为 baseUrl 实现连接池复用
+                var client = HttpClientProxy.Create(baseUrl, timeout / 1000);
 
                 // 构建请求消息
                 var request = new System.Net.Http.HttpRequestMessage(
-                    new System.Net.Http.HttpMethod(method.ToUpper()), "");
+                    new System.Net.Http.HttpMethod(method.ToUpper()), resourcePath);
 
                 // 合并请求头
                 var mergedHeaders = new Dictionary<string, string>();

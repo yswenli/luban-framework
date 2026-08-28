@@ -133,7 +133,7 @@ public class SseStream : IDisposable
     /// <returns></returns>
     public async Task SendAsync(int timeout = 180)
     {
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(180));
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeout));
         await SendAsync(cts.Token);
     }
 

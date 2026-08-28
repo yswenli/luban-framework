@@ -22,24 +22,35 @@
 *
 *****************************************************************************/
 
+using System.Text.Json.Serialization;
+
 namespace LuBan.Web.Core.Swagger.Doc.Models
 {
     /// <summary>
     /// BaseModelInfo
     /// </summary>
+    /// <remarks>
+    /// 属性名使用英文标识符以符合 C# 命名规范，序列化输出通过
+    /// <see cref="JsonPropertyNameAttribute"/> 保持中文列名，不影响生成的文档内容。
+    /// </remarks>
     public abstract class BaseModelInfo
     {
         /// <summary>
         /// 参数类型
         /// </summary>
-        public object 参数类型 { get; set; }
+        [JsonPropertyName("参数类型")]
+        public object ParameterType { get; set; }
+
         /// <summary>
         /// 描述
         /// </summary>
-        public string 描述 { get; set; }
+        [JsonPropertyName("描述")]
+        public string Description { get; set; }
+
         /// <summary>
         /// 可空类型
         /// </summary>
-        public bool 可空类型 { get; set; }
+        [JsonPropertyName("可空类型")]
+        public bool Nullable { get; set; }
     }
 }

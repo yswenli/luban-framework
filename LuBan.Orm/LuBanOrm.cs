@@ -730,7 +730,7 @@ public static class LuBanOrm
     /// <returns></returns>
     public static List<string>? GetEntityBaseFields()
     {
-        return MemoryCache.Instance.GetOrSet<List<string>>($"{CacheConst.KeySystem}EntityBase:Fields", (k) => typeof(EntityBase).GetProperties(BindingFlags.Public | BindingFlags.Instance).Select(x => x.Name).ToList());
+        return MemoryCache.Instance.GetOrSet<List<string>>($"{CacheConst.KeySystem}EntityBase:Fields", (k) => typeof(EntityBase).GetProperties(BindingFlags.Public | BindingFlags.Instance).Select(x => x.Name).ToList()); // 反射结果缓存：EntityBase 字段列表在运行期间不变，无需过期
     }
 
     /// <summary>

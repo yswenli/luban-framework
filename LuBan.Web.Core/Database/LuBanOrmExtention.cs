@@ -31,6 +31,11 @@ internal static class LuBanOrmExtention
     volatile static bool _isFirstValide = true;
 
     /// <summary>
+    /// 致命错误提示后、进程退出前的驻留时长（毫秒），便于使用者看清控制台上的错误信息。
+    /// </summary>
+    private const int FatalErrorDisplayDelayMs = 3000;
+
+    /// <summary>
     /// 初始化LuBanOrm
     /// </summary>
     /// <param name="services"></param>
@@ -87,7 +92,8 @@ internal static class LuBanOrmExtention
                         var errorMsg = "数据库连接失败，请检查appsetttings.json中的DbConnectionOptions数据库配置";
                         // Logger 未就绪，直接输出到控制台
                         errorMsg.WriteLine(color: ConsoleColor.Red);
-                        Thread.Sleep(3000);
+                        // 进程即将退出，短暂驻留以便使用者看到上面的错误提示
+                        Thread.Sleep(FatalErrorDisplayDelayMs);
                         Environment.Exit(-1);
                     }
                 }

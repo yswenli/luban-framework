@@ -70,7 +70,7 @@ public sealed class CommonController : BaseApiController
     public async Task<StressTestOutput> StressTest([Required, FromBody] StressTestInput input)
     {
         var stopwatch = new Stopwatch();
-        var responseTimes = new List<double>();  //响应时间集合
+        var responseTimes = new ConcurrentBag<double>();  //响应时间集合
         input.RequestMethod = input.RequestMethod.ToUpper();
         long totalRequests = 0, successfulRequests = 0, failedRequests = 0;
 

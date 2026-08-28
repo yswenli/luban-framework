@@ -21,6 +21,8 @@
 *描述：代理组件集
 *
 *****************************************************************************/
+using System.Collections.Concurrent;
+
 namespace LuBan.DI.Core;
 
 /// <summary>
@@ -34,10 +36,12 @@ internal class ProxyAssembly
     private readonly ModuleBuilder _mb;
     private int _typeId = 0;
 
-    private readonly Dictionary<MethodBase, int> _methodToToken = new();
+    private readonly ConcurrentDictionary<MethodBase, int> _methodToToken = new();
 
     private readonly List<MethodBase> _methodsByToken = new();
-    private readonly HashSet<string> _ignoresAccessAssemblyNames = new();
+    private readonly object _methodsByTokenLock = new();
+    private readonly HashSet<string> _ignoresAccessAssemblyNames = new(StringComparer.OrdinalIgnoreCase);
+    private readonly object _ignoresAccessAssemblyNamesLock = new();
     private ConstructorInfo _ignoresAccessChecksToAttributeConstructor = null!;
 
     /// <summary>
@@ -192,10 +196,13 @@ internal class ProxyAssembly
         if (!typeInfo.IsVisible)
         {
             var assemblyName = DynamicUtil.GetAssemblyName(typeInfo);
-            if (!_ignoresAccessAssemblyNames.Contains(assemblyName))
+            lock (_ignoresAccessAssemblyNamesLock)
             {
-                GenerateInstanceOfIgnoresAccessChecksToAttribute(assemblyName);
-                _ignoresAccessAssemblyNames.Add(assemblyName);
+                if (!_ignoresAccessAssemblyNames.Contains(assemblyName))
+                {
+                    GenerateInstanceOfIgnoresAccessChecksToAttribute(assemblyName);
+                    _ignoresAccessAssemblyNames.Add(assemblyName);
+                }
             }
         }
     }
@@ -209,11 +216,22 @@ internal class ProxyAssembly
     internal void GetTokenForMethod(MethodBase method, out Type type, out int token)
     {
         type = method.DeclaringType ?? throw new ArgumentNullException(nameof(method));
-        if (!_methodToToken.TryGetValue(method, out token))
+        if (_methodToToken.TryGetValue(method, out token))
         {
+            return;
+        }
+
+        lock (_methodsByTokenLock)
+        {
+            // Double-check under lock
+            if (_methodToToken.TryGetValue(method, out token))
+            {
+                return;
+            }
+
             _methodsByToken.Add(method);
             token = _methodsByToken.Count - 1;
-            _methodToToken[method] = token;
+            _methodToToken.TryAdd(method, token);
         }
     }
 

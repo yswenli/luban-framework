@@ -104,7 +104,8 @@ public static class ActionExecutingContextExtention
                 sp.AppendFormat("{0}={1}&", argumentName, value);
             }
 
-            sp.Remove(stringBuilder.Length - 1, 1);
+            // 移除末尾多余的 &（原实现误用 stringBuilder.Length，索引错误）
+            if (sp.Length > 0) sp.Remove(sp.Length - 1, 1);
             stringBuilder.Append(sp.ToString().GetMD5Str());
         }
 

@@ -314,7 +314,7 @@ public partial class FileHandler : IScoped
 
         var sizeKb = (long)(fileSize / 1024.0);
 
-        if (_uploadOptions.MaxSize <= 0 || sizeKb > _uploadOptions.MaxSize)
+        if (_uploadOptions.MaxSize <= 0 || fileSize > _uploadOptions.MaxSize)
             throw FriendlyError.Ex(FrameworkErrors.File.FileTooLarge);
 
         var suffix = Path.GetExtension(fileName).ToLower();
@@ -384,7 +384,8 @@ public partial class FileHandler : IScoped
 
         if (savePath.IsNotNullOrEmpty())
         {
-            savePath = savePath.Replace("..", "").Replace("\\", "/");
+            // 使用 Path.GetFullPath 规范化路径，防止路径遍历攻击（Replace("..","") 可被 "....//" 绕过）
+            savePath = Path.GetFullPath(savePath).Replace("\\", "/");
         }
         else
         {
@@ -435,7 +436,8 @@ public partial class FileHandler : IScoped
 
         if (savePath.IsNotNullOrEmpty())
         {
-            savePath = savePath.Replace("..", "").Replace("\\", "/");
+            // 使用 Path.GetFullPath 规范化路径，防止路径遍历攻击（Replace("..","") 可被 "....//" 绕过）
+            savePath = Path.GetFullPath(savePath).Replace("\\", "/");
         }
         else
         {
@@ -498,7 +500,8 @@ public partial class FileHandler : IScoped
 
         if (savePath.IsNotNullOrEmpty())
         {
-            savePath = savePath.Replace("..", "").Replace("\\", "/");
+            // 使用 Path.GetFullPath 规范化路径，防止路径遍历攻击（Replace("..","") 可被 "....//" 绕过）
+            savePath = Path.GetFullPath(savePath).Replace("\\", "/");
         }
         else
         {

@@ -21,7 +21,51 @@
 *描述：ASP.NET Core 快速集成扩展
 *
 *****************************************************************************/
+using Microsoft.Extensions.Hosting;
+
 namespace LuBan.ApprovalFlow;
+
+/// <summary>
+/// 审批流预热加载服务：在应用启动后自动加载配置的流程定义文件。
+/// </summary>
+internal class ApprovalFlowWarmupService : IHostedService
+{
+    private readonly FlowBuilder _builder;
+    private readonly ApprovalFlowOptions _options;
+
+    public ApprovalFlowWarmupService(FlowBuilder builder, ApprovalFlowOptions options)
+    {
+        _builder = builder;
+        _options = options;
+    }
+
+    public Task StartAsync(CancellationToken cancellationToken)
+    {
+        var toLoad = new List<string>();
+
+        // 目录批量加载
+        var dataDir = _options.DataDir;
+        if (!string.IsNullOrWhiteSpace(dataDir) && Directory.Exists(dataDir))
+        {
+            foreach (var f in Directory.EnumerateFiles(dataDir, "*.json", SearchOption.TopDirectoryOnly))
+            {
+                toLoad.Add(f);
+            }
+        }
+
+        if (toLoad.Count > 0)
+        {
+            foreach (var path in toLoad.Distinct())
+            {
+                _ = _builder.CreateExecutorFromJsonFileAsync(path);
+            }
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+}
 
 /// <summary>
 /// 审批流的依赖注入与启动预热加载扩展。
@@ -41,30 +85,8 @@ public static class FlowExtensions
     public static IServiceCollection AddApprovalFlow(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddSingleton<FlowBuilder>();
-        var options = ApprovalFlowOptions.Default;
-
-        // 预热加载多个 JSON（不阻塞启动）
-        var sp = services.BuildServiceProvider();
-        var builder = sp.GetRequiredService<FlowBuilder>();
-        var toLoad = new List<string>();
-
-        // 目录批量加载
-        var dataDir = options.DataDir;
-        if (!string.IsNullOrWhiteSpace(dataDir) && Directory.Exists(dataDir))
-        {
-            foreach (var f in Directory.EnumerateFiles(dataDir, "*.json", SearchOption.TopDirectoryOnly))
-            {
-                toLoad.Add(f);
-            }
-        }
-
-        if (toLoad.Count > 0)
-        {
-            foreach (var path in toLoad.Distinct())
-            {
-                _ = builder.CreateExecutorFromJsonFileAsync(path);
-            }
-        }
+        services.AddSingleton(ApprovalFlowOptions.Default);
+        services.AddHostedService<ApprovalFlowWarmupService>();
 
         return services;
     }

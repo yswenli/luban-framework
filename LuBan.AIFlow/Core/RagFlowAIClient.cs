@@ -70,7 +70,7 @@ public class RagFlowAIClient : IAIClient
                 _ => $"未知错误: {response.Message}"
             };
 
-            throw new Exception($"{operation}失败: {errorMessage}");
+            throw new RagFlowApiException($"{operation}失败: {errorMessage}");
         }
     }
 
@@ -97,12 +97,12 @@ public class RagFlowAIClient : IAIClient
             {
                 var response = await _httpClient.PostViewModelAsync<CommonResponse>($"/api/v1/chats_openai/{chatId}/chat/completions", request, headers);
                 HandleResponseError(response, $"为聊天 {chatId} 创建补全");
-                return response.Data as ChatCompletionResponse ?? throw new Exception("响应数据格式错误");
+                return response.Data as ChatCompletionResponse ?? throw new RagFlowDataException("响应数据格式错误");
             }
         }
         catch (Exception ex)
         {
-            throw new Exception($"Failed to create chat completion for chat {chatId}: {ex.Message}", ex);
+            throw new RagFlowApiException($"Failed to create chat completion for chat {chatId}: {ex.Message}", ex);
         }
     }
 
@@ -137,7 +137,7 @@ public class RagFlowAIClient : IAIClient
         }
         catch (Exception ex)
         {
-            throw new Exception($"Failed to chat with assistant {chatId}: {ex.Message}", ex);
+            throw new RagFlowApiException($"Failed to chat with assistant {chatId}: {ex.Message}", ex);
         }
     }
 
@@ -160,7 +160,7 @@ public class RagFlowAIClient : IAIClient
         }
         catch (Exception ex)
         {
-            throw new Exception($"Failed to create agent: {ex.Message}", ex);
+            throw new RagFlowApiException($"Failed to create agent: {ex.Message}", ex);
         }
     }
 
@@ -180,7 +180,7 @@ public class RagFlowAIClient : IAIClient
         }
         catch (Exception ex)
         {
-            throw new Exception($"Failed to update agent {agentId}: {ex.Message}", ex);
+            throw new RagFlowApiException($"Failed to update agent {agentId}: {ex.Message}", ex);
         }
     }
 
@@ -198,7 +198,7 @@ public class RagFlowAIClient : IAIClient
         }
         catch (Exception ex)
         {
-            throw new Exception($"Failed to delete agent {agentId}: {ex.Message}", ex);
+            throw new RagFlowApiException($"Failed to delete agent {agentId}: {ex.Message}", ex);
         }
     }
 
@@ -225,7 +225,7 @@ public class RagFlowAIClient : IAIClient
         }
         catch (Exception ex)
         {
-            throw new Exception($"Failed to list agents: {ex.Message}", ex);
+            throw new RagFlowApiException($"Failed to list agents: {ex.Message}", ex);
         }
     }
 
@@ -243,11 +243,11 @@ public class RagFlowAIClient : IAIClient
             var headers = GetHeaders();
             var response = await _httpClient.PostViewModelAsync<CommonResponse>($"/api/v1/agents_openai/{agentId}/chat/completions", request, headers);
             HandleResponseError(response, $"为 Agent {agentId} 创建补全");
-            return response.Data as ChatCompletionResponse ?? throw new Exception("响应数据格式错误");
+            return response.Data as ChatCompletionResponse ?? throw new RagFlowDataException("响应数据格式错误");
         }
         catch (Exception ex)
         {
-            throw new Exception($"Failed to create agent completion for agent {agentId}: {ex.Message}", ex);
+            throw new RagFlowApiException($"Failed to create agent completion for agent {agentId}: {ex.Message}", ex);
         }
     }
 
@@ -270,7 +270,7 @@ public class RagFlowAIClient : IAIClient
         }
         catch (Exception ex)
         {
-            throw new Exception($"Failed to create dataset: {ex.Message}", ex);
+            throw new RagFlowApiException($"Failed to create dataset: {ex.Message}", ex);
         }
     }
 
@@ -290,7 +290,7 @@ public class RagFlowAIClient : IAIClient
         }
         catch (Exception ex)
         {
-            throw new Exception($"Failed to update dataset {datasetId}: {ex.Message}", ex);
+            throw new RagFlowApiException($"Failed to update dataset {datasetId}: {ex.Message}", ex);
         }
     }
 
@@ -308,7 +308,7 @@ public class RagFlowAIClient : IAIClient
         }
         catch (Exception ex)
         {
-            throw new Exception($"Failed to delete dataset {datasetId}: {ex.Message}", ex);
+            throw new RagFlowApiException($"Failed to delete dataset {datasetId}: {ex.Message}", ex);
         }
     }
 
@@ -330,7 +330,7 @@ public class RagFlowAIClient : IAIClient
         }
         catch (Exception ex)
         {
-            throw new Exception($"Failed to list datasets: {ex.Message}", ex);
+            throw new RagFlowApiException($"Failed to list datasets: {ex.Message}", ex);
         }
     }
 
@@ -363,7 +363,7 @@ public class RagFlowAIClient : IAIClient
         }
         catch (Exception ex)
         {
-            throw new Exception($"Failed to upload file {fileName} to dataset {datasetId}: {ex.Message}", ex);
+            throw new RagFlowApiException($"Failed to upload file {fileName} to dataset {datasetId}: {ex.Message}", ex);
         }
     }
 
@@ -383,7 +383,7 @@ public class RagFlowAIClient : IAIClient
         }
         catch (Exception ex)
         {
-            throw new Exception($"Failed to update file {fileId}: {ex.Message}", ex);
+            throw new RagFlowApiException($"Failed to update file {fileId}: {ex.Message}", ex);
         }
     }
 
@@ -411,7 +411,7 @@ public class RagFlowAIClient : IAIClient
         }
         catch (Exception ex)
         {
-            throw new Exception($"Failed to download file {fileId}: {ex.Message}", ex);
+            throw new RagFlowApiException($"Failed to download file {fileId}: {ex.Message}", ex);
         }
     }
 
@@ -434,7 +434,7 @@ public class RagFlowAIClient : IAIClient
         }
         catch (Exception ex)
         {
-            throw new Exception($"Failed to list files for dataset {datasetId}: {ex.Message}", ex);
+            throw new RagFlowApiException($"Failed to list files for dataset {datasetId}: {ex.Message}", ex);
         }
     }
 
@@ -452,7 +452,7 @@ public class RagFlowAIClient : IAIClient
         }
         catch (Exception ex)
         {
-            throw new Exception($"Failed to delete file {fileId}: {ex.Message}", ex);
+            throw new RagFlowApiException($"Failed to delete file {fileId}: {ex.Message}", ex);
         }
     }
 
@@ -470,7 +470,7 @@ public class RagFlowAIClient : IAIClient
         }
         catch (Exception ex)
         {
-            throw new Exception($"Failed to parse files: {ex.Message}", ex);
+            throw new RagFlowApiException($"Failed to parse files: {ex.Message}", ex);
         }
     }
 
@@ -488,7 +488,7 @@ public class RagFlowAIClient : IAIClient
         }
         catch (Exception ex)
         {
-            throw new Exception($"Failed to stop parsing files: {ex.Message}", ex);
+            throw new RagFlowApiException($"Failed to stop parsing files: {ex.Message}", ex);
         }
     }
 
@@ -512,7 +512,7 @@ public class RagFlowAIClient : IAIClient
         }
         catch (Exception ex)
         {
-            throw new Exception($"Failed to add chunk to dataset {datasetId}: {ex.Message}", ex);
+            throw new RagFlowApiException($"Failed to add chunk to dataset {datasetId}: {ex.Message}", ex);
         }
     }
 
@@ -535,7 +535,7 @@ public class RagFlowAIClient : IAIClient
         }
         catch (Exception ex)
         {
-            throw new Exception($"Failed to list chunks for dataset {datasetId}: {ex.Message}", ex);
+            throw new RagFlowApiException($"Failed to list chunks for dataset {datasetId}: {ex.Message}", ex);
         }
     }
 
@@ -553,7 +553,7 @@ public class RagFlowAIClient : IAIClient
         }
         catch (Exception ex)
         {
-            throw new Exception($"Failed to delete chunk {chunkId}: {ex.Message}", ex);
+            throw new RagFlowApiException($"Failed to delete chunk {chunkId}: {ex.Message}", ex);
         }
     }
 
@@ -573,7 +573,7 @@ public class RagFlowAIClient : IAIClient
         }
         catch (Exception ex)
         {
-            throw new Exception($"Failed to update chunk {chunkId}: {ex.Message}", ex);
+            throw new RagFlowApiException($"Failed to update chunk {chunkId}: {ex.Message}", ex);
         }
     }
 
@@ -593,7 +593,7 @@ public class RagFlowAIClient : IAIClient
         }
         catch (Exception ex)
         {
-            throw new Exception($"Failed to retrieve chunks for dataset {datasetId}: {ex.Message}", ex);
+            throw new RagFlowApiException($"Failed to retrieve chunks for dataset {datasetId}: {ex.Message}", ex);
         }
     }
 
@@ -616,7 +616,7 @@ public class RagFlowAIClient : IAIClient
         }
         catch (Exception ex)
         {
-            throw new Exception($"Failed to create chat assistant: {ex.Message}", ex);
+            throw new RagFlowApiException($"Failed to create chat assistant: {ex.Message}", ex);
         }
     }
 
@@ -635,7 +635,7 @@ public class RagFlowAIClient : IAIClient
         }
         catch (Exception ex)
         {
-            throw new Exception($"Failed to update chatid {request.ChatId}: {ex.Message}", ex);
+            throw new RagFlowApiException($"Failed to update chatid {request.ChatId}: {ex.Message}", ex);
         }
     }
 
@@ -653,7 +653,7 @@ public class RagFlowAIClient : IAIClient
         }
         catch (Exception ex)
         {
-            throw new Exception($"Failed to delete chat assistant {assistantId}: {ex.Message}", ex);
+            throw new RagFlowApiException($"Failed to delete chat assistant {assistantId}: {ex.Message}", ex);
         }
     }
 
@@ -680,7 +680,7 @@ public class RagFlowAIClient : IAIClient
         }
         catch (Exception ex)
         {
-            throw new Exception($"Failed to list chat assistants: {ex.Message}", ex);
+            throw new RagFlowApiException($"Failed to list chat assistants: {ex.Message}", ex);
         }
     }
 
@@ -704,7 +704,7 @@ public class RagFlowAIClient : IAIClient
         }
         catch (Exception ex)
         {
-            throw new Exception($"Failed to create session for chat {chatId}: {ex.Message}", ex);
+            throw new RagFlowApiException($"Failed to create session for chat {chatId}: {ex.Message}", ex);
         }
     }
 
@@ -725,7 +725,7 @@ public class RagFlowAIClient : IAIClient
         }
         catch (Exception ex)
         {
-            throw new Exception($"Failed to update session {sessionId} for chat {chatId}: {ex.Message}", ex);
+            throw new RagFlowApiException($"Failed to update session {sessionId} for chat {chatId}: {ex.Message}", ex);
         }
     }
 
@@ -753,7 +753,7 @@ public class RagFlowAIClient : IAIClient
         }
         catch (Exception ex)
         {
-            throw new Exception($"Failed to list sessions for chat {chatId}: {ex.Message}", ex);
+            throw new RagFlowApiException($"Failed to list sessions for chat {chatId}: {ex.Message}", ex);
         }
     }
 
@@ -772,7 +772,7 @@ public class RagFlowAIClient : IAIClient
         }
         catch (Exception ex)
         {
-            throw new Exception($"Failed to delete session {sessionId} for chat {chatId}: {ex.Message}", ex);
+            throw new RagFlowApiException($"Failed to delete session {sessionId} for chat {chatId}: {ex.Message}", ex);
         }
     }
 
@@ -793,7 +793,7 @@ public class RagFlowAIClient : IAIClient
         }
         catch (Exception ex)
         {
-            throw new Exception($"Failed to chat with session {sessionId} for chat {chatId}: {ex.Message}", ex);
+            throw new RagFlowApiException($"Failed to chat with session {sessionId} for chat {chatId}: {ex.Message}", ex);
         }
     }
 
@@ -813,7 +813,7 @@ public class RagFlowAIClient : IAIClient
         }
         catch (Exception ex)
         {
-            throw new Exception($"Failed to create session for agent {agentId}: {ex.Message}", ex);
+            throw new RagFlowApiException($"Failed to create session for agent {agentId}: {ex.Message}", ex);
         }
     }
 
@@ -834,7 +834,7 @@ public class RagFlowAIClient : IAIClient
         }
         catch (Exception ex)
         {
-            throw new Exception($"Failed to chat with session {sessionId} for agent {agentId}: {ex.Message}", ex);
+            throw new RagFlowApiException($"Failed to chat with session {sessionId} for agent {agentId}: {ex.Message}", ex);
         }
     }
 
@@ -862,7 +862,7 @@ public class RagFlowAIClient : IAIClient
         }
         catch (Exception ex)
         {
-            throw new Exception($"Failed to list sessions for agent {agentId}: {ex.Message}", ex);
+            throw new RagFlowApiException($"Failed to list sessions for agent {agentId}: {ex.Message}", ex);
         }
     }
 
@@ -881,7 +881,7 @@ public class RagFlowAIClient : IAIClient
         }
         catch (Exception ex)
         {
-            throw new Exception($"Failed to delete session {sessionId} for agent {agentId}: {ex.Message}", ex);
+            throw new RagFlowApiException($"Failed to delete session {sessionId} for agent {agentId}: {ex.Message}", ex);
         }
     }
 
@@ -900,7 +900,7 @@ public class RagFlowAIClient : IAIClient
         }
         catch (Exception ex)
         {
-            throw new Exception($"Failed to get related questions for session {sessionId}: {ex.Message}", ex);
+            throw new RagFlowApiException($"Failed to get related questions for session {sessionId}: {ex.Message}", ex);
         }
     }
 

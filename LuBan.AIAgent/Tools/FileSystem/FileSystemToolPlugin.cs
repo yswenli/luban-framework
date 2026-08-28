@@ -150,8 +150,16 @@ public class FileSystemToolGroup
             {
                 files = Directory.EnumerateFiles(current);
             }
-            catch (UnauthorizedAccessException) { continue; }
-            catch (DirectoryNotFoundException) { continue; }
+            catch (UnauthorizedAccessException ex)
+            {
+                Logger.Debug("目录遍历跳过：权限不足", ex, current);
+                continue;
+            }
+            catch (DirectoryNotFoundException ex)
+            {
+                Logger.Debug("目录遍历跳过：目录不存在", ex, current);
+                continue;
+            }
 
             foreach (var file in files)
                 yield return file;
@@ -161,8 +169,16 @@ public class FileSystemToolGroup
             {
                 subDirs = Directory.EnumerateDirectories(current);
             }
-            catch (UnauthorizedAccessException) { continue; }
-            catch (DirectoryNotFoundException) { continue; }
+            catch (UnauthorizedAccessException ex)
+            {
+                Logger.Debug("子目录遍历跳过：权限不足", ex, current);
+                continue;
+            }
+            catch (DirectoryNotFoundException ex)
+            {
+                Logger.Debug("子目录遍历跳过：目录不存在", ex, current);
+                continue;
+            }
 
             foreach (var subDir in subDirs)
             {
@@ -530,16 +546,32 @@ public class FileSystemToolGroup
         {
             subdirs = Directory.GetDirectories(dir);
         }
-        catch (UnauthorizedAccessException) { return; }
-        catch (DirectoryNotFoundException) { return; }
+        catch (UnauthorizedAccessException ex)
+        {
+            Logger.Debug("目录树构建跳过子目录：权限不足", ex, dir);
+            return;
+        }
+        catch (DirectoryNotFoundException ex)
+        {
+            Logger.Debug("目录树构建跳过子目录：目录不存在", ex, dir);
+            return;
+        }
 
         string[] files;
         try
         {
             files = Directory.GetFiles(dir);
         }
-        catch (UnauthorizedAccessException) { return; }
-        catch (DirectoryNotFoundException) { return; }
+        catch (UnauthorizedAccessException ex)
+        {
+            Logger.Debug("目录树构建跳过文件：权限不足", ex, dir);
+            return;
+        }
+        catch (DirectoryNotFoundException ex)
+        {
+            Logger.Debug("目录树构建跳过文件：目录不存在", ex, dir);
+            return;
+        }
 
         var visibleSubdirs = subdirs
             .Where(d => !ExcludedDirectoryNames.Contains(Path.GetFileName(d)))
@@ -1167,8 +1199,8 @@ public class FileSystemToolGroup
                         if (++fileCount >= 10000) break;
                     }
                 }
-                catch (UnauthorizedAccessException) { }
-                catch (DirectoryNotFoundException) { }
+                catch (UnauthorizedAccessException ex) { Logger.Debug($"访问被拒绝: {ex.Message}"); }
+                catch (DirectoryNotFoundException ex) { Logger.Debug($"目录未找到: {ex.Message}"); }
 
                 int dirCount = 0;
                 try
@@ -1178,8 +1210,8 @@ public class FileSystemToolGroup
                         if (++dirCount >= 10000) break;
                     }
                 }
-                catch (UnauthorizedAccessException) { }
-                catch (DirectoryNotFoundException) { }
+                catch (UnauthorizedAccessException ex) { Logger.Debug($"访问被拒绝: {ex.Message}"); }
+                catch (DirectoryNotFoundException ex) { Logger.Debug($"目录未找到: {ex.Message}"); }
 
                 var output = new StringBuilder();
                 output.AppendLine($"目录: {dirInfo.FullName}");

@@ -100,12 +100,15 @@ public class RuleEngine
         switch (condition.Operator)
         {
             case ConstOperatorType.Equal:
-                // 等于：支持直接比较和字符串比较
-                return Equals(fieldValue, compareValue) || ConvertToString(fieldValue) == ConvertToString(compareValue);
+                // 等于：优先使用 IComparable 比较（避免装箱值类型 Equals 失败），再回退到字符串比较
+                return CompareUsingIComparable(fieldValue, compareValue) == 0
+                    || Equals(fieldValue, compareValue)
+                    || ConvertToString(fieldValue) == ConvertToString(compareValue);
 
             case ConstOperatorType.NotEqual:
-                // 不等于：两个值都不相等才返回true
-                return !Equals(fieldValue, compareValue) && ConvertToString(fieldValue) != ConvertToString(compareValue);
+                // 不等于：IComparable 不等、Equals 不等且字符串也不等才返回true
+                var cmp = CompareUsingIComparable(fieldValue, compareValue);
+                return cmp != 0 && !Equals(fieldValue, compareValue) && ConvertToString(fieldValue) != ConvertToString(compareValue);
 
             case ConstOperatorType.GreaterThan:
                 // 大于
@@ -158,9 +161,11 @@ public class RuleEngine
     /// <param name="fieldValue">字段值。</param>
     /// <param name="compareValue">比较值。</param>
     /// <returns>比较结果：大于返回正数，小于返回负数，等于返回0。</returns>
+    /// <exception cref="ArgumentException">任一值为 null 时抛出。</exception>
     private int CompareNumeric(object? fieldValue, object? compareValue)
     {
-        if (fieldValue == null || compareValue == null) return 0;
+        if (fieldValue == null || compareValue == null)
+            throw new ArgumentException("数值比较的参数不能为 null");
 
         try
         {
@@ -173,6 +178,40 @@ public class RuleEngine
         {
             // 数值转换失败时使用字符串比较
             return string.Compare(ConvertToString(fieldValue), ConvertToString(compareValue), StringComparison.Ordinal);
+        }
+    }
+
+    /// <summary>
+    /// 使用 IComparable 接口比较两个值，解决装箱值类型 Equals 比较失败的问题。
+    /// 如果两个值都实现了 IComparable 且类型兼容，使用 CompareTo 比较。
+    /// </summary>
+    /// <param name="a">第一个值。</param>
+    /// <param name="b">第二个值。</param>
+    /// <returns>比较结果，0 表示相等；如果不支持 IComparable 比较则返回 null。</returns>
+    private static int? CompareUsingIComparable(object? a, object? b)
+    {
+        if (a is IComparable comparable && b != null && a.GetType() == b.GetType())
+        {
+            try
+            {
+                return comparable.CompareTo(b);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        // 尝试将两者转为 decimal 比较
+        try
+        {
+            var decA = Convert.ToDecimal(a);
+            var decB = Convert.ToDecimal(b);
+            return decA.CompareTo(decB);
+        }
+        catch
+        {
+            return null;
         }
     }
 
@@ -248,7 +287,11 @@ public class RuleEngine
                 return fieldDecimal >= min && fieldDecimal <= max;
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, $"IsBetween 条件求值失败: fieldValue={fieldValue}, compareValue={compareValue}");
+            throw;
+        }
 
         return false;
     }

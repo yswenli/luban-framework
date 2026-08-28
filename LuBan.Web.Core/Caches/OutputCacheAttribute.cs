@@ -84,7 +84,8 @@ public class OutputCacheAttribute : Attribute, IAsyncActionFilter, IOrderedFilte
             {
                 if (Duration < 1)
                 {
-                    context.SetCacheValue(executedContext.Result, TimeSpan.FromDays(9999), Name, VaryByArgument, VaryByHeader);
+                    // Duration < 1 表示永久缓存，使用 InfiniteTimeSpan 明确语义
+                    context.SetCacheValue(executedContext.Result, Timeout.InfiniteTimeSpan, Name, VaryByArgument, VaryByHeader);
                 }
                 else
                 {

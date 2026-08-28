@@ -29,6 +29,11 @@ namespace LuBan.Web.Core.Utils;
 /// </summary>
 public static class StartupUtil
 {
+    /// <summary>
+    /// 致命初始化异常输出后、进程退出前的驻留时长（毫秒），便于使用者看清控制台上的异常信息。
+    /// </summary>
+    private const int FatalErrorDisplayDelayMs = 5000;
+
     static HostingOptions _hostingConfig;
 
     /// <summary>
@@ -116,7 +121,8 @@ public static class StartupUtil
         catch (Exception ex)
         {
             ConsoleUtil.WriteLine($"An exception occurred during the api initialization of LuBanFramework: {ex}", color: ConsoleColor.Red);
-            Thread.Sleep(5000);
+            // 进程即将退出，短暂驻留以便使用者看到上面的初始化异常
+            Thread.Sleep(FatalErrorDisplayDelayMs);
             Environment.Exit(-1);
         }
     }

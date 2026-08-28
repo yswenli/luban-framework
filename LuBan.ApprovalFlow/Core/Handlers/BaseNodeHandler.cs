@@ -21,6 +21,7 @@
 *描述：新增基类
 * 
 *****************************************************************************/
+using System.Globalization;
 
 namespace LuBan.ApprovalFlow.Core.Handlers;
 
@@ -242,10 +243,18 @@ public abstract class BaseNodeHandler : IFlowNodeHandler
     /// <param name="formModelField">字段名称</param>
     /// <param name="value">字段值</param>
     /// <returns>更新成功返回 true，否则返回 false</returns>
+    /// <remarks>
+    /// 返回 false 表示字段未更新（模型为空、字段不存在、不可写、值为空或类型转换失败）。
+    /// 调用方必须检查返回值：若该字段属于流程推进的关键依据，应在返回 false 时中止流程，
+    /// 否则会基于未被更新的旧数据继续流转，造成数据不一致。
+    /// </remarks>
     protected bool UpdateModelField(object? typedModel, Type? typedModelType, string formModelField, object? value)
     {
         if (typedModel == null || typedModelType == null || string.IsNullOrWhiteSpace(formModelField))
+        {
+            Logger.Warn($"Skip updating model field '{formModelField}': model, modelType or fieldName is null/empty.");
             return false;
+        }
 
         try
         {
@@ -258,7 +267,7 @@ public abstract class BaseNodeHandler : IFlowNodeHandler
                 if (pi.PropertyType.IsAssignableFrom(value.GetType()))
                     setVal = value;
                 else
-                    setVal = Convert.ChangeType(value, pi.PropertyType);
+                    setVal = Convert.ChangeType(value, pi.PropertyType, CultureInfo.InvariantCulture);
 
                 // 设置属性值
                 if (setVal != null)
@@ -266,11 +275,21 @@ public abstract class BaseNodeHandler : IFlowNodeHandler
                     pi.SetValue(typedModel, setVal);
                     return true;
                 }
+
+                Logger.Warn($"Skip updating model field '{formModelField}': converted value is null.");
+                return false;
             }
+
+            if (pi == null)
+                Logger.Warn($"Skip updating model field '{formModelField}': property not found on type '{typedModelType!.Name}'.");
+            else if (!pi.CanWrite)
+                Logger.Warn($"Skip updating model field '{formModelField}': property has no setter on type '{typedModelType!.Name}'.");
+            else
+                Logger.Warn($"Skip updating model field '{formModelField}': value is null.");
         }
         catch (Exception ex)
         {
-            Logger.Warn($"Failed to update model field '{formModelField}': {ex.Message}");
+            Logger.Warn($"Failed to update model field '{formModelField}' on type '{typedModelType!.Name}': {ex.Message}");
         }
 
         return false;

@@ -62,13 +62,15 @@ public class EMailPop3 : IDisposable, IEMailClient
     /// 接收邮件
     /// </summary>
     /// <param name="cancellationToken"></param>
+    /// <param name="maxCount">最大接收邮件数量，默认100，防止大邮箱内存溢出</param>
     /// <returns></returns>
-    public async Task<List<Message>> RecieveAsync(CancellationToken cancellationToken = default)
+    public async Task<List<Message>> RecieveAsync(CancellationToken cancellationToken = default, int maxCount = 100)
     {
         var result = new List<Message>();
         var count = _pop3Client.Count;
         if (count < 1) return result;
-        for (int i = 0; i < count; i++)
+        var limit = Math.Min(count, maxCount);
+        for (int i = 0; i < limit; i++)
         {
             var message = await _pop3Client.GetMessageAsync(i, cancellationToken);
             if (message != null)

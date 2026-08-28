@@ -134,7 +134,8 @@ public static class ServiceProviderUtil
     /// <returns></returns>
     public static object? GetService([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] this Type type)
     {
-        return _serviceProvider?.GetService(type);
+        var sp = Volatile.Read(ref _serviceProvider);
+        return sp?.GetService(type);
     }
 
     /// <summary>
@@ -144,7 +145,8 @@ public static class ServiceProviderUtil
     /// <returns></returns>
     public static TService? GetService<TService>()
     {
-        return _serviceProvider != null ? _serviceProvider.GetService<TService>() : default;
+        var sp = Volatile.Read(ref _serviceProvider);
+        return sp != null ? sp.GetService<TService>() : default;
     }
 
     /// <summary>
@@ -155,7 +157,8 @@ public static class ServiceProviderUtil
     public static TService GetRequiredService<TService>()
         where TService : notnull
     {
-        return (_serviceProvider ?? throw new InvalidOperationException("ServiceProvider has not been built. Call BuildProvider first.")).GetRequiredService<TService>();
+        var sp = Volatile.Read(ref _serviceProvider) ?? throw new InvalidOperationException("ServiceProvider has not been built. Call BuildProvider first.");
+        return sp.GetRequiredService<TService>();
     }
 
     /// <summary>
@@ -165,7 +168,8 @@ public static class ServiceProviderUtil
     /// <returns></returns>
     public static object GetRequiredService([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] this Type type)
     {
-        return (_serviceProvider ?? throw new InvalidOperationException("ServiceProvider has not been built. Call BuildProvider first.")).GetRequiredService(type);
+        var sp = Volatile.Read(ref _serviceProvider) ?? throw new InvalidOperationException("ServiceProvider has not been built. Call BuildProvider first.");
+        return sp.GetRequiredService(type);
     }
 
     /// <summary>
@@ -188,9 +192,19 @@ public static class ServiceProviderUtil
         lock (_lock)
         {
             addServiceProvider?.Invoke(_services);
-            (_serviceProvider as IDisposable)?.Dispose();
-            _serviceProvider = _services.BuildServiceProvider();
-            return GetRequiredService<T>();
+            var oldProvider = _serviceProvider;
+            var newProvider = _services.BuildServiceProvider();
+            Volatile.Write(ref _serviceProvider, newProvider);
+            // 延迟销毁旧Provider，避免正在使用的服务被意外销毁
+            if (oldProvider is IDisposable disposable)
+            {
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(5));
+                    disposable.Dispose();
+                });
+            }
+            return newProvider.GetRequiredService<T>();
         }
     }
 

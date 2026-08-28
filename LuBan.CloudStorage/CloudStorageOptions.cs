@@ -75,4 +75,10 @@ public class CloudStorageOptions
     /// 是否启用上传缓存，缓存文件到服务器本地，默认为false
     /// </summary>
     public bool EnableUploadCache { get; set; } = false;
+
+    /// <summary>
+    /// AES-256加密密钥（Base64编码），用于MinIO SSE-C服务端加密。
+    /// 未配置时不启用加密；配置后必须妥善保管，密钥丢失将导致数据不可恢复。
+    /// </summary>
+    public string EncryptionKey { get; set; } = "";
 }

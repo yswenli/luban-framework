@@ -43,6 +43,8 @@ namespace LuBan.UnitTestProject
             var builder = new AIClientBuilder(new AIOptions()
             {
                 AIType = EnumAIType.RagFlow,
+                // ⚠ 安全提示：此处的 YOUR_API_KEY 为占位符，请勿替换为真实凭据后提交。
+            // 真实凭据请通过环境变量读取，或配置在 appsettings.json 并确保该文件不被提交。
                 ApiKey = "YOUR_API_KEY",
                 BaseUrl = "YOUR_BASE_URL"
             });

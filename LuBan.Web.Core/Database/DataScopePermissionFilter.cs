@@ -45,6 +45,7 @@ public static class DataScopePermissionFilter
         List<long>? orgIdList = _cache.Get<List<long>>($"{CacheConst.KeyUserOrg}{userId}");
         if (orgIdList == null || orgIdList.Count < 1)
         {
+            // TODO: N+1 查询问题 - 以下 3 次独立数据库查询（orgList0、orgList1、orgList2）应合并为单次查询以提升性能
             // 本人新建机构集合
             var orgList0 = new BaseRepository<DbOrg>().AsQueryable().Where(u => u.CreateUserId == userId).Select(u => u.Id).ToList();
             // 扩展机构集合
@@ -56,7 +57,7 @@ public static class DataScopePermissionFilter
             // 当前所属机构
             if (!orgIdList.Contains(SessionUser.OrgId))
                 orgIdList.Add(SessionUser.OrgId);
-            _cache.Set($"{CacheConst.KeyUserOrg}{userId}", orgIdList); // 存缓存
+            _cache.Set($"{CacheConst.KeyUserOrg}{userId}", orgIdList, TimeSpan.FromMinutes(30)); // 存缓存
         }
         return orgIdList;
     }
@@ -71,6 +72,7 @@ public static class DataScopePermissionFilter
         List<long>? orgIdList = _cache.Get<List<long>>($"{CacheConst.KeyUserOrg}{userId}");
         if (orgIdList == null || orgIdList.Count < 1)
         {
+            // TODO: N+1 查询问题 - 以下 3 次独立数据库查询（orgList0、orgList1、orgList2）应合并为单次查询以提升性能
             // 本人新建机构集合
             var orgList0 = await new BaseRepository<DbOrg>().AsQueryable().Where(u => u.CreateUserId == userId).Select(u => u.Id).ToListAsync();
             // 扩展机构集合
@@ -82,7 +84,7 @@ public static class DataScopePermissionFilter
             // 当前所属机构
             if (!orgIdList.Contains(SessionUser.OrgId))
                 orgIdList.Add(SessionUser.OrgId);
-            _cache.Set($"{CacheConst.KeyUserOrg}{userId}", orgIdList); // 存缓存
+            _cache.Set($"{CacheConst.KeyUserOrg}{userId}", orgIdList, TimeSpan.FromMinutes(30)); // 存缓存
         }
         return orgIdList;
     }
@@ -164,7 +166,7 @@ public static class DataScopePermissionFilter
         var orgIdList2 = GetOrgIdListByDataScope(strongerDataScopeType);
 
         // 缓存当前用户最大角色数据范围
-        _cache.Set(CacheConst.KeyRoleMaxDataScope + SessionUser.UserId, strongerDataScopeType);
+        _cache.Set(CacheConst.KeyRoleMaxDataScope + SessionUser.UserId, strongerDataScopeType, TimeSpan.FromMinutes(30));
 
         // 并集机构集合
         return orgIdList1.Union(orgIdList2).ToList();
@@ -203,7 +205,7 @@ public static class DataScopePermissionFilter
         var orgIdList2 = await GetOrgIdListByDataScopeAsync(strongerDataScopeType);
 
         // 缓存当前用户最大角色数据范围
-        _cache.Set(CacheConst.KeyRoleMaxDataScope + SessionUser.UserId, strongerDataScopeType);
+        _cache.Set(CacheConst.KeyRoleMaxDataScope + SessionUser.UserId, strongerDataScopeType, TimeSpan.FromMinutes(30));
 
         // 并集机构集合
         return orgIdList1.Union(orgIdList2).ToList();
@@ -314,7 +316,7 @@ public static class DataScopePermissionFilter
                 db.QueryFilter.AddTableFilter(entityType, lambda);
                 dataScopeFilterDic.TryAdd(entityType, lambda);
             }
-            _cache.Set(cacheKey, dataScopeFilterDic);
+            _cache.Set(cacheKey, dataScopeFilterDic, TimeSpan.FromMinutes(30));
         }
         else
         {
@@ -329,15 +331,15 @@ public static class DataScopePermissionFilter
     /// 删除用户机构缓存
     /// </summary>
     /// <param name="userId"></param>
-    /// <param name="tanentId"></param>
-    public static bool DeleteUserOrgCache(long userId, long tanentId)
+    /// <param name="tenantId"></param>
+    public static bool DeleteUserOrgCache(long userId, long tenantId)
     {
         // 删除用户机构集合缓存
         _cache.Delete($"{CacheConst.KeyUserOrg}{userId}");
         // 删除最大数据权限缓存
         _cache.Delete($"{CacheConst.KeyRoleMaxDataScope}{userId}");
         // 删除用户机构（数据范围）缓存——过滤器
-        _cache.Delete($"{CacheConst.KeySystem}db:{tanentId}:orgList:{userId}");
+        _cache.Delete($"{CacheConst.KeySystem}db:{tenantId}:orgList:{userId}");
         return true;
     }
 
@@ -345,18 +347,18 @@ public static class DataScopePermissionFilter
     /// 删除用户机构缓存
     /// </summary>
     /// <param name="userId"></param>
-    /// <param name="tanentId"></param>
+    /// <param name="tenantId"></param>
     /// <returns></returns>
-    public static bool DeleteUserOrgCache(long userId, object? tanentId)
+    public static bool DeleteUserOrgCache(long userId, object? tenantId)
     {
         var tid = LuBanOrmConst.DefaultTenantId;
-        if (tanentId == null)
+        if (tenantId == null)
         {
             return DeleteUserOrgCache(userId, tid);
         }
         else
         {
-            return DeleteUserOrgCache(userId, Convert.ToInt64(tanentId));
+            return DeleteUserOrgCache(userId, Convert.ToInt64(tenantId));
         }
     }
 
@@ -402,7 +404,7 @@ public static class DataScopePermissionFilter
                 db.QueryFilter.AddTableFilter(entityType, lambda);
                 orgFilter.TryAdd(entityType, lambda);
             }
-            _cache.Set(cacheKey, orgFilter);
+            _cache.Set(cacheKey, orgFilter, TimeSpan.FromMinutes(30));
         }
         else
         {

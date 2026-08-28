@@ -21,6 +21,7 @@
 *描述：100直播
 *
 *****************************************************************************/
+using System.Text.Json;
 using LuBan.Lives.YiBai.Models;
 
 namespace LuBan.Lives.YiBai
@@ -66,17 +67,14 @@ namespace LuBan.Lives.YiBai
                 var str = string.Format("phone={0}&postTime={1}&key={2}", phone, timeStamp, _liveOption.AppSecret);
                 var signature = str.GetMD5Str().ToLower();
 
-                var json = @"  {
-                " + "\n" +
-                               @"    ""phone"":""" + phone + @""",
-                " + "\n" +
-                               @"    ""businessId"":" + _liveOption.AppId + @",
-                " + "\n" +
-                               @"    ""sign"":""" + signature + @""",
-                " + "\n" +
-                               @"    ""postTime"":""" + timeStamp + @"""
-                " + "\n" +
-                   @"    }";
+                var requestBody = new
+                {
+                    phone = phone,
+                    businessId = _liveOption.AppId,
+                    sign = signature,
+                    postTime = timeStamp.ToString()
+                };
+                var json = JsonSerializer.Serialize(requestBody);
 
                 var headers = new Dictionary<string, string>();
                 headers.Add("remote-host", "sinqi.100doc.com.cn");
@@ -117,13 +115,15 @@ namespace LuBan.Lives.YiBai
         {
             try
             {
-                var json = @"{
-                " + "\n" +
-                                @"    ""username"":""" + _liveOption.UserName + @""",
-                " + "\n" +
-                                @"    ""password"":""" + _liveOption.Password + @""",
-                " + "\n" +
-                                @"    ""passwordSha"":""" + _liveOption.Salt + @"""}";
+                // WARNING: 此 API 要求在请求体中传递密码和盐，存在凭据泄露风险。
+                // 建议：如果 API 支持其他认证方式（如 OAuth、Token 刷新），应替换此实现。
+                var requestBody = new
+                {
+                    username = _liveOption.UserName,
+                    password = _liveOption.Password,
+                    passwordSha = _liveOption.Salt
+                };
+                var json = JsonSerializer.Serialize(requestBody);
 
                 var headers = new Dictionary<string, string>();
                 headers.Add("remote-host", "sinqi.100doc.com.cn");

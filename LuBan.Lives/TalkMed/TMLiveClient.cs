@@ -184,6 +184,8 @@ public class TMLiveClient : BaseLiveClient, ILiveClient
     /// <returns></returns>
     public string Authorize(string authToken, string roomId, int role = 3, string channel = "", string password = "")
     {
+        // WARNING: auth_token 和 signature 在 URL 查询参数中传递，可能被日志、代理或浏览器历史记录导致凭据泄露。
+        // 建议：如果 API 支持，改用 HTTP Header 传递认证信息（如 Authorization: Bearer <token>）。
         var headers = GetSignatureForAuthorize(authToken);
         return $"{_liveOption.AuthorizeUrl}/oauth/authorize?app_id={_liveOption.AppId}&auth_token={authToken}&timestamp={headers["timestamp"]}&signature={headers["signature"]}&platform=web&room_id={roomId}&role={role}&channel={channel}&password={password}";
     }

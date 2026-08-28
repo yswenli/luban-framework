@@ -144,7 +144,19 @@ public class DatabaseToolGroup
     private static readonly string[] ReadOnlyPrefixes = { "select", "show", "describe", "desc" };
 
     /// <summary>
+    /// 禁止在只读查询中使用的关键字（存储过程调用等）
+    /// </summary>
+    private static readonly string[] ForbiddenKeywords = { "exec", "execute", "execproc" };
+
+    /// <summary>
+    /// CTE 后允许跟的语句类型关键字
+    /// </summary>
+    private static readonly string[] CteAllowedPrefixes = { "select" };
+
+    /// <summary>
     /// 校验 SQL 是否为只读查询语句。
+    /// 注意：此验证并非 100% 安全，复杂的 SQL 构造可能绕过检查。
+    /// 建议：在生产环境中使用只读数据库账号作为最终安全保障。
     /// </summary>
     /// <param name="sql">SQL 语句</param>
     /// <returns>合法返回 null，否则返回错误消息</returns>
@@ -174,22 +186,122 @@ public class DatabaseToolGroup
         var firstWordEnd = trimmed.IndexOfAny(new[] { ' ', '\t', '\r', '\n', '(' });
         var firstWord = (firstWordEnd > 0 ? trimmed.Substring(0, firstWordEnd) : trimmed).ToLowerInvariant();
 
-        if (!ReadOnlyPrefixes.Contains(firstWord))
+        // 检查 WITH CTE：WITH 开头需验证 CTE 后面跟的是 SELECT 而非写操作
+        if (firstWord == "with")
+        {
+            // 查找 CTE 定义结束后的主语句关键字
+            // 简单策略：找到最后一个 WITH ... AS (...) 之后的第一个关键字
+            var afterWith = ValidateWithCte(trimmed);
+            if (afterWith != null) return afterWith;
+        }
+        else if (!ReadOnlyPrefixes.Contains(firstWord))
         {
             return $"错误：ExecuteQuery 仅允许只读查询（SELECT/SHOW/DESCRIBE），检测到 '{firstWord.ToUpperInvariant()}'。如需执行写操作，请使用 ExecuteNonQuery（需用户确认）。";
+        }
+
+        // 检查整个 SQL 是否包含禁止的关键字（存储过程调用等）
+        var upperSql = trimmed.ToUpperInvariant();
+        foreach (var keyword in ForbiddenKeywords)
+        {
+            var upper = keyword.ToUpperInvariant();
+            // 检查是否作为独立关键字出现（前面是空白或分号，后面是空白或分号或行尾）
+            var idx = upperSql.IndexOf(upper, StringComparison.Ordinal);
+            while (idx >= 0)
+            {
+                var isStart = idx == 0 || char.IsWhiteSpace(trimmed[idx - 1]) || trimmed[idx - 1] == ';';
+                var endIdx = idx + upper.Length;
+                var isEnd = endIdx >= trimmed.Length || char.IsWhiteSpace(trimmed[endIdx]) || trimmed[endIdx] == ';' || trimmed[endIdx] == '(';
+                if (isStart && isEnd)
+                {
+                    return $"错误：检测到禁止的操作 '{upper}'，不允许调用存储过程。";
+                }
+                idx = upperSql.IndexOf(upper, idx + 1, StringComparison.Ordinal);
+            }
         }
 
         // 阻止查询中夹带的写操作（分号后的第二条语句）
         foreach (var segment in trimmed.Split(';'))
         {
-            var segWord = segment.TrimStart();
-            if (segWord.Length == 0) continue;
-            var segEnd = segWord.IndexOfAny(new[] { ' ', '\t', '\r', '\n', '(' });
-            var segFirst = (segEnd > 0 ? segWord.Substring(0, segEnd) : segWord).ToLowerInvariant();
-            if (!ReadOnlyPrefixes.Contains(segFirst))
+            // 对每段也去除前导注释和空白
+            var segTrimmed = segment.TrimStart();
+            while (segTrimmed.StartsWith("--") || segTrimmed.StartsWith("/*"))
+            {
+                if (segTrimmed.StartsWith("--"))
+                {
+                    var newline = segTrimmed.IndexOf('\n');
+                    if (newline < 0) { segTrimmed = ""; break; }
+                    segTrimmed = segTrimmed.Substring(newline + 1).TrimStart();
+                }
+                else
+                {
+                    var end = segTrimmed.IndexOf("*/", StringComparison.Ordinal);
+                    if (end < 0) { segTrimmed = ""; break; }
+                    segTrimmed = segTrimmed.Substring(end + 2).TrimStart();
+                }
+            }
+
+            if (segTrimmed.Length == 0) continue;
+
+            var segEnd = segTrimmed.IndexOfAny(new[] { ' ', '\t', '\r', '\n', '(' });
+            var segFirst = (segEnd > 0 ? segTrimmed.Substring(0, segEnd) : segTrimmed).ToLowerInvariant();
+
+            if (segFirst == "with")
+            {
+                var cteResult = ValidateWithCte(segTrimmed);
+                if (cteResult != null) return cteResult;
+            }
+            else if (!ReadOnlyPrefixes.Contains(segFirst))
             {
                 return $"错误：检测到多语句中包含非只读操作 '{segFirst.ToUpperInvariant()}'，已拒绝执行。";
             }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// 验证 WITH CTE 语句，确保 CTE 后面跟的是 SELECT 而非写操作。
+    /// 注意：此验证采用简化策略，通过括号匹配找到 CTE 定义后的主语句。
+    /// </summary>
+    private static string? ValidateWithCte(string sql)
+    {
+        // 找到 CTE 定义的结束位置：匹配括号深度回到 0 后的第一个关键字
+        var depth = 0;
+        var i = 0;
+        // 跳过 WITH 关键字
+        var withEnd = sql.IndexOfAny(new[] { ' ', '\t', '\r', '\n' });
+        if (withEnd < 0) return "错误：WITH 语句格式无效";
+        i = withEnd;
+
+        while (i < sql.Length)
+        {
+            if (sql[i] == '(') depth++;
+            else if (sql[i] == ')') depth--;
+            else if (depth == 0 && i > withEnd)
+            {
+                // 括号深度为 0 时，检查当前字符是否是 CTE 后主语句的开始
+                var remaining = sql.Substring(i).TrimStart();
+                if (remaining.Length == 0) break;
+
+                var kwEnd = remaining.IndexOfAny(new[] { ' ', '\t', '\r', '\n', '(' });
+                var kw = (kwEnd > 0 ? remaining.Substring(0, kwEnd) : remaining).ToLowerInvariant();
+
+                if (kw == "select")
+                {
+                    return null; // CTE 后跟 SELECT，允许
+                }
+                else if (kw == "," || kw == "as" || kw == "not")
+                {
+                    // 仍在 CTE 定义中，继续
+                    i++;
+                    continue;
+                }
+                else
+                {
+                    return $"错误：WITH CTE 后检测到非只读操作 '{kw.ToUpperInvariant()}'，WITH 后只允许 SELECT。";
+                }
+            }
+            i++;
         }
 
         return null;

@@ -28,6 +28,9 @@ namespace LuBan.Web.Core.Utils;
 /// </summary>
 public static class OpenApiAccessUtil
 {
+    /// <summary>AES 加密密钥，未配置时使用默认值（仅开发环境）</summary>
+    public static string AesSecretKey { get; set; } = "";
+
     /// <summary>
     /// 生成refreshToken
     /// </summary>
@@ -42,7 +45,8 @@ public static class OpenApiAccessUtil
         if (entity == null || entity.Id < 1) throw FriendlyError.Ex("用户凭证不正确");
         if (entity.BindUserId < 1 || !entity.IsEnabled) throw FriendlyError.Ex("当前凭证暂未启用，请联系管理员");
         if (entity.RefreshToken.IsNullOrEmpty()) throw FriendlyError.Ex("当前凭证未初始，请联系管理员");
-        var json = AESUtil.Decrypt(entity.RefreshToken, CommonConst.SecretSalt);
+#warning 生产环境必须配置 OpenApiAccessUtil.AesSecretKey，否则使用硬编码默认密钥，存在安全风险
+        var json = AESUtil.Decrypt(entity.RefreshToken, string.IsNullOrEmpty(AesSecretKey) ? CommonConst.SecretSalt : AesSecretKey);
         if (json.IsNullOrEmpty()) throw FriendlyError.Ex("refreshtoken格式有误");
         var data = SerializeUtil.Deserialize<OpenAccessUserIdExpired>(json);
         if (data == null) throw FriendlyError.Ex("refreshtoken格式有误");
@@ -63,7 +67,7 @@ public static class OpenApiAccessUtil
         var entity = await resp.FirstAsync(q => q.IsDelete == false && q.RefreshToken == refreshToken);
         if (entity == null || entity.Id < 1) throw FriendlyError.Ex("refreshtoken不正确");
         if (entity.BindUserId < 1 || !entity.IsEnabled) throw FriendlyError.Ex("当前凭证暂未启用，请联系管理员");
-        var json = AESUtil.Decrypt(refreshToken, CommonConst.SecretSalt);
+        var json = AESUtil.Decrypt(refreshToken, string.IsNullOrEmpty(AesSecretKey) ? CommonConst.SecretSalt : AesSecretKey);
         if (json.IsNullOrEmpty()) throw FriendlyError.Ex("refreshtoken格式有误");
         var data = SerializeUtil.Deserialize<OpenAccessUserIdExpired>(json);
         if (data == null) throw FriendlyError.Ex("refreshtoken格式有误");
@@ -95,7 +99,7 @@ public static class OpenApiAccessUtil
         };
         var json = data.ToJson();
         json = json.Insert(1, $"\"n\":\"{Guid.NewGuid():N}\",");
-        return AESUtil.Encrypt(json, CommonConst.SecretSalt);
+        return AESUtil.Encrypt(json, string.IsNullOrEmpty(AesSecretKey) ? CommonConst.SecretSalt : AesSecretKey);
     }
 
 

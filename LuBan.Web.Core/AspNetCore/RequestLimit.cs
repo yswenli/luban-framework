@@ -60,16 +60,25 @@ public static class RequestLimit
             var urls = hostingOptions.AppOptions.Urls;
             foreach (var url in urls)
             {
-                var port = 5000;
-                if (int.TryParse(url.Split(":")[1], out port))
+                // 使用 Uri 解析，兼容 IPv6 地址与未显式指定端口的场景
+                if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || uri.Port <= 0)
                 {
-                    options.ListenAnyIP(port, listenOptions =>
-                    {
-                        listenOptions.Protocols = HttpProtocols.Http1AndHttp2AndHttp3;
-                        if (url.StartsWith("https"))
-                            listenOptions.UseHttps();
-                    });
+                    // 无端口时按协议取默认端口（http:80 / https:443）
+                    var defaultPort = url.StartsWith("https", StringComparison.OrdinalIgnoreCase) ? 443 : 80;
+                    Listen(options, defaultPort, url);
+                    continue;
                 }
+                Listen(options, uri.Port, url);
+            }
+
+            static void Listen(KestrelServerOptions options, int port, string url)
+            {
+                options.ListenAnyIP(port, listenOptions =>
+                {
+                    listenOptions.Protocols = HttpProtocols.Http1AndHttp2AndHttp3;
+                    if (url.StartsWith("https", StringComparison.OrdinalIgnoreCase))
+                        listenOptions.UseHttps();
+                });
             }
         });
         //services.Configure<HttpSysOptions>();        

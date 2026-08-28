@@ -96,13 +96,21 @@ public class ForbiddenAccessAttribute : BaseFilterAttribute, IOrderedFilter
                     var vals = new DbRepository<DbConfig>().First(q => q.Code == CommonConst.SysForbiddenAccessRolesCode);
                     if (vals != null)
                     {
-                        return (vals?.Value ?? "").Split(',').Select(q => long.Parse(q)).ToArray();
+                        // 使用 TryParse 跳过空项与非数字项，避免单条脏数据导致整个白名单解析失败
+                        return (vals?.Value ?? "")
+                            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                            .Select(q => long.TryParse(q, out var id) ? id : (long?)null)
+                            .Where(q => q.HasValue)
+                            .Select(q => q!.Value)
+                            .ToArray();
                     }
                     return [];
                 }) ?? [];
             }
-            catch
+            catch (Exception ex)
             {
+                // 记录日志便于排查；此处仍置空以保持"配置异常时不阻断访问"的既有行为
+                Logger.Error("获取禁用访问角色配置失败，已按空配置处理", ex);
                 ForbiddenRoles = [];
             }
         }

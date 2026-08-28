@@ -27,6 +27,15 @@
 namespace LuBan.Web.Core.Controls;
 
 /// <summary>
+/// HTML编码辅助方法
+/// </summary>
+static class HtmlSelectEncoder
+{
+    public static string HtmlEncode(string? value) =>
+        string.IsNullOrEmpty(value) ? "" : System.Web.HttpUtility.HtmlEncode(value);
+}
+
+/// <summary>
 /// html的select控件
 /// </summary>
 public class HtmlSelect
@@ -212,14 +221,14 @@ public static class HtmlSelectExtension
         var sb = new StringBuilder();
         try
         {
-            sb.Append($"<label for=\"{selectModel.Name}\">{(selectModel.Description.IsNullOrEmpty() ? selectModel.Name : selectModel.Description)}</label>");
+            sb.Append($"<label for=\"{HtmlSelectEncoder.HtmlEncode(selectModel.Name)}\">{(selectModel.Description.IsNullOrEmpty() ? HtmlSelectEncoder.HtmlEncode(selectModel.Name) : HtmlSelectEncoder.HtmlEncode(selectModel.Description))}</label>");
             if (selectModel.Style.IsNullOrEmpty())
             {
-                sb.Append($"<select id=\"{selectModel.Name}\" name=\"{selectModel.Name}\" class=\"{selectModel.ClassName}\">");
+                sb.Append($"<select id=\"{HtmlSelectEncoder.HtmlEncode(selectModel.Name)}\" name=\"{HtmlSelectEncoder.HtmlEncode(selectModel.Name)}\" class=\"{HtmlSelectEncoder.HtmlEncode(selectModel.ClassName)}\">");
             }
             else
             {
-                sb.Append($"<select id=\"{selectModel.Name}\" name=\"{selectModel.Name}\" class=\"{selectModel.ClassName}\" style=\"{selectModel.Style}\">");
+                sb.Append($"<select id=\"{HtmlSelectEncoder.HtmlEncode(selectModel.Name)}\" name=\"{HtmlSelectEncoder.HtmlEncode(selectModel.Name)}\" class=\"{HtmlSelectEncoder.HtmlEncode(selectModel.ClassName)}\" style=\"{HtmlSelectEncoder.HtmlEncode(selectModel.Style)}\">");
             }
             sb.Append($"<option value=\"\">请选择</option>");
             if (selectModel != null && selectModel.Data != null)
@@ -228,11 +237,11 @@ public static class HtmlSelectExtension
                 {
                     if (item.Value == selectModel.DefaultValue)
                     {
-                        sb.Append($"<option value=\"{item.Value}\" selected>{item.Text}</option>");
+                        sb.Append($"<option value=\"{HtmlSelectEncoder.HtmlEncode(item.Value)}\" selected>{HtmlSelectEncoder.HtmlEncode(item.Text)}</option>");
                     }
                     else
                     {
-                        sb.Append($"<option value=\"{item.Value}\">{item.Text}</option>");
+                        sb.Append($"<option value=\"{HtmlSelectEncoder.HtmlEncode(item.Value)}\">{HtmlSelectEncoder.HtmlEncode(item.Text)}</option>");
                     }
                 }
             }

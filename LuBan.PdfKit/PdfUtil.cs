@@ -30,6 +30,11 @@ namespace LuBan.PdfKit;
 public static class PdfUtil
 {
     /// <summary>
+    /// 自定义字体路径，未设置时使用系统默认路径
+    /// </summary>
+    public static string CustomFontPath { get; set; } = "";
+
+    /// <summary>
     /// 加载字体
     /// </summary>
     /// <param name="fontFilePath"></param>
@@ -48,15 +53,21 @@ public static class PdfUtil
             }
             else
             {
+                // 优先使用自定义字体路径，否则根据操作系统选择默认路径
+                string defaultFontPath = !string.IsNullOrEmpty(CustomFontPath) ? CustomFontPath
+                    : RuntimeUtil.IsWindows()
+                        ? "C:/Windows/Fonts/msyh.ttc"
+                        : "/usr/share/fonts/msyh.ttc";
 
-                if (RuntimeUtil.IsWindows())
-                    font = PdfFontFactory.CreateFont(
-                        "C:/Windows/Fonts/msyh.ttc,0",
-                        PdfEncodings.IDENTITY_H,
-                        PdfFontFactory.EmbeddingStrategy.PREFER_EMBEDDED, true);
-                else
-                    font = PdfFontFactory.CreateFont(
-                    "/usr/share/fonts/msyh.ttc,0",
+                if (!File.Exists(defaultFontPath))
+                {
+                    // 字体文件不存在时回退到默认字体
+                    font = PdfFontFactory.CreateFont();
+                    return font;
+                }
+
+                font = PdfFontFactory.CreateFont(
+                    $"{defaultFontPath},0",
                     PdfEncodings.IDENTITY_H,
                     PdfFontFactory.EmbeddingStrategy.PREFER_EMBEDDED, true);
             }

@@ -113,6 +113,13 @@ public class DistributedLockAttribute : BaseFilterAttribute
                 lockKey = $"{LockName}_{SessionUser.UserId}";
                 break;
         }
+
+        // 清理锁 Key：仅保留字母、数字、下划线、冒号、连字符
+        lockKey = System.Text.RegularExpressions.Regex.Replace(lockKey, @"[^a-zA-Z0-9_:\-]", "_");
+        // 截断过长的 Key 以避免超出存储限制
+        if (lockKey.Length > 200)
+            lockKey = lockKey[..200];
+
         _lockLocal.Value = LuBanRedis.Instance.GetDistributedLock(lockKey, Timeout, _dbIndex, "1");
 
         if (Timeout > 0 && MaxRetries > 0)

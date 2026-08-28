@@ -36,7 +36,7 @@ public class TextLocationListener : LocationTextExtractionStrategy
     private readonly Queue<(string text, TextRenderInfo info)> _recentChunks = new();
 
     bool _begin = false;
-    static TextChunk _textChunk;
+    TextChunk _textChunk;
 
     public TextLocationListener(string searchText)
     {

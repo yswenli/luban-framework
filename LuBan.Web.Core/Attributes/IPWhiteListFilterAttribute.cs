@@ -93,7 +93,8 @@ public class IPWhiteListFilterAttribute : BaseFilterAttribute
             return;
         }
 
-        if (IPAddress.TryParse("127.0.0.1", out var loopback) && remoteAddress.Equals(loopback))
+        // 同时放行 IPv4 (127.0.0.1) 与 IPv6 (::1) 回环地址，避免本地 IPv6 请求绕过白名单
+        if (IPAddress.IsLoopback(remoteAddress))
         {
             await next.Invoke();
         }

@@ -8,6 +8,13 @@ namespace LuBan.ApprovalFlow.Core;
 /// </summary>
 public class PlaceholderResolver
 {
+    private const int MaxResolveDepth = 10;
+
+    /// <summary>
+    /// 缓存的占位符正则表达式（编译模式，避免每次调用重新编译）
+    /// </summary>
+    private static readonly Regex _placeholderRegex = new Regex(@"\$\{([^}]+)\}", RegexOptions.Compiled);
+
     /// <summary>
     /// 解析字符串中的占位符，替换为实际值。
     /// </summary>
@@ -20,8 +27,7 @@ public class PlaceholderResolver
             return template;
 
         // 匹配 ${...} 格式的占位符
-        var pattern = @"\$\{([^}]+)\}";
-        return Regex.Replace(template, pattern, match =>
+        return _placeholderRegex.Replace(template, match =>
         {
             var placeholder = match.Groups[1].Value;
             return ResolvePlaceholder(placeholder, context) ?? string.Empty;
@@ -65,6 +71,24 @@ public class PlaceholderResolver
         Dictionary<string, object>? dict,
         FlowExecutionContext context)
     {
+        return ResolveDictionaryInternal(dict, context, 0);
+    }
+
+    /// <summary>
+    /// 递归解析字典中所有字符串值的占位符（内部方法，带递归深度限制）。
+    /// </summary>
+    /// <param name="dict">要解析的字典。</param>
+    /// <param name="context">流程执行上下文。</param>
+    /// <param name="depth">当前递归深度。</param>
+    /// <returns>解析后的新字典。</returns>
+    private static Dictionary<string, object> ResolveDictionaryInternal(
+        Dictionary<string, object>? dict,
+        FlowExecutionContext context,
+        int depth)
+    {
+        if (depth >= MaxResolveDepth)
+            throw new InvalidOperationException($"占位符解析超过最大递归深度 ({MaxResolveDepth})，可能存在循环引用");
+
         if (dict == null) return new Dictionary<string, object>();
 
         var result = new Dictionary<string, object>();
@@ -78,7 +102,7 @@ public class PlaceholderResolver
             else if (kvp.Value is Dictionary<string, object> nestedDict)
             {
                 // 嵌套字典：递归解析
-                result[kvp.Key] = ResolveDictionary(nestedDict, context);
+                result[kvp.Key] = ResolveDictionaryInternal(nestedDict, context, depth + 1);
             }
             else
             {

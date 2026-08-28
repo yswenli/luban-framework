@@ -160,10 +160,10 @@ public static class RuntimeUtil
                     list.Add(item);
                 }
             }
-            MemoryCache.Instance.Set(cacheKey, list);
+            MemoryCache.Instance.Set(cacheKey, list); // 反射结果缓存：程序集列表在运行期间不变，无需过期
             return list;
         }
-        return MemoryCache.Instance.GetOrSet(cacheKey, (k) => GetAssemblies(prefix, suffix, false));
+        return MemoryCache.Instance.GetOrSet(cacheKey, (k) => GetAssemblies(prefix, suffix, false)); // 反射结果缓存：程序集列表在运行期间不变，无需过期
     }
 
     /// <summary>
@@ -259,10 +259,10 @@ public static class RuntimeUtil
                     list.Add(typeinfo.AsType());
                 }
             }
-            MemoryCache.Instance.Set(cacheKey, list);
+            MemoryCache.Instance.Set(cacheKey, list); // 反射结果缓存：类型列表在运行期间不变，无需过期
             return list;
         }
-        return MemoryCache.Instance.GetOrSet(cacheKey, (k) => GetTypes(prefix, suffix, false));
+        return MemoryCache.Instance.GetOrSet(cacheKey, (k) => GetTypes(prefix, suffix, false)); // 反射结果缓存：类型列表在运行期间不变，无需过期
     }
 
     /// <summary>

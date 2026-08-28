@@ -215,8 +215,6 @@ public class AraParameterFilterAttribute : BaseFilterAttribute
             {
                 sortedDic.TryAdd("md5", json.GetMD5Str());
             }
-
-            sortedDic.TryAdd("md5", json.GetMD5Str());
         }
         catch (Exception ex)
         {

@@ -64,7 +64,7 @@ public class BaiduSpeechService : BaseService<BaiduSpeechService>, ISpeechServic
             { "client_id", _speechConfig.ClientId },
             { "client_secret", _speechConfig.ClientSecret }
         };
-        var data = await client.PostFormForParamsAsync($"/oauth/2.0/token?grant_type=client_credentials&client_id=11305335&client_secret=", formData);
+        var data = await client.PostFormForParamsAsync($"/oauth/2.0/token", formData);
         var bytes = data.ToStr();
         if (bytes == null)
         {

@@ -37,7 +37,7 @@ public class AppData : IAppData
     /// 字段信息列表
     /// </summary>
     [JsonPropertyName("answers")]
-    public List<FiledInfo> FiledInfos { get; set; }
+    public List<FiledInfo> FieldInfos { get; set; }
 }
 
 /// <summary>
@@ -498,6 +498,12 @@ public class GetLastestAppDataInput
     /// 是否获取所有数据
     /// </summary>
     public bool IsAll { get; set; } = false;
+
+    /// <summary>
+    /// 日期范围筛选所作用的字段序号（QueId）。
+    /// 不同轻流应用的字段序号不同，默认值 3 仅为历史兼容，调用方应按实际应用配置传入。
+    /// </summary>
+    public int DateQueId { get; set; } = 3;
 }
 
 /// <summary>
