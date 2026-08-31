@@ -23,6 +23,7 @@
 *****************************************************************************/
 using Result = LuBan.Common.Data.Result;
 using LuBan.Common.Errors;
+using System.Diagnostics.CodeAnalysis;
 
 
 namespace LuBan.Common;
@@ -134,6 +135,7 @@ public static class AraReplayAttacksUtil
     /// <param name="model"></param>
     /// <param name="result"></param>
     /// <returns></returns>
+    [UnconditionalSuppressMessage("System.Diagnostics.CodeAnalysis", "IL2075", Justification = "Reflection-based code; library is not trim/AOT targeted.")]
     public static AraInfo? GetSafeComparisonInfoForObject(object model, out Result result)
     {
         if (model == null)

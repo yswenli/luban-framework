@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 ﻿/****************************************************************************
 *Copyright (c) YSWenli All Rights Reserved.
 *CLR版本： .net10.0
@@ -161,6 +162,8 @@ public static class TitleValueConvertor
     /// <param name="collection"></param>
     /// <param name="matchType"></param>
     /// <returns></returns>
+    [UnconditionalSuppressMessage("System.Diagnostics.CodeAnalysis", "IL2090", Justification = "Reflection-based code; library is not trim/AOT targeted.")]
+    [UnconditionalSuppressMessage("System.Diagnostics.CodeAnalysis", "IL2091", Justification = "Reflection-based code; library is not trim/AOT targeted.")]
     public static T? ConvertTo<T>(this TitleValueCollection collection, EnumConvertMatchType matchType = EnumConvertMatchType.ExactlyMatch) 
         where T : class
     {
@@ -217,7 +220,7 @@ public static class TitleValueConvertor
                             continue;
                         }
 
-                        if (property.PropertyType.IsNullable())
+                        if (property!.PropertyType.IsNullable())
                         {
                             var underlyingType = Nullable.GetUnderlyingType(property.PropertyType);
                             if (underlyingType == null)

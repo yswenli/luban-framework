@@ -22,12 +22,14 @@
 *
 *****************************************************************************/
 using LuBan.Office.Docx;
+using System.Runtime.Versioning;
 
 namespace LuBan.UnitTestProject;
 
 /// <summary>
 /// word文档测试
 /// </summary>
+[SupportedOSPlatform("windows")]
 [TestClass]
 public class WordDocumentUnitTest
 {

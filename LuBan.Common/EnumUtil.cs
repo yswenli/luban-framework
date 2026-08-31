@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 ﻿/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
@@ -90,6 +91,7 @@ public static class EnumUtil
     /// <typeparam name="TEnum">枚举类型</typeparam>
     /// <param name="typeAttr">属性类型</param>
     /// <returns>枚举信息列表</returns>
+    [UnconditionalSuppressMessage("System.Diagnostics.CodeAnalysis", "IL2090", Justification = "Reflection-based code; library is not trim/AOT targeted.")]
     public static List<EnumInfo> GetEnumInfos<TEnum>(Type typeAttr) where TEnum : struct, Enum
     {
         var enType = typeof(TEnum);
@@ -148,6 +150,7 @@ public static class EnumUtil
     /// <typeparam name="TEnum">枚举类型</typeparam>
     /// <typeparam name="Attr">属性类型</typeparam>
     /// <returns>枚举值列表</returns>
+    [UnconditionalSuppressMessage("System.Diagnostics.CodeAnalysis", "IL2075", Justification = "Reflection-based code; library is not trim/AOT targeted.")]
     public static List<TEnum> GetEnums<TEnum, Attr>()
         where TEnum : struct, Enum
         where Attr : Attribute
@@ -228,6 +231,7 @@ public static class EnumUtil
     /// </summary>
     /// <param name="enumType"></param>
     /// <returns></returns>
+    [UnconditionalSuppressMessage("System.Diagnostics.CodeAnalysis", "IL2070", Justification = "Reflection-based code; library is not trim/AOT targeted.")]
     public static List<string> GetDescriptions(this Type enumType)
     {
         var result = new List<string>();

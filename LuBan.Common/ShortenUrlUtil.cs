@@ -73,7 +73,7 @@ namespace LuBan.Common
                 if (index.Length >= 30) //读取上一条记录的ID
                 {
                     index.Position = index.Length - 30;
-                    index.Read(buff, 0, 8);
+                    index.ReadExactly(buff, 0, 8);
                     index.Position += 22;
                     Last = BitConverter.ToInt64(buff, 0);
                 }
@@ -121,7 +121,7 @@ namespace LuBan.Common
                     middle = (long)(Math.Floor((double)((right + left) / 2)));
                     if (middle < 0) break;
                     index.Position = middle * 30;
-                    index.Read(buff, 0, 8);
+                    index.ReadExactly(buff, 0, 8);
                     long val = BitConverter.ToInt64(buff, 0);
                     if (val == id) break;
                     if (val < id)
@@ -137,13 +137,13 @@ namespace LuBan.Common
                 if (middle != -1)
                 {
                     index.Position = middle * 30 + 8; //跳过ID          
-                    index.Read(buff, 0, buff.Length);
+                    index.ReadExactly(buff, 0, buff.Length);
                     long Begin = BitConverter.ToInt64(buff, 0);
-                    index.Read(buff, 0, buff.Length);
+                    index.ReadExactly(buff, 0, buff.Length);
                     Int16 Length = BitConverter.ToInt16(buff, 0);
                     byte[] UrlTxt = new byte[Length];
                     data.Position = Begin;
-                    data.Read(UrlTxt, 0, UrlTxt.Length);
+                    data.ReadExactly(UrlTxt, 0, UrlTxt.Length);
                     int Hits = BitConverter.ToInt32(buff, 2);//跳过2字节的Length
                     byte[] NewHits = BitConverter.GetBytes(Hits + 1);//解析次数递增, 4字节
                     index.Position -= 6;//指针撤回到Length之后

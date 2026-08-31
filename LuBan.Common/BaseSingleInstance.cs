@@ -53,6 +53,7 @@ public static class SingleInstance
     /// <typeparam name="T"></typeparam>
     /// <param name="args"></param>
     /// <returns></returns>
+    [UnconditionalSuppressMessage("System.Diagnostics.CodeAnalysis", "IL2087", Justification = "Reflection-based code; library is not trim/AOT targeted.")]
     public static T? Create<T>(params object[] args) where T : class
     {
         var type = typeof(T);

@@ -152,4 +152,26 @@ public static class ProcessUtil
         }
         Process.Start("explorer", url);
     }
+
+    private static string JoinQuoted(List<string> args)
+    {
+        if (args == null || args.Count == 0)
+            return string.Empty;
+        var sb = new System.Text.StringBuilder();
+        for (int i = 0; i < args.Count; i++)
+        {
+            if (i > 0) sb.Append(' ');
+            sb.Append(QuoteArg(args[i]));
+        }
+        return sb.ToString();
+    }
+
+    private static string QuoteArg(string arg)
+    {
+        if (string.IsNullOrEmpty(arg))
+            return "\"\"";
+        if (arg.IndexOf(' ') < 0 && arg.IndexOf('"') < 0 && arg.IndexOf('\\') < 0)
+            return arg;
+        return "\"" + arg.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
+    }
 }

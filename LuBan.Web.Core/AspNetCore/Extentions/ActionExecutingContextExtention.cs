@@ -36,7 +36,7 @@ public static class ActionExecutingContextExtention
     /// <returns></returns>
     public static string GetRequestUrl(this HttpRequest request, bool withQuery = true)
     {
-        var host = request.Host.Value;
+        var host = request.Host.Value ?? string.Empty;
 
         if (host.EndsWith(":80"))
         {
@@ -99,7 +99,7 @@ public static class ActionExecutingContextExtention
                 var value = "";
                 if (context.ActionArguments.ContainsKey(argumentName))
                 {
-                    value = context.ActionArguments[argumentName].ToJson();
+                    value = context.ActionArguments[argumentName]!.ToJson();
                 }
                 sp.AppendFormat("{0}={1}&", argumentName, value);
             }

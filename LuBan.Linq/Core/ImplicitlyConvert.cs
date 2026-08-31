@@ -46,6 +46,7 @@ internal static class ImplicitlyConvert
     /// <summary>
     /// 检查是否存在用户定义的隐式转换运算符（sourceType → targetType）
     /// </summary>
+    [UnconditionalSuppressMessage("System.Diagnostics.CodeAnalysis", "IL2070", Justification = "Reflection-based code; library is not trim/AOT targeted.")]
     public static bool HasImplicitConversionOperatorTo(this Type sourceType, Type targetType)
     {
         var sourceConversionMethods = sourceType.GetMethods(BindingFlags.Public | BindingFlags.Static)

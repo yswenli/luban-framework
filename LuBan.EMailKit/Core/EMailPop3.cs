@@ -79,14 +79,14 @@ public class EMailPop3 : IDisposable, IEMailClient
                 var to = new List<UserAddress>();
                 foreach (MailboxAddress item in message.To)
                 {
-                    to.Add(new UserAddress(item.Name, item.Address));
+                    to.Add(new UserAddress(item.Name ?? string.Empty, item.Address));
                 }
                 var cc = new List<UserAddress>();
                 if (message.Cc != null && message.Cc.Count > 0)
                 {
                     foreach (MailboxAddress item in message.Cc)
                     {
-                        cc.Add(new UserAddress(item.Name, item.Address));
+                        cc.Add(new UserAddress(item.Name ?? string.Empty, item.Address));
                     }
                 }
                 var bcc = new List<UserAddress>();
@@ -94,7 +94,7 @@ public class EMailPop3 : IDisposable, IEMailClient
                 {
                     foreach (MailboxAddress item in message.Bcc)
                     {
-                        bcc.Add(new UserAddress(item.Name, item.Address));
+                        bcc.Add(new UserAddress(item.Name ?? string.Empty, item.Address));
                     }
                 }
 
@@ -118,7 +118,7 @@ public class EMailPop3 : IDisposable, IEMailClient
                         {
                             if (mp.Content is MimeContent mc && mc.Stream != null)
                             {
-                                var attachment = new Attachment(mp.FileName, mc.Stream);
+                                var attachment = new Attachment(mp.FileName ?? string.Empty, mc.Stream);
                                 attachments.Add(attachment);
                             }
                         }
@@ -137,8 +137,8 @@ public class EMailPop3 : IDisposable, IEMailClient
 
                     }
                 }
-                var msg = new Message(to, cc, bcc, message.Subject, body, isHtml, attachments);
-                msg.Header.From = new UserAddress(from.Name, from.Address);
+                var msg = new Message(to, cc, bcc, message.Subject ?? string.Empty, body, isHtml, attachments);
+                msg.Header.From = new UserAddress(from.Name ?? string.Empty, from.Address);
                 result.Add(msg);
             }
         }

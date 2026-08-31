@@ -21,131 +21,128 @@
 *描述：token工具类
 *
  *****************************************************************************/
-using System.Text.Json.Serialization;
+namespace LuBan.Common;
 
-namespace LuBan.Common
+/// <summary>
+/// token工具类
+/// </summary>
+public static class TokenUtil
 {
-    /// <summary>
-    /// token工具类
-    /// </summary>
-    public static class TokenUtil
-    {
-        static readonly string _passwords = "RGV2ZWxvcGVkIGJ5IE1hc29uLldlbg==";
 
-        /// <summary>
-        /// 获取Token
-        /// </summary>
-        /// <returns></returns>
-        public static string GetTokenString(string version = "1.0")
+    /// <summary>
+    /// 获取Token
+    /// </summary>
+    /// <returns></returns>
+    public static string GetTokenString(string version = "1.0")
+    {
+        var tokenInfo = new TokenInfo()
         {
+            Version = version,
+            DateTime = DateTimeUtil.Now
+        };
+        tokenInfo.ComparisonCode = tokenInfo.GetComparisonCode();
+        var str = $"{tokenInfo.DateTime}*{tokenInfo.Version}*{tokenInfo.ComparisonCode}";
+        var ebytes = AESUtil.Encrypt(Encoding.UTF8.GetBytes(str), CommonConst.SecretSalt);
+        return Encrypt.Library.Base64Util.ToUriSafeEncode(ebytes);
+    }
+
+    /// <summary>
+    /// 检验并返回 Token
+    /// </summary>
+    /// <param name="tokenStr"></param>
+    /// <param name="err"></param>
+    /// <param name="timeOut"></param>
+    /// <returns></returns>
+    public static TokenInfo? GetToken(string tokenStr, out string err, int timeOut = 10)
+    {
+        err = string.Empty;
+
+        try
+        {
+            var ebytes = Encrypt.Library.Base64Util.ToUriSafeDecode(tokenStr);
+
+            var str = Encoding.UTF8.GetString(AESUtil.Decrypt(ebytes, CommonConst.SecretSalt));
+
+            var arr = str.Split("*");
+
             var tokenInfo = new TokenInfo()
             {
-                Version = version,
-                DateTime = DateTimeUtil.Now
+                DateTime = DateTime.Parse(arr[0]),
+                Version = arr[1],
+                ComparisonCode = arr[2]
             };
-            tokenInfo.ComparisonCode = tokenInfo.GetComparisonCode();
-            var str = $"{tokenInfo.DateTime}*{tokenInfo.Version}*{tokenInfo.ComparisonCode}";
-            var ebytes = AESUtil.Encrypt(Encoding.UTF8.GetBytes(str), _passwords);
-            return Encrypt.Library.Base64Util.ToUriSafeEncode(ebytes);
-        }
 
-        /// <summary>
-        /// 检验并返回 Token
-        /// </summary>
-        /// <param name="tokenStr"></param>
-        /// <param name="err"></param>
-        /// <param name="timeOut"></param>
-        /// <returns></returns>
-        public static TokenInfo? GetToken(string tokenStr, out string err, int timeOut = 10)
-        {
-            err = string.Empty;
-
-            try
-            {
-                var ebytes = Encrypt.Library.Base64Util.ToUriSafeDecode(tokenStr);
-
-                var str = Encoding.UTF8.GetString(AESUtil.Decrypt(ebytes, _passwords));
-
-                var arr = str.Split("*");
-
-                var tokenInfo = new TokenInfo()
-                {
-                    DateTime = DateTime.Parse(arr[0]),
-                    Version = arr[1],
-                    ComparisonCode = arr[2]
-                };
-
-                if (tokenInfo.ComparisonCode != tokenInfo.GetComparisonCode())
-                {
-                    err = "输入的token无效";
-
-                    return null;
-                }
-
-                if (tokenInfo.DateTime.AddMinutes(timeOut) < DateTimeUtil.Now)
-                {
-                    err = "输入的Token已过期";
-
-                    return null;
-                }
-
-                return tokenInfo;
-            }
-            catch
+            if (tokenInfo.ComparisonCode != tokenInfo.GetComparisonCode())
             {
                 err = "输入的token无效";
+
+                return null;
             }
 
-            return null;
-        }
-
-        /// <summary>
-        /// 获取将对象序列化后的md5值
-        /// </summary>
-        /// <param name="obj"></param>
-        /// <returns></returns>
-        public static string GetToken(this object obj)
-        {
-            if (obj == null) return string.Empty;
-            var json = obj.ToJson();
-            if (!string.IsNullOrEmpty(json))
+            if (tokenInfo.DateTime.AddMinutes(timeOut) < DateTimeUtil.Now)
             {
-                return MD5Util.GetMD5Str(json).EncodeForUriSafe();
-            }
-            return string.Empty;
-        }
+                err = "输入的Token已过期";
 
-        #region TokenInfo
-        /// <summary>
-        /// 验证码实体
-        /// </summary>
-        public class TokenInfo
+                return null;
+            }
+
+            return tokenInfo;
+        }
+        catch
         {
-            /// <summary>
-            /// 版本
-            /// </summary>
-            [JsonPropertyName("v")]
-            public string Version { get; set; }
-            /// <summary>
-            /// 时间
-            /// </summary>
-            [JsonPropertyName("d")]
-            public DateTime DateTime { get; set; }
-            /// <summary>
-            /// 校验码
-            /// </summary>
-            [JsonPropertyName("c")]
-            public string ComparisonCode { get; set; }
-
-            /// <summary>
-            /// 生成校验码
-            /// </summary>
-            /// <returns></returns>
-            public string GetComparisonCode()
-            {
-                return MD5Util.GetHMACMD5($"Version={Version}&DateTime={DateTime}", _passwords).EncodeForUriSafe();
-            }
+            err = "输入的token无效";
         }
-        #endregion
+
+        return null;
     }
+
+    /// <summary>
+    /// 获取将对象序列化后的md5值
+    /// </summary>
+    /// <param name="obj"></param>
+    /// <returns></returns>
+    [RequiresUnreferencedCode("TokenUtil.GetToken")]
+    public static string GetToken(this object obj)
+    {
+        if (obj == null) return string.Empty;
+        var json = obj.ToJson() ?? "";
+        if (!string.IsNullOrEmpty(json))
+        {
+            return MD5Util.GetMD5Str(json).EncodeForUriSafe();
+        }
+        return string.Empty;
+    }
+
+    #region TokenInfo
+    /// <summary>
+    /// 验证码实体
+    /// </summary>
+    public class TokenInfo
+    {
+        /// <summary>
+        /// 版本
+        /// </summary>
+        [JsonPropertyName("v")]
+        public string Version { get; set; }
+        /// <summary>
+        /// 时间
+        /// </summary>
+        [JsonPropertyName("d")]
+        public DateTime DateTime { get; set; }
+        /// <summary>
+        /// 校验码
+        /// </summary>
+        [JsonPropertyName("c")]
+        public string ComparisonCode { get; set; }
+
+        /// <summary>
+        /// 生成校验码
+        /// </summary>
+        /// <returns></returns>
+        public string GetComparisonCode()
+        {
+            return MD5Util.GetHMACMD5($"Version={Version}&DateTime={DateTime}", CommonConst.SecretSalt).EncodeForUriSafe();
+        }
+    }
+    #endregion
 }

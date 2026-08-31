@@ -31,13 +31,19 @@ namespace LuBan.Common;
 public static class ShellUtil
 {
     /// <summary>
-    /// linux 系统命令
+    /// 在 linux 上通过 /bin/bash -c 执行命令。
+    /// <para>安全警告：command 会原样传入 shell。若包含不可信输入，存在命令注入风险
+    /// （如分号、$(...)、反引号等可突破当前引号转义）。仅应传入受信任的命令；
+    /// 执行外部程序请改用参数化进程调用（Cmd / ProcessUtil.Start）。</para>
     /// </summary>
-    /// <param name="command"></param>
-    /// <returns></returns>
+    /// <param name="command">要执行的 shell 命令（必须受信任）</param>
+    /// <returns>标准输出内容</returns>
     [SupportedOSPlatform("linux")]
     public static string Bash(string command)
     {
+        if (string.IsNullOrWhiteSpace(command))
+            return string.Empty;
+
         var escapedArgs = command.Replace("\"", "\\\"");
         var process = new Process()
         {
@@ -46,15 +52,21 @@ public static class ShellUtil
                 FileName = "/bin/bash",
                 Arguments = $"-c \"{escapedArgs}\"",
                 RedirectStandardOutput = true,
+                RedirectStandardError = true,
                 UseShellExecute = false,
                 CreateNoWindow = true,
             }
         };
-        process.Start();
-        string result = process.StandardOutput.ReadToEnd();
+        if (!process.Start())
+            return string.Empty;
+
+        // 并行读取 stdout/stderr，避免任一管道被写满导致死锁
+        var outTask = process.StandardOutput.ReadToEndAsync();
+        var errTask = process.StandardError.ReadToEndAsync();
         process.WaitForExit();
+        Task.WaitAll(outTask, errTask);
         process.Dispose();
-        return result;
+        return outTask.Result;
     }
 
     /// <summary>
@@ -91,7 +103,9 @@ public static class ShellUtil
     {
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            return Task.FromResult(() =>
+            // 原实现返回 Task.FromResult(() => {...})，实际返回的是 Task<Action>，
+            // lambda 永不会执行。改为 Task.Run 真正异步打开浏览器。
+            return Task.Run(() =>
             {
                 try
                 {

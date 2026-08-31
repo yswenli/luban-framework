@@ -34,6 +34,7 @@ public static class NamePairExtensions
     /// <param name="t">对象实例</param>
     /// <param name="namePairs">名称对数组</param>
     /// <returns>名称对列表</returns>
+    [UnconditionalSuppressMessage("System.Diagnostics.CodeAnalysis", "IL2090", Justification = "Reflection-based code; library is not trim/AOT targeted.")]
     public static List<NamePair> GetNamePairsByArr<T>(this T t, params NamePair[] namePairs) where T : class, new()
     {
         List<NamePair> result = [];

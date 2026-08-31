@@ -46,6 +46,7 @@ internal static class AspectDispatchProxyGenerator
     /// <param name="baseType"></param>
     /// <param name="interfaceType"></param>
     /// <returns></returns>
+    [UnconditionalSuppressMessage("System.Diagnostics.CodeAnalysis", "IL2072", Justification = "Reflection-based code; library is not trim/AOT targeted.")]
     internal static object CreateProxyInstance(Type baseType, Type interfaceType)
     {
         var proxiedType = GetProxyType(baseType, interfaceType);
@@ -85,6 +86,7 @@ internal static class AspectDispatchProxyGenerator
     /// <param name="interfaceType"></param>
     /// <returns></returns>
     /// <exception cref="ArgumentException"></exception>
+    [UnconditionalSuppressMessage("System.Diagnostics.CodeAnalysis", "IL2070", Justification = "Reflection-based code; library is not trim/AOT targeted.")]
     private static Type GenerateProxyType(Type baseType, Type interfaceType)
     {
         // Parameter validation is deferred until the point we need to create the proxy.
@@ -134,6 +136,7 @@ internal static class AspectDispatchProxyGenerator
     /// </summary>
     /// <param name="args"></param>
     /// <returns></returns>
+    [UnconditionalSuppressMessage("System.Diagnostics.CodeAnalysis", "IL2060", Justification = "Reflection-based code; library is not trim/AOT targeted.")]
     private static ProxyMethodResolverContext Resolve(object[] args)
     {
         var packed = new PackedArgs(args);
@@ -194,6 +197,7 @@ internal static class AspectDispatchProxyGenerator
     /// <typeparam name="T"></typeparam>
     /// <param name="args"></param>
     /// <returns></returns>
+    [UnconditionalSuppressMessage("System.Diagnostics.CodeAnalysis", "IL2060", Justification = "Reflection-based code; library is not trim/AOT targeted.")]
     public static async Task<T?> InvokeAsync<T>(object[] args)
     {
         var context = Resolve(args);

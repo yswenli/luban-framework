@@ -127,7 +127,7 @@ public class FindSkillsSkill : SkillBase
 
 请根据用户需求智能推荐，优先推荐本地已有的 Skill。";
 
-        var result = await context.Agent.RunAsync($"{systemPrompt}\n\n用户需求：{input}", context.CancellationToken);
+        var result = await context.Agent!.RunAsync($"{systemPrompt}\n\n用户需求：{input}", context.CancellationToken);
 
         return SkillResult.Ok(result.Text ?? "");
     }

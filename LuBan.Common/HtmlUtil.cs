@@ -85,7 +85,7 @@ namespace LuBan.Common
                     if (attrc == null || attrc.Count < 1) continue;
                     foreach (var item in attrc)
                     {
-                        result.Add(item.Value);
+                        result.Add(item.Value!);
                     }
                 }
             }
@@ -97,7 +97,7 @@ namespace LuBan.Common
                     foreach (var item in attrc)
                     {
                         if (item.Name == attributeName)
-                            result.Add(item.Value);
+                            result.Add(item.Value!);
                     }
                 }
             }

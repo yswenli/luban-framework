@@ -61,8 +61,8 @@ public class SwaggerJwtFilter : IOperationFilter
         //    }
         //});
 
-        operation.Responses.Add("401", new OpenApiResponse { Description = "Unauthorized. 当前请求需要在Header中传入jwt" });
-        operation.Responses.Add("403", new OpenApiResponse { Description = "Forbidden. 当前请求权限不足" });
+        operation!.Responses!.Add("401", new OpenApiResponse { Description = "Unauthorized. 当前请求需要在Header中传入jwt" });
+        operation!.Responses!.Add("403", new OpenApiResponse { Description = "Forbidden. 当前请求权限不足" });
 
     }
 }

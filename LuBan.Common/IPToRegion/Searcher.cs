@@ -242,7 +242,7 @@ public class Searcher
         if (stream.CanRead)
             stream.Seek(0, SeekOrigin.Begin);
         var buffer = new byte[HeaderInfoLength];
-        stream.Read(buffer, 0, HeaderInfoLength);
+        stream.ReadExactly(buffer, 0, HeaderInfoLength);
         return new Header(buffer);
     }
     public static Header LoadHeaderFromFile(string dbPath)

@@ -212,7 +212,7 @@ public class OrmConcurrentTest
             Console.WriteLine($"  provider2.Provider.GetHashCode: {provider2.Provider.GetHashCode()}");
             Console.WriteLine($"  provider1.Provider == provider2.Provider: {object.ReferenceEquals(provider1.Provider, provider2.Provider)}");
 
-            var tenant = scope.AsTenant();
+            var tenant = scope!.AsTenant();
             var connScope1 = tenant.GetConnectionScope(LuBanOrmConst.MainConfigId);
             var connScope2 = tenant.GetConnectionScope(LuBanOrmConst.MainConfigId);
             Console.WriteLine($"  connScope1 == connScope2: {object.ReferenceEquals(connScope1, connScope2)}");

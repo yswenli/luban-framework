@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 /****************************************************************************
 *Copyright (c) YSWenli All Rights Reserved.
 *CLR版本： .net10.0
@@ -72,6 +73,7 @@ internal class ProxyBuilder
         return false;
     }
 
+    [UnconditionalSuppressMessage("System.Diagnostics.CodeAnalysis", "IL2080", Justification = "Reflection-based code; library is not trim/AOT targeted.")]
     private void Complete()
     {
         var args = new Type[_fields.Count];
@@ -108,6 +110,7 @@ internal class ProxyBuilder
         return _tb.CreateTypeInfo().AsType();
     }
 
+    [UnconditionalSuppressMessage("System.Diagnostics.CodeAnalysis", "IL2067", Justification = "Reflection-based code; library is not trim/AOT targeted.")]
     internal void AddInterfaceImpl(Type iface)
     {
         // If necessary, generate an attribute to permit visibility
@@ -193,6 +196,7 @@ internal class ProxyBuilder
         }
     }
 
+    [UnconditionalSuppressMessage("System.Diagnostics.CodeAnalysis", "IL2060", Justification = "Reflection-based code; library is not trim/AOT targeted.")]
     private MethodBuilder AddMethodImpl(MethodInfo mi)
     {
         var parameters = mi.GetParameters();

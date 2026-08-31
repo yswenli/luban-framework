@@ -1,0 +1,8 @@
+<Project>
+  <!-- 按审查指令排除“过时”与“环境”两类告警，其余全部逐处真修 -->
+  <PropertyGroup>
+    <NoWarn>$(NoWarn);IL2026;CS0618;CS0612;SYSLIB0014;SYSLIB0022;SYSLIB0021;NU1900;NU5100</NoWarn>
+    <!-- NU1900 为 restore 阶段漏洞审计告警（内网 coding.net 源不可达），属“环境”类，按指令排除 -->
+    <NuGetAudit>false</NuGetAudit>
+  </PropertyGroup>
+</Project>

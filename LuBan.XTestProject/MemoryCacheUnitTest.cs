@@ -29,7 +29,7 @@ namespace LuBan.XTestProject
 
             var val1 = _cache.Get<int>(key1);
 
-            Assert.IsNotNull(val1);
+            Assert.AreEqual(39654, val1);
 
 
             var key2 = "test2";

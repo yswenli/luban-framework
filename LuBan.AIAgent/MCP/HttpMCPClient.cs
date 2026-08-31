@@ -216,7 +216,7 @@ public class HttpMCPClient : IMCPClient, IDisposable
 
             var responseText = await response.Content.ReadAsStringAsync(cancellationToken);
             var message = JsonNode.Parse(responseText);
-            return message?["error"] != null ? null : message["result"];
+            return message?["error"] != null ? null : message?["result"];
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

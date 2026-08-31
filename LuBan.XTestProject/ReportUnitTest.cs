@@ -56,9 +56,9 @@ namespace LuBan.UnitTestProject
 
                 Assert.IsTrue(File.Exists(filePath));
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                throw ex;
+                throw;
             }
 
         }

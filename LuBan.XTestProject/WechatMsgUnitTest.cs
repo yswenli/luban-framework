@@ -71,7 +71,7 @@ namespace LuBan.XTestProject
                 XmlDocument xmlDocument = new XmlDocument();
                 xmlDocument.XmlResolver = null;
                 xmlDocument.LoadXml(xml);
-                XmlNode firstChild = xmlDocument.FirstChild;
+                var firstChild = xmlDocument.FirstChild;
                 if (firstChild == null)
                 {
                     return false;

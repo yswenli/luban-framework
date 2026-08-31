@@ -209,6 +209,7 @@ public static class FrameworkErrors
         public static readonly ErrorDescriptor InternalError = new(500, "系统异常，详情请在系统日志中查阅", ErrorCategory.System);
     }
 
+    [global::System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("System.Diagnostics.CodeAnalysis", "IL2070", Justification = "Reflection over nested types; library is not trim/AOT targeted.")]
     private static readonly IReadOnlyList<ErrorDescriptor> _all = typeof(FrameworkErrors)
         .GetNestedTypes(global::System.Reflection.BindingFlags.Public | global::System.Reflection.BindingFlags.Static)
         .SelectMany(t => t.GetFields(global::System.Reflection.BindingFlags.Public | global::System.Reflection.BindingFlags.Static))

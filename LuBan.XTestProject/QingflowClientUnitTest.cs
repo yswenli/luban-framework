@@ -67,18 +67,17 @@ public class QingflowClientUnitTest
                     PatientIdCard = "000000000000000000"
                 });
 
-                var patient = patients.FirstOrDefault();
+                var patient = patients!.FirstOrDefault();
 
 
-                var data2 = OpenApiClient.Instance.GetAuditFlowListAsync(dataId.ToString()).Result;
+                var data2 = OpenApiClient.Instance.GetAuditFlowListAsync(dataId?.ToString() ?? string.Empty).Result;
             }
             catch (Exception ex)
             {
                 Console.WriteLine(ex);
-                Assert.IsTrue(false);
+                Assert.Fail();
             }
 
-            Assert.IsTrue(true);
         }
 
     }
@@ -107,15 +106,14 @@ public class QingflowClientUnitTest
                 var fileds = data.Result.Result.Select(q => q.FieldInfos.Select(qq => qq.QueTitle)).ToList();
 
                 var dataId = data.Result.Result.First().AppDataId;
-                var data2 = OpenApiClient.Instance.GetAuditFlowListAsync(dataId.ToString()).Result;
+                var data2 = OpenApiClient.Instance.GetAuditFlowListAsync(dataId?.ToString() ?? string.Empty).Result;
             }
             catch (Exception ex)
             {
                 Console.WriteLine(ex);
-                Assert.IsTrue(false);
+                Assert.Fail();
             }
 
-            Assert.IsTrue(true);
         }
 
     }
@@ -150,7 +148,7 @@ public class QingflowClientUnitTest
         catch (Exception ex)
         {
             Console.WriteLine(ex);
-            Assert.IsTrue(false);
+            Assert.Fail();
         }
     }
 
@@ -178,7 +176,7 @@ public class QingflowClientUnitTest
         catch (Exception ex)
         {
             Console.WriteLine(ex);
-            Assert.IsTrue(false);
+            Assert.Fail();
         }
     }
 
@@ -203,7 +201,7 @@ public class QingflowClientUnitTest
         catch (Exception ex)
         {
             Console.WriteLine(ex);
-            Assert.IsTrue(false);
+            Assert.Fail();
         }
     }
     /// <summary>
@@ -235,7 +233,7 @@ public class QingflowClientUnitTest
         catch (Exception ex)
         {
             Console.WriteLine(ex);
-            Assert.IsTrue(false);
+            Assert.Fail();
         }
     }
 
@@ -264,7 +262,7 @@ public class QingflowClientUnitTest
         catch (Exception ex)
         {
             Console.WriteLine(ex);
-            Assert.IsTrue(false);
+            Assert.Fail();
         }
     }
 
@@ -292,7 +290,7 @@ public class QingflowClientUnitTest
         catch (Exception ex)
         {
             Console.WriteLine(ex);
-            Assert.IsTrue(false);
+            Assert.Fail();
         }
     }
 
@@ -315,7 +313,7 @@ public class QingflowClientUnitTest
         catch (Exception ex)
         {
             Console.WriteLine(ex);
-            Assert.IsTrue(false);
+            Assert.Fail();
         }
     }
 
@@ -448,7 +446,7 @@ public class QingflowClientUnitTest
         catch (Exception ex)
         {
             Console.WriteLine(ex);
-            Assert.IsTrue(false);
+            Assert.Fail();
         }
     }
 

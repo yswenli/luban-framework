@@ -47,6 +47,7 @@ internal class ProxyAssembly
     /// <summary>
     /// 代理组件集
     /// </summary>
+    [UnconditionalSuppressMessage("System.Diagnostics.CodeAnalysis", "IL2075", Justification = "Reflection-based code; library is not trim/AOT targeted.")]
     public ProxyAssembly()
     {
         var access = AssemblyBuilderAccess.Run;
@@ -62,6 +63,7 @@ internal class ProxyAssembly
     /// 获取或创建 IgnoresAccessChecksAttribute 特性的 ConstructorInfo（构造函数信息）.
     /// 此特性会在动态程序集中同时进行定义和引用，以便能够访问其他程序集中的内部类型（internal types）。
     /// </summary>
+    [UnconditionalSuppressMessage("System.Diagnostics.CodeAnalysis", "IL2075", Justification = "Reflection-based code; library is not trim/AOT targeted.")]
     internal ConstructorInfo IgnoresAccessChecksAttributeConstructor
     {
         get
@@ -82,6 +84,7 @@ internal class ProxyAssembly
     /// <param name="name"></param>
     /// <param name="proxyBaseType"></param>
     /// <returns></returns>
+    [UnconditionalSuppressMessage("System.Diagnostics.CodeAnalysis", "IL2067", Justification = "Reflection-based code; library is not trim/AOT targeted.")]
     public ProxyBuilder CreateProxy(string name, Type proxyBaseType)
     {
         var nextId = Interlocked.Increment(ref _typeId);

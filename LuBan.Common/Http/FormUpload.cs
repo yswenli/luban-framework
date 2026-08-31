@@ -144,7 +144,7 @@ internal static class FormUpload
         // Dump the Stream into a byte[]  
         formDataStream.Position = 0;
         byte[] formData = new byte[formDataStream.Length];
-        formDataStream.Read(formData, 0, formData.Length);
+        formDataStream.ReadExactly(formData, 0, formData.Length);
         formDataStream.Close();
 
         return formData;

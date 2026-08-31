@@ -99,7 +99,7 @@ public class OnlineUserMiddleware
 
             await _next(context);
         }
-        catch (FriendlyException ex)
+        catch (FriendlyException)
         {
             await UnauthorizedAsync(context);
         }

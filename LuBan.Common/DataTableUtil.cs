@@ -47,6 +47,8 @@ public static class DataTableUtil
     /// <param name="list"></param>
     /// <param name="convertNames">指定转换的列名</param>
     /// <returns></returns>
+    [UnconditionalSuppressMessage("System.Diagnostics.CodeAnalysis", "IL2072", Justification = "Reflection-based code; library is not trim/AOT targeted.")]
+    [UnconditionalSuppressMessage("System.Diagnostics.CodeAnalysis", "IL2090", Justification = "Reflection-based code; library is not trim/AOT targeted.")]
     public static DataTable ToDataTable<T>(this IEnumerable<T> list, IEnumerable<NamePair>? convertNames) where T : class, new()
     {
         DataTable dt = new DataTable();
@@ -186,6 +188,7 @@ public static class DataTableUtil
     /// <param name="dataTable"></param>
     /// <param name="convertNames">指定转换的列名</param>
     /// <returns></returns>
+    [UnconditionalSuppressMessage("System.Diagnostics.CodeAnalysis", "IL2075", Justification = "Reflection-based code; library is not trim/AOT targeted.")]
     public static List<T> ToList<T>(this DataTable dataTable, IEnumerable<NamePair>? convertNames = null) where T : class, new()
     {
         List<T> ts = [];

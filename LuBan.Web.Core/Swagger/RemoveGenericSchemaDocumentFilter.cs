@@ -35,14 +35,16 @@ public class RemoveGenericSchemaDocumentFilter : IDocumentFilter
     /// <param name="context"></param>
     public void Apply(OpenApiDocument swaggerDoc, DocumentFilterContext context)
     {
-        var keysToRemove = swaggerDoc.Components.Schemas
+        var components = swaggerDoc.Components;
+        if (components?.Schemas == null) return;
+        var keysToRemove = components.Schemas
             .Where(kv => kv.Key.StartsWith("System.Collections.Generic.KeyValuePair`2") || kv.Key.Contains("`2"))
             .Select(kv => kv.Key)
             .ToList();
 
         foreach (var key in keysToRemove)
         {
-            swaggerDoc.Components.Schemas.Remove(key);
+            components.Schemas.Remove(key);
         }
     }
 }

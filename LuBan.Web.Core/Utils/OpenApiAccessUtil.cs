@@ -45,7 +45,7 @@ public static class OpenApiAccessUtil
         if (entity == null || entity.Id < 1) throw FriendlyError.Ex("用户凭证不正确");
         if (entity.BindUserId < 1 || !entity.IsEnabled) throw FriendlyError.Ex("当前凭证暂未启用，请联系管理员");
         if (entity.RefreshToken.IsNullOrEmpty()) throw FriendlyError.Ex("当前凭证未初始，请联系管理员");
-#warning 生产环境必须配置 OpenApiAccessUtil.AesSecretKey，否则使用硬编码默认密钥，存在安全风险
+        // 安全提示：生产环境必须配置 OpenApiAccessUtil.AesSecretKey，否则使用硬编码默认密钥（CommonConst.SecretSalt），存在安全风险。
         var json = AESUtil.Decrypt(entity.RefreshToken, string.IsNullOrEmpty(AesSecretKey) ? CommonConst.SecretSalt : AesSecretKey);
         if (json.IsNullOrEmpty()) throw FriendlyError.Ex("refreshtoken格式有误");
         var data = SerializeUtil.Deserialize<OpenAccessUserIdExpired>(json);

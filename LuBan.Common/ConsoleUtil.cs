@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 ﻿/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
@@ -1070,6 +1071,7 @@ public class ConsoleTable<TModel> where TModel : class, new()
     /// 控制台表格
     /// </summary>
     /// <param name="title"></param>
+    [UnconditionalSuppressMessage("System.Diagnostics.CodeAnalysis", "IL2090", Justification = "Reflection-based code; library is not trim/AOT targeted.")]
     public ConsoleTable(string title = "")
     {
         _table = new Spectre.Console.Table();

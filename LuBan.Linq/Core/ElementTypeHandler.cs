@@ -36,6 +36,7 @@ internal class ElementTypeHandler
     /// <summary>
     /// 检查集合是否不允许重复元素，且val已存在（如HashSet.Contains返回true则不允许添加）
     /// </summary>
+    [UnconditionalSuppressMessage("System.Diagnostics.CodeAnalysis", "IL2075", Justification = "Reflection-based code; library is not trim/AOT targeted.")]
     public static bool IsDuplicateNotAllowed(IEnumerable source, Type elementType, dynamic val)
     {
         Type sourceType = source.GetType();

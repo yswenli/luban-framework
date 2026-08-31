@@ -209,7 +209,7 @@ public class WechatBizMsgCryptor
         /// <param name="oLeft"></param>
         /// <param name="oRight"></param>
         /// <returns></returns>
-        public int Compare(object oLeft, object oRight)
+        public int Compare(object? oLeft, object? oRight)
         {
             string sLeft = (oLeft as string) ?? "";
             string sRight = (oRight as string) ?? "";

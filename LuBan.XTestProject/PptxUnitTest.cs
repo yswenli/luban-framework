@@ -24,11 +24,14 @@
 
 
 
+using System.Runtime.Versioning;
+
 namespace LuBan.TestProject1;
 
 /// <summary>
 /// 测试Pptx
 /// </summary>
+[SupportedOSPlatform("windows")]
 [TestClass]
 public class PptxTest
 {
@@ -106,7 +109,7 @@ public class PptxTest
         {
             var slide = document.GetSlideByNumber(3);
 
-            var shapes = slide.GeTableShapes();
+            var shapes = slide!.GeTableShapes();
 
             foreach (var shape in shapes)
             {

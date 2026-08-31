@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 /****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
@@ -151,6 +152,7 @@ public static class ReflectionUtil
     static ConcurrentDictionary<string, dynamic> _instanceCache = [];
     static readonly ConcurrentDictionary<(Type, string), PropertyInfo?> _propertyCache = new();
 
+    [UnconditionalSuppressMessage("System.Diagnostics.CodeAnalysis", "IL2080", Justification = "Reflection-based code; library is not trim/AOT targeted.")]
     public static PropertyInfo? GetCachedProperty([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] this Type type, string propertyName)
     {
         return _propertyCache.GetOrAdd((type, propertyName),
@@ -245,6 +247,7 @@ public static class ReflectionUtil
     /// </summary>
     /// <typeparam name="T"></typeparam>
     /// <returns></returns>
+    [UnconditionalSuppressMessage("System.Diagnostics.CodeAnalysis", "IL2090", Justification = "Reflection-based code; library is not trim/AOT targeted.")]
     public static PropertyInfo[] GetPropertities<T>() where T : class, new()
     {
         var type = typeof(T);
@@ -453,6 +456,7 @@ public static class ReflectionUtil
     /// </summary>
     /// <param name="model"></param>
     /// <returns></returns>
+    [UnconditionalSuppressMessage("System.Diagnostics.CodeAnalysis", "IL2075", Justification = "Reflection-based code; library is not trim/AOT targeted.")]
     public static List<PropertyInfo> GetProperties([DisallowNull] this object model)
     {
         return model.GetType().GetProperties(BindingFlags.Instance | BindingFlags.Public).ToList();
@@ -482,6 +486,7 @@ public static class ReflectionUtil
     /// <typeparam name="T"></typeparam>
     /// <param name="model"></param>
     /// <returns></returns>
+    [UnconditionalSuppressMessage("System.Diagnostics.CodeAnalysis", "IL2075", Justification = "Reflection-based code; library is not trim/AOT targeted.")]
     public static List<PropertyInfo> GetProperties<T>([DisallowNull] this T model) where T : class, new()
     {
         return model.GetType().GetProperties(BindingFlags.Instance | BindingFlags.Public).ToList();
@@ -633,6 +638,8 @@ public static class ReflectionUtil
     /// <param name="type"></param>
     /// <param name="value"></param>
     /// <returns></returns>
+    [UnconditionalSuppressMessage("System.Diagnostics.CodeAnalysis", "IL2062", Justification = "Reflection-based code; library is not trim/AOT targeted.")]
+    [UnconditionalSuppressMessage("System.Diagnostics.CodeAnalysis", "IL2072", Justification = "Reflection-based code; library is not trim/AOT targeted.")]
     public static object? ConvertValue([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type type, object value)
     {
         if (Convert.IsDBNull(value) || value == null)
@@ -898,6 +905,8 @@ public static class ReflectionUtil
     }
 
 
+    [UnconditionalSuppressMessage("System.Diagnostics.CodeAnalysis", "IL2067", Justification = "Reflection-based code; library is not trim/AOT targeted.")]
+    [UnconditionalSuppressMessage("System.Diagnostics.CodeAnalysis", "IL2072", Justification = "Reflection-based code; library is not trim/AOT targeted.")]
     private static object? ConvertSimpleType(object value, Type destinationType)
     {
         object? returnValue;

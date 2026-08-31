@@ -39,6 +39,8 @@ namespace LuBan.Common
         /// <param name="targetType"></param>
         /// <param name="convertMatchType"></param>
         /// <returns></returns>
+        [UnconditionalSuppressMessage("System.Diagnostics.CodeAnalysis", "IL2062", Justification = "Reflection-based code; library is not trim/AOT targeted.")]
+        [UnconditionalSuppressMessage("System.Diagnostics.CodeAnalysis", "IL2075", Justification = "Reflection-based code; library is not trim/AOT targeted.")]
         public static object? To(this object source, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type targetType, EnumConvertMatchType convertMatchType = EnumConvertMatchType.IgnoreCase)
         {
             if (source != null && source.GetType().IsClass)
@@ -1055,6 +1057,7 @@ namespace LuBan.Common
         /// <param name="targetType"></param>
         /// <param name="convertMatchType"></param>
         /// <returns></returns>
+        [UnconditionalSuppressMessage("System.Diagnostics.CodeAnalysis", "IL2075", Justification = "Reflection-based code; library is not trim/AOT targeted.")]
         public static IList? ToEntityList(this object source, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type targetType, EnumConvertMatchType convertMatchType = EnumConvertMatchType.IgnoreCase)
         {
             if (source != null)
@@ -1084,6 +1087,7 @@ namespace LuBan.Common
         /// <param name="source"></param>
         /// <param name="convertMatchType"></param>
         /// <returns></returns>
+        [UnconditionalSuppressMessage("System.Diagnostics.CodeAnalysis", "IL2087", Justification = "Reflection-based code; library is not trim/AOT targeted.")]
         public static T? To<T>(this object source, EnumConvertMatchType convertMatchType = EnumConvertMatchType.IgnoreCase) where T : class
         {
             return source.To(typeof(T), convertMatchType) as T;
@@ -1098,6 +1102,7 @@ namespace LuBan.Common
         /// <param name="source"></param>
         /// <param name="convertMatchType"></param>
         /// <returns></returns>
+        [UnconditionalSuppressMessage("System.Diagnostics.CodeAnalysis", "IL2075", Justification = "Reflection-based code; library is not trim/AOT targeted.")]
         public static List<T>? ToEntityList<T>(this object source, EnumConvertMatchType convertMatchType = EnumConvertMatchType.IgnoreCase) where T : class
         {
             if (source != null)
@@ -1152,6 +1157,7 @@ namespace LuBan.Common
         /// <param name="obj"></param>
         /// <param name="ignores"></param>
         /// <returns></returns>
+        [UnconditionalSuppressMessage("System.Diagnostics.CodeAnalysis", "IL2075", Justification = "Reflection-based code; library is not trim/AOT targeted.")]
         public static string GetUrlQueryTextByObj(this object obj, params string[] ignores)
         {
             if (obj == null)
@@ -1290,6 +1296,7 @@ namespace LuBan.Common
         /// <param name="t"></param>
         /// <param name="ignores"></param>
         /// <returns></returns>
+        [UnconditionalSuppressMessage("System.Diagnostics.CodeAnalysis", "IL2075", Justification = "Reflection-based code; library is not trim/AOT targeted.")]
         public static SortedDictionary<string, string> GetQueryDic<T>(this T t, params string[] ignores) where T : class, new()
         {
             if (t == null)
@@ -1729,6 +1736,7 @@ namespace LuBan.Common
         /// <typeparam name="T"></typeparam>
         /// <param name="claims"></param>
         /// <returns></returns>
+        [UnconditionalSuppressMessage("System.Diagnostics.CodeAnalysis", "IL2090", Justification = "Reflection-based code; library is not trim/AOT targeted.")]
         public static T? ToModel<T>(this IEnumerable<Claim> claims) where T : class, new()
         {
             if (claims == null || !claims.Any()) return default;

@@ -51,7 +51,7 @@ namespace LuBan.UnitTestProject
 
             var client = builder.Build() as RagFlowAIClient;
 
-            TestRagFlowAsync(client).GetAwaiter().GetResult();
+            TestRagFlowAsync(client!).GetAwaiter().GetResult();
 
         }
 
