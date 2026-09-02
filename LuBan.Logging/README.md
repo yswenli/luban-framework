@@ -27,7 +27,7 @@ LuBan.Logging 提供自研文件日志 Provider，深度集成 Microsoft.Extensi
 
 | 组件 | 说明 |
 |------|------|
-| .NET 8.0 | 目标框架 |
+| .NET 10.0 | 目标框架 |
 | Microsoft.Extensions.Logging | 日志抽象与 Provider 基础 |
 | System.Text.Json | 日志序列化（camelCase + indented + 自定义转换器） |
 | LuBan.DI | ISingleton 单例注入 |

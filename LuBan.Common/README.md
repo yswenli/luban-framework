@@ -67,7 +67,7 @@ Logger.Info("订单模块", "订单创建成功");
 
 ## 技术栈
 
-- **目标框架**：.NET 8.0
+- **目标框架**：.NET 10.0
 - **项目类型**：类库（Class Library）
 - **NuGet 包**：`LuBan.Common`
 

@@ -73,7 +73,7 @@ var paged = dbContext.Users.ToPagedList(page: 1, pageSize: 20);
 
 ## 技术栈
 
-- **目标框架**：.NET 8.0
+- **目标框架**：.NET 10.0
 - **项目类型**：类库（Class Library）
 - **NuGet 包**：`LuBan.Linq`
 

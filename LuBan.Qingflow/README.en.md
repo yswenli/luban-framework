@@ -48,7 +48,7 @@ var orders = await client.GetPagedModelListAsync<OrderModel>(new GetAppDataListI
 
 | Category | Component | Description |
 |----------|-----------|-------------|
-| Runtime | .NET 8.0 | — |
+| Runtime | .NET 10.0 | — |
 | Framework Dependencies | LuBan.Common | LuBan base components (HTTP, caching, serialization, etc.) |
 
 ---

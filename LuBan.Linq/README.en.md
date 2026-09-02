@@ -73,7 +73,7 @@ var paged = dbContext.Users.ToPagedList(page: 1, pageSize: 20);
 
 ## Tech Stack
 
-- **Target Framework**: .NET 8.0
+- **Target Framework**: .NET 10.0
 - **Project Type**: Class Library
 - **NuGet Package**: `LuBan.Linq`
 

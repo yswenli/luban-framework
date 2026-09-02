@@ -37,7 +37,7 @@ await WebApp.RunWebHostAsync(args);
 
 | 类别 | 组件 | 说明 |
 |------|------|------|
-| 运行时 | .NET 8.0 | ASP.NET Core 最小宿主 |
+| 运行时 | .NET 10.0 | ASP.NET Core 最小宿主 |
 | 缓存 | LuBan.Redis | Redis 分布式缓存 & 锁 |
 | 系统服务 | Hosting.Systemd / WindowsServices | 支持注册为系统服务 |
 | 审批流 | LuBan.ApprovalFlow | 内置审批流引擎 |

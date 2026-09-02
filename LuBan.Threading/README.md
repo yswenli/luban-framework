@@ -73,7 +73,7 @@ var msg = queue.Dequeue(maxTimeout: 3000);
 
 ## 技术栈
 
-- **目标框架**：.NET 8.0
+- **目标框架**：.NET 10.0
 - **项目类型**：类库（Class Library）
 - **NuGet 包**：`LuBan.Threading`
 - **外部依赖**：无（零第三方 NuGet 依赖）

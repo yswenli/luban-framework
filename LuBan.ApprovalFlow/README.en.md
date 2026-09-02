@@ -49,7 +49,7 @@ await engine.ProcessApprovalAsync(new ProcessApprovalRequest
 
 | Category | Component | Description |
 |----------|-----------|-------------|
-| Runtime | .NET 8.0 | ASP.NET Core FrameworkReference |
+| Runtime | .NET 10.0 | ASP.NET Core FrameworkReference |
 | Framework Dependencies | LuBan.Common, LuBan.DI, LuBan.EventBus, LuBan.Orm | LuBan base components |
 | Serialization | System.Text.Json | Workflow definition serialization |
 | Thread Pool | SimpleThreadPool | Built-in lightweight thread pool |

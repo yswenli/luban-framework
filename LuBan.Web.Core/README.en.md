@@ -37,7 +37,7 @@ That simple. The framework automatically reads the `HostingOptions` configuratio
 
 | Category | Component | Description |
 |----------|-----------|-------------|
-| Runtime | .NET 8.0 | ASP.NET Core minimal hosting |
+| Runtime | .NET 10.0 | ASP.NET Core minimal hosting |
 | Cache | LuBan.Redis | Redis distributed cache & locks |
 | System Service | Hosting.Systemd / WindowsServices | Register as system service |
 | Approval Flow | LuBan.ApprovalFlow | Built-in approval flow engine |

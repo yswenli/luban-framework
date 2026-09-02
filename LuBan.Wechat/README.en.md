@@ -36,7 +36,7 @@ var corpClient = WechatClientFactory.Create(EnumWechatType.Corp);
 
 | Category | Component | Description |
 |----------|-----------|-------------|
-| Runtime | .NET 8.0 | — |
+| Runtime | .NET 10.0 | — |
 | Framework Dependencies | LuBan.Web.Core, LuBan.Service, LuBan.Common | LuBan framework core |
 
 ---

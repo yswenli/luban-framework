@@ -52,7 +52,7 @@ report.Export("orders_2026.xlsx");  // 自动识别 .xlsx / .csv
 
 | 类别 | 组件 | 说明 |
 |------|------|------|
-| 运行时 | .NET 8.0 | — |
+| 运行时 | .NET 10.0 | — |
 | 框架依赖 | LuBan.Common, LuBan.Orm | LuBan 基础组件 |
 
 ---

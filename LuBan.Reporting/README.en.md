@@ -52,7 +52,7 @@ report.Export("orders_2026.xlsx");  // Auto-detects .xlsx / .csv
 
 | Category | Component | Description |
 |----------|-----------|-------------|
-| Runtime | .NET 8.0 | — |
+| Runtime | .NET 10.0 | — |
 | Framework Dependencies | LuBan.Common, LuBan.Orm | LuBan base components |
 
 ---

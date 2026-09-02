@@ -65,7 +65,7 @@ Console.WriteLine(userService.GetUserName(1));  // User_1
 
 ## Tech Stack
 
-- **Target Framework**: .NET 8.0
+- **Target Framework**: .NET 10.0
 - **Project Type**: Class Library
 - **NuGet Package**: `LuBan.DI`
 

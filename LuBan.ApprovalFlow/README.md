@@ -49,7 +49,7 @@ await engine.ProcessApprovalAsync(new ProcessApprovalRequest
 
 | 类别 | 组件 | 说明 |
 |------|------|------|
-| 运行时 | .NET 8.0 | ASP.NET Core FrameworkReference |
+| 运行时 | .NET 10.0 | ASP.NET Core FrameworkReference |
 | 框架依赖 | LuBan.Common, LuBan.DI, LuBan.EventBus, LuBan.Orm | LuBan 基础组件 |
 | 序列化 | System.Text.Json | 流程定义序列化 |
 | 线程池 | SimpleThreadPool | 内置轻量线程池 |
