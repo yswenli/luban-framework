@@ -166,7 +166,7 @@ public class MinIOStorageClient : ICloudStorageClient
     /// <returns></returns>
     public bool Upload(string cloudFileName, string localFilePath)
     {
-        return Task.Run(async () => await UploadAsync(cloudFileName, localFilePath)).GetAwaiter().GetResult();
+        return UploadAsync(cloudFileName, localFilePath).GetAwaiter().GetResult();
     }
 
     /// <summary>
@@ -177,7 +177,7 @@ public class MinIOStorageClient : ICloudStorageClient
     /// <returns></returns>
     public bool Upload(string cloudFileName, Stream stream)
     {
-        return Task.Run(async () => await UploadAsync(cloudFileName, stream)).GetAwaiter().GetResult();
+        return UploadAsync(cloudFileName, stream).GetAwaiter().GetResult();
     }
 
     /// <summary>

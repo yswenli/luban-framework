@@ -88,7 +88,8 @@ public class MCPRegistry
             {
                 if (kvp.Value.Client.IsConnected)
                 {
-                    try { Task.Run(() => kvp.Value.Client.DisconnectAsync()).Wait(); } catch { }
+                    try { kvp.Value.Client.DisconnectAsync().GetAwaiter().GetResult(); }
+                    catch (Exception ex) { Logger.Debug("断开 MCP 客户端失败", ex); }
                 }
                 (kvp.Value.Client as IDisposable)?.Dispose();
             }
@@ -145,7 +146,8 @@ public class MCPRegistry
 
                 if (kvp.Value.Client.IsConnected)
                 {
-                    try { Task.Run(() => kvp.Value.Client.DisconnectAsync()).Wait(); } catch { }
+                    try { kvp.Value.Client.DisconnectAsync().GetAwaiter().GetResult(); }
+                    catch (Exception ex) { Logger.Debug("断开 MCP 客户端失败", ex); }
                 }
                 (kvp.Value.Client as IDisposable)?.Dispose();
             }

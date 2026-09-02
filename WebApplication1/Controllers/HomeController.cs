@@ -281,7 +281,7 @@ public class HomeController : BaseApiController
     [HttpGet]
     public async Task<string> TestDistributedLock2Async()
     {
-        using var dl = new DistributedLock("TestDistributedLock2");
+        await using var dl = await DistributedLock.CreateAsync("TestDistributedLock2");
         return await Task.FromResult("TestDistributedLock2");
     }
 

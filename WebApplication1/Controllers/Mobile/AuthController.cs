@@ -24,11 +24,11 @@ public class AuthController : BaseMobileController
     /// <param name="input"></param>
     /// <returns></returns>
     [AllowAnonymous, HttpPost, DisplayName("Login"), AllowAccess]
-    public Result Login([Required(ErrorMessage = "请输入用户名或密码"), FromBody] UserLoginInput input)
+    public async Task<Result> Login([Required(ErrorMessage = "请输入用户名或密码"), FromBody] UserLoginInput input)
     {
-        var user = new DbRepository<DbUser>()
+        var user = await new DbRepository<DbUser>()
             .Includes(q => q.UserRoles, w => w.SysRole)
-            .FirstAsync(q => q.Id == LuBanOrmConst.SuperAdminId).Result;
+            .FirstAsync(q => q.Id == LuBanOrmConst.SuperAdminId);
         return SuccessResult(CreateJwtToken(user, ""));
     }
 
