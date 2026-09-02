@@ -222,7 +222,7 @@ public class EMailSmtp : IDisposable, IEMailClient
     /// <param name="maxCount">最大接收邮件数量，默认100</param>
     /// <returns></returns>
     /// <exception cref="NotImplementedException"></exception>
-    public Task<List<Message>> RecieveAsync(CancellationToken cancellationToken = default, int maxCount = 100)
+    public Task<List<Message>> ReceiveAsync(CancellationToken cancellationToken = default, int maxCount = 100)
     {
         throw new NotImplementedException();
     }

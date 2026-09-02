@@ -294,9 +294,9 @@ public class StringPlus : IDisposable
     static readonly List<string> _sqlKeyWords = new List<string>() {
 
                     "SELECT * FROM TABLE",
-                    "INSERT INTO TALBE(FILED) VALUES(VALUE)",
+                    "INSERT INTO TABLE(FIELD) VALUES(VALUE)",
                     "DELETE FROM",
-                    "UPDATE [TABLE] SET [FILED]=VALUE WHERE",
+                    "UPDATE [TABLE] SET [FIELD]=VALUE WHERE",
                     "DROP",
                     "ALTER",
                     "TOP",

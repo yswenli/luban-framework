@@ -37,13 +37,13 @@ public class AppData : IAppData
     /// 字段信息列表
     /// </summary>
     [JsonPropertyName("answers")]
-    public List<FiledInfo> FieldInfos { get; set; }
+    public List<FieldInfo> FieldInfos { get; set; }
 }
 
 /// <summary>
 /// 字段信息
 /// </summary>
-public class FiledInfo
+public class FieldInfo
 {
     /// <summary>
     /// 字段Id
@@ -110,7 +110,7 @@ public class ValueInfo
 /// <summary>
 /// TableInfo
 /// </summary>
-public class TableInfo : List<FiledInfo>
+public class TableInfo : List<FieldInfo>
 {
 
 }

@@ -159,7 +159,7 @@ public static class ImageUtil
     /// <returns></returns>
     public static byte[] DrawImage(byte[] originalImageBytes, ImageInfo imageInfo)
     {
-        using var imageTemplate = new ImageTeplate(originalImageBytes);
+        using var imageTemplate = new ImageTemplate(originalImageBytes);
         using var ms = imageTemplate.Draw(imageInfo);
         return ms.ToArray();
     }
@@ -194,7 +194,7 @@ public static class ImageUtil
 /// <summary>
 /// 图片模板
 /// </summary>
-public class ImageTeplate : IDisposable
+public class ImageTemplate : IDisposable
 {
     SKMemoryStream _inputStream;
 
@@ -205,7 +205,7 @@ public class ImageTeplate : IDisposable
     /// </summary>
     /// <param name="templateFilePath"></param>
     /// <exception cref="Exception"></exception>
-    public ImageTeplate(string templateFilePath)
+    public ImageTemplate(string templateFilePath)
     {
         if (templateFilePath.IsNullOrEmpty()) throw new Exception("图片模板文件路径不能为空");
         if (!File.Exists((string)templateFilePath)) throw new Exception("图片模板文件不存在");
@@ -216,7 +216,7 @@ public class ImageTeplate : IDisposable
     /// 图片模板
     /// </summary>
     /// <param name="originalImageBytes"></param>
-    public ImageTeplate(byte[] originalImageBytes)
+    public ImageTemplate(byte[] originalImageBytes)
     {
         _inputStream = new SKMemoryStream(originalImageBytes);
     }

@@ -81,7 +81,7 @@ public class HomeController : BaseApiController
     /// </summary>
     /// <returns></returns>
     [HttpPost]
-    public async Task<string> Recieve()
+    public async Task<string> Receive()
     {
         var str1 = await WebApp.HttpContext!.GetRequestBodyTextAsync(1000, Encoding.UTF8);
         var str2 = await WebApp.HttpContext!.GetRequestBodyTextAsync(1000, Encoding.UTF8);

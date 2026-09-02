@@ -30,12 +30,12 @@ public static class ConvertExtention
     /// 将轻流数据中的字段转换成模型
     /// </summary>
     /// <typeparam name="T"></typeparam>
-    /// <param name="filedInfos"></param>
+    /// <param name="fieldInfos"></param>
     /// <returns></returns>
-    static T? ConvertTo<T>(List<FiledInfo> filedInfos)
+    static T? ConvertTo<T>(List<FieldInfo> fieldInfos)
          where T : class, IAppData
     {
-        return filedInfos.Select(q => new TitleValue(q.QueTitle, q.Values?.FirstOrDefault()?.Value ?? ""))
+        return fieldInfos.Select(q => new TitleValue(q.QueTitle, q.Values?.FirstOrDefault()?.Value ?? ""))
             .ConvertToTitleValueCollection()
             .ConvertTo<T>();
     }

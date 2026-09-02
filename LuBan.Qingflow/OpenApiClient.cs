@@ -473,7 +473,7 @@ public class OpenApiClient : BaseSingleInstance<OpenApiClient>
     /// <param name="input"></param>
     /// <param name="where"></param>
     /// <returns></returns>
-    public async Task<List<T>> GetModelListForTabletAsync<T>(GetTableDataListInput input, Func<FiledInfo, bool>? where = null) where T : class, new()
+    public async Task<List<T>> GetModelListForTabletAsync<T>(GetTableDataListInput input, Func<FieldInfo, bool>? where = null) where T : class, new()
     {
         List<T> result = [];
         var data = await GetAppDataListAsync(input);
@@ -509,7 +509,7 @@ public class OpenApiClient : BaseSingleInstance<OpenApiClient>
     /// <param name="input"></param>
     /// <param name="where"></param>
     /// <returns></returns>
-    public async Task<Dictionary<T1, List<T2>>> GetModelListWithTableDataAsync<T1, T2>(GetTableDataListInput input, Func<FiledInfo, bool>? where = null)
+    public async Task<Dictionary<T1, List<T2>>> GetModelListWithTableDataAsync<T1, T2>(GetTableDataListInput input, Func<FieldInfo, bool>? where = null)
         where T1 : class, new()
         where T2 : class, new()
     {
