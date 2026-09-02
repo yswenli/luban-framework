@@ -169,9 +169,13 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
         var responseText = string.Concat(context.ResponseMessages
             .SelectMany(m => m.Contents?.OfType<TextContent>() ?? Enumerable.Empty<TextContent>())
             .Select(c => c.Text));
+        // 提取 AI 思考内容（reasoning），持久化以便切换会话后恢复展示
+        var thinkingText = string.Concat(context.ResponseMessages
+            .SelectMany(m => m.Contents?.OfType<TextReasoningContent>() ?? Enumerable.Empty<TextReasoningContent>())
+            .Select(c => c.Text));
         if (!string.IsNullOrWhiteSpace(responseText))
         {
-            await _sessionManager.AddMessageAsync(sessionId, "assistant", responseText, EstimateTokens(responseText));
+            await _sessionManager.AddMessageAsync(sessionId, "assistant", responseText, EstimateTokens(responseText), thinkingText);
         }
     }
 

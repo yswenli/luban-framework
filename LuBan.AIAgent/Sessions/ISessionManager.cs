@@ -71,8 +71,9 @@ public interface ISessionManager
     /// <param name="role">消息角色</param>
     /// <param name="content">消息内容</param>
     /// <param name="tokens">Token 数量（可选）</param>
+    /// <param name="thinking">AI 思考内容（reasoning，仅 assistant 角色有，可选）</param>
     /// <returns>消息信息</returns>
-    Task<SessionMessage> AddMessageAsync(string sessionId, string role, string content, int? tokens = null);
+    Task<SessionMessage> AddMessageAsync(string sessionId, string role, string content, int? tokens = null, string? thinking = null);
 
     /// <summary>
     /// 获取会话消息
@@ -209,6 +210,11 @@ public class SessionMessage
     /// 消息内容
     /// </summary>
     public string Content { get; set; } = "";
+
+    /// <summary>
+    /// AI 思考内容（reasoning，仅 assistant 消息可能有）
+    /// </summary>
+    public string? Thinking { get; set; }
 
     /// <summary>
     /// Token 数量
