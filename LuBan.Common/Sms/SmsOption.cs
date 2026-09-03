@@ -29,9 +29,19 @@ namespace LuBan.Common.Sms;
 public sealed class SmsOption
 {
     /// <summary>
+    /// 运营商：ZhuTong（默认）/ Aliyun，不区分大小写
+    /// </summary>
+    public string Provider { get; set; } = "ZhuTong";
+
+    /// <summary>
     /// 助通
     /// </summary>
     public ZhuTongSmsSetting ZhuTong { get; set; }
+
+    /// <summary>
+    /// 阿里云
+    /// </summary>
+    public AliyunSmsSetting Aliyun { get; set; }
 }
 
 
@@ -57,4 +67,31 @@ public sealed class ZhuTongSmsSetting
     /// 签名key
     /// </summary>
     public string Signature { get; set; }
+}
+
+/// <summary>
+/// 阿里云短信
+/// </summary>
+public sealed class AliyunSmsSetting
+{
+    /// <summary>
+    /// AccessKeyId
+    /// </summary>
+    public string AccessKeyId { get; set; } = "";
+    /// <summary>
+    /// AccessKeySecret
+    /// </summary>
+    public string AccessKeySecret { get; set; } = "";
+    /// <summary>
+    /// 接入点，默认 dysmsapi.aliyuncs.com
+    /// </summary>
+    public string Endpoint { get; set; } = "dysmsapi.aliyuncs.com";
+    /// <summary>
+    /// 短信签名
+    /// </summary>
+    public string SignName { get; set; }
+    /// <summary>
+    /// 验证码模板 Code，如 SMS_499015208
+    /// </summary>
+    public string TemplateCode { get; set; }
 }
