@@ -1,7 +1,6 @@
 using System.Text.Json;
 using LuBan.Common.Sms;
-// Task 4/5 引入 Providers 后取消注释
-//using LuBan.Common.Sms.Providers;
+using LuBan.Common.Sms.Providers;
 
 namespace LuBan.XTestProject
 {
@@ -32,6 +31,67 @@ namespace LuBan.XTestProject
             Assert.AreEqual("ZhuTong", option.Provider);
             Assert.IsNotNull(option.ZhuTong);
             Assert.AreEqual(123, option.ZhuTong.TemplateId);
+        }
+
+        [TestMethod]
+        public void AliyunProvider_BuildVerifyCodeRequest_HasCodeParam()
+        {
+            var setting = new AliyunSmsSetting
+            {
+                AccessKeyId = "ak",
+                AccessKeySecret = "sk",
+                SignName = "特睛彩",
+                TemplateCode = "SMS_499015208"
+            };
+
+            var request = AliyunSmsProvider.BuildSendSmsRequest("SMS_499015208", setting.SignName,
+                new List<string> { "14782301575" }, """{"code":"1234"}""");
+
+            Assert.AreEqual("14782301575", request.PhoneNumbers);
+            Assert.AreEqual("特睛彩", request.SignName);
+            Assert.AreEqual("SMS_499015208", request.TemplateCode);
+            Assert.AreEqual("""{"code":"1234"}""", request.TemplateParam);
+        }
+
+        [TestMethod]
+        public void AliyunProvider_MapResult_OK_Returns200()
+        {
+            var body = new AlibabaCloud.SDK.Dysmsapi20170525.Models.SendSmsResponseBody
+            {
+                Code = "OK",
+                Message = "ok",
+                BizId = "770301417791481665",
+                RequestId = "B0BA3C82-xxxx"
+            };
+
+            var result = AliyunSmsProvider.MapResult(body, "SMS_499015208");
+
+            Assert.AreEqual(200, result.Code);
+            Assert.AreEqual("ok", result.Msg);
+            Assert.AreEqual("770301417791481665", result.MsgId);
+            Assert.AreEqual("SMS_499015208", result.TpId);
+        }
+
+        [TestMethod]
+        public void AliyunProvider_MapResult_NotOK_Returns400()
+        {
+            var body = new AlibabaCloud.SDK.Dysmsapi20170525.Models.SendSmsResponseBody
+            {
+                Code = "isv.BUSINESS_LIMIT_CONTROL",
+                Message = "触发分钟级流控"
+            };
+
+            var result = AliyunSmsProvider.MapResult(body, "SMS_499015208");
+
+            Assert.AreEqual(400, result.Code);
+            Assert.AreEqual("isv.BUSINESS_LIMIT_CONTROL: 触发分钟级流控", result.Msg);
+        }
+
+        [TestMethod]
+        public void AliyunProvider_Constructor_MissingAK_ThrowsArgumentException()
+        {
+            Assert.Throws<ArgumentException>(() =>
+                new AliyunSmsProvider(new AliyunSmsSetting { SignName = "特睛彩" }));
         }
     }
 }
