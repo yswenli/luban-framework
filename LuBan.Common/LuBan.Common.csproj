@@ -53,6 +53,7 @@
     <PackageReference Include="UAParser.Core" Version="4.0.6" />
     <PackageReference Include="ZXing.Net" Version="0.16.11" />
     <PackageReference Include="ZXing.Net.Bindings.SkiaSharp" Version="0.16.24" />
+    <PackageReference Include="AlibabaCloud.SDK.Dysmsapi20170525" Version="4.4.0" />
 	  
   </ItemGroup>
 
