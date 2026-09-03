@@ -1,4 +1,5 @@
 using System.Text.Json;
+
 using LuBan.Common.Sms;
 using LuBan.Common.Sms.Models;
 using LuBan.Common.Sms.Providers;
@@ -185,6 +186,17 @@ namespace LuBan.XTestProject
             var r1 = ZhuTongSmsProvider.EncryptPassword("pwd", "tKey");
             var r2 = ZhuTongSmsProvider.EncryptPassword("pwd", "tKey");
             Assert.AreEqual(r1, r2);
+        }
+
+
+        [TestMethod]
+        public void Test()
+        {
+            var smsOption = ConfigUtil.Read<SmsOption>();
+            var sender = new SmsSender(smsOption);
+            Assert.IsNotNull(sender);
+            sender.SendValideCodeAsync("14782301575", "1234").Wait();
+
         }
     }
 }
