@@ -22,51 +22,49 @@
 *
 *****************************************************************************/
 using LuBan.Common.Sms.Models;
+using LuBan.Common.Sms.Providers;
 
 namespace LuBan.Common.Sms;
 
 /// <summary>
-/// 发送短信
+/// 发送短信（门面：按配置路由到具体运营商 Provider，公开 API 保持兼容）
 /// </summary>
 public class SmsSender : BaseSingleInstance<SmsSender>
 {
-
-    string _userName, _password, _sign;
-    long _tpId = 0;
-
-    static HttpClientProxy _httpClientUtil;
-
-    SmsOption _smsOption;
+    readonly ISmsProvider _provider;
+    readonly SmsOption _smsOption;
 
     /// <summary>
     /// 配置
     /// </summary>
-    public SmsOption Option
+    public SmsOption Option => _smsOption;
+
+    /// <summary>
+    /// 当前运营商 Provider（internal，仅供测试断言路由结果）
+    /// </summary>
+    internal ISmsProvider Provider => _provider;
+
+    /// <summary>
+    /// 测试注入构造（internal，不进入公开 API）
+    /// </summary>
+    internal SmsSender(ISmsProvider provider, SmsOption option)
     {
-        get
-        {
-            return _smsOption;
-        }
+        _provider = provider;
+        _smsOption = option;
     }
 
     /// <summary>
-    /// 发送短信
+    /// 发送短信（按 Option.Provider 路由；Provider 为 null/空时默认 ZhuTong）
     /// </summary>
     /// <param name="smsOption"></param>
     public SmsSender(SmsOption smsOption)
     {
-        _userName = smsOption.ZhuTong.UserName;
-        _password = smsOption.ZhuTong.Password;
-        _sign = smsOption.ZhuTong.Signature;
-        _tpId = smsOption.ZhuTong.TemplateId;
-        _smsOption = smsOption;
-        _httpClientUtil = HttpClientProxy.Create("https://api.mix2.zthysms.com", useLog: true);
+        _smsOption = smsOption ?? throw new ArgumentNullException(nameof(smsOption));
+        _provider = CreateProvider(smsOption);
     }
 
-
-
     /// <summary>
-    /// 发送短信
+    /// 发送短信（固定助通，保持旧行为）
     /// </summary>
     /// <param name="userName"></param>
     /// <param name="pwd"></param>
@@ -83,25 +81,27 @@ public class SmsSender : BaseSingleInstance<SmsSender>
         }
     })
     {
-
     }
 
     /// <summary>
-    /// 发送短信
+    /// 发送短信（从 Nacos 读取配置）
     /// </summary>
     public SmsSender() : this(NacosConfigUtil.Read<SmsOption>() ?? throw new Exception("读取短信配置失败"))
     {
-
     }
 
-
-    string Encrypt(string tKey)
+    static ISmsProvider CreateProvider(SmsOption smsOption)
     {
-        string password = MD5Util.GetMD5Str(_password).ToLower();
-
-        password = MD5Util.GetMD5Str(password + tKey);
-
-        return password.ToLower();
+        var provider = (smsOption.Provider ?? "").Trim();
+        if (provider.Length == 0 || provider.Equals("ZhuTong", StringComparison.OrdinalIgnoreCase))
+        {
+            return new ZhuTongSmsProvider(smsOption.ZhuTong ?? new ZhuTongSmsSetting());
+        }
+        if (provider.Equals("Aliyun", StringComparison.OrdinalIgnoreCase))
+        {
+            return new AliyunSmsProvider(smsOption.Aliyun);   // Aliyun 为 null 或 AK 缺失时由其构造函数抛 ArgumentException
+        }
+        throw new ArgumentException($"不支持的短信运营商：{smsOption.Provider}（可选 ZhuTong / Aliyun）");
     }
 
     /// <summary>
@@ -112,20 +112,7 @@ public class SmsSender : BaseSingleInstance<SmsSender>
     /// <returns></returns>
     public async Task<SmsRequestResult> SendTemplaMsgsAsync(long tpId, List<string> mobiles)
     {
-        var tKey = DateTimeUtil.UtcNow.ToUnixTimeStamp(false);
-
-        var data = new
-        {
-            username = _userName,
-            password = Encrypt(tKey.ToString()),
-            tKey = tKey,
-            tpId = tpId,
-            signature = _sign,
-            ext = string.Empty,
-            extend = string.Empty,
-            records = mobiles
-        };
-        return await _httpClientUtil.PostJsonAsync<SmsRequestResult>("/v2/sendSmsTp", data.ToJson());
+        return await _provider.SendTemplateAsync(tpId.ToString(), mobiles);
     }
 
     /// <summary>
@@ -133,42 +120,20 @@ public class SmsSender : BaseSingleInstance<SmsSender>
     /// </summary>
     /// <param name="tpId"></param>
     /// <param name="mobileAndMsgs"></param>
+    /// <returns></returns>
     public async Task<SmsRequestResult> SendTemplaMsgsAsync(long tpId, List<TemplateMsgInfo> mobileAndMsgs)
     {
-        var tKey = DateTimeUtil.UtcNow.ToUnixTimeStamp(false);
-        var data = new
-        {
-            username = _userName,
-            password = Encrypt(tKey.ToString()),
-            tKey = tKey,
-            tpId = tpId,
-            signature = _sign,
-            ext = string.Empty,
-            extend = string.Empty,
-            records = mobileAndMsgs
-        };
-        return await _httpClientUtil.PostJsonAsync<SmsRequestResult>("/v2/sendSmsTp", data.ToJson());
+        return await _provider.SendTemplateAsync(tpId.ToString(), mobileAndMsgs);
     }
 
     /// <summary>
     /// 发送手机短信验证码
     /// </summary>
-    /// <param name="tpId"></param>
     /// <param name="phoneNumber"></param>
     /// <param name="verifyCode"></param>
     /// <returns></returns>
     public async Task<SmsRequestResult> SendValideCodeAsync(string phoneNumber, string verifyCode)
     {
-        var data = new List<TemplateMsgInfo>()
-        {
-                new TemplateMsgInfo()
-                {
-                    Mobile = phoneNumber,
-                    TpContent = new Dictionary<string, string>() {
-                        { "valid_code", verifyCode }
-                    }
-                }
-        };
-        return await SendTemplaMsgsAsync(_tpId, data);
+        return await _provider.SendVerifyCodeAsync(phoneNumber, verifyCode);
     }
 }

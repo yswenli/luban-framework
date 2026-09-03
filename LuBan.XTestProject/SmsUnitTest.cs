@@ -1,5 +1,6 @@
 using System.Text.Json;
 using LuBan.Common.Sms;
+using LuBan.Common.Sms.Models;
 using LuBan.Common.Sms.Providers;
 
 namespace LuBan.XTestProject
@@ -108,6 +109,66 @@ namespace LuBan.XTestProject
         {
             Assert.Throws<ArgumentException>(() =>
                 new AliyunSmsProvider(new AliyunSmsSetting { SignName = "特睛彩" }));
+        }
+
+        private class FakeSmsProvider : ISmsProvider
+        {
+            public string ProviderName => "Fake";
+            public string LastTemplateCode;
+            public SmsRequestResult Result = new SmsRequestResult { Code = 200 };
+
+            public Task<SmsRequestResult> SendTemplateAsync(string templateCode, List<string> mobiles)
+            {
+                LastTemplateCode = templateCode;
+                return Task.FromResult(Result);
+            }
+
+            public Task<SmsRequestResult> SendTemplateAsync(string templateCode, List<TemplateMsgInfo> mobileAndMsgs)
+            {
+                LastTemplateCode = templateCode;
+                return Task.FromResult(Result);
+            }
+
+            public Task<SmsRequestResult> SendVerifyCodeAsync(string phoneNumber, string verifyCode)
+            {
+                LastTemplateCode = $"{phoneNumber}:{verifyCode}";
+                return Task.FromResult(Result);
+            }
+        }
+
+        [TestMethod]
+        public void SmsSender_RoutesByOptionProvider()
+        {
+            var aliyunSender = new SmsSender(new SmsOption
+            {
+                Provider = "aliyun",   // 不区分大小写
+                Aliyun = new AliyunSmsSetting { AccessKeyId = "ak", AccessKeySecret = "sk" }
+            });
+            Assert.IsInstanceOfType(aliyunSender.Provider, typeof(AliyunSmsProvider));
+
+            var ztSender = new SmsSender(new SmsOption
+            {
+                ZhuTong = new ZhuTongSmsSetting { UserName = "u", Password = "p", Signature = "s", TemplateId = 1 }
+            });
+            Assert.IsInstanceOfType(ztSender.Provider, typeof(ZhuTongSmsProvider));
+        }
+
+        [TestMethod]
+        public void SmsSender_RouteInvalidProvider_Throws()
+        {
+            Assert.Throws<ArgumentException>(() =>
+                new SmsSender(new SmsOption { Provider = "Unknown" }));
+        }
+
+        [TestMethod]
+        public async Task SmsSender_LongTpId_PassedAsString()
+        {
+            var fake = new FakeSmsProvider();
+            var sender = new SmsSender(fake, new SmsOption());
+
+            await sender.SendTemplaMsgsAsync(123456, new List<string> { "14782301575" });
+
+            Assert.AreEqual("123456", fake.LastTemplateCode);
         }
     }
 }
