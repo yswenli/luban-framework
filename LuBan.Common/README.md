@@ -163,9 +163,31 @@ dotnet add package LuBan.Common
 
 ### 短信服务
 
-`Sms.SmsSender`、`Sms.SmsOption`
+`Sms.SmsSender`、`Sms.SmsOption`、`Sms.ISmsProvider`
 
-> 短信发送抽象，配置化接入。
+> 短信发送抽象，配置化接入，支持助通（ZhuTong）与阿里云（Aliyun）双运营商，通过 `SmsOption.Provider` 切换；旧配置（无 Provider 字段）默认助通，行为不变。
+
+```jsonc
+{
+  "Provider": "Aliyun",
+  "Aliyun": {
+    "AccessKeyId": "",
+    "AccessKeySecret": "",
+    "Endpoint": "dysmsapi.aliyuncs.com",
+    "SignName": "特睛彩",
+    "TemplateCode": "SMS_499015208"
+  }
+}
+```
+
+```csharp
+// 验证码（走配置的 Provider / SignName / TemplateCode）
+var result = await new SmsSender().SendValideCodeAsync("14782301575", "1234");
+if (result.Code != 200)
+{
+    // 阿里云：200 成功，400 业务失败（Msg 为 Code: Message），500 网络或异常
+}
+```
 
 ### 安全与防重放
 

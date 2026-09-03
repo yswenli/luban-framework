@@ -161,9 +161,31 @@ Note: `MemoryCache<T>`, `IServiceCache`, `Logger` are in the `System` namespace.
 
 ### SMS Service
 
-`Sms.SmsSender`, `Sms.SmsOption`
+`Sms.SmsSender`, `Sms.SmsOption`, `Sms.ISmsProvider`
 
-> SMS sending abstraction, configuration-based integration.
+> SMS sending abstraction, configuration-based integration. Supports both ZhuTong and Alibaba Cloud (Aliyun) providers, switched via `SmsOption.Provider`; legacy configs without the Provider field default to ZhuTong with unchanged behavior.
+
+```jsonc
+{
+  "Provider": "Aliyun",
+  "Aliyun": {
+    "AccessKeyId": "",
+    "AccessKeySecret": "",
+    "Endpoint": "dysmsapi.aliyuncs.com",
+    "SignName": "TeJingCai",
+    "TemplateCode": "SMS_499015208"
+  }
+}
+```
+
+```csharp
+// Verification code (uses configured Provider / SignName / TemplateCode)
+var result = await new SmsSender().SendValideCodeAsync("14782301575", "1234");
+if (result.Code != 200)
+{
+    // Aliyun: 200 success, 400 business failure (Msg is Code: Message), 500 network or exception
+}
+```
 
 ### Security & Anti-Replay
 
