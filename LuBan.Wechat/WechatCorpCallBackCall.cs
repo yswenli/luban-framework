@@ -73,7 +73,7 @@ public class WechatCorpCallBackCall
         }
         else
         {
-            throw FriendlyError.Ex($"WorkWeChatCallBackCall.AccessValid:{result.Error}", WeChatErrors.CallbackFailed, input);
+            throw FriendlyError.Ex($"WorkWeChatCallBackCall.AccessValid:{result.Error}", WeChatErrors.CallbackFailed, () => input);
         }
     }
 

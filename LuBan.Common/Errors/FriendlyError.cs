@@ -1,7 +1,5 @@
 ﻿namespace System;
 
-using LuBan.Common.Errors;
-
 /// <summary>
 /// 友好错误工厂方法。提供多种便捷方式创建 FriendlyException。
 /// </summary>
@@ -11,45 +9,42 @@ public static class FriendlyError
     /// 使用错误描述符创建异常
     /// </summary>
     /// <param name="error">错误描述符</param>
-    /// <param name="args">消息模板参数</param>
-    /// <returns>FriendlyException</returns>
-    public static FriendlyException Ex(ErrorDescriptor error, params object[] args)
-        => new(error, args);
+    /// <param name="captures">上下文捕获表达式，如 () =&gt; id</param>
+    public static FriendlyException Ex(ErrorDescriptor error, params Expression<Func<object?>>[] captures)
+        => new(error, captures);
 
     /// <summary>
     /// 使用自定义消息和错误描述符创建异常
     /// </summary>
     /// <param name="message">自定义错误消息</param>
     /// <param name="error">错误描述符</param>
-    /// <param name="args">保留参数</param>
-    /// <returns>FriendlyException</returns>
-    public static FriendlyException Ex(string message, ErrorDescriptor error, params object[] args)
-        => new(message, error, args);
+    /// <param name="captures">上下文捕获表达式，如 () =&gt; id</param>
+    public static FriendlyException Ex(string message, ErrorDescriptor error, params Expression<Func<object?>>[] captures)
+        => new(message, error, captures);
 
     /// <summary>
-    /// 使用纯文本消息创建异常（临时场景）
+    /// 使用纯文本消息创建异常（临时/快速抛出场景）
     /// </summary>
     /// <param name="message">错误消息</param>
-    /// <param name="category">错误分类，默认 Business</param>
-    /// <returns>FriendlyException</returns>
-    public static FriendlyException Ex(string message, ErrorCategory category = ErrorCategory.Business)
-        => new(message, category);
+    /// <param name="category">错误分类，默认 Business（HTTP 422）</param>
+    /// <param name="captures">上下文捕获表达式，如 () =&gt; id</param>
+    public static FriendlyException Ex(string message, ErrorCategory category = ErrorCategory.Business, params Expression<Func<object?>>[] captures)
+        => new(message, category, captures);
 
     /// <summary>
-    /// 使用消息和内部异常创建
+    /// 使用消息和内部异常创建异常
     /// </summary>
     /// <param name="message">错误消息</param>
     /// <param name="exception">内部异常</param>
-    /// <param name="category">错误分类，默认 System</param>
-    /// <returns>FriendlyException</returns>
-    public static FriendlyException Ex(string message, Exception exception, ErrorCategory category = ErrorCategory.System)
-        => new(message, exception, category);
+    /// <param name="category">错误分类，默认 System（HTTP 500）</param>
+    /// <param name="captures">上下文捕获表达式，如 () =&gt; id</param>
+    public static FriendlyException Ex(string message, Exception exception, ErrorCategory category = ErrorCategory.System, params Expression<Func<object?>>[] captures)
+        => new(message, exception, category, captures);
 
     /// <summary>
     /// 将任意异常包装为 FriendlyException
     /// </summary>
     /// <param name="exception">源异常</param>
-    /// <returns>FriendlyException</returns>
     public static FriendlyException Ex(Exception exception)
         => new(exception.Message, exception, ErrorCategory.System);
 

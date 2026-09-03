@@ -202,6 +202,8 @@ public static class FrameworkErrors
         public static readonly ErrorDescriptor NoDataColumns = new(31000, "请添加数据列", ErrorCategory.Validation);
         public static readonly ErrorDescriptor TableNotFound = new(31001, "数据表不存在", ErrorCategory.NotFound);
         public static readonly ErrorDescriptor DuplicateFieldName = new(31002, "不允许添加相同字段名", ErrorCategory.Validation);
+
+        public static readonly ErrorDescriptor DataNotFound = new(31003, "数据不存在", ErrorCategory.NotFound);
     }
 
     public static class System

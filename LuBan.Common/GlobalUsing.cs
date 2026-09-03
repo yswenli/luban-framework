@@ -32,6 +32,7 @@ global using LuBan.Common;
 global using LuBan.Common.AntiReplayAttacks;
 global using LuBan.Common.Consts;
 global using LuBan.Common.Data;
+global using LuBan.Common.Errors;
 global using LuBan.Common.EventBus;
 global using LuBan.Common.IO;
 global using LuBan.Common.LogCom;
