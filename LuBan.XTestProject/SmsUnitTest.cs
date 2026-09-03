@@ -88,6 +88,22 @@ namespace LuBan.XTestProject
         }
 
         [TestMethod]
+        public void AliyunProvider_BuildTpContentGroupKey_Null_ReturnsEmpty()
+        {
+            Assert.AreEqual("", AliyunSmsProvider.BuildTpContentGroupKey(null));
+        }
+
+        [TestMethod]
+        public void AliyunProvider_BuildTpContentGroupKey_SameContentDifferentOrder_SameKey()
+        {
+            var a = new Dictionary<string, string> { { "name", "张三" }, { "code", "1234" } };
+            var b = new Dictionary<string, string> { { "code", "1234" }, { "name", "张三" } };
+
+            Assert.AreEqual(AliyunSmsProvider.BuildTpContentGroupKey(a), AliyunSmsProvider.BuildTpContentGroupKey(b));
+            Assert.AreEqual("code=1234&name=张三", AliyunSmsProvider.BuildTpContentGroupKey(a));
+        }
+
+        [TestMethod]
         public void AliyunProvider_Constructor_MissingAK_ThrowsArgumentException()
         {
             Assert.Throws<ArgumentException>(() =>

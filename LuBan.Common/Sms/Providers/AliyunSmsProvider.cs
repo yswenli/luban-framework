@@ -83,6 +83,15 @@ public class AliyunSmsProvider : ISmsProvider
     }
 
     /// <summary>
+    /// 模板参数分组键（纯函数，供单测）：null → ""；否则按 key 排序后 key=value 用 &amp; 连接
+    /// </summary>
+    internal static string BuildTpContentGroupKey(Dictionary<string, string> tpContent)
+    {
+        return tpContent == null ? "" :
+            string.Join("&", tpContent.OrderBy(kv => kv.Key).Select(kv => $"{kv.Key}={kv.Value}"));
+    }
+
+    /// <summary>
     /// 调 SDK 发送（TeaException 等异常统一转结果，不外抛）
     /// </summary>
     async Task<SmsRequestResult> SendAsync(SendSmsRequest request)
@@ -110,6 +119,9 @@ public class AliyunSmsProvider : ISmsProvider
     /// </summary>
     public async Task<SmsRequestResult> SendTemplateAsync(string templateCode, List<string> mobiles)
     {
+        if (mobiles == null || mobiles.Count == 0)
+            return new SmsRequestResult { Code = 400, Msg = "无有效接收号码", TpId = templateCode };
+
         var request = BuildSendSmsRequest(templateCode, _setting.SignName, mobiles, "{}");
         return await SendAsync(request);
     }
@@ -122,10 +134,9 @@ public class AliyunSmsProvider : ISmsProvider
         if (mobileAndMsgs == null || mobileAndMsgs.Count == 0)
             return new SmsRequestResult { Code = 400, Msg = "无有效接收号码", TpId = templateCode };
 
-        SmsRequestResult last = null;
+        SmsRequestResult last = null!;
 
-        foreach (var group in mobileAndMsgs.GroupBy(m => m.TpContent == null ? "" :
-                    string.Join("&", m.TpContent.OrderBy(kv => kv.Key).Select(kv => $"{kv.Key}={kv.Value}"))))
+        foreach (var group in mobileAndMsgs.GroupBy(m => BuildTpContentGroupKey(m.TpContent)))
         {
             var param = group.First().TpContent == null ? "{}" : group.First().TpContent.ToJson(hasIndentation: false);
             var request = BuildSendSmsRequest(templateCode, _setting.SignName, group.Select(m => m.Mobile).ToList(), param);
