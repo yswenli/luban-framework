@@ -28,11 +28,19 @@ public class ZhuTongSmsProvider : ISmsProvider
 
     string Encrypt(string tKey)
     {
-        string password = MD5Util.GetMD5Str(_setting.Password).ToLower();
+        return EncryptPassword(_setting.Password, tKey);
+    }
 
-        password = MD5Util.GetMD5Str(password + tKey);
+    /// <summary>
+    /// 助通密码双重 MD5 加密（纯函数，供单测）
+    /// </summary>
+    internal static string EncryptPassword(string password, string tKey)
+    {
+        string pwd = MD5Util.GetMD5Str(password).ToLower();
 
-        return password.ToLower();
+        pwd = MD5Util.GetMD5Str(pwd + tKey);
+
+        return pwd.ToLower();
     }
 
     /// <summary>

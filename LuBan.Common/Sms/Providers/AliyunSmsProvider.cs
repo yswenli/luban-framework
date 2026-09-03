@@ -98,7 +98,7 @@ public class AliyunSmsProvider : ISmsProvider
     {
         try
         {
-            var resp = await _client.SendSmsWithOptionsAsync(request, new RuntimeOptions());
+            var resp = await _client.SendSmsWithOptionsAsync(request, new RuntimeOptions { Autoretry = true, MaxAttempts = 3 });
             return MapResult(resp.Body, request.TemplateCode);
         }
         catch (TeaException error)
@@ -153,6 +153,9 @@ public class AliyunSmsProvider : ISmsProvider
     /// </summary>
     public async Task<SmsRequestResult> SendVerifyCodeAsync(string phoneNumber, string verifyCode)
     {
+        if (string.IsNullOrWhiteSpace(phoneNumber))
+            return new SmsRequestResult { Code = 400, Msg = "无有效接收号码", TpId = _setting.TemplateCode };
+
         var param = new Dictionary<string, string> { { "code", verifyCode } }.ToJson(hasIndentation: false);
         var request = BuildSendSmsRequest(_setting.TemplateCode, _setting.SignName,
             new List<string> { phoneNumber }, param);

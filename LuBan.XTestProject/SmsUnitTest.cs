@@ -170,5 +170,21 @@ namespace LuBan.XTestProject
 
             Assert.AreEqual("123456", fake.LastTemplateCode);
         }
+
+        [TestMethod]
+        public void ZhuTongProvider_EncryptPassword_ReturnsDoubleMD5Lower()
+        {
+            var result = ZhuTongSmsProvider.EncryptPassword("test", "1234567890");
+            Assert.AreEqual(32, result.Length);
+            Assert.IsTrue(result.All(c => (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')));
+        }
+
+        [TestMethod]
+        public void ZhuTongProvider_EncryptPassword_Deterministic()
+        {
+            var r1 = ZhuTongSmsProvider.EncryptPassword("pwd", "tKey");
+            var r2 = ZhuTongSmsProvider.EncryptPassword("pwd", "tKey");
+            Assert.AreEqual(r1, r2);
+        }
     }
 }
