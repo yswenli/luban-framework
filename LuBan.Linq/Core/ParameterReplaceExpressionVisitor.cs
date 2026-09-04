@@ -1,4 +1,28 @@
-﻿namespace LuBan.Linq.Core;
+﻿/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：yswenli
+*命名空间：LuBan.Linq.Core
+*文件名： ParameterReplaceExpressionVisitor.cs
+*版本号： V1.0.0.0
+*唯一标识：2da4e1de-aa72-45f6-833f-0da5707ab127
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/7/13 12:05:28
+*描述：ParameterReplaceExpressionVisitor 类
+*
+*=================================================
+*修改标记
+*修改时间：2026/7/13 12:05:28
+*修改人： yswenli
+*版本号： V1.0.0.0
+*描述：ParameterReplaceExpressionVisitor 类
+*
+*****************************************************************************/
+
+namespace LuBan.Linq.Core;
 
 /// <summary>
 /// 处理 Lambda 参数不一致问题

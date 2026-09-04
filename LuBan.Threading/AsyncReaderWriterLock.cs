@@ -1,3 +1,27 @@
+﻿/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：yswenli
+*命名空间：LuBan.Threading
+*文件名： AsyncReaderWriterLock.cs
+*版本号： V1.0.0.0
+*唯一标识：3c3ad206-289c-4b62-877e-e028c0d0e80e
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/7/28 11:45:59
+*描述：AsyncReaderWriterLock 类
+*
+*=================================================
+*修改标记
+*修改时间：2026/7/28 11:45:59
+*修改人： yswenli
+*版本号： V1.0.0.0
+*描述：AsyncReaderWriterLock 类
+*
+*****************************************************************************/
+
 namespace LuBan.Threading;
 
 /// <summary>

@@ -23,6 +23,10 @@
 *****************************************************************************/
 namespace LuBan.DI.Models;
 
+/// <summary>
+/// ProxyMethodResolverContext 类
+/// </summary>
+
 internal class ProxyMethodResolverContext
 {
     public PackedArgs Packed { get; }

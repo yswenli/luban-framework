@@ -1,4 +1,28 @@
-﻿using LuBan.Common.Errors;
+﻿/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：yswenli
+*命名空间：WebApplication1.Controllers.Default
+*文件名： FileController.cs
+*版本号： V1.0.0.0
+*唯一标识：8d79ad50-52bb-4ea5-8a2a-6af9145de0bf
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/7/13 12:05:30
+*描述：FileController 控制器
+*
+*=================================================
+*修改标记
+*修改时间：2026/7/13 12:05:30
+*修改人： yswenli
+*版本号： V1.0.0.0
+*描述：FileController 控制器
+*
+*****************************************************************************/
+
+using LuBan.Common.Errors;
 
 using WebApplication1.Models.Vos;
 using WebApplication1.Services;

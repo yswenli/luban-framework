@@ -1,4 +1,28 @@
-﻿namespace LuBan.ApprovalFlow.Abstractions;
+﻿/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：yswenli
+*命名空间：LuBan.ApprovalFlow.Abstractions
+*文件名： IUserService.cs
+*版本号： V1.0.0.0
+*唯一标识：dcdc5484-c449-4a1e-8f0d-85ad3ec813c7
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/7/13 12:05:28
+*描述：IUserService 服务类
+*
+*=================================================
+*修改标记
+*修改时间：2026/7/13 12:05:28
+*修改人： yswenli
+*版本号： V1.0.0.0
+*描述：IUserService 服务类
+*
+*****************************************************************************/
+
+namespace LuBan.ApprovalFlow.Abstractions;
 
 /// <summary>
 /// 用户服务接口，提供用户信息查询和权限验证功能

@@ -23,6 +23,10 @@
 *****************************************************************************/
 namespace LuBan.Lives.YiBai.Models;
 
+/// <summary>
+/// YBDatainfo 模型类
+/// </summary>
+
 public class YBDatainfo
 {
     public int code { get; set; }

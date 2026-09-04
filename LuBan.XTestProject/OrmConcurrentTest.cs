@@ -1,10 +1,38 @@
-﻿using LuBan.Orm;
+﻿/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：yswenli
+*命名空间：LuBan.XTestProject
+*文件名： OrmConcurrentTest.cs
+*版本号： V1.0.0.0
+*唯一标识：87cdf80a-788f-4ad9-b972-6aaf2a9b055d
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/7/22 11:25:15
+*描述：OrmConcurrentTest 类
+*
+*=================================================
+*修改标记
+*修改时间：2026/7/22 11:25:15
+*修改人： yswenli
+*版本号： V1.0.0.0
+*描述：OrmConcurrentTest 类
+*
+*****************************************************************************/
+
+using LuBan.Orm;
 using LuBan.Orm.Entities;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using SqlSugar;
 
 namespace LuBan.XTestProject;
+
+/// <summary>
+/// OrmConcurrentTest 类
+/// </summary>
 
 public class OrmConcurrentTest
 {

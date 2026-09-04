@@ -4,7 +4,7 @@
 
 > **Author**: yswenli | **Contact**: yswenli@outlook.com | **Repository**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
-> **One-stop .NET 8 Enterprise API Development Framework — From ORM to AI Agent, Ready Out of the Box.**
+> **One-stop .NET 10.0 Enterprise API Development Framework — From ORM to AI Agent, Ready Out of the Box.**
 
 LuBan.Framework is an enterprise-grade API framework built on ASP.NET Core, integrating the most commonly needed infrastructure for enterprise development, so you can spend your time on real business logic instead of reinventing the wheel.
 
@@ -331,7 +331,7 @@ Error category to HTTP status code mapping:
 [![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
 
 - **Author**: yswenli
-- **Target Framework**: .NET 8.0
+- **Target Framework**: .NET 10.0
 - **Update Frequency**: Continuous iteration
 
 ---

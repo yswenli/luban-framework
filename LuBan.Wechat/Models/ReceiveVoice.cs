@@ -24,6 +24,9 @@
 
 namespace LuBan.Wechat.Models
 {
+    /// <summary>
+/// ReceiveVoice 类
+/// </summary>
     public class ReceiveVoice : Receive
     {
         public string MediaId { get; set; }

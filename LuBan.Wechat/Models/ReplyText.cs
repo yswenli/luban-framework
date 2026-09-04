@@ -24,6 +24,9 @@
 
 namespace LuBan.Wechat.Models
 {
+    /// <summary>
+/// ReplyText 类
+/// </summary>
     public class ReplyText : Reply
     {
         public string Content { get; set; }

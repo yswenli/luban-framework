@@ -1,23 +1,24 @@
-/*Copyright @ yswenli All Rights Reserved.
+﻿/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
-*公司名称：Walle
+*公司名称：yswenli
 *命名空间：System.Linq.Dynamic
-*文件名： EnumerableTExtensions
+*文件名： EnumerableTExtensions.cs
 *版本号： V1.0.0.0
-*唯一标识：3a0499e4-68ef-4244-8707-17ecc8bef9df
+*唯一标识：bd5dcf74-731e-402e-84f8-84c26c707eef
 *当前的用户域：WALLE
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
-*创建时间：2023/12/4 18:21:32
-* 描述：IEnumerable<T> 拓展
+*创建时间：2026/7/13 12:05:28
+*描述：EnumerableTExtensions 类
 *
 *=================================================
 *修改标记
-* 修改时间：2023 / 12 / 4 18:21:32
-* 修改人： yswenli
-* 版本号： V1.0.0.0
-*描述：IEnumerable<T> 拓展
+*修改时间：2026/7/13 12:05:28
+*修改人： yswenli
+*版本号： V1.0.0.0
+*描述：EnumerableTExtensions 类
 *
 *****************************************************************************/
 

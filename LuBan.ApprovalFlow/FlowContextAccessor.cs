@@ -1,4 +1,28 @@
-﻿namespace LuBan.ApprovalFlow;
+﻿/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：yswenli
+*命名空间：LuBan.ApprovalFlow
+*文件名： FlowContextAccessor.cs
+*版本号： V1.0.0.0
+*唯一标识：4138ad7e-4512-406a-9a99-9febfe30714a
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/7/13 12:05:28
+*描述：FlowContextAccessor 类
+*
+*=================================================
+*修改标记
+*修改时间：2026/7/13 12:05:28
+*修改人： yswenli
+*版本号： V1.0.0.0
+*描述：FlowContextAccessor 类
+*
+*****************************************************************************/
+
+namespace LuBan.ApprovalFlow;
 
 /// <summary>
 /// 统一访问与设置流程上下文中的常用键，避免散落字符串常量。

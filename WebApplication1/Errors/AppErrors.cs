@@ -1,3 +1,27 @@
+﻿/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：yswenli
+*命名空间：WebApplication1.Errors
+*文件名： AppErrors.cs
+*版本号： V1.0.0.0
+*唯一标识：6f351637-84ef-43dd-bc32-e4dd0e643c29
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/8/17 13:56:05
+*描述：AppErrors 类
+*
+*=================================================
+*修改标记
+*修改时间：2026/8/17 13:56:05
+*修改人： yswenli
+*版本号： V1.0.0.0
+*描述：AppErrors 类
+*
+*****************************************************************************/
+
 namespace WebApplication1.Errors;
 
 using LuBan.Common.Errors;

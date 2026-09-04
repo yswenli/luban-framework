@@ -24,6 +24,9 @@
 
 namespace LuBan.Wechat.Models
 {
+    /// <summary>
+/// ReceiveEvent 类
+/// </summary>
     public class ReceiveEvent : Receive
     {
         public string Event { get; set; }

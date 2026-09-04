@@ -24,6 +24,9 @@
 namespace LuBan.Speech.Models;
 
 [DataContract]
+/// <summary>
+/// BaiduSpeechResult 结果类
+/// </summary>
 public class BaiduSpeechResult
 {
 

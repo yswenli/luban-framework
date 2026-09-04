@@ -1,8 +1,35 @@
+﻿/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：yswenli
+*命名空间：LuBan.Common.Tests
+*文件名： StreamUtilUnitTest.cs
+*版本号： V1.0.0.0
+*唯一标识：0b1eb39f-b2fb-441c-840c-39273e7ab506
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/8/21 16:19:38
+*描述：StreamUtilUnitTest 类
+*
+*=================================================
+*修改标记
+*修改时间：2026/8/21 16:19:38
+*修改人： yswenli
+*版本号： V1.0.0.0
+*描述：StreamUtilUnitTest 类
+*
+*****************************************************************************/
+
 using System.Text;
 
 namespace LuBan.Common.Tests;
 
 [TestClass]
+/// <summary>
+/// StreamUtilUnitTest 单元测试类
+/// </summary>
 public class StreamUtilUnitTest
 {
     static MemoryStream CreateStream(string content)

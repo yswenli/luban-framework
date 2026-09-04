@@ -23,6 +23,9 @@
 *****************************************************************************/
 namespace LuBan.Lives.VZan.Models
 {
+    /// <summary>
+/// VZToken 类
+/// </summary>
     public class VZToken
     {
         public string token { get; set; }

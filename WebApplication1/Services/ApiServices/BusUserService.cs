@@ -1,4 +1,28 @@
-﻿using LuBan.Common.Errors;
+﻿/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：yswenli
+*命名空间：WebApplication1.Services.ApiServices
+*文件名： BusUserService.cs
+*版本号： V1.0.0.0
+*唯一标识：b79c9a30-363c-4b08-a208-dc5e0f919c40
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/7/13 12:05:30
+*描述：BusUserService 服务类
+*
+*=================================================
+*修改标记
+*修改时间：2026/7/13 12:05:30
+*修改人： yswenli
+*版本号： V1.0.0.0
+*描述：BusUserService 服务类
+*
+*****************************************************************************/
+
+using LuBan.Common.Errors;
 
 namespace WebApplication1.Services.ApiServices;
 

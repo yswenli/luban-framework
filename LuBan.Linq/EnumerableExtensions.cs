@@ -1,23 +1,24 @@
-/*Copyright @ yswenli All Rights Reserved.
+﻿/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
-*公司名称：Walle
+*公司名称：yswenli
 *命名空间：System.Linq.Dynamic
-*文件名： IQueryableExtensions
+*文件名： EnumerableExtensions.cs
 *版本号： V1.0.0.0
-*唯一标识：3a0499e4-68ef-4244-8707-17ecc8bef9df
+*唯一标识：cdfdfd26-e06d-4314-9b88-ac191310cd5e
 *当前的用户域：WALLE
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
-*创建时间：2023/12/4 18:21:32
-* 描述：IEnumerable 拓展
+*创建时间：2026/7/13 12:05:28
+*描述：EnumerableExtensions 类
 *
 *=================================================
 *修改标记
-* 修改时间：2023 / 12 / 4 18:21:32
-* 修改人： yswenli
-* 版本号： V1.0.0.0
-*描述：IEnumerable 拓展
+*修改时间：2026/7/13 12:05:28
+*修改人： yswenli
+*版本号： V1.0.0.0
+*描述：EnumerableExtensions 类
 *
 *****************************************************************************/
 

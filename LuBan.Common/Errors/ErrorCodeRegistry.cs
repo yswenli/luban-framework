@@ -1,3 +1,27 @@
+﻿/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：yswenli
+*命名空间：LuBan.Common.Errors
+*文件名： ErrorCodeRegistry.cs
+*版本号： V1.0.0.0
+*唯一标识：e952c7ab-7317-486b-8cd7-95de4b813ca2
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/8/17 13:20:40
+*描述：ErrorCodeRegistry 类
+*
+*=================================================
+*修改标记
+*修改时间：2026/8/17 13:20:40
+*修改人： yswenli
+*版本号： V1.0.0.0
+*描述：ErrorCodeRegistry 类
+*
+*****************************************************************************/
+
 namespace LuBan.Common.Errors;
 
 /// <summary>

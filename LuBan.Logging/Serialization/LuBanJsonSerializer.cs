@@ -1,3 +1,27 @@
+﻿/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：yswenli
+*命名空间：LuBan.Logging.Serialization
+*文件名： LuBanJsonSerializer.cs
+*版本号： V1.0.0.0
+*唯一标识：d72ba61e-1cb2-4d54-ac3f-d7d3a1ac5a60
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/7/31 14:35:33
+*描述：LuBanJsonSerializer 类
+*
+*=================================================
+*修改标记
+*修改时间：2026/7/31 14:35:33
+*修改人： yswenli
+*版本号： V1.0.0.0
+*描述：LuBanJsonSerializer 类
+*
+*****************************************************************************/
+
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Encodings.Web;
 

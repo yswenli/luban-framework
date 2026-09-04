@@ -23,6 +23,9 @@
 *****************************************************************************/
 namespace LuBan.Wechat.Models
 {
+    /// <summary>
+/// ReplyMusic 类
+/// </summary>
     public class ReplyMusic : Reply
     {
         public string Title { get; set; }

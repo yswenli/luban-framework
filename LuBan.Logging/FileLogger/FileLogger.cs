@@ -1,3 +1,27 @@
+﻿/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：yswenli
+*命名空间：LuBan.Logging.FileLogger
+*文件名： FileLogger.cs
+*版本号： V1.0.0.0
+*唯一标识：eb69703b-57f1-46e9-8428-6d87cd42a5ed
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/7/31 14:36:04
+*描述：FileLogger 类
+*
+*=================================================
+*修改标记
+*修改时间：2026/7/31 14:36:04
+*修改人： yswenli
+*版本号： V1.0.0.0
+*描述：FileLogger 类
+*
+*****************************************************************************/
+
 namespace LuBan.Logging.FileLogger;
 
 /// <summary>

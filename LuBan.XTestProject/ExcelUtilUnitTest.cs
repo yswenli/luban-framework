@@ -1,9 +1,36 @@
+﻿/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：yswenli
+*命名空间：LuBan.UnitTestProject
+*文件名： ExcelUtilUnitTest.cs
+*版本号： V1.0.0.0
+*唯一标识：d9449e42-3b32-4776-8d2c-fabbe62c6eb4
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/8/13 13:31:40
+*描述：ExcelUtilUnitTest 类
+*
+*=================================================
+*修改标记
+*修改时间：2026/8/13 13:31:40
+*修改人： yswenli
+*版本号： V1.0.0.0
+*描述：ExcelUtilUnitTest 类
+*
+*****************************************************************************/
+
 using System.Data;
 using LuBan.Common.Data;
 
 namespace LuBan.UnitTestProject;
 
 [TestClass]
+/// <summary>
+/// ExcelUtilUnitTest 单元测试类
+/// </summary>
 public class ExcelUtilUnitTest
 {
     [TestMethod]

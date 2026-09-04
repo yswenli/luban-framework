@@ -1,3 +1,27 @@
+﻿/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：yswenli
+*命名空间：LuBan.XTestProject
+*文件名： SmsUnitTest.cs
+*版本号： V1.0.0.0
+*唯一标识：d7ef651e-7b11-4ea2-a6da-331bd7dc5d03
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/9/3 11:35:04
+*描述：SmsUnitTest 类
+*
+*=================================================
+*修改标记
+*修改时间：2026/9/3 11:35:04
+*修改人： yswenli
+*版本号： V1.0.0.0
+*描述：SmsUnitTest 类
+*
+*****************************************************************************/
+
 using System.Text.Json;
 
 using LuBan.Common.Sms;

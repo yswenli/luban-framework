@@ -1,4 +1,28 @@
-﻿namespace LuBan.ApprovalFlow.Abstractions;
+﻿/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：yswenli
+*命名空间：LuBan.ApprovalFlow.Abstractions
+*文件名： IApprovalRepository.cs
+*版本号： V1.0.0.0
+*唯一标识：ba9e51ac-df25-472c-b5a5-fb79a3107b5e
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/7/13 12:05:28
+*描述：IApprovalRepository 类
+*
+*=================================================
+*修改标记
+*修改时间：2026/7/13 12:05:28
+*修改人： yswenli
+*版本号： V1.0.0.0
+*描述：IApprovalRepository 类
+*
+*****************************************************************************/
+
+namespace LuBan.ApprovalFlow.Abstractions;
 
 /// <summary>
 /// 审批流程数据仓储接口，提供流程定义、记录、任务等数据的持久化操作

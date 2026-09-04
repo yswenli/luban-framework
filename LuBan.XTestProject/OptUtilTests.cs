@@ -1,8 +1,35 @@
+﻿/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：yswenli
+*命名空间：LuBan.Common.Tests
+*文件名： OptUtilTests.cs
+*版本号： V1.0.0.0
+*唯一标识：ec6ad623-7298-4abb-8abf-02749a4641a7
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/7/17 10:33:53
+*描述：OptUtilTests 类
+*
+*=================================================
+*修改标记
+*修改时间：2026/7/17 10:33:53
+*修改人： yswenli
+*版本号： V1.0.0.0
+*描述：OptUtilTests 类
+*
+*****************************************************************************/
+
 using System.Text.RegularExpressions;
 
 namespace LuBan.Common.Tests;
 
 [TestClass]
+/// <summary>
+/// OptUtilTests 单元测试类
+/// </summary>
 public class OptUtilTests
 {
     // GenerateSecret tests

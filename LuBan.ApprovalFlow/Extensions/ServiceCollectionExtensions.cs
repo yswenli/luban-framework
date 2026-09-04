@@ -1,4 +1,28 @@
-﻿namespace LuBan.ApprovalFlow.Extensions;
+﻿/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：yswenli
+*命名空间：LuBan.ApprovalFlow.Extensions
+*文件名： ServiceCollectionExtensions.cs
+*版本号： V1.0.0.0
+*唯一标识：b8d63dc3-b1e2-477d-bb11-00ed33528e6d
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/7/13 12:05:28
+*描述：ServiceCollectionExtensions 类
+*
+*=================================================
+*修改标记
+*修改时间：2026/7/13 12:05:28
+*修改人： yswenli
+*版本号： V1.0.0.0
+*描述：ServiceCollectionExtensions 类
+*
+*****************************************************************************/
+
+namespace LuBan.ApprovalFlow.Extensions;
 
 /// <summary>
 /// IServiceCollection 扩展方法集合，用于注册审批流相关的服务。

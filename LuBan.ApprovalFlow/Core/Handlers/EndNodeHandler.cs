@@ -1,4 +1,28 @@
-﻿namespace LuBan.ApprovalFlow.Core.Handlers;
+﻿/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：yswenli
+*命名空间：LuBan.ApprovalFlow.Core.Handlers
+*文件名： EndNodeHandler.cs
+*版本号： V1.0.0.0
+*唯一标识：3e3c9a43-e485-4720-8dce-2d10caf3a684
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/7/13 12:05:28
+*描述：EndNodeHandler 类
+*
+*=================================================
+*修改标记
+*修改时间：2026/7/13 12:05:28
+*修改人： yswenli
+*版本号： V1.0.0.0
+*描述：EndNodeHandler 类
+*
+*****************************************************************************/
+
+namespace LuBan.ApprovalFlow.Core.Handlers;
 
 /// <summary>
 /// 结束节点处理器：负责处理审批流程的结束节点，将流程状态设置为已完成。

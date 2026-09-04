@@ -4,7 +4,7 @@
 
 > **作者**: yswenli | **代码仓库**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
-> **一站式 .NET 8 企业级 API 开发框架 —— 从 ORM 到 AI Agent，开箱即用。**
+> **一站式 .NET 10.0 企业级 API 开发框架 —— 从 ORM 到 AI Agent，开箱即用。**
 
 LuBan.Framework 是基于 ASP.NET Core 封装的企业级 API 框架，集成了企业开发中最常用的基础设施，让你把时间花在真正的业务上，而不是重复造轮子。
 
@@ -332,7 +332,7 @@ public class UserController : BaseApiController
 
 - **作者**：yswenli
 - **联系邮箱**：yswenli@outlook.com
-- **目标框架**：.NET 8.0
+- **目标框架**：.NET 10.0
 - **更新频率**：持续迭代
 
 ---

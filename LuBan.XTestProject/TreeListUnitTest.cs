@@ -24,6 +24,9 @@
 namespace LuBan.XTestProject;
 
 [TestClass]
+/// <summary>
+/// TreeListUnitTest 单元测试类
+/// </summary>
 public class TreeListUnitTest
 {
     [TestMethod]

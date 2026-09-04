@@ -24,6 +24,9 @@
 
 namespace LuBan.Wechat.Models
 {
+    /// <summary>
+/// ReplyVoice 类
+/// </summary>
     public class ReplyVoice : Reply
     {
         public string MediaId { get; set; }

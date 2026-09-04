@@ -1,4 +1,28 @@
-﻿namespace LuBan.ApprovalFlow.Entities;
+﻿/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：yswenli
+*命名空间：LuBan.ApprovalFlow.Entities
+*文件名： DbApprovalTask.cs
+*版本号： V1.0.0.0
+*唯一标识：3f3adad3-868d-494a-a6a6-17f0f1d8bf14
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/7/13 12:05:28
+*描述：DbApprovalTask 类
+*
+*=================================================
+*修改标记
+*修改时间：2026/7/13 12:05:28
+*修改人： yswenli
+*版本号： V1.0.0.0
+*描述：DbApprovalTask 类
+*
+*****************************************************************************/
+
+namespace LuBan.ApprovalFlow.Entities;
 
 [SugarTable("db_approval_task", "审批待办任务")]
 public class DbApprovalTask : EntityDataScoreBase

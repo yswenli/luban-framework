@@ -1,3 +1,27 @@
+﻿/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：yswenli
+*命名空间：LuBan.Common.Sms
+*文件名： ISmsProvider.cs
+*版本号： V1.0.0.0
+*唯一标识：104ad9c0-d39f-4802-b2b4-c45c787ef740
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/9/3 11:48:27
+*描述：ISmsProvider 类
+*
+*=================================================
+*修改标记
+*修改时间：2026/9/3 11:48:27
+*修改人： yswenli
+*版本号： V1.0.0.0
+*描述：ISmsProvider 类
+*
+*****************************************************************************/
+
 using LuBan.Common.Sms.Models;
 
 namespace LuBan.Common.Sms;

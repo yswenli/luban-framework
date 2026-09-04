@@ -1,4 +1,28 @@
-﻿namespace LuBan.ApprovalFlow.Core
+﻿/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：yswenli
+*命名空间：LuBan.ApprovalFlow.Core
+*文件名： IFlowNodeHandler.cs
+*版本号： V1.0.0.0
+*唯一标识：1d68d3a2-ef5c-44a2-ac5a-d6d9677ae6e5
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/7/13 12:05:28
+*描述：IFlowNodeHandler 类
+*
+*=================================================
+*修改标记
+*修改时间：2026/7/13 12:05:28
+*修改人： yswenli
+*版本号： V1.0.0.0
+*描述：IFlowNodeHandler 类
+*
+*****************************************************************************/
+
+namespace LuBan.ApprovalFlow.Core
 {
     /// <summary>
     /// 流程节点处理器接口（责任链模式）。

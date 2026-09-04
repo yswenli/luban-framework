@@ -23,6 +23,9 @@
 *****************************************************************************/
 namespace LuBan.Wechat.Models
 {
+    /// <summary>
+/// ReceiveText 类
+/// </summary>
     public class ReceiveText : Receive
     {
         public string Content { get; set; }

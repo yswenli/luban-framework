@@ -23,6 +23,9 @@
 *****************************************************************************/
 namespace LuBan.Wechat.Models
 {
+    /// <summary>
+/// ReplyNews 类
+/// </summary>
     public class ReplyNews : Reply
     {
         public List<RelyNewsArticle> item { get; set; }

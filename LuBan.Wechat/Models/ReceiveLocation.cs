@@ -24,6 +24,9 @@
 
 namespace LuBan.Wechat.Models
 {
+    /// <summary>
+/// ReceiveLocation 类
+/// </summary>
     public class ReceiveLocation : Receive
     {
         public decimal Location_X { get; set; }

@@ -24,6 +24,9 @@
 
 namespace LuBan.Wechat.Models
 {
+    /// <summary>
+/// ReceiveLink 类
+/// </summary>
     public class ReceiveLink : Receive
     {
         public string Title { get; set; }

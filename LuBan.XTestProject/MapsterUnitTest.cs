@@ -29,6 +29,9 @@ using Mapster;
 namespace LuBan.XTestProject
 {
     [TestClass]
+    /// <summary>
+/// MapsterUnitTest 单元测试类
+/// </summary>
     public class MapsterUnitTest
     {
         [TestMethod]

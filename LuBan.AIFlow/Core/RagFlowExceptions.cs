@@ -1,3 +1,27 @@
+﻿/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：yswenli
+*命名空间：LuBan.AIFlow.Core
+*文件名： RagFlowExceptions.cs
+*版本号： V1.0.0.0
+*唯一标识：d0d73cbf-63b2-4a8d-8357-90185193c809
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/8/28 14:46:52
+*描述：RagFlowExceptions 类
+*
+*=================================================
+*修改标记
+*修改时间：2026/8/28 14:46:52
+*修改人： yswenli
+*版本号： V1.0.0.0
+*描述：RagFlowExceptions 类
+*
+*****************************************************************************/
+
 namespace LuBan.AIFlow.Core;
 
 /// <summary>

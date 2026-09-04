@@ -1,4 +1,28 @@
-﻿using LuBan.ApprovalFlow.Consts;
+﻿/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：yswenli
+*命名空间：LuBan.XTestProject
+*文件名： ApprovalFlowUnitTest.cs
+*版本号： V1.0.0.0
+*唯一标识：59845dc0-4ce3-4e0d-808a-b7e0a8cd35fa
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/7/13 12:05:29
+*描述：ApprovalFlowUnitTest 类
+*
+*=================================================
+*修改标记
+*修改时间：2026/7/13 12:05:29
+*修改人： yswenli
+*版本号： V1.0.0.0
+*描述：ApprovalFlowUnitTest 类
+*
+*****************************************************************************/
+
+using LuBan.ApprovalFlow.Consts;
 using LuBan.ApprovalFlow.Core;
 using LuBan.ApprovalFlow.Models;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -6,6 +30,9 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace LuBan.XTestProject;
 
 [TestClass]
+/// <summary>
+/// ApprovalFlowUnitTest 单元测试类
+/// </summary>
 public class ApprovalFlowUnitTest
 {
     [TestMethod]

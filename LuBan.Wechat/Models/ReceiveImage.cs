@@ -23,6 +23,9 @@
 *****************************************************************************/
 namespace LuBan.Wechat.Models
 {
+    /// <summary>
+/// ReceiveImage 类
+/// </summary>
     public class ReceiveImage : Receive
     {
         public string PicUrl { get; set; }

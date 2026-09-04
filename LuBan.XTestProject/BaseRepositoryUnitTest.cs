@@ -1,4 +1,28 @@
-﻿using LuBan.Orm;
+﻿/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：yswenli
+*命名空间：LuBan.XTestProject
+*文件名： BaseRepositoryUnitTest.cs
+*版本号： V1.0.0.0
+*唯一标识：2dcacc16-65f1-47c0-8795-984d35e2aa09
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/7/13 12:05:29
+*描述：BaseRepositoryUnitTest 类
+*
+*=================================================
+*修改标记
+*修改时间：2026/7/13 12:05:29
+*修改人： yswenli
+*版本号： V1.0.0.0
+*描述：BaseRepositoryUnitTest 类
+*
+*****************************************************************************/
+
+using LuBan.Orm;
 using LuBan.Orm.Entities;
 using System.Collections.Concurrent;
 using System.Diagnostics;
@@ -6,6 +30,9 @@ using System.Diagnostics;
 namespace LuBan.XTestProject
 {
     [TestClass]
+    /// <summary>
+/// BaseRepositoryUnitTest 单元测试类
+/// </summary>
     public class BaseRepositoryUnitTest
     {
         [TestInitialize]

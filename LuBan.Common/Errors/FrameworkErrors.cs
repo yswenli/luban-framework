@@ -1,3 +1,27 @@
+﻿/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：yswenli
+*命名空间：LuBan.Common.Errors
+*文件名： FrameworkErrors.cs
+*版本号： V1.0.0.0
+*唯一标识：7f0a9b0a-a781-49b6-8c04-3d7359eab2de
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/8/17 13:16:33
+*描述：FrameworkErrors 类
+*
+*=================================================
+*修改标记
+*修改时间：2026/8/17 13:16:33
+*修改人： yswenli
+*版本号： V1.0.0.0
+*描述：FrameworkErrors 类
+*
+*****************************************************************************/
+
 namespace LuBan.Common.Errors;
 
 /// <summary>

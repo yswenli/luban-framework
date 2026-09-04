@@ -1,4 +1,28 @@
-﻿
+﻿/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：yswenli
+*命名空间：WebApplication1.Controllers.Mobile
+*文件名： WechatCropController.cs
+*版本号： V1.0.0.0
+*唯一标识：51deb06b-05dc-43d8-8d2d-1a0441e3b51e
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/7/13 12:05:30
+*描述：WechatCropController 控制器
+*
+*=================================================
+*修改标记
+*修改时间：2026/7/13 12:05:30
+*修改人： yswenli
+*版本号： V1.0.0.0
+*描述：WechatCropController 控制器
+*
+*****************************************************************************/
+
+
 using LuBan.Wechat.Models;
 
 using WebApplication1.Services.ApiServices;

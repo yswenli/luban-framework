@@ -23,6 +23,9 @@
 *****************************************************************************/
 namespace LuBan.Wechat.Models
 {
+    /// <summary>
+/// ReplyImage 类
+/// </summary>
     public class ReplyImage : Reply
     {
         public string MediaId { get; set; }
