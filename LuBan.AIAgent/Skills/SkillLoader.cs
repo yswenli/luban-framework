@@ -22,12 +22,17 @@ namespace LuBan.AIAgent.Skills;
 /// </summary>
 public class SkillLoader
 {
-    private static readonly string UserSkillsRoot = Path.Combine(
+    // 规范用户级目录：~/.luban-agent/skills（与框架 Playwright 驱动缓存 ~/.luban-agent 约定一致）
+    private static readonly string UserSkillsRoot = GlobalLubanAgentPath.SkillsDir;
+
+    // 遗留用户级目录：%LocalAppData%/LuBanFramework/AIAgent/skills（旧版 CLI 写入位置，保留作兼容读取）
+    private static readonly string LegacyUserSkillsRoot = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "LuBanFramework", "AIAgent", "skills");
 
     /// <summary>
     /// 从指定工作区目录和用户目录加载所有 SKILL.md 文件。
+    /// 加载顺序（后者覆盖前者）：遗留用户级 → 规范用户级（~/.luban-agent/skills）→ 项目级（工作区 .luban-agent/skills）。
     /// </summary>
     /// <param name="workspaceSkillsDir">工作区级 skills 目录（如 &lt;RootPath&gt;/.luban-agent/skills），可为 null</param>
     /// <returns>加载的 FileSkillConfig 列表（已去重，项目级优先）</returns>
@@ -35,14 +40,21 @@ public class SkillLoader
     {
         var result = new Dictionary<string, FileSkillConfig>(StringComparer.OrdinalIgnoreCase);
 
-        // 1. 用户级（低优先级，先加载）
+        // 1. 遗留用户级（最低优先级，先加载）
+        if (Directory.Exists(LegacyUserSkillsRoot))
+        {
+            foreach (var cfg in ScanDirectory(LegacyUserSkillsRoot))
+                result[cfg.Id] = cfg;
+        }
+
+        // 2. 规范用户级 ~/.luban-agent/skills（覆盖遗留）
         if (Directory.Exists(UserSkillsRoot))
         {
             foreach (var cfg in ScanDirectory(UserSkillsRoot))
                 result[cfg.Id] = cfg;
         }
 
-        // 2. 项目级（高优先级，后加载覆盖）
+        // 3. 项目级（最高优先级，后加载覆盖）
         if (!string.IsNullOrEmpty(workspaceSkillsDir) && Directory.Exists(workspaceSkillsDir))
         {
             foreach (var cfg in ScanDirectory(workspaceSkillsDir))

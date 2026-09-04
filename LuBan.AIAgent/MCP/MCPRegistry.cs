@@ -54,7 +54,33 @@ public class MCPRegistry
     {
         var temp = new Dictionary<string, (IMCPClient Client, string Fingerprint)>(StringComparer.OrdinalIgnoreCase);
         var mcpsDir = Path.Combine(workspaceDir, ".luban-agent", "mcps");
-        
+
+        // 用户级（低优先级，先加载）：~/.luban-agent/mcps
+        if (Directory.Exists(GlobalLubanAgentPath.McpsDir))
+        {
+            foreach (var jsonFile in Directory.GetFiles(GlobalLubanAgentPath.McpsDir, "*.json"))
+            {
+                try
+                {
+                    var json = File.ReadAllText(jsonFile);
+                    var config = json.ToObject<Configuration.McpServerConfig>();
+                    if (config != null && config.Enabled)
+                    {
+                        IMCPClient client = config.Transport?.ToLowerInvariant() switch
+                        {
+                            "http" or "sse" => new HttpMCPClient(config),
+                            _ => new StdioMCPClient(config)
+                        };
+                        temp[config.Name] = (client, FingerprintOf(config));
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"加载用户级 MCP 失败: {jsonFile}", ex);
+                }
+            }
+        }
+
         if (Directory.Exists(mcpsDir))
         {
             foreach (var jsonFile in Directory.GetFiles(mcpsDir, "*.json"))

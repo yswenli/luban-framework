@@ -51,7 +51,26 @@ public class RuleEngine
     {
         var temp = new Dictionary<string, IRule>(StringComparer.OrdinalIgnoreCase);
         var rulesDir = Path.Combine(workspaceDir, ".luban-agent", "rules");
-        
+
+        // 用户级（低优先级，先加载）：~/.luban-agent/rules
+        if (Directory.Exists(GlobalLubanAgentPath.RulesDir))
+        {
+            foreach (var jsonFile in Directory.GetFiles(GlobalLubanAgentPath.RulesDir, "*.json"))
+            {
+                try
+                {
+                    var json = File.ReadAllText(jsonFile);
+                    var config = json.ToObject<Configuration.CustomRuleConfig>();
+                    if (config != null && config.Enabled)
+                        temp[config.Id] = new CustomRule(config);
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"加载用户级 Rule 失败: {jsonFile}", ex);
+                }
+            }
+        }
+
         if (Directory.Exists(rulesDir))
         {
             foreach (var jsonFile in Directory.GetFiles(rulesDir, "*.json"))
