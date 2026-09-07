@@ -396,7 +396,7 @@ public class DatabaseToolGroup
             return ToolResult.Fail<string>(connError);
 
         // 写操作需要用户确认
-        if (!_confirmationService.RequestConfirmation("ExecuteNonQueryAsync",
+        if (!await _confirmationService.RequestConfirmation("ExecuteNonQueryAsync",
             new Dictionary<string, object?> { ["sql"] = sql }))
         {
             return ToolResult.Cancelled<string>();

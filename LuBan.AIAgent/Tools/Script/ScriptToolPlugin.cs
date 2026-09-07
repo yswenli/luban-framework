@@ -113,7 +113,7 @@ public class ScriptToolGroup
     public async Task<ToolResult<string>> RunShellAsync(string command, string? workingDirectory = null)
     {
         // 确认执行
-        if (!_confirmationService.RequestConfirmation("RunShellAsync",
+        if (!await _confirmationService.RequestConfirmation("RunShellAsync",
             new Dictionary<string, object?> { ["command"] = command, ["workingDirectory"] = workingDirectory }))
         {
             return ToolResult.Cancelled<string>();
@@ -181,7 +181,7 @@ public class ScriptToolGroup
     public async Task<ToolResult<string>> RunLuaAsync(string script, string? workingDirectory = null)
     {
         // 确认执行
-        if (!_confirmationService.RequestConfirmation("RunLuaAsync",
+        if (!await _confirmationService.RequestConfirmation("RunLuaAsync",
             new Dictionary<string, object?> { ["script"] = script, ["workingDirectory"] = workingDirectory }))
         {
             return ToolResult.Cancelled<string>();
@@ -243,7 +243,7 @@ public class ScriptToolGroup
 public async Task<ToolResult<string>> RunPythonAsync(string script, string? workingDirectory = null)
 {
     // 确认执行
-    if (!_confirmationService.RequestConfirmation("RunPythonAsync",
+    if (!await _confirmationService.RequestConfirmation("RunPythonAsync",
         new Dictionary<string, object?> { ["script"] = script, ["workingDirectory"] = workingDirectory }))
     {
         return ToolResult.Cancelled<string>();

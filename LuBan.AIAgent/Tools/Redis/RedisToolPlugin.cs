@@ -123,7 +123,7 @@ public class RedisToolGroup
         // 写操作与危险命令需要用户确认（GET/KEYS/INFO 等只读命令免确认）
         if (RequiresConfirmation(sanitizedCommand))
         {
-            if (!_confirmationService.RequestConfirmation("ExecAsync",
+            if (!await _confirmationService.RequestConfirmation("ExecAsync",
                 new Dictionary<string, object?> { ["command"] = command }))
             {
                 return ToolResult.Cancelled<string>();

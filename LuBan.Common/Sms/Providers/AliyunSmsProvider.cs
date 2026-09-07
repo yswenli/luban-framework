@@ -122,7 +122,7 @@ public class AliyunSmsProvider : ISmsProvider
     {
         try
         {
-            var resp = await _client.SendSmsWithOptionsAsync(request, new RuntimeOptions { Autoretry = true, MaxAttempts = 3 });
+            var resp = await _client.SendSmsWithOptionsAsync(request, new RuntimeOptions { Autoretry = false });
             return MapResult(resp.Body, request.TemplateCode);
         }
         catch (TeaException error)

@@ -40,9 +40,11 @@ public enum ToolPermissionMode
 public class ToolConfirmationContext
 {
     /// <summary>
-    /// 工具调用确认回调函数。回调接收工具名称和参数，返回是否允许执行。
+    /// 工具调用确认回调函数。回调接收工具名称和参数，返回是否允许执行的 Task。
+    /// 异步签名允许宿主（CLI TUI）在回调内 await 用户确认（TaskCompletionSource），
+    /// 避免占用 agent 线程同步阻塞。
     /// </summary>
-    public Func<string, IReadOnlyDictionary<string, object?>, bool>? Callback { get; set; }
+    public Func<string, IReadOnlyDictionary<string, object?>, Task<bool>>? Callback { get; set; }
 
     /// <summary>
     /// 工作区路径检查回调函数。回调接收路径，返回该路径是否在当前工作区内。
@@ -96,8 +98,8 @@ public interface IToolConfirmationService
     /// </summary>
     /// <param name="toolName">工具名称。</param>
     /// <param name="arguments">工具参数。</param>
-    /// <returns>是否允许执行该工具调用。</returns>
-    bool RequestConfirmation(string toolName, IReadOnlyDictionary<string, object?> arguments);
+    /// <returns>是否允许执行该工具调用的 Task。</returns>
+    Task<bool> RequestConfirmation(string toolName, IReadOnlyDictionary<string, object?> arguments);
 
     /// <summary>
     /// 基于路径的工具调用确认。
@@ -105,8 +107,8 @@ public interface IToolConfirmationService
     /// <param name="toolName">工具名称。</param>
     /// <param name="path">操作目标路径。</param>
     /// <param name="arguments">工具参数。</param>
-    /// <returns>是否允许执行该工具调用。</returns>
-    bool TryConfirmByPath(string toolName, string path, IReadOnlyDictionary<string, object?> arguments);
+    /// <returns>是否允许执行该工具调用的 Task。</returns>
+    Task<bool> TryConfirmByPath(string toolName, string path, IReadOnlyDictionary<string, object?> arguments);
 
     /// <summary>
     /// 判断指定工具是否需要人工确认。
@@ -167,8 +169,8 @@ public class ToolConfirmationService : IToolConfirmationService
     /// </summary>
     /// <param name="toolName">工具名称。</param>
     /// <param name="arguments">工具参数。</param>
-    /// <returns>是否允许执行该工具调用。</returns>
-    public bool RequestConfirmation(string toolName, IReadOnlyDictionary<string, object?> arguments)
+    /// <returns>是否允许执行该工具调用的 Task。</returns>
+    public async Task<bool> RequestConfirmation(string toolName, IReadOnlyDictionary<string, object?> arguments)
     {
         // ESC 已触发，自动拒绝所有工具调用
         if (_context.CancellationToken.IsCancellationRequested)
@@ -185,7 +187,7 @@ public class ToolConfirmationService : IToolConfirmationService
         var callback = _context.Callback;
         if (callback == null)
             return false;
-        return callback(toolName, arguments);
+        return await callback(toolName, arguments).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -219,7 +221,7 @@ public class ToolConfirmationService : IToolConfirmationService
     /// <param name="path">操作目标路径。</param>
     /// <param name="arguments">工具参数。</param>
     /// <returns>是否允许执行该工具调用。</returns>
-    public bool TryConfirmByPath(string toolName, string path, IReadOnlyDictionary<string, object?> arguments)
+    public async Task<bool> TryConfirmByPath(string toolName, string path, IReadOnlyDictionary<string, object?> arguments)
     {
         // ── 模式分发 ──
         switch (_context.Mode)
@@ -254,14 +256,14 @@ public class ToolConfirmationService : IToolConfirmationService
 
         // 删除类工具：始终需要确认
         if (AlwaysConfirmTools.Contains(toolName))
-            return RequestConfirmation(toolName, arguments);
+            return await RequestConfirmation(toolName, arguments).ConfigureAwait(false);
 
         // 非删除类工具：工作区内免确认
         if (!string.IsNullOrEmpty(path) && IsWithinWorkspace(path))
             return true;
 
         // 工作区外：需要确认
-        return RequestConfirmation(toolName, arguments);
+        return await RequestConfirmation(toolName, arguments).ConfigureAwait(false);
     }
 
     /// <summary>

@@ -276,7 +276,7 @@ public class FileSystemToolGroup
             return ToolResult.Fail<string>($"错误：路径 {path} 不在允许访问的范围内");
 
         // 工作区外读取需确认
-        if (!_confirmationService.TryConfirmByPath("ReadFileAsync", path,
+        if (!await _confirmationService.TryConfirmByPath("ReadFileAsync", path,
             new Dictionary<string, object?> { ["path"] = path }))
         {
             return ToolResult.Cancelled<string>();
@@ -342,7 +342,7 @@ public class FileSystemToolGroup
             return ToolResult.Fail<string>($"错误：路径 {path} 不在允许访问的范围内");
 
         // 工作区内写入免确认，工作区外需确认
-        if (!_confirmationService.TryConfirmByPath("WriteFileAsync", path,
+        if (!await _confirmationService.TryConfirmByPath("WriteFileAsync", path,
             new Dictionary<string, object?> { ["path"] = path, ["content"] = content }))
         {
             return ToolResult.Cancelled<string>();
@@ -398,7 +398,7 @@ public class FileSystemToolGroup
 
         // 工作区外列目录需确认
         if (!_confirmationService.TryConfirmByPath("ListDirectoryAsync", path,
-            new Dictionary<string, object?> { ["path"] = path }))
+            new Dictionary<string, object?> { ["path"] = path }).GetAwaiter().GetResult())
         {
             return Task.FromResult(ToolResult.Cancelled<string>());
         }
@@ -454,7 +454,7 @@ public class FileSystemToolGroup
             : rootPath;
 
         if (!_confirmationService.TryConfirmByPath("GetWorkspaceOverviewAsync", resolvedPath,
-            new Dictionary<string, object?> { ["rootPath"] = resolvedPath }))
+            new Dictionary<string, object?> { ["rootPath"] = resolvedPath }).GetAwaiter().GetResult())
         {
             return Task.FromResult(ToolResult.Cancelled<string>());
         }
@@ -656,7 +656,7 @@ public class FileSystemToolGroup
 
         // 删除操作：始终需要确认
         if (!_confirmationService.TryConfirmByPath("DeleteFileAsync", path,
-            new Dictionary<string, object?> { ["path"] = path }))
+            new Dictionary<string, object?> { ["path"] = path }).GetAwaiter().GetResult())
         {
             return Task.FromResult(ToolResult.Cancelled<string>());
         }
@@ -714,7 +714,7 @@ public class FileSystemToolGroup
 
         // 删除操作：始终需要确认
         if (!_confirmationService.TryConfirmByPath("DeleteDirectoryAsync", path,
-            new Dictionary<string, object?> { ["path"] = path }))
+            new Dictionary<string, object?> { ["path"] = path }).GetAwaiter().GetResult())
         {
             return Task.FromResult(ToolResult.Cancelled<string>());
         }
@@ -960,7 +960,7 @@ public class FileSystemToolGroup
             return Task.FromResult(ToolResult.Fail<string>($"错误：路径 {path} 不在允许访问的范围内"));
 
         if (!_confirmationService.TryConfirmByPath("CreateDirectoryAsync", path,
-            new Dictionary<string, object?> { ["path"] = path }))
+            new Dictionary<string, object?> { ["path"] = path }).GetAwaiter().GetResult())
         {
             return Task.FromResult(ToolResult.Cancelled<string>());
         }
@@ -1022,13 +1022,13 @@ public class FileSystemToolGroup
             return Task.FromResult(ToolResult.Fail<string>($"错误：目标路径 {destPath} 不在允许访问的范围内"));
 
         if (!_confirmationService.TryConfirmByPath("CopyFileAsync", sourcePath,
-            new Dictionary<string, object?> { ["sourcePath"] = sourcePath, ["destPath"] = destPath, ["overwrite"] = overwrite }))
+            new Dictionary<string, object?> { ["sourcePath"] = sourcePath, ["destPath"] = destPath, ["overwrite"] = overwrite }).GetAwaiter().GetResult())
         {
             return Task.FromResult(ToolResult.Cancelled<string>());
         }
 
         if (!_confirmationService.TryConfirmByPath("CopyFileAsync", destPath,
-            new Dictionary<string, object?> { ["sourcePath"] = sourcePath, ["destPath"] = destPath, ["overwrite"] = overwrite }))
+            new Dictionary<string, object?> { ["sourcePath"] = sourcePath, ["destPath"] = destPath, ["overwrite"] = overwrite }).GetAwaiter().GetResult())
         {
             return Task.FromResult(ToolResult.Cancelled<string>());
         }
@@ -1103,13 +1103,13 @@ public class FileSystemToolGroup
             return Task.FromResult(ToolResult.Fail<string>($"错误：目标路径 {destPath} 不在允许访问的范围内"));
 
         if (!_confirmationService.TryConfirmByPath("MoveFileAsync", sourcePath,
-            new Dictionary<string, object?> { ["sourcePath"] = sourcePath, ["destPath"] = destPath }))
+            new Dictionary<string, object?> { ["sourcePath"] = sourcePath, ["destPath"] = destPath }).GetAwaiter().GetResult())
         {
             return Task.FromResult(ToolResult.Cancelled<string>());
         }
 
         if (!_confirmationService.TryConfirmByPath("MoveFileAsync", destPath,
-            new Dictionary<string, object?> { ["sourcePath"] = sourcePath, ["destPath"] = destPath }))
+            new Dictionary<string, object?> { ["sourcePath"] = sourcePath, ["destPath"] = destPath }).GetAwaiter().GetResult())
         {
             return Task.FromResult(ToolResult.Cancelled<string>());
         }
