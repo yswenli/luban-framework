@@ -24,9 +24,13 @@
 
 using System.Text.Json;
 
+using LuBan.Common.Consts;
+using LuBan.Common.Errors;
 using LuBan.Common.Sms;
 using LuBan.Common.Sms.Models;
 using LuBan.Common.Sms.Providers;
+using LuBan.Web.Core.Models;
+using LuBan.Web.Core.Utils;
 
 namespace LuBan.XTestProject
 {
@@ -285,6 +289,147 @@ namespace LuBan.XTestProject
                 Assert.AreSame(dbOption, sender.Option);
                 Assert.AreEqual(7, sender.Option.VerifyCodeExpireMinutes);
                 Assert.AreEqual("db", sender.Option.ZhuTong.UserName);
+            }
+            finally
+            {
+                SmsConfigResolver.Register(() => null!);
+            }
+        }
+
+        [TestMethod]
+        public void ValidatePhoneVerifyCode_PhoneEmpty_Throws()
+        {
+            try
+            {
+                SmsExtention.ValidatePhoneVerifyCode("", "1234");
+                Assert.Fail("应该抛出异常");
+            }
+            catch (FriendlyException ex)
+            {
+                Assert.AreEqual(FrameworkErrors.Common.PhoneEmpty.Code, ex.Error.Code);
+            }
+        }
+
+        [TestMethod]
+        public void ValidatePhoneVerifyCode_NoCache_ThrowsCaptchaError()
+        {
+            var phone = "13800138001";
+            MemoryCache.Instance.Delete(CacheConst.KeyPhoneVerCode + phone);
+            try
+            {
+                SmsExtention.ValidatePhoneVerifyCode(phone, "1234");
+                Assert.Fail("应该抛出异常");
+            }
+            catch (FriendlyException ex)
+            {
+                Assert.AreEqual(FrameworkErrors.Common.CaptchaError.Code, ex.Error.Code);
+            }
+        }
+
+        [TestMethod]
+        public void ValidatePhoneVerifyCode_AlreadyUsed_Throws()
+        {
+            var phone = "13800138003";
+            var key = CacheConst.KeyPhoneVerCode + phone;
+            MemoryCache.Instance.Set(key, new PhoneVerifyCodeInfo
+            {
+                Code = "5678",
+                CreateTime = DateTime.Now,
+                IsUsed = true
+            }, TimeSpan.FromMinutes(5));
+
+            try
+            {
+                try
+                {
+                    SmsExtention.ValidatePhoneVerifyCode(phone, "5678");
+                    Assert.Fail("应该抛出异常");
+                }
+                catch (FriendlyException ex)
+                {
+                    Assert.AreEqual(FrameworkErrors.Common.SmsVerifyCodeUsed.Code, ex.Error.Code);
+                }
+            }
+            finally
+            {
+                MemoryCache.Instance.Delete(key);
+            }
+        }
+
+        [TestMethod]
+        public void ValidatePhoneVerifyCode_WrongCode_ThrowsCaptchaError()
+        {
+            SmsConfigResolver.Register(() => new SmsOption
+            {
+                Provider = "ZhuTong",
+                ZhuTong = new ZhuTongSmsSetting { UserName = "test", Password = "test", Signature = "test", TemplateId = 1 },
+                VerifyCodeExpireMinutes = 5
+            });
+            try
+            {
+                var phone = "13800138004";
+                var key = CacheConst.KeyPhoneVerCode + phone;
+                MemoryCache.Instance.Set(key, new PhoneVerifyCodeInfo
+                {
+                    Code = "5678",
+                    CreateTime = DateTime.Now,
+                    IsUsed = false
+                }, TimeSpan.FromMinutes(5));
+
+                try
+                {
+                    try
+                    {
+                        SmsExtention.ValidatePhoneVerifyCode(phone, "9999");
+                        Assert.Fail("应该抛出异常");
+                    }
+                    catch (FriendlyException ex)
+                    {
+                        Assert.AreEqual(FrameworkErrors.Common.CaptchaError.Code, ex.Error.Code);
+                    }
+                }
+                finally
+                {
+                    MemoryCache.Instance.Delete(key);
+                }
+            }
+            finally
+            {
+                SmsConfigResolver.Register(() => null!);
+            }
+        }
+
+        [TestMethod]
+        public void ValidatePhoneVerifyCode_CodeMatches_MarksUsed()
+        {
+            SmsConfigResolver.Register(() => new SmsOption
+            {
+                Provider = "ZhuTong",
+                ZhuTong = new ZhuTongSmsSetting { UserName = "test", Password = "test", Signature = "test", TemplateId = 1 },
+                VerifyCodeExpireMinutes = 5
+            });
+            try
+            {
+                var phone = "13800138002";
+                var key = CacheConst.KeyPhoneVerCode + phone;
+                MemoryCache.Instance.Set(key, new PhoneVerifyCodeInfo
+                {
+                    Code = "5678",
+                    CreateTime = DateTime.Now,
+                    IsUsed = false
+                }, TimeSpan.FromMinutes(5));
+
+                try
+                {
+                    SmsExtention.ValidatePhoneVerifyCode(phone, "5678");
+                    var cached = MemoryCache.Instance.Get<PhoneVerifyCodeInfo>(key);
+                    Assert.IsNotNull(cached);
+                    Assert.IsTrue(cached.IsUsed);
+                }
+                finally
+                {
+                    MemoryCache.Instance.Delete(key);
+                }
             }
             finally
             {

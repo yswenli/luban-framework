@@ -56,4 +56,37 @@ public static class SmsExtention
             }
         });
     }
+
+    /// <summary>
+    /// 校验手机验证码（万能验证码直接通过，校验成功后标记已使用）
+    /// </summary>
+    public static void ValidatePhoneVerifyCode(string phoneNumber, string code)
+    {
+        if (string.IsNullOrWhiteSpace(phoneNumber))
+            throw FriendlyError.Ex(FrameworkErrors.Common.PhoneEmpty);
+
+        var globalCode = HostingOptions.Default.AppOptions.GloabVerifyCode;
+        if (!string.IsNullOrEmpty(globalCode) && code == globalCode)
+            return;
+
+        var key = CacheConst.KeyPhoneVerCode + phoneNumber;
+        var cached = MemoryCache.Instance.Get<PhoneVerifyCodeInfo>(key);
+
+        if (cached == null)
+            throw FriendlyError.Ex(FrameworkErrors.Common.CaptchaError);
+
+        if (cached.IsUsed)
+            throw FriendlyError.Ex(FrameworkErrors.Common.SmsVerifyCodeUsed);
+
+        if (cached.Code != code)
+            throw FriendlyError.Ex(FrameworkErrors.Common.CaptchaError);
+
+        cached.IsUsed = true;
+        MemoryCache.Instance.Set(key, cached, TimeSpan.FromMinutes(GetSmsExpireMinutes()));
+    }
+
+    private static int GetSmsExpireMinutes()
+    {
+        return new SmsSender().Option.VerifyCodeExpireMinutes;
+    }
 }
