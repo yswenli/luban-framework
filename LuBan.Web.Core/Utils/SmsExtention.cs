@@ -22,6 +22,8 @@
 *
 *****************************************************************************/
 
+using LuBan.Common.Sms.Models;
+
 namespace LuBan.Web.Core.Utils;
 
 /// <summary>
@@ -88,5 +90,39 @@ public static class SmsExtention
     private static int GetSmsExpireMinutes()
     {
         return new SmsSender().Option.VerifyCodeExpireMinutes;
+    }
+
+    /// <summary>
+    /// 发送手机验证码（未使用未过期时复用已有验证码，否则生成新码）
+    /// </summary>
+    public static async Task<SmsRequestResult> SendVerifyCodeAsync(string phoneNumber)
+    {
+        if (string.IsNullOrWhiteSpace(phoneNumber))
+            throw FriendlyError.Ex(FrameworkErrors.Common.PhoneEmpty);
+
+        var expireMinutes = GetSmsExpireMinutes();
+        var key = CacheConst.KeyPhoneVerCode + phoneNumber;
+        var cached = MemoryCache.Instance.Get<PhoneVerifyCodeInfo>(key);
+        string code;
+
+        if (cached != null && !cached.IsUsed && cached.CreateTime.AddMinutes(expireMinutes) > DateTime.Now)
+        {
+            code = cached.Code;
+        }
+        else
+        {
+            code = RandomUtil.GetRndCodeStr(4, 2);
+            cached = new PhoneVerifyCodeInfo
+            {
+                Code = code,
+                CreateTime = DateTime.Now,
+                IsUsed = false
+            };
+        }
+
+        MemoryCache.Instance.Set(key, cached, TimeSpan.FromMinutes(expireMinutes));
+
+        var sender = new SmsSender();
+        return await sender.SendValideCodeAsync(phoneNumber, code);
     }
 }

@@ -438,6 +438,139 @@ namespace LuBan.XTestProject
         }
 
         [TestMethod]
+        public void SendVerifyCodeAsync_PhoneEmpty_Throws()
+        {
+            try
+            {
+                SmsExtention.SendVerifyCodeAsync("").GetAwaiter().GetResult();
+                Assert.Fail("应该抛出异常");
+            }
+            catch (FriendlyException ex)
+            {
+                Assert.AreEqual(FrameworkErrors.Common.PhoneEmpty.Code, ex.Error.Code);
+            }
+        }
+
+        [TestMethod]
+        public void SendVerifyCodeAsync_NoCache_GeneratesAndStoresCode()
+        {
+            SmsConfigResolver.Register(() => new SmsOption
+            {
+                Provider = "ZhuTong",
+                ZhuTong = new ZhuTongSmsSetting { UserName = "test", Password = "test", Signature = "test", TemplateId = 1 },
+                VerifyCodeExpireMinutes = 5
+            });
+            try
+            {
+                var phone = "13800138010";
+                var key = CacheConst.KeyPhoneVerCode + phone;
+                MemoryCache.Instance.Delete(key);
+
+                try
+                {
+                    SmsExtention.SendVerifyCodeAsync(phone).GetAwaiter().GetResult();
+                }
+                catch
+                {
+                    // SMS 发送在测试环境失败（假凭据），忽略
+                }
+
+                var cached = MemoryCache.Instance.Get<PhoneVerifyCodeInfo>(key);
+                Assert.IsNotNull(cached, "验证码应已缓存");
+                Assert.IsFalse(cached.IsUsed);
+                Assert.IsTrue(cached.Code.Length == 4, "应为4位数字验证码");
+                MemoryCache.Instance.Delete(key);
+            }
+            finally
+            {
+                SmsConfigResolver.Register(() => null!);
+            }
+        }
+
+        [TestMethod]
+        public void SendVerifyCodeAsync_ExistingUnusedNotExpired_ReusesCode()
+        {
+            SmsConfigResolver.Register(() => new SmsOption
+            {
+                Provider = "ZhuTong",
+                ZhuTong = new ZhuTongSmsSetting { UserName = "test", Password = "test", Signature = "test", TemplateId = 1 },
+                VerifyCodeExpireMinutes = 5
+            });
+            try
+            {
+                var phone = "13800138011";
+                var key = CacheConst.KeyPhoneVerCode + phone;
+                var existingCode = "1234";
+                MemoryCache.Instance.Set(key, new PhoneVerifyCodeInfo
+                {
+                    Code = existingCode,
+                    CreateTime = DateTime.Now,
+                    IsUsed = false
+                }, TimeSpan.FromMinutes(5));
+
+                try
+                {
+                    SmsExtention.SendVerifyCodeAsync(phone).GetAwaiter().GetResult();
+                }
+                catch
+                {
+                    // SMS 发送在测试环境失败（假凭据），忽略
+                }
+
+                var cached = MemoryCache.Instance.Get<PhoneVerifyCodeInfo>(key);
+                Assert.IsNotNull(cached);
+                Assert.AreEqual(existingCode, cached.Code, "应复用已有验证码");
+                Assert.IsFalse(cached.IsUsed);
+                MemoryCache.Instance.Delete(key);
+            }
+            finally
+            {
+                SmsConfigResolver.Register(() => null!);
+            }
+        }
+
+        [TestMethod]
+        public void SendVerifyCodeAsync_ExistingUsed_GeneratesNewCode()
+        {
+            SmsConfigResolver.Register(() => new SmsOption
+            {
+                Provider = "ZhuTong",
+                ZhuTong = new ZhuTongSmsSetting { UserName = "test", Password = "test", Signature = "test", TemplateId = 1 },
+                VerifyCodeExpireMinutes = 5
+            });
+            try
+            {
+                var phone = "13800138012";
+                var key = CacheConst.KeyPhoneVerCode + phone;
+                MemoryCache.Instance.Set(key, new PhoneVerifyCodeInfo
+                {
+                    Code = "1111",
+                    CreateTime = DateTime.Now,
+                    IsUsed = true
+                }, TimeSpan.FromMinutes(5));
+
+                try
+                {
+                    SmsExtention.SendVerifyCodeAsync(phone).GetAwaiter().GetResult();
+                }
+                catch
+                {
+                    // SMS 发送在测试环境失败（假凭据），忽略
+                }
+
+                var cached = MemoryCache.Instance.Get<PhoneVerifyCodeInfo>(key);
+                Assert.IsNotNull(cached);
+                Assert.AreNotEqual("1111", cached.Code, "已使用的验证码应被替换为新码");
+                Assert.IsFalse(cached.IsUsed);
+                MemoryCache.Instance.Delete(key);
+            }
+            finally
+            {
+                SmsConfigResolver.Register(() => null!);
+            }
+        }
+
+        [TestMethod]
         public void Test()
         {
             var smsOption = ConfigUtil.Read<SmsOption>();
