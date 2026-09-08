@@ -282,6 +282,7 @@ namespace LuBan.XTestProject
             {
                 var sender = new SmsSender();
                 Assert.IsNotNull(sender);
+                Assert.AreSame(dbOption, sender.Option);
                 Assert.AreEqual(7, sender.Option.VerifyCodeExpireMinutes);
                 Assert.AreEqual("db", sender.Option.ZhuTong.UserName);
             }
