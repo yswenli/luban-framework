@@ -33,7 +33,7 @@ namespace LuBan.Common.Errors;
 /// </summary>
 public static class FrameworkErrors
 {
-    /// <summary>通用错误（10001-10008）</summary>
+    /// <summary>通用错误（10001-10009）</summary>
     public static class Common
     {
         public static readonly ErrorDescriptor InputEmpty = new(10001, "输入值不能为空", ErrorCategory.Validation);
@@ -44,6 +44,7 @@ public static class FrameworkErrors
         public static readonly ErrorDescriptor ParamEmpty = new(10006, "输入的参数不能为空", ErrorCategory.Validation);
         public static readonly ErrorDescriptor PhoneEmpty = new(10007, "请输入手机号", ErrorCategory.Validation);
         public static readonly ErrorDescriptor PhoneInvalid = new(10008, "请输入正确的手机号", ErrorCategory.Validation);
+        public static readonly ErrorDescriptor SmsVerifyCodeUsed = new(10009, "验证码已使用", ErrorCategory.Validation);
     }
 
     public static class User
