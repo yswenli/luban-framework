@@ -111,6 +111,10 @@ public class CommonConst
 
     public const string SysManagementPlatformCode = "sys-luban-framework:management-platform";
 
+    /// <summary>
+    /// 短信配置（db_config 中整段 JSON）
+    /// </summary>
+    public const string SysSmsCode = "sys-luban-framework:sms";
 
 
     /// <summary>
