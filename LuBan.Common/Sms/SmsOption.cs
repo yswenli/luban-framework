@@ -47,6 +47,11 @@ public sealed class SmsOption
     /// 短信验证码有效时长（分钟），默认 5
     /// </summary>
     public int VerifyCodeExpireMinutes { get; set; } = 5;
+
+    /// <summary>
+    /// 短信验证码长度（1-6 位），默认 4，超出范围时被钳制到 1-6
+    /// </summary>
+    public int VerifyCodeLength { get; set; } = 4;
 }
 
 

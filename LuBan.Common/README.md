@@ -166,10 +166,13 @@ dotnet add package LuBan.Common
 `Sms.SmsSender`、`Sms.SmsOption`、`Sms.ISmsProvider`
 
 > 短信发送抽象，配置化接入，支持助通（ZhuTong）与阿里云（Aliyun）双运营商，通过 `SmsOption.Provider` 切换；旧配置（无 Provider 字段）默认助通，行为不变。
+> 验证码长度可通过 `VerifyCodeLength` 配置（1-6 位，默认 4），有效期通过 `VerifyCodeExpireMinutes` 配置（分钟，默认 5）。
 
 ```jsonc
 {
   "Provider": "Aliyun",
+  "VerifyCodeExpireMinutes": 5,
+  "VerifyCodeLength": 4,
   "Aliyun": {
     "AccessKeyId": "",
     "AccessKeySecret": "",

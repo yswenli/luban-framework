@@ -164,10 +164,13 @@ Note: `MemoryCache<T>`, `IServiceCache`, `Logger` are in the `System` namespace.
 `Sms.SmsSender`, `Sms.SmsOption`, `Sms.ISmsProvider`
 
 > SMS sending abstraction, configuration-based integration. Supports both ZhuTong and Alibaba Cloud (Aliyun) providers, switched via `SmsOption.Provider`; legacy configs without the Provider field default to ZhuTong with unchanged behavior.
+> Verification code length via `VerifyCodeLength` (1-6, default 4), validity via `VerifyCodeExpireMinutes` (minutes, default 5).
 
 ```jsonc
 {
   "Provider": "Aliyun",
+  "VerifyCodeExpireMinutes": 5,
+  "VerifyCodeLength": 4,
   "Aliyun": {
     "AccessKeyId": "",
     "AccessKeySecret": "",

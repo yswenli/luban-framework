@@ -93,11 +93,6 @@ public static class SmsExtention
         MemoryCache.Instance.Set(key, cached, TimeSpan.FromMinutes(cached.ExpireMinutes));
     }
 
-    private static int GetSmsExpireMinutes()
-    {
-        return new SmsSender().Option.VerifyCodeExpireMinutes;
-    }
-
     /// <summary>
     /// 发送手机验证码（未使用未过期时复用已有验证码，否则生成新码）
     /// </summary>
@@ -106,7 +101,11 @@ public static class SmsExtention
         if (string.IsNullOrWhiteSpace(phoneNumber))
             throw FriendlyError.Ex(FrameworkErrors.Common.PhoneEmpty);
 
-        var expireMinutes = GetSmsExpireMinutes();
+        var sender = new SmsSender();
+        var expireMinutes = sender.Option.VerifyCodeExpireMinutes;
+        var codeLength = sender.Option.VerifyCodeLength;
+        if (codeLength < 1) codeLength = 1;
+        if (codeLength > 6) codeLength = 6;
         var key = CacheConst.KeyPhoneVerCode + phoneNumber;
         string code;
         TimeSpan ttl;
@@ -124,7 +123,7 @@ public static class SmsExtention
             else
             {
                 isNew = true;
-                code = RandomUtil.GetRndCodeStr(4, 2);
+                code = RandomUtil.GetRndCodeStr(codeLength, 2);
                 cached = new PhoneVerifyCodeInfo
                 {
                     Code = code,
@@ -140,7 +139,6 @@ public static class SmsExtention
 
         try
         {
-            var sender = new SmsSender();
             return await sender.SendValideCodeAsync(phoneNumber, code);
         }
         catch

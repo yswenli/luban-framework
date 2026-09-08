@@ -225,6 +225,35 @@ namespace LuBan.XTestProject
         }
 
         [TestMethod]
+        public void SmsOption_VerifyCodeLength_DefaultIs4()
+        {
+            var option = new SmsOption();
+            Assert.AreEqual(4, option.VerifyCodeLength);
+        }
+
+        [TestMethod]
+        public void SmsOption_LegacyJson_WithoutVerifyCodeLength_DefaultIs4()
+        {
+            var json = @"{""Provider"":""ZhuTong"",""ZhuTong"":{""UserName"":""u"",""Password"":""p"",""TemplateId"":123,""Signature"":""s""}}";
+
+            var option = JsonSerializer.Deserialize<SmsOption>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+            Assert.IsNotNull(option);
+            Assert.AreEqual(4, option.VerifyCodeLength);
+        }
+
+        [TestMethod]
+        public void SmsOption_WithVerifyCodeLength_DeserializesCorrectly()
+        {
+            var json = @"{""VerifyCodeLength"":6,""ZhuTong"":{""UserName"":""u"",""Password"":""p"",""TemplateId"":123,""Signature"":""s""}}";
+
+            var option = JsonSerializer.Deserialize<SmsOption>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+            Assert.IsNotNull(option);
+            Assert.AreEqual(6, option.VerifyCodeLength);
+        }
+
+        [TestMethod]
         public void SmsOption_LegacyJson_WithoutVerifyCodeExpireMinutes_DefaultIs5()
         {
             var json = @"{""Provider"":""ZhuTong"",""ZhuTong"":{""UserName"":""u"",""Password"":""p"",""TemplateId"":123,""Signature"":""s""}}";
@@ -487,6 +516,42 @@ namespace LuBan.XTestProject
                 Assert.IsNotNull(cached, "验证码应已缓存");
                 Assert.IsFalse(cached.IsUsed);
                 Assert.IsTrue(cached.Code.Length == 4, "应为4位数字验证码");
+                MemoryCache.Instance.Delete(key);
+            }
+            finally
+            {
+                SmsConfigResolver.Register(() => null!);
+            }
+        }
+
+        [TestMethod]
+        public void SendVerifyCodeAsync_CustomLength_GeneratesCodeOfConfiguredLength()
+        {
+            SmsConfigResolver.Register(() => new SmsOption
+            {
+                Provider = "ZhuTong",
+                ZhuTong = new ZhuTongSmsSetting { UserName = "test", Password = "test", Signature = "test", TemplateId = 1 },
+                VerifyCodeExpireMinutes = 5,
+                VerifyCodeLength = 6
+            });
+            try
+            {
+                var phone = "13800138020";
+                var key = CacheConst.KeyPhoneVerCode + phone;
+                MemoryCache.Instance.Delete(key);
+
+                try
+                {
+                    SmsExtention.SendVerifyCodeAsync(phone).GetAwaiter().GetResult();
+                }
+                catch
+                {
+                    // SMS 发送在测试环境失败（假凭据），忽略
+                }
+
+                var cached = MemoryCache.Instance.Get<PhoneVerifyCodeInfo>(key);
+                Assert.IsNotNull(cached, "验证码应已缓存");
+                Assert.IsTrue(cached.Code.Length == 6, "应为6位数字验证码");
                 MemoryCache.Instance.Delete(key);
             }
             finally
