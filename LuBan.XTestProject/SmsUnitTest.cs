@@ -243,6 +243,55 @@ namespace LuBan.XTestProject
         }
 
         [TestMethod]
+        public void SmsConfigResolver_NotRegistered_ReturnsNull()
+        {
+            var result = SmsConfigResolver.Resolve();
+            Assert.IsNull(result);
+        }
+
+        [TestMethod]
+        public void SmsConfigResolver_Registered_ReturnsConfig()
+        {
+            var expected = new SmsOption { Provider = "Aliyun", VerifyCodeExpireMinutes = 3 };
+            SmsConfigResolver.Register(() => expected);
+            try
+            {
+                var result = SmsConfigResolver.Resolve();
+                Assert.IsNotNull(result);
+                Assert.AreEqual("Aliyun", result.Provider);
+                Assert.AreEqual(3, result.VerifyCodeExpireMinutes);
+            }
+            finally
+            {
+                // 恢复为未注册状态，避免影响其他测试
+                SmsConfigResolver.Register(() => null!);
+            }
+        }
+
+        [TestMethod]
+        public void SmsSender_DefaultConstructor_WithResolverRegistered_UsesDbConfig()
+        {
+            var dbOption = new SmsOption
+            {
+                Provider = "ZhuTong",
+                ZhuTong = new ZhuTongSmsSetting { UserName = "db", Password = "dbpwd", Signature = "dbSign", TemplateId = 99 },
+                VerifyCodeExpireMinutes = 7
+            };
+            SmsConfigResolver.Register(() => dbOption);
+            try
+            {
+                var sender = new SmsSender();
+                Assert.IsNotNull(sender);
+                Assert.AreEqual(7, sender.Option.VerifyCodeExpireMinutes);
+                Assert.AreEqual("db", sender.Option.ZhuTong.UserName);
+            }
+            finally
+            {
+                SmsConfigResolver.Register(() => null!);
+            }
+        }
+
+        [TestMethod]
         public void Test()
         {
             var smsOption = ConfigUtil.Read<SmsOption>();
