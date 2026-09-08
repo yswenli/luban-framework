@@ -23,6 +23,7 @@
 *****************************************************************************/
 
 using LuBan.Common.Sms.Models;
+using LuBan.Threading;
 
 namespace LuBan.Web.Core.Utils;
 
@@ -68,16 +69,18 @@ public static class SmsExtention
             throw FriendlyError.Ex(FrameworkErrors.Common.PhoneEmpty);
 
         var globalCode = HostingOptions.Default.AppOptions.GloabVerifyCode;
-        if (!string.IsNullOrEmpty(globalCode) && code == globalCode)
+        if (!string.IsNullOrEmpty(globalCode) && string.Equals(code, globalCode, StringComparison.Ordinal))
             return;
 
         var key = CacheConst.KeyPhoneVerCode + phoneNumber;
+
+        using var locker = LockerBuilder.Default.Create($"phoneVerifyCode:{key}");
         var cached = MemoryCache.Instance.Get<PhoneVerifyCodeInfo>(key);
 
         if (cached == null)
             throw FriendlyError.Ex(FrameworkErrors.Common.CaptchaError);
 
-        if (cached.CreateTime.AddMinutes(cached.ExpireMinutes) < DateTime.Now)
+        if (cached.CreateTime.AddMinutes(cached.ExpireMinutes) <= DateTime.Now)
             throw FriendlyError.Ex(FrameworkErrors.Common.CaptchaError);
 
         if (cached.IsUsed)
@@ -105,31 +108,50 @@ public static class SmsExtention
 
         var expireMinutes = GetSmsExpireMinutes();
         var key = CacheConst.KeyPhoneVerCode + phoneNumber;
-        var cached = MemoryCache.Instance.Get<PhoneVerifyCodeInfo>(key);
         string code;
         TimeSpan ttl;
+        bool isNew = false;
 
-        if (cached != null && !cached.IsUsed && cached.CreateTime.AddMinutes(cached.ExpireMinutes) > DateTime.Now)
+        using (var locker = await LockerBuilder.Default.CreateAsync($"phoneVerifyCode:{key}"))
         {
-            code = cached.Code;
-            ttl = cached.CreateTime.AddMinutes(cached.ExpireMinutes) - DateTime.Now;
-        }
-        else
-        {
-            code = RandomUtil.GetRndCodeStr(4, 2);
-            cached = new PhoneVerifyCodeInfo
+            var cached = MemoryCache.Instance.Get<PhoneVerifyCodeInfo>(key);
+
+            if (cached != null && !cached.IsUsed && cached.CreateTime.AddMinutes(cached.ExpireMinutes) > DateTime.Now)
             {
-                Code = code,
-                CreateTime = DateTime.Now,
-                IsUsed = false,
-                ExpireMinutes = expireMinutes
-            };
-            ttl = TimeSpan.FromMinutes(expireMinutes);
+                code = cached.Code;
+                ttl = cached.CreateTime.AddMinutes(cached.ExpireMinutes) - DateTime.Now;
+            }
+            else
+            {
+                isNew = true;
+                code = RandomUtil.GetRndCodeStr(4, 2);
+                cached = new PhoneVerifyCodeInfo
+                {
+                    Code = code,
+                    CreateTime = DateTime.Now,
+                    IsUsed = false,
+                    ExpireMinutes = expireMinutes
+                };
+                ttl = TimeSpan.FromMinutes(expireMinutes);
+            }
+
+            MemoryCache.Instance.Set(key, cached, ttl);
         }
 
-        MemoryCache.Instance.Set(key, cached, ttl);
-
-        var sender = new SmsSender();
-        return await sender.SendValideCodeAsync(phoneNumber, code);
+        try
+        {
+            var sender = new SmsSender();
+            return await sender.SendValideCodeAsync(phoneNumber, code);
+        }
+        catch
+        {
+            if (isNew)
+            {
+                var current = MemoryCache.Instance.Get<PhoneVerifyCodeInfo>(key);
+                if (current != null && current.Code == code)
+                    MemoryCache.Instance.Delete(key);
+            }
+            throw;
+        }
     }
 }
