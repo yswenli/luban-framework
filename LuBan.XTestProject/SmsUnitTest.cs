@@ -214,6 +214,35 @@ namespace LuBan.XTestProject
 
 
         [TestMethod]
+        public void SmsOption_VerifyCodeExpireMinutes_DefaultIs5()
+        {
+            var option = new SmsOption();
+            Assert.AreEqual(5, option.VerifyCodeExpireMinutes);
+        }
+
+        [TestMethod]
+        public void SmsOption_LegacyJson_WithoutVerifyCodeExpireMinutes_DefaultIs5()
+        {
+            var json = @"{""Provider"":""ZhuTong"",""ZhuTong"":{""UserName"":""u"",""Password"":""p"",""TemplateId"":123,""Signature"":""s""}}";
+
+            var option = JsonSerializer.Deserialize<SmsOption>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+            Assert.IsNotNull(option);
+            Assert.AreEqual(5, option.VerifyCodeExpireMinutes);
+        }
+
+        [TestMethod]
+        public void SmsOption_WithVerifyCodeExpireMinutes_DeserializesCorrectly()
+        {
+            var json = @"{""VerifyCodeExpireMinutes"":10,""ZhuTong"":{""UserName"":""u"",""Password"":""p"",""TemplateId"":123,""Signature"":""s""}}";
+
+            var option = JsonSerializer.Deserialize<SmsOption>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+            Assert.IsNotNull(option);
+            Assert.AreEqual(10, option.VerifyCodeExpireMinutes);
+        }
+
+        [TestMethod]
         public void Test()
         {
             var smsOption = ConfigUtil.Read<SmsOption>();

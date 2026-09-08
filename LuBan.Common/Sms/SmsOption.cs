@@ -42,6 +42,11 @@ public sealed class SmsOption
     /// 阿里云
     /// </summary>
     public AliyunSmsSetting Aliyun { get; set; }
+
+    /// <summary>
+    /// 短信验证码有效时长（分钟），默认 5
+    /// </summary>
+    public int VerifyCodeExpireMinutes { get; set; } = 5;
 }
 
 
