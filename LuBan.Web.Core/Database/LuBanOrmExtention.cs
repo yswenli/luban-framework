@@ -21,6 +21,8 @@
 *描述：LuBanOrm相关初始化
 *
 *****************************************************************************/
+using LuBan.Common.Sms;
+
 namespace LuBan.Web.Core.Database;
 
 /// <summary>
@@ -67,6 +69,22 @@ internal static class LuBanOrmExtention
             services.AddSingleton<ISqlSugarClient>(LuBanOrm.SqlSugarScope);
             //事务与工作单元注册到di容器,配合在控制器上方法的UnitOfWorkAttribute使用（瞬时）
             services.AddTransient<IUnitOfWork, UnitOfWork>();
+
+            // 注册短信配置 dbconfig 读取委托（优先 db_config 表，回退 appsettings.json）
+            SmsConfigResolver.Register(() =>
+            {
+                try
+                {
+                    var config = new DbRepository<DbConfig>()
+                        .First(q => q.Code == CommonConst.SysSmsCode && q.IsDelete == false);
+                    if (config == null || config.Value.IsNullOrEmpty()) return null;
+                    return SerializeUtil.Deserialize<SmsOption>(config.Value);
+                }
+                catch
+                {
+                    return null;
+                }
+            });
         }
     }
 
