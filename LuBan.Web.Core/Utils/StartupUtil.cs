@@ -108,6 +108,9 @@ public static class StartupUtil
             //配置db
             services.InitDataBaseOrm();
 
+            //配置短信
+            services.InitSms();
+
             //配置缓存
             services.AddServiceCache();
 
@@ -175,7 +178,7 @@ public static class StartupUtil
 
             //启用在线用户中间件
             app.UseOnlineUserMiddleware();
-            
+
             //数据范围权限
             app.UseDataScopePermission();
 

@@ -34,6 +34,7 @@ global using LuBan.Common.Errors;
 global using LuBan.Common.IO;
 global using LuBan.Common.IPToRegion;
 global using LuBan.Common.Models;
+global using LuBan.Common.Sms;
 global using LuBan.DI;
 global using LuBan.EventBus.Extensions;
 global using LuBan.Logging;
