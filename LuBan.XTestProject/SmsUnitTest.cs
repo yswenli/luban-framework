@@ -335,7 +335,8 @@ namespace LuBan.XTestProject
             {
                 Code = "5678",
                 CreateTime = DateTime.Now,
-                IsUsed = true
+                IsUsed = true,
+                ExpireMinutes = 5
             }, TimeSpan.FromMinutes(5));
 
             try
@@ -357,83 +358,90 @@ namespace LuBan.XTestProject
         }
 
         [TestMethod]
-        public void ValidatePhoneVerifyCode_WrongCode_ThrowsCaptchaError()
+        public void ValidatePhoneVerifyCode_Expired_ThrowsCaptchaError()
         {
-            SmsConfigResolver.Register(() => new SmsOption
+            var phone = "13800138005";
+            var key = CacheConst.KeyPhoneVerCode + phone;
+            MemoryCache.Instance.Set(key, new PhoneVerifyCodeInfo
             {
-                Provider = "ZhuTong",
-                ZhuTong = new ZhuTongSmsSetting { UserName = "test", Password = "test", Signature = "test", TemplateId = 1 },
-                VerifyCodeExpireMinutes = 5
-            });
+                Code = "5678",
+                CreateTime = DateTime.Now.AddMinutes(-6),
+                IsUsed = false,
+                ExpireMinutes = 5
+            }, TimeSpan.FromMinutes(5));
+
             try
             {
-                var phone = "13800138004";
-                var key = CacheConst.KeyPhoneVerCode + phone;
-                MemoryCache.Instance.Set(key, new PhoneVerifyCodeInfo
-                {
-                    Code = "5678",
-                    CreateTime = DateTime.Now,
-                    IsUsed = false
-                }, TimeSpan.FromMinutes(5));
-
                 try
                 {
-                    try
-                    {
-                        SmsExtention.ValidatePhoneVerifyCode(phone, "9999");
-                        Assert.Fail("应该抛出异常");
-                    }
-                    catch (FriendlyException ex)
-                    {
-                        Assert.AreEqual(FrameworkErrors.Common.CaptchaError.Code, ex.Error.Code);
-                    }
+                    SmsExtention.ValidatePhoneVerifyCode(phone, "5678");
+                    Assert.Fail("应该抛出异常");
                 }
-                finally
+                catch (FriendlyException ex)
                 {
-                    MemoryCache.Instance.Delete(key);
+                    Assert.AreEqual(FrameworkErrors.Common.CaptchaError.Code, ex.Error.Code);
                 }
             }
             finally
             {
-                SmsConfigResolver.Register(() => null!);
+                MemoryCache.Instance.Delete(key);
+            }
+        }
+
+        [TestMethod]
+        public void ValidatePhoneVerifyCode_WrongCode_ThrowsCaptchaError()
+        {
+            var phone = "13800138004";
+            var key = CacheConst.KeyPhoneVerCode + phone;
+            MemoryCache.Instance.Set(key, new PhoneVerifyCodeInfo
+            {
+                Code = "5678",
+                CreateTime = DateTime.Now,
+                IsUsed = false,
+                ExpireMinutes = 5
+            }, TimeSpan.FromMinutes(5));
+
+            try
+            {
+                try
+                {
+                    SmsExtention.ValidatePhoneVerifyCode(phone, "9999");
+                    Assert.Fail("应该抛出异常");
+                }
+                catch (FriendlyException ex)
+                {
+                    Assert.AreEqual(FrameworkErrors.Common.CaptchaError.Code, ex.Error.Code);
+                }
+            }
+            finally
+            {
+                MemoryCache.Instance.Delete(key);
             }
         }
 
         [TestMethod]
         public void ValidatePhoneVerifyCode_CodeMatches_MarksUsed()
         {
-            SmsConfigResolver.Register(() => new SmsOption
+            var phone = "13800138002";
+            var key = CacheConst.KeyPhoneVerCode + phone;
+            MemoryCache.Instance.Set(key, new PhoneVerifyCodeInfo
             {
-                Provider = "ZhuTong",
-                ZhuTong = new ZhuTongSmsSetting { UserName = "test", Password = "test", Signature = "test", TemplateId = 1 },
-                VerifyCodeExpireMinutes = 5
-            });
+                Code = "5678",
+                CreateTime = DateTime.Now,
+                IsUsed = false,
+                ExpireMinutes = 5
+            }, TimeSpan.FromMinutes(5));
+
             try
             {
-                var phone = "13800138002";
-                var key = CacheConst.KeyPhoneVerCode + phone;
-                MemoryCache.Instance.Set(key, new PhoneVerifyCodeInfo
-                {
-                    Code = "5678",
-                    CreateTime = DateTime.Now,
-                    IsUsed = false
-                }, TimeSpan.FromMinutes(5));
-
-                try
-                {
-                    SmsExtention.ValidatePhoneVerifyCode(phone, "5678");
-                    var cached = MemoryCache.Instance.Get<PhoneVerifyCodeInfo>(key);
-                    Assert.IsNotNull(cached);
-                    Assert.IsTrue(cached.IsUsed);
-                }
-                finally
-                {
-                    MemoryCache.Instance.Delete(key);
-                }
+                SmsExtention.ValidatePhoneVerifyCode(phone, "5678");
+                var cached = MemoryCache.Instance.Get<PhoneVerifyCodeInfo>(key);
+                Assert.IsNotNull(cached);
+                Assert.IsTrue(cached.IsUsed);
             }
             finally
             {
-                SmsConfigResolver.Register(() => null!);
+                MemoryCache.Instance.Delete(key);
             }
         }
 
@@ -505,7 +513,8 @@ namespace LuBan.XTestProject
                 {
                     Code = existingCode,
                     CreateTime = DateTime.Now,
-                    IsUsed = false
+                    IsUsed = false,
+                    ExpireMinutes = 5
                 }, TimeSpan.FromMinutes(5));
 
                 try
@@ -546,7 +555,8 @@ namespace LuBan.XTestProject
                 {
                     Code = "1111",
                     CreateTime = DateTime.Now,
-                    IsUsed = true
+                    IsUsed = true,
+                    ExpireMinutes = 5
                 }, TimeSpan.FromMinutes(5));
 
                 try

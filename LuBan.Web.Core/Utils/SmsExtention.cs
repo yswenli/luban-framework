@@ -77,6 +77,9 @@ public static class SmsExtention
         if (cached == null)
             throw FriendlyError.Ex(FrameworkErrors.Common.CaptchaError);
 
+        if (cached.CreateTime.AddMinutes(cached.ExpireMinutes) < DateTime.Now)
+            throw FriendlyError.Ex(FrameworkErrors.Common.CaptchaError);
+
         if (cached.IsUsed)
             throw FriendlyError.Ex(FrameworkErrors.Common.SmsVerifyCodeUsed);
 
@@ -84,7 +87,7 @@ public static class SmsExtention
             throw FriendlyError.Ex(FrameworkErrors.Common.CaptchaError);
 
         cached.IsUsed = true;
-        MemoryCache.Instance.Set(key, cached, TimeSpan.FromMinutes(GetSmsExpireMinutes()));
+        MemoryCache.Instance.Set(key, cached, TimeSpan.FromMinutes(cached.ExpireMinutes));
     }
 
     private static int GetSmsExpireMinutes()
@@ -104,10 +107,12 @@ public static class SmsExtention
         var key = CacheConst.KeyPhoneVerCode + phoneNumber;
         var cached = MemoryCache.Instance.Get<PhoneVerifyCodeInfo>(key);
         string code;
+        TimeSpan ttl;
 
-        if (cached != null && !cached.IsUsed && cached.CreateTime.AddMinutes(expireMinutes) > DateTime.Now)
+        if (cached != null && !cached.IsUsed && cached.CreateTime.AddMinutes(cached.ExpireMinutes) > DateTime.Now)
         {
             code = cached.Code;
+            ttl = cached.CreateTime.AddMinutes(cached.ExpireMinutes) - DateTime.Now;
         }
         else
         {
@@ -116,11 +121,13 @@ public static class SmsExtention
             {
                 Code = code,
                 CreateTime = DateTime.Now,
-                IsUsed = false
+                IsUsed = false,
+                ExpireMinutes = expireMinutes
             };
+            ttl = TimeSpan.FromMinutes(expireMinutes);
         }
 
-        MemoryCache.Instance.Set(key, cached, TimeSpan.FromMinutes(expireMinutes));
+        MemoryCache.Instance.Set(key, cached, ttl);
 
         var sender = new SmsSender();
         return await sender.SendValideCodeAsync(phoneNumber, code);

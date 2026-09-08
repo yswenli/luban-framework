@@ -28,4 +28,5 @@ public class PhoneVerifyCodeInfo
     public string Code { get; set; }
     public DateTime CreateTime { get; set; }
     public bool IsUsed { get; set; }
+    public int ExpireMinutes { get; set; }
 }
