@@ -86,7 +86,9 @@ public class SmsSender : BaseSingleInstance<SmsSender>
     /// <summary>
     /// 发送短信（从 Nacos 读取配置）
     /// </summary>
-    public SmsSender() : this(NacosConfigUtil.Read<SmsOption>() ?? throw new Exception("读取短信配置失败"))
+    public SmsSender() : this(SmsConfigResolver.Resolve()
+        ?? NacosConfigUtil.Read<SmsOption>()
+        ?? throw new Exception("读取短信配置失败"))
     {
     }
 
