@@ -41,7 +41,7 @@ public sealed class JobsController : BaseAdminController
     /// <param name="pageSize">每页条数</param>
     /// <returns>作业日志列表</returns>
     [HttpGet]
-    public PagedList<DbLogJob> GetJobLogs(string jobName = null, DateTime? startTime = null, DateTime? endTime = null,
+    public PagedList<DbLogJob> GetJobLogs(string? jobName = null, DateTime? startTime = null, DateTime? endTime = null,
         EnumJobStatus? status = null, EnumJobResult? result = null, int pageIndex = 1, int pageSize = 20)
     {
         return JobLogService.Instance.GetJobLogs(jobName, startTime, endTime, status, result, pageIndex, pageSize);
@@ -141,7 +141,7 @@ public sealed class JobsController : BaseAdminController
     /// <param name="jobName">作业名称（可选，为空则删除所有日志）</param>
     /// <returns>操作结果</returns>
     [HttpPost]
-    public string DeleteJobLogs(string jobName = null)
+    public string DeleteJobLogs(string? jobName = null)
     {
         JobLogService.Instance.DeleteJobLogs(jobName);
         if (string.IsNullOrEmpty(jobName))

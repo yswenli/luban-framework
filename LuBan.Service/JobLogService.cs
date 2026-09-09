@@ -130,7 +130,7 @@ public class JobLogService : BaseService<JobLogService>
     /// <param name="pageIndex">页码</param>
     /// <param name="pageSize">每页条数</param>
     /// <returns>作业日志列表</returns>
-    public PagedList<DbLogJob> GetJobLogs(string jobName = "", DateTime? startTime = null, DateTime? endTime = null,
+    public PagedList<DbLogJob> GetJobLogs(string? jobName = "", DateTime? startTime = null, DateTime? endTime = null,
         EnumJobStatus? status = null, EnumJobResult? result = null, int pageIndex = 1, int pageSize = 20)
     {
         var resp = new BaseRepository<DbLogJob>();
