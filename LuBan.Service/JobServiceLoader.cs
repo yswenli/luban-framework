@@ -278,4 +278,56 @@ public static class JobServiceLoader
         }
     }
 
+    /// <summary>
+    /// 获取指定任务当前的 Cron 表达式
+    /// </summary>
+    /// <param name="jobName">任务名称</param>
+    /// <returns>Cron 表达式，不存在或非 BaseBackgroundService 则返回 null</returns>
+    public static string? GetJobCron(string jobName)
+    {
+        var job = GetJobInstance(jobName);
+        return (job as BaseBackgroundService)?.Cron;
+    }
+
+    /// <summary>
+    /// 获取指定任务下一次执行时间（本地时区）
+    /// </summary>
+    /// <param name="jobName">任务名称</param>
+    /// <returns>下一次执行时间，不存在或非 BaseBackgroundService 则返回 null</returns>
+    public static DateTime? GetJobNextOccurrence(string jobName)
+    {
+        var job = GetJobInstance(jobName);
+        return (job as BaseBackgroundService)?.GetNextOccurrence();
+    }
+
+    /// <summary>
+    /// 动态更新运行中任务的 Cron 表达式
+    /// </summary>
+    /// <param name="jobName">任务名称</param>
+    /// <param name="cron">6 段秒级 cron 表达式</param>
+    public static void UpdateJobCron(string jobName, string cron)
+    {
+        var runningItem = _runningJobs.FirstOrDefault(u => JobInfoAttribute.GetJobName(u.Key).Equals(jobName, StringComparison.InvariantCultureIgnoreCase));
+        if (runningItem.Value == null)
+            throw new FriendlyException($"Job '{jobName}' 未运行，无法更新 Cron", ErrorCategory.Business);
+        if (runningItem.Value is not BaseBackgroundService bgService)
+            throw new FriendlyException($"Job '{jobName}' 不支持 Cron 调度", ErrorCategory.Business);
+        bgService.SetCron(cron);
+    }
+
+    private static IJob? GetJobInstance(string jobName)
+    {
+        // 先从运行中的任务中查找
+        var runningItem = _runningJobs.FirstOrDefault(u => JobInfoAttribute.GetJobName(u.Key).Equals(jobName, StringComparison.InvariantCultureIgnoreCase));
+        if (runningItem.Value != null)
+            return runningItem.Value;
+
+        // 不在运行中，从工厂创建新实例
+        var factoryItem = _jobFactories.FirstOrDefault(u => JobInfoAttribute.GetJobName(u.Key).Equals(jobName, StringComparison.InvariantCultureIgnoreCase));
+        if (factoryItem.Value != null)
+            return factoryItem.Value();
+
+        return null;
+    }
+
 }

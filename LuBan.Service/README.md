@@ -78,8 +78,8 @@ dotnet add package LuBan.Service
 | 功能 | 说明 |
 |------|------|
 | 任务接口 | `IJob` 定义标准任务契约（IsRunning、Run、RunAsync、Start、Stop） |
-| 调度引擎 | `BaseBackgroundService` 核心调度逻辑，支持间隔调度与时间点调度 |
-| 任务基类 | `BaseJobService` 抽象基类，配置 `Interval` 即可运行 |
+| 调度引擎 | `BaseBackgroundService` 核心调度逻辑，支持间隔调度、时间点调度与 Cron 表达式调度 |
+| 任务基类 | `BaseJobService` 抽象基类，配置调度参数即可运行 |
 | 自动发现 | `JobServiceLoader` 自动扫描所有 `IJob` 实现，无需手动注册 |
 | 任务标记 | `JobInfoAttribute` 声明任务元数据（名称、描述等） |
 
@@ -147,7 +147,67 @@ public interface IJob
 }
 ```
 
-### 3. 任务自动发现
+### 3. Cron 表达式调度
+
+支持三种构造方式设置调度策略，底层统一基于 Cron 引擎（Cronos）调度：
+
+```csharp
+// 方式一：间隔调度（自动映射为 cron，仅整秒/整分/整时/整天可精确映射）
+public class IntervalJob : BaseJobService
+{
+    public IntervalJob() : base(5 * 60 * 1000) { }  // 每 5 分钟 => "0 */5 * * * *"
+
+    public override async Task RunAsync() { /* ... */ }
+}
+
+// 方式二：时间点调度（HH:mm:ss，底层映射为 cron）
+public class TimePointJob : BaseJobService
+{
+    public TimePointJob() : base(2, 30, 0) { }  // 每天 02:30:00 => "0 30 2 * * *"
+
+    public override async Task RunAsync() { /* ... */ }
+}
+
+// 方式三：直接使用 6 段秒级 cron 表达式
+public class CronJob : BaseJobService
+{
+    public CronJob() : base("0 0 8 * * 1") { }  // 每周一 08:00:00
+
+    public override async Task RunAsync() { /* ... */ }
+}
+```
+
+Cron 格式为 **6 段秒级**：`秒 分 时 日 月 周`，例如：
+
+| 表达式 | 含义 |
+|--------|------|
+| `*/10 * * * * *` | 每 10 秒 |
+| `0 */5 * * * *` | 每 5 分钟 |
+| `0 30 2 * * *` | 每天 02:30:00 |
+| `0 0 0 */2 * *` | 每 2 天的 00:00:00 |
+| `0 0 8 * * 1` | 每周一 08:00:00 |
+
+动态操作：
+
+```csharp
+// 读取当前 cron 表达式
+var cron = job.Cron;
+
+// 查询下一次执行时间（本地时区）
+var next = job.GetNextOccurrence();
+
+// 动态更新 cron（运行中立即生效，未运行时待 Start 生效）
+job.SetCron("0 15 3 * * *");
+job.Cron = "0 0 12 * * *";  // 属性赋值等价于 SetCron
+```
+
+通过 HTTP 接口动态管理（内置 `JobsController`）：
+
+- `GET api/admin/Jobs/GetJobCron?name=xxx` — 查询 cron 表达式
+- `GET api/admin/Jobs/GetJobNextOccurrence?name=xxx` — 查询下一次执行时间
+- `PUT api/admin/Jobs/UpdateJobCron?name=xxx` — 更新运行中任务的 cron（body: `{ "cron": "0 0 8 * * *" }`）
+
+### 4. 任务自动发现
 
 ```csharp
 // JobServiceLoader 自动扫描所有实现了 IJob 的类

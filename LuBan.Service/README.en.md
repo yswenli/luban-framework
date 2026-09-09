@@ -78,8 +78,8 @@ dotnet add package LuBan.Service
 | Feature | Description |
 |---------|-------------|
 | Task Interface | `IJob` defines standard task contract (IsRunning, Run, RunAsync, Start, Stop) |
-| Scheduling Engine | `BaseBackgroundService` core scheduling logic, supports interval and time-point scheduling |
-| Task Base Class | `BaseJobService` abstract base class — configure `Interval` and it runs |
+| Scheduling Engine | `BaseBackgroundService` core scheduling logic, supports interval, time-point and Cron expression scheduling |
+| Task Base Class | `BaseJobService` abstract base class — configure scheduling parameters and it runs |
 | Auto Discovery | `JobServiceLoader` auto-scans all `IJob` implementations, no manual registration needed |
 | Task Annotation | `JobInfoAttribute` declares task metadata (name, description, etc.) |
 
@@ -147,7 +147,67 @@ public interface IJob
 }
 ```
 
-### 3. Task Auto-Discovery
+### 3. Cron Expression Scheduling
+
+Three constructor styles for scheduling, all unified on the Cronos engine:
+
+```csharp
+// Style 1: Interval scheduling (auto-mapped to cron, only exact seconds/minutes/hours/days)
+public class IntervalJob : BaseJobService
+{
+    public IntervalJob() : base(5 * 60 * 1000) { }  // Every 5 minutes => "0 */5 * * * *"
+
+    public override async Task RunAsync() { /* ... */ }
+}
+
+// Style 2: Time-point scheduling (HH:mm:ss, mapped to cron)
+public class TimePointJob : BaseJobService
+{
+    public TimePointJob() : base(2, 30, 0) { }  // 02:30:00 daily => "0 30 2 * * *"
+
+    public override async Task RunAsync() { /* ... */ }
+}
+
+// Style 3: Direct 6-segment seconds-level cron expression
+public class CronJob : BaseJobService
+{
+    public CronJob() : base("0 0 8 * * 1") { }  // Every Monday 08:00:00
+
+    public override async Task RunAsync() { /* ... */ }
+}
+```
+
+Cron format is **6-segment seconds-level**: `second minute hour day month dow`, e.g.:
+
+| Expression | Meaning |
+|------------|---------|
+| `*/10 * * * * *` | Every 10 seconds |
+| `0 */5 * * * *` | Every 5 minutes |
+| `0 30 2 * * *` | Daily at 02:30:00 |
+| `0 0 0 */2 * *` | Every 2 days at 00:00:00 |
+| `0 0 8 * * 1` | Every Monday at 08:00:00 |
+
+Dynamic operations:
+
+```csharp
+// Read current cron expression
+var cron = job.Cron;
+
+// Query next execution time (local timezone)
+var next = job.GetNextOccurrence();
+
+// Dynamic update (takes effect immediately if running, deferred to Start if not)
+job.SetCron("0 15 3 * * *");
+job.Cron = "0 0 12 * * *";  // Property assignment equivalent to SetCron
+```
+
+HTTP API for dynamic management (built-in `JobsController`):
+
+- `GET api/admin/Jobs/GetJobCron?name=xxx` — Query cron expression
+- `GET api/admin/Jobs/GetJobNextOccurrence?name=xxx` — Query next execution time
+- `PUT api/admin/Jobs/UpdateJobCron?name=xxx` — Update cron for running job (body: `{ "cron": "0 0 8 * * *" }`)
+
+### 4. Task Auto-Discovery
 
 ```csharp
 // JobServiceLoader auto-scans all classes implementing IJob

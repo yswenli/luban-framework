@@ -21,8 +21,10 @@
 *描述：
 *
 *****************************************************************************/
+global using Cronos;
 global using LuBan.Common;
 global using LuBan.Common.Data;
+global using LuBan.Common.Errors;
 global using LuBan.DI;
 global using LuBan.Orm;
 global using LuBan.Orm.Entities;

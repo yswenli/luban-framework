@@ -39,6 +39,15 @@ public abstract class BaseBackgroundService : BaseService, IJob
     /// </summary>
     public bool IsRunning { get; private set; } = false;
 
+    /// <summary>
+    /// Cron 表达式（6 段秒级：秒 分 时 日 月 周）。为空时回退到间隔调度
+    /// </summary>
+    public string? Cron
+    {
+        get => _cron;
+        set => SetCron(value);
+    }
+
     private volatile bool _gotoStop = false;
 
     private volatile bool _stoped = false;
@@ -49,7 +58,8 @@ public abstract class BaseBackgroundService : BaseService, IJob
     private int _minute = 0;
     private int _second = 0;
     private bool _once = false;
-    private bool _isTimePointTask = false;
+    private string? _cron;
+    private readonly object _cronLock = new();
 
     /// <summary>
     /// LuBan.Framework 后台工作基类 构造函数：按间隔时间执行任务
@@ -62,6 +72,7 @@ public abstract class BaseBackgroundService : BaseService, IJob
         _sequentially = sequentially;
         _userLog = userLog;
         _intervalTime = intervalTime;
+        _cron = MapIntervalToCron(intervalTime);
     }
 
     /// <summary>
@@ -76,11 +87,11 @@ public abstract class BaseBackgroundService : BaseService, IJob
     public BaseBackgroundService(int hour, int minute, int second, bool once = false, bool sequentially = true, bool userLog = false)
         : this(0, sequentially, userLog)
     {
-        _isTimePointTask = true;
         _hour = hour;
         _minute = minute;
         _second = second;
         _once = once;
+        _cron = $"{second} {minute} {hour} * * *";
     }
 
     /// <summary>
@@ -93,17 +104,31 @@ public abstract class BaseBackgroundService : BaseService, IJob
     public BaseBackgroundService(string hourMinuteSeconds, bool once = false, bool sequentially = true, bool userLog = false)
         : this(0, sequentially, userLog)
     {
-        if (hourMinuteSeconds.TryParseHourMiniteSecond(out int hour, out int minute, out int second))
+        if (hourMinuteSeconds.Contains(':') && !hourMinuteSeconds.Contains(' '))
         {
-            _isTimePointTask = true;
+            if (!hourMinuteSeconds.TryParseHourMiniteSecond(out int hour, out int minute, out int second))
+                throw new ArgumentException("时间格式不正确，应为 HH:mm:ss", nameof(hourMinuteSeconds));
             _hour = hour;
             _minute = minute;
             _second = second;
             _once = once;
+            _cron = $"{second} {minute} {hour} * * *";
         }
         else
         {
-            throw new ArgumentException("时间格式不正确，应为 HH:mm:ss", nameof(hourMinuteSeconds));
+            var segments = hourMinuteSeconds.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (segments.Length != 6)
+                throw new ArgumentException($"字符串格式无效：{hourMinuteSeconds}，应为 HH:mm:ss 或 6 段 cron 表达式", nameof(hourMinuteSeconds));
+            try
+            {
+                CronExpression.Parse(hourMinuteSeconds, CronFormat.IncludeSeconds);
+            }
+            catch (CronFormatException ex)
+            {
+                throw new ArgumentException($"Cron 表达式无效：{hourMinuteSeconds}", ex);
+            }
+            _cron = hourMinuteSeconds;
+            _once = once;
         }
     }
 
@@ -123,34 +148,10 @@ public abstract class BaseBackgroundService : BaseService, IJob
         _cancellationTokenSource = new CancellationTokenSource();
 
         // 创建任务队列
-        _taskQueue = new ActionBlock<Func<Task>>(async task =>
-        {
-            try
-            {
-                await task();
-            }
-            catch (Exception ex)
-            {
-                if (_userLog)
-                {
-                    Logger.Error(ex);
-                }
-            }
-        }, new ExecutionDataflowBlockOptions
-        {
-            MaxDegreeOfParallelism = _sequentially ? 1 : Environment.ProcessorCount,
-            CancellationToken = _cancellationTokenSource.Token
-        });
+        CreateTaskQueue();
 
         // 启动任务调度
-        if (_isTimePointTask)
-        {
-            ThreadUtil.ThreadRun(() => ScheduleAtTimeAsync(_hour, _minute, _second, _once, _cancellationTokenSource.Token));
-        }
-        else
-        {
-            ThreadUtil.ThreadRun(() => ScheduleTaskAsync(_intervalTime, _cancellationTokenSource.Token));
-        }
+        StartScheduler();
 
         // 打印启动信息
         var attr = GetType().GetCustomAttribute<JobInfoAttribute>();
@@ -357,37 +358,35 @@ public abstract class BaseBackgroundService : BaseService, IJob
     }
 
     /// <summary>
-    /// 按时间点调度任务
+    /// 按 Cron 表达式调度任务
     /// </summary>
-    private async Task ScheduleAtTimeAsync(int hour, int minute, int second, bool once, CancellationToken cancellationToken)
+    /// <param name="cron">6 段秒级 cron 表达式</param>
+    /// <param name="once">是否只执行一次</param>
+    /// <param name="cancellationToken"></param>
+    private async Task ScheduleByCronAsync(string cron, bool once, CancellationToken cancellationToken)
     {
+        var expression = CronExpression.Parse(cron, CronFormat.IncludeSeconds);
         try
         {
             while (!cancellationToken.IsCancellationRequested && !_gotoStop)
             {
-                var now = DateTime.Now;
-                var targetTime = new DateTime(now.Year, now.Month, now.Day, hour, minute, second);
-
-                if (targetTime <= now)
-                {
-                    targetTime = targetTime.AddDays(1);
-                }
-                var delay = targetTime - now;
+                var next = expression.GetNextOccurrence(DateTimeOffset.Now, TimeZoneInfo.Local);
+                if (next == null) break;
+                var delay = (next.Value - DateTimeOffset.Now).TotalMilliseconds;
 
                 // 直接等待到目标时间附近，避免频繁检查
-                if (delay.TotalMilliseconds > 5000) // 如果大于5秒，先等待较长时间
+                if (delay > 5000)
                 {
                     await TaskUtil.Delay(5000, cancellationToken);
                     continue;
                 }
-                else if (delay.TotalMilliseconds > 0) // 如果小于等于5秒，等待剩余时间
+                else if (delay > 0)
                 {
-                    await TaskUtil.Delay((int)delay.TotalMilliseconds, cancellationToken);
+                    await TaskUtil.Delay((int)delay, cancellationToken);
                 }
 
                 if (IsRunning)
                 {
-                    // 只执行异步方法，避免重复执行导致CPU占用过高
                     await _taskQueue.SendAsync(RunAsyncWithLog, cancellationToken);
                     if (once) break;
                 }
@@ -401,5 +400,150 @@ public abstract class BaseBackgroundService : BaseService, IJob
         {
             _stoped = true;
         }
+    }
+
+    /// <summary>
+    /// 获取下一次执行时间（本地时区）
+    /// </summary>
+    public DateTime? GetNextOccurrence()
+    {
+        if (string.IsNullOrEmpty(_cron)) return null;
+        var expression = CronExpression.Parse(_cron, CronFormat.IncludeSeconds);
+        var next = expression.GetNextOccurrence(DateTimeOffset.Now, TimeZoneInfo.Local);
+        return next?.LocalDateTime;
+    }
+
+    /// <summary>
+    /// 创建任务队列（ActionBlock）。绑定当前取消令牌，供 Start 与 SetCron 复用
+    /// </summary>
+    private void CreateTaskQueue()
+    {
+        _taskQueue = new ActionBlock<Func<Task>>(async task =>
+        {
+            try
+            {
+                await task();
+            }
+            catch (Exception ex)
+            {
+                if (_userLog)
+                {
+                    Logger.Error(ex);
+                }
+            }
+        }, new ExecutionDataflowBlockOptions
+        {
+            MaxDegreeOfParallelism = _sequentially ? 1 : Environment.ProcessorCount,
+            CancellationToken = _cancellationTokenSource.Token
+        });
+    }
+
+    /// <summary>
+    /// 启动任务调度线程。供 Start 与 SetCron 复用
+    /// </summary>
+    private void StartScheduler()
+    {
+        if (!string.IsNullOrEmpty(_cron))
+        {
+            ThreadUtil.ThreadRun(() => ScheduleByCronAsync(_cron!, _once, _cancellationTokenSource.Token));
+        }
+        else
+        {
+            ThreadUtil.ThreadRun(() => ScheduleTaskAsync(_intervalTime, _cancellationTokenSource.Token));
+        }
+    }
+
+    /// <summary>
+    /// 动态设置 Cron 表达式。任务运行中会立即重启调度器，未运行时保存待 Start 生效
+    /// </summary>
+    /// <param name="cron">6 段秒级 cron 表达式，null 表示回退到间隔调度</param>
+    public void SetCron(string? cron)
+    {
+        if (!string.IsNullOrEmpty(cron))
+        {
+            try
+            {
+                CronExpression.Parse(cron, CronFormat.IncludeSeconds);
+            }
+            catch (CronFormatException ex)
+            {
+                throw new ArgumentException($"Cron 表达式无效：{cron}", ex);
+            }
+        }
+
+        lock (_cronLock)
+        {
+            _cron = cron;
+            if (!IsRunning) return;
+
+            _gotoStop = true;
+            _cancellationTokenSource?.Cancel();
+
+            var spin = Stopwatch.StartNew();
+            while (!_stoped && spin.ElapsedMilliseconds < 5000)
+            {
+                Thread.Sleep(10);
+            }
+
+            try
+            {
+                _cancellationTokenSource?.Dispose();
+            }
+            catch (Exception)
+            {
+            }
+
+            if (_taskQueue != null)
+            {
+                _taskQueue.Complete();
+                try
+                {
+                    _taskQueue.Completion.GetAwaiter().GetResult();
+                }
+                catch (Exception)
+                {
+                }
+            }
+
+            _stoped = false;
+            _gotoStop = false;
+            _cancellationTokenSource = new CancellationTokenSource();
+            CreateTaskQueue();
+            StartScheduler();
+        }
+    }
+
+    /// <summary>
+    /// 将间隔时长（ms）映射为 6 段秒级 cron 表达式。仅精确可映射时返回非 null
+    /// </summary>
+    /// <param name="intervalTimeMs">间隔时长（毫秒）</param>
+    /// <returns>cron 表达式，无法精确映射时返回 null</returns>
+    public static string? MapIntervalToCron(int intervalTimeMs)
+    {
+        if (intervalTimeMs < 1000 || intervalTimeMs % 1000 != 0) return null;
+
+        long seconds = intervalTimeMs / 1000;
+
+        if (seconds <= 59) return $"*/{seconds} * * * * *";
+
+        if (seconds % 60 == 0)
+        {
+            long minutes = seconds / 60;
+            if (minutes <= 59) return $"0 */{minutes} * * * *";
+        }
+
+        if (seconds % 3600 == 0)
+        {
+            long hours = seconds / 3600;
+            if (hours <= 23) return $"0 0 */{hours} * * *";
+        }
+
+        if (seconds % 86400 == 0)
+        {
+            long days = seconds / 86400;
+            if (days <= 31) return $"0 0 0 */{days} * *";
+        }
+
+        return null;
     }
 }

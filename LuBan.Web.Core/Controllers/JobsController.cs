@@ -23,7 +23,6 @@
 *****************************************************************************/
 namespace LuBan.Web.Core.Controllers;
 
-#nullable disable warnings
 
 /// <summary>
 /// 作业监控与日志管理控制器
@@ -154,4 +153,46 @@ public sealed class JobsController : BaseAdminController
             return $"作业 {jobName} 的日志删除成功";
         }
     }
+
+    /// <summary>
+    /// 获取指定作业的 Cron 表达式
+    /// </summary>
+    /// <param name="name">作业名称</param>
+    /// <returns>作业的 Cron 表达式</returns>
+    [HttpGet]
+    public dynamic GetJobCron(string name)
+    {
+        var cron = JobServiceLoader.GetJobCron(name);
+        return new { JobName = name, Cron = cron };
+    }
+
+    /// <summary>
+    /// 获取指定作业的下一次执行时间
+    /// </summary>
+    /// <param name="name">作业名称</param>
+    /// <returns>下一次执行时间</returns>
+    [HttpGet]
+    public dynamic GetJobNextOccurrence(string name)
+    {
+        var next = JobServiceLoader.GetJobNextOccurrence(name);
+        return new { JobName = name, NextOccurrence = next };
+    }
+
+    /// <summary>
+    /// 更新指定作业的 Cron 表达式
+    /// </summary>
+    /// <param name="name">作业名称</param>
+    /// <param name="request">Cron 更新请求</param>
+    /// <returns>操作结果</returns>
+    [HttpPut]
+    public dynamic UpdateJobCron(string name, [FromBody] UpdateCronRequest request)
+    {
+        JobServiceLoader.UpdateJobCron(name, request.Cron);
+        return new { JobName = name, Cron = request.Cron };
+    }
 }
+
+/// <summary>
+/// Cron 更新请求
+/// </summary>
+public record UpdateCronRequest(string Cron);

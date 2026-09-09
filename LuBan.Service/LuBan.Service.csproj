@@ -29,6 +29,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Cronos" Version="0.13.0" />
     <ProjectReference Include="..\LuBan.Common\LuBan.Common.csproj" />
     <ProjectReference Include="..\LuBan.DI\LuBan.DI.csproj" />
     <ProjectReference Include="..\LuBan.Orm\LuBan.Orm.csproj" />
