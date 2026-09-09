@@ -109,7 +109,7 @@ public class AliyunSmsProvider : ISmsProvider
     /// <summary>
     /// 模板参数分组键（纯函数，供单测）：null → ""；否则按 key 排序后 key=value 用 &amp; 连接
     /// </summary>
-    internal static string BuildTpContentGroupKey(Dictionary<string, string> tpContent)
+    internal static string BuildTpContentGroupKey(Dictionary<string, string>? tpContent)
     {
         return tpContent == null ? "" :
             string.Join("&", tpContent.OrderBy(kv => kv.Key).Select(kv => $"{kv.Key}={kv.Value}"));

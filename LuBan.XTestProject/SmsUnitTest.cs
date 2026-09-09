@@ -649,6 +649,7 @@ namespace LuBan.XTestProject
         public void Test()
         {
             var smsOption = ConfigUtil.Read<SmsOption>();
+            Assert.IsNotNull(smsOption, "未配置 SmsOption，无法执行集成测试");
             var sender = new SmsSender(smsOption);
             Assert.IsNotNull(sender);
             sender.SendValideCodeAsync("14782301575", "1234").Wait();
