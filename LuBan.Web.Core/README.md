@@ -172,13 +172,25 @@ var userRepo = repo.Change<SysRole>();
 
 ### 其他能力
 
-- **后台任务**：`JobsController` + `JobServiceLoader` 管理定时任务
+- **后台任务**：`JobsController` + `JobServiceLoader` 管理定时任务，支持运行时动态更新 Cron 表达式
 - **健康检查**：`HealthCheckService` 支持企业微信机器人告警
 - **SSE 流式输出**：`SseStream` 服务端推送
 - **文件上传下载**：`UploadFileUtil` / `DownloadFileUtil` / `ExtraFileController`
 - **图形验证码**：内置验证码生成
 - **API 压测**：`CommonController.StressTest`
 - **系统服务部署**：支持 Windows Service 和 systemd
+
+### 后台任务 Cron 管理
+
+`JobsController` 提供以下 Cron 端点，支持运行时查询和动态更新任务 Cron 表达式：
+
+| 方法 | 端点 | 说明 |
+|------|------|------|
+| GET | `api/admin/Jobs/GetJobCron?name=xxx` | 查询任务的 Cron 表达式 |
+| GET | `api/admin/Jobs/GetJobNextOccurrence?name=xxx` | 查询任务的下一次执行时间 |
+| PUT | `api/admin/Jobs/UpdateJobCron?name=xxx` | 更新运行中任务的 Cron 表达式（body: `{"cron":"..."}`） |
+
+Cron 表达式为 6 段秒级格式（`秒 分 时 日 月 周`），使用 [Cronos](https://www.nuget.org/packages/Cronos/) 解析。
 
 ---
 

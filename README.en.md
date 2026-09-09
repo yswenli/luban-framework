@@ -47,7 +47,7 @@ Arranged by dependency hierarchy, from底层 utilities to upper-layer applicatio
 |------|------|
 | **LuBan.Orm** | Multi-tenant ORM: CodeFirst table creation, snowflake IDs, soft delete, audit fields, data diff logging, code generator, 27 built-in system entities |
 | **LuBan.EventBus** | In-process event bus: publish/subscribe, one-time subscriptions, Channel-driven |
-| **LuBan.Service** | Business service base class + background task scheduling (interval/cron) |
+| **LuBan.Service** | Business service base class + background task scheduling (interval/time-point/cron), with runtime dynamic Cron expression updates |
 | **LuBan.Redis** | Full-featured Redis SDK: distributed locks (Lua reentrant), caching, pub/sub, Stream queues, expiry listening |
 | **LuBan.LogLib** | Database logging: batch API log and error log writing, automatic expiry cleanup |
 

@@ -47,7 +47,7 @@ public abstract class BaseJobService : BaseBackgroundService, IJob
     /// <param name="once"></param>
     /// <param name="sequentially"></param>
     /// <param name="userLog"></param>
-    public BaseJobService(int hour, int minute, int second, bool once = false, bool sequentially = true, bool userLog = false) : base(hour, minute, second, once, userLog)
+    public BaseJobService(int hour, int minute, int second, bool once = false, bool sequentially = true, bool userLog = false) : base(hour, minute, second, once, sequentially, userLog)
     {
 
     }

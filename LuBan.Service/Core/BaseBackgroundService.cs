@@ -54,9 +54,6 @@ public abstract class BaseBackgroundService : BaseService, IJob
 
     // 任务调度参数
     private int _intervalTime = 60 * 1000;
-    private int _hour = 0;
-    private int _minute = 0;
-    private int _second = 0;
     private bool _once = false;
     private string? _cron;
     private readonly object _cronLock = new();
@@ -87,17 +84,14 @@ public abstract class BaseBackgroundService : BaseService, IJob
     public BaseBackgroundService(int hour, int minute, int second, bool once = false, bool sequentially = true, bool userLog = false)
         : this(0, sequentially, userLog)
     {
-        _hour = hour;
-        _minute = minute;
-        _second = second;
         _once = once;
         _cron = $"{second} {minute} {hour} * * *";
     }
 
     /// <summary>
-    /// LuBan.Framework 后台工作基类 构造函数：按时间点字符串执行任务
+    /// LuBan.Framework 后台工作基类 构造函数：按时间点或 6 段 Cron 表达式执行任务
     /// </summary>
-    /// <param name="hourMinuteSeconds">时间点字符串（格式：HH:mm:ss）</param>
+    /// <param name="hourMinuteSeconds">时间点字符串（格式：HH:mm:ss）或 6 段秒级 cron 表达式（秒 分 时 日 月 周）</param>
     /// <param name="once">是否只执行一次</param>
     /// <param name="sequentially">是否按顺序执行</param>
     /// <param name="userLog">启用日志</param>
@@ -108,9 +102,6 @@ public abstract class BaseBackgroundService : BaseService, IJob
         {
             if (!hourMinuteSeconds.TryParseHourMiniteSecond(out int hour, out int minute, out int second))
                 throw new ArgumentException("时间格式不正确，应为 HH:mm:ss", nameof(hourMinuteSeconds));
-            _hour = hour;
-            _minute = minute;
-            _second = second;
             _once = once;
             _cron = $"{second} {minute} {hour} * * *";
         }
@@ -514,7 +505,8 @@ public abstract class BaseBackgroundService : BaseService, IJob
     }
 
     /// <summary>
-    /// 将间隔时长（ms）映射为 6 段秒级 cron 表达式。仅精确可映射时返回非 null
+    /// 将间隔时长（ms）映射为 6 段秒级 cron 表达式。仅精确可映射时返回非 null。
+    /// 秒/分/时须能被字段取值范围整除（保证均匀间隔），日级仅“每天”可由 cron 精确表达
     /// </summary>
     /// <param name="intervalTimeMs">间隔时长（毫秒）</param>
     /// <returns>cron 表达式，无法精确映射时返回 null</returns>
@@ -524,25 +516,21 @@ public abstract class BaseBackgroundService : BaseService, IJob
 
         long seconds = intervalTimeMs / 1000;
 
-        if (seconds <= 59) return $"*/{seconds} * * * * *";
+        if (seconds < 60 && 60 % seconds == 0) return $"*/{seconds} * * * * *";
 
         if (seconds % 60 == 0)
         {
             long minutes = seconds / 60;
-            if (minutes <= 59) return $"0 */{minutes} * * * *";
+            if (minutes < 60 && 60 % minutes == 0) return $"0 */{minutes} * * * *";
         }
 
         if (seconds % 3600 == 0)
         {
             long hours = seconds / 3600;
-            if (hours <= 23) return $"0 0 */{hours} * * *";
+            if (hours < 24 && 24 % hours == 0) return $"0 0 */{hours} * * *";
         }
 
-        if (seconds % 86400 == 0)
-        {
-            long days = seconds / 86400;
-            if (days <= 31) return $"0 0 0 */{days} * *";
-        }
+        if (seconds == 86400) return "0 0 0 * * *";
 
         return null;
     }

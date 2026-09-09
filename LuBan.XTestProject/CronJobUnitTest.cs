@@ -11,11 +11,12 @@ public class CronJobUnitTest
     [TestMethod]
     [DataRow(1000, "*/1 * * * * *")]
     [DataRow(5000, "*/5 * * * * *")]
-    [DataRow(59000, "*/59 * * * * *")]
+    [DataRow(10000, "*/10 * * * * *")]
     [DataRow(60000, "0 */1 * * * *")]
     [DataRow(300000, "0 */5 * * * *")]
+    [DataRow(1800000, "0 */30 * * * *")]
     [DataRow(3600000, "0 0 */1 * * *")]
-    [DataRow(86400000, "0 0 0 */1 * *")]
+    [DataRow(86400000, "0 0 0 * * *")]
     public void MapIntervalToCron_Valid(int ms, string expected)
     {
         Assert.AreEqual(expected, BaseBackgroundService.MapIntervalToCron(ms));
@@ -24,10 +25,14 @@ public class CronJobUnitTest
     [TestMethod]
     [DataRow(0)]
     [DataRow(500)]
+    [DataRow(7000)]
+    [DataRow(11000)]
     [DataRow(1500)]
+    [DataRow(59000)]
     [DataRow(70000)]
     [DataRow(90000)]
     [DataRow(3660000)]
+    [DataRow(172800000)]
     public void MapIntervalToCron_NonMappable_ReturnsNull(int ms)
     {
         Assert.IsNull(BaseBackgroundService.MapIntervalToCron(ms));

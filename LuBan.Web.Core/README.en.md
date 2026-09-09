@@ -172,13 +172,25 @@ Built-in `CommonHub`, supports `IHubClient` / `IHubServer` interfaces and `Simpl
 
 ### Other Capabilities
 
-- **Background Jobs**: `JobsController` + `JobServiceLoader` manage scheduled tasks
+- **Background Jobs**: `JobsController` + `JobServiceLoader` manage scheduled tasks, with runtime dynamic Cron expression updates
 - **Health Checks**: `HealthCheckService` supports WeCom robot alerts
 - **SSE Streaming**: `SseStream` server-side push
 - **File Upload/Download**: `UploadFileUtil` / `DownloadFileUtil` / `ExtraFileController`
 - **Graphic Captcha**: Built-in captcha generation
 - **API Stress Testing**: `CommonController.StressTest`
 - **System Service Deployment**: Supports Windows Service and systemd
+
+### Background Job Cron Management
+
+`JobsController` provides the following Cron endpoints for querying and dynamically updating job Cron expressions at runtime:
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `api/admin/Jobs/GetJobCron?name=xxx` | Query a job's Cron expression |
+| GET | `api/admin/Jobs/GetJobNextOccurrence?name=xxx` | Query a job's next execution time |
+| PUT | `api/admin/Jobs/UpdateJobCron?name=xxx` | Update the Cron expression of a running job (body: `{"cron":"..."}`) |
+
+Cron expressions use the 6-segment seconds format (`seconds minutes hours day month weekday`), parsed by [Cronos](https://www.nuget.org/packages/Cronos/).
 
 ---
 

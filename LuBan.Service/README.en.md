@@ -152,7 +152,7 @@ public interface IJob
 Three constructor styles for scheduling, all unified on the Cronos engine:
 
 ```csharp
-// Style 1: Interval scheduling (auto-mapped to cron, only exact seconds/minutes/hours/days)
+// Style 1: Interval scheduling (auto-mapped to cron, only evenly-divisible seconds/minutes/hours and daily)
 public class IntervalJob : BaseJobService
 {
     public IntervalJob() : base(5 * 60 * 1000) { }  // Every 5 minutes => "0 */5 * * * *"
@@ -184,7 +184,7 @@ Cron format is **6-segment seconds-level**: `second minute hour day month dow`, 
 | `*/10 * * * * *` | Every 10 seconds |
 | `0 */5 * * * *` | Every 5 minutes |
 | `0 30 2 * * *` | Daily at 02:30:00 |
-| `0 0 0 */2 * *` | Every 2 days at 00:00:00 |
+| `0 0 0 * * *` | Every day at 00:00:00 |
 | `0 0 8 * * 1` | Every Monday at 08:00:00 |
 
 Dynamic operations:
