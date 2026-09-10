@@ -35,6 +35,8 @@ public static class SmsExtention
     /// <param name="services"></param>
     internal static void InitSms(this IServiceCollection services)
     {
+        _ = services; // 避免 IDE0060 未使用参数警告
+
         SmsConfigResolver.Register(() =>
         {
             try
@@ -72,11 +74,7 @@ public static class SmsExtention
         var key = CacheConst.KeyPhoneVerCode + phoneNumber;
 
         using var locker = LockerBuilder.Default.Create($"phoneVerifyCode:{key}");
-        var cached = MemoryCache.Instance.Get<PhoneVerifyCodeInfo>(key);
-
-        if (cached == null)
-            throw FriendlyError.Ex(FrameworkErrors.Common.CaptchaError);
-
+        var cached = MemoryCache.Instance.Get<PhoneVerifyCodeInfo>(key) ?? throw FriendlyError.Ex(FrameworkErrors.Common.CaptchaError);
         if (cached.CreateTime.AddMinutes(cached.ExpireMinutes) <= DateTime.Now)
             throw FriendlyError.Ex(FrameworkErrors.Common.CaptchaError);
 

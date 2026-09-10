@@ -95,11 +95,14 @@ public class LuBanAgentFactory : ILuBanAgentFactory, IScoped
 
         var retrievalService = _serviceProvider.GetService<Retrieval.IRetrievalService>();
         var autoOrchestration = _serviceProvider.GetService<Orchestration.AutoOrchestrationMiddleware>();
+        var sessionManager = _serviceProvider.GetService<Sessions.ISessionManager>();
         return Task.FromResult(new LuBanAgent(
             agent,
             retrievalService,
             retrievalMode,
-            autoOrchestration));
+            autoOrchestration,
+            sessionManager,
+            historyProvider));
     }
 
     /// <summary>
@@ -206,7 +209,7 @@ public class LuBanAgentFactory : ILuBanAgentFactory, IScoped
     /// <param name="useSessionHistory">是否启用会话历史。</param>
     /// <param name="opts">配置选项。</param>
     /// <returns>ChatHistoryProvider 实例或 null。</returns>
-    private ChatHistoryProvider? BuildHistoryProvider(bool useSessionHistory, LuBanAgentOptions opts)
+    private Sessions.SessionChatHistoryProvider? BuildHistoryProvider(bool useSessionHistory, LuBanAgentOptions opts)
     {
         if (!useSessionHistory
             || _serviceProvider.GetService<ISessionManager>() is not { } sessionManager)

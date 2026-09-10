@@ -26,20 +26,15 @@ namespace LuBan.Common.Consts;
 /// <summary>
 /// 常量特性
 /// </summary>
+/// <remarks>
+/// 常量特性
+/// </remarks>
+/// <param name="name"></param>
 [AttributeUsage(AttributeTargets.All, AllowMultiple = true, Inherited = true)]
-public class ConstAttribute : Attribute
+public class ConstAttribute(string name) : Attribute
 {
     /// <summary>
     /// 常量值
     /// </summary>
-    public string Name { get; set; }
-
-    /// <summary>
-    /// 常量特性
-    /// </summary>
-    /// <param name="name"></param>
-    public ConstAttribute(string name)
-    {
-        Name = name;
-    }
+    public string Name { get; set; } = name;
 }

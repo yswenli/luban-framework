@@ -123,6 +123,9 @@ public static class LuBanAgentExtensions
 
         services.AddScoped<Orchestration.IOrchestrator, Orchestration.Orchestrator>();
 
+        // 自动编排前哨管道（按配置 AutoDetect 判定每轮输入是否为复合任务）
+        services.AddScoped<Orchestration.AutoOrchestrationMiddleware>();
+
         // 暴露为工具（按配置开关）
         var orchestrationEnabled = configuration
             .GetSection("LuBanAgent:Orchestration:Enabled").Get<bool>();

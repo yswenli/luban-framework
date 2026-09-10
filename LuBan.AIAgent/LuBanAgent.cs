@@ -32,6 +32,8 @@ public class LuBanAgent
     private readonly Retrieval.IRetrievalService? _retrievalService;
     private readonly Orchestration.AutoOrchestrationMiddleware? _autoOrchestration;
     private readonly string? _retrievalMode;
+    private readonly Sessions.ISessionManager? _sessionManager;
+    private readonly Sessions.SessionChatHistoryProvider? _historyProvider;
     private AgentSession? _session;
     private readonly SemaphoreSlim _sessionLock = new(1, 1);
 
@@ -46,13 +48,17 @@ public class LuBanAgent
         ChatClientAgent innerAgent,
         Retrieval.IRetrievalService? retrievalService = null,
         string? retrievalMode = null,
-        Orchestration.AutoOrchestrationMiddleware? autoOrchestration = null)
+        Orchestration.AutoOrchestrationMiddleware? autoOrchestration = null,
+        Sessions.ISessionManager? sessionManager = null,
+        Sessions.SessionChatHistoryProvider? historyProvider = null)
     {
         ArgumentNullException.ThrowIfNull(innerAgent);
         _innerAgent = innerAgent;
         _retrievalService = retrievalService;
         _retrievalMode = retrievalMode;
         _autoOrchestration = autoOrchestration;
+        _sessionManager = sessionManager;
+        _historyProvider = historyProvider;
     }
 
     /// <summary>
@@ -94,6 +100,12 @@ public class LuBanAgent
     /// <returns>Agent 响应结果。</returns>
     public async Task<AgentResponse> RunAsync(string input, CancellationToken cancellationToken = default)
     {
+        // 编排判定基于原始用户输入；命中编排则跳过 RAG 注入，直接返回编排结果
+        if (await TryOrchestrateAsync(input, cancellationToken) is { } orchestratedResponse)
+        {
+            return orchestratedResponse;
+        }
+
         var session = await GetOrCreateSessionAsync(cancellationToken);
         input = await PreProcessInputAsync(input, cancellationToken);
         return await _innerAgent.RunAsync(input, session, cancellationToken: cancellationToken);
@@ -121,26 +133,72 @@ public class LuBanAgent
         string input,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        input = await PreProcessInputAsync(input, cancellationToken);
-
-        if (_autoOrchestration != null)
+        // 编排判定基于原始用户输入；命中编排则跳过 RAG 注入，直接产出编排结果并写 session
+        if (await TryOrchestrateAsync(input, cancellationToken) is { } orchestratedResponse)
         {
-            var shouldOrchestrate = await _autoOrchestration.ShouldOrchestrateAsync(input, cancellationToken);
-            if (shouldOrchestrate)
+            yield return new AgentResponseUpdate
             {
-                var result = await _autoOrchestration.RunAsync(input, cancellationToken);
-                yield return new AgentResponseUpdate
-                {
-                    Contents = [new TextContent(result.FinalOutput ?? "编排节点已完成")]
-                };
-                yield break;
-            }
+                Contents = [new TextContent(orchestratedResponse.Text ?? "编排节点已完成")]
+            };
+            yield break;
         }
 
         var session = await GetOrCreateSessionAsync(cancellationToken);
+        input = await PreProcessInputAsync(input, cancellationToken);
         await foreach (var update in _innerAgent.RunStreamingAsync(input, session, cancellationToken: cancellationToken))
         {
             yield return update;
+        }
+    }
+
+    /// <summary>
+    /// 自动编排前哨：基于原始用户输入判定是否为复合任务并执行编排。
+    /// 命中编排时返回编排结果；未命中或未启用编排时返回 null（调用方继续走 RAG + 主 Agent）。
+    /// </summary>
+    private async Task<AgentResponse?> TryOrchestrateAsync(string input, CancellationToken cancellationToken)
+    {
+        if (_autoOrchestration == null)
+            return null;
+
+        var shouldOrchestrate = await _autoOrchestration.ShouldOrchestrateAsync(input, cancellationToken);
+        if (!shouldOrchestrate)
+            return null;
+
+        var result = await _autoOrchestration.RunAsync(input, cancellationToken);
+        var output = result.FinalOutput ?? "编排节点已完成";
+
+        // 编排分支显式写入 session，保证多轮上下文连续（用户消息 + 编排结果）
+        await PersistTurnAsync(input, output, cancellationToken);
+
+        return new AgentResponse
+        {
+            Messages =
+            [
+                new ChatMessage(ChatRole.Assistant, new List<AIContent> { new TextContent(output) })
+            ]
+        };
+    }
+
+    /// <summary>
+    /// 将用户输入与助手输出持久化到当前会话（用于编排命中时 session 未走 innerAgent 持久化通道的场景）。
+    /// </summary>
+    private async Task PersistTurnAsync(string userInput, string assistantOutput, CancellationToken cancellationToken)
+    {
+        if (_sessionManager?.CurrentSession is not { } session)
+            return;
+
+        var sessionId = session.SessionId;
+        try
+        {
+            await _sessionManager.AddMessageAsync(sessionId, "user", userInput, Math.Max(1, userInput.Length / 4));
+            if (!string.IsNullOrWhiteSpace(assistantOutput))
+            {
+                await _sessionManager.AddMessageAsync(sessionId, "assistant", assistantOutput, Math.Max(1, assistantOutput.Length / 4));
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn($"编排分支持久化 session 失败: {ex.Message}", ex);
         }
     }
 
@@ -200,6 +258,9 @@ public class LuBanAgent
             sb.AppendLine("请结合以上检索上下文回答用户问题。若检索内容与问题无关，可忽略。");
             sb.AppendLine();
             sb.AppendLine($"用户问题：{input}");
+
+            // 通知 provider 仅持久化原始输入，避免膨胀串污染历史
+            _historyProvider?.SetPendingRawUserInput(input);
 
             return sb.ToString();
         }

@@ -30,6 +30,7 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
     private readonly int _targetCount;
     private readonly int _threshold;
     private readonly RuleEngine? _ruleEngine;
+    private string? _pendingRawUserInput;
 
     /// <summary>
     /// 创建会话历史提供者
@@ -157,7 +158,10 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
 
         // RequestMessages 仅含本轮新输入（框架默认存储过滤器已排除 ChatHistory 来源的历史消息），
         // 仅持久化最后一条 user 消息（本轮新输入）
-        var newUserText = context.RequestMessages
+        // 若外层已设置原始输入（RAG 注入场景），优先持久化原始输入，避免膨胀串污染历史
+        var newUserText = _pendingRawUserInput;
+        _pendingRawUserInput = null;
+        newUserText ??= context.RequestMessages
             .LastOrDefault(m => m.Role == ChatRole.User)?.Text;
         if (!string.IsNullOrWhiteSpace(newUserText))
         {
@@ -177,6 +181,17 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
         {
             await _sessionManager.AddMessageAsync(sessionId, "assistant", responseText, EstimateTokens(responseText), thinkingText);
         }
+    }
+
+    /// <summary>
+    /// 设置本轮待持久化的原始用户输入。RAG 注入场景下由外层调用，
+    /// 覆盖膨胀后的输入，确保历史库仅保存用户原始问题。
+    /// 消费完后自动清空。
+    /// </summary>
+    /// <param name="rawUserInput">用户原始输入。</param>
+    public void SetPendingRawUserInput(string? rawUserInput)
+    {
+        _pendingRawUserInput = rawUserInput;
     }
 
     private static int EstimateTokens(string text) => Math.Max(1, text.Length / 4);
