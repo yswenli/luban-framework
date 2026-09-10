@@ -45,6 +45,14 @@ public class OrchestrationToolGroup
     [Description("将复合任务拆解为 DAG 任务图谱，并调度多个子 Agent 串行/并行执行。适用于：多步骤任务、需要不同工具组合的任务、可并行的独立子任务。")]
     public async Task<ToolResult<string>> OrchestrateAsync(string task)
     {
+        var confirmationService = _serviceProvider.GetRequiredService<IToolConfirmationService>();
+        var outcome = await confirmationService.EvaluateAsync(nameof(OrchestrateAsync), null,
+            new Dictionary<string, object?> { ["task"] = task });
+        if (outcome == EnumConfirmationOutcome.Planned)
+            return ToolResult.Plan<string>();
+        if (outcome != EnumConfirmationOutcome.Allowed)
+            return ToolResult.Cancelled<string>();
+
         try
         {
             var orchestrator = _serviceProvider.GetRequiredService<IOrchestrator>();

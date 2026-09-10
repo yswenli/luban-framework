@@ -123,11 +123,6 @@ public class MCPToolResult
     /// 错误信息
     /// </summary>
     public string? Error { get; set; }
-
-    /// <summary>
-    /// 是否需要用户确认
-    /// </summary>
-    public bool RequiresConfirmation { get; set; }
 }
 
 /// <summary>

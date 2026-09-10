@@ -54,7 +54,8 @@ public class LocalMemoryToolPlugin : ILuBanToolPlugin
     /// <inheritdoc />
     public IReadOnlyList<AIFunction> GetTools(IServiceProvider sp)
     {
-        var group = new LocalMemoryToolGroup(sp.GetRequiredService<ILocalMemoryService>(), _options);
+        var confirmationService = sp.GetRequiredService<IToolConfirmationService>();
+        var group = new LocalMemoryToolGroup(sp.GetRequiredService<ILocalMemoryService>(), _options, confirmationService);
         return new List<AIFunction>
         {
             AIFunctionFactoryHelper.Create(group, nameof(LocalMemoryToolGroup.SaveAsync)),
@@ -75,14 +76,16 @@ public class LocalMemoryToolGroup
 {
     private readonly ILocalMemoryService _service;
     private readonly LocalMemoryOptions _options;
+    private readonly IToolConfirmationService _confirmationService;
 
     /// <summary>
     /// 创建 LocalMemoryToolGroup 实例
     /// </summary>
-    public LocalMemoryToolGroup(ILocalMemoryService service, LocalMemoryOptions options)
+    public LocalMemoryToolGroup(ILocalMemoryService service, LocalMemoryOptions options, IToolConfirmationService confirmationService)
     {
         _service = service;
         _options = options;
+        _confirmationService = confirmationService;
     }
 
     /// <summary>
@@ -93,6 +96,13 @@ public class LocalMemoryToolGroup
     [Description("保存一条记忆到本地长期记忆库")]
     public async Task<ToolResult<string>> SaveAsync(string content, string category = "general")
     {
+        var outcome = await _confirmationService.EvaluateAsync(nameof(SaveAsync), null,
+            new Dictionary<string, object?> { ["content"] = content, ["category"] = category });
+        if (outcome == EnumConfirmationOutcome.Planned)
+            return ToolResult.Plan<string>();
+        if (outcome != EnumConfirmationOutcome.Allowed)
+            return ToolResult.Cancelled<string>();
+
         if (string.IsNullOrWhiteSpace(content))
             return ToolResult.Fail<string>("内容不能为空");
 
@@ -186,6 +196,13 @@ public class LocalMemoryToolGroup
     [Description("删除指定本地记忆条目")]
     public async Task<ToolResult<string>> DeleteAsync(string id)
     {
+        var outcome = await _confirmationService.EvaluateAsync(nameof(DeleteAsync), null,
+            new Dictionary<string, object?> { ["id"] = id });
+        if (outcome == EnumConfirmationOutcome.Planned)
+            return ToolResult.Plan<string>();
+        if (outcome != EnumConfirmationOutcome.Allowed)
+            return ToolResult.Cancelled<string>();
+
         if (string.IsNullOrWhiteSpace(id))
             return ToolResult.Fail<string>("ID 不能为空");
 

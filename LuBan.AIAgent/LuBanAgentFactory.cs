@@ -63,6 +63,7 @@ public class LuBanAgentFactory : ILuBanAgentFactory, IScoped
         string? modelName = null,
         string? systemPrompt = null,
         IEnumerable<string>? toolGroups = null,
+        string? retrievalMode = null,
         bool useSessionHistory = false,
         CancellationToken cancellationToken = default)
     {
@@ -92,7 +93,13 @@ public class LuBanAgentFactory : ILuBanAgentFactory, IScoped
             null,
             _serviceProvider);
 
-        return Task.FromResult(new LuBanAgent(agent));
+        var retrievalService = _serviceProvider.GetService<Retrieval.IRetrievalService>();
+        var autoOrchestration = _serviceProvider.GetService<Orchestration.AutoOrchestrationMiddleware>();
+        return Task.FromResult(new LuBanAgent(
+            agent,
+            retrievalService,
+            retrievalMode,
+            autoOrchestration));
     }
 
     /// <summary>

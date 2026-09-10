@@ -396,8 +396,13 @@ public class DatabaseToolGroup
             return ToolResult.Fail<string>(connError);
 
         // 写操作需要用户确认
-        if (!await _confirmationService.RequestConfirmation("ExecuteNonQueryAsync",
-            new Dictionary<string, object?> { ["sql"] = sql }))
+        var outcome = await _confirmationService.EvaluateAsync(nameof(ExecuteNonQueryAsync), null,
+            new Dictionary<string, object?> { ["sql"] = sql });
+        if (outcome == EnumConfirmationOutcome.Planned)
+        {
+            return ToolResult.Plan<string>();
+        }
+        if (outcome != EnumConfirmationOutcome.Allowed)
         {
             return ToolResult.Cancelled<string>();
         }

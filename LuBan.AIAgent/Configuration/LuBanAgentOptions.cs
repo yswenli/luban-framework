@@ -77,6 +77,45 @@ public class LuBanAgentOptions
     /// Base 行为规则内容覆盖（缺省用内置中文默认文本）
     /// </summary>
     public string? BaseBehavior { get; set; }
+
+    /// <summary>
+    /// 工具调用确认策略配置（工具名分类集合，可在配置文件中覆盖以适配自定义工具）
+    /// </summary>
+    public ToolConfirmationOptions Confirmation { get; set; } = new();
+}
+
+/// <summary>
+/// 工具调用确认策略配置。
+/// 三个数组均以工具方法名（如 RunShellAsync）为元素，用于对工具做分类筛选。
+/// 语义：<b>留空 = 使用服务内置默认集合；配置了任意项 = 整体替换默认集合</b>
+/// （配置绑定器对已有初始值的属性是追加而非替换，故此处默认留空，默认值由
+/// <see cref="Abstractions.ToolConfirmationService"/> 持有并回退）。
+/// 若需要"故意清空某类"，可在运行期改写
+/// <see cref="Abstractions.IToolConfirmationService"/> 上的同名读写属性。
+/// </summary>
+public class ToolConfirmationOptions
+{
+    /// <summary>
+    /// 免确认名单：命中则在需要人工确认的环节直接放行，不再打断用户。
+    /// 典型用途是把受信任的 MCP 工具（名称形如 <c>mcp_{client}_{tool}</c>）或
+    /// 低风险的浏览器/记忆类操作排除在确认之外。默认留空，即全部按规则确认。
+    /// 注意：本名单只免除"询问用户"，不改变 Plan 模式语义——
+    /// Plan 下有副作用的工具仍只记录计划项、不执行。
+    /// </summary>
+    public string[] AutoConfirmTools { get; set; } = [];
+
+    /// <summary>
+    /// 删除类工具集合：无论路径是否在工作区内、无论何种放行策略，都必须确认。
+    /// 留空时使用内置默认集合。
+    /// </summary>
+    public string[] AlwaysConfirmTools { get; set; } = [];
+
+    /// <summary>
+    /// 只读工具集合：Plan 模式下这些工具无副作用，直接放行，
+    /// 保证 Agent 能读取上下文产出计划；其余工具记录为计划项且不执行。
+    /// 留空时使用内置默认集合。
+    /// </summary>
+    public string[] ReadOnlyTools { get; set; } = [];
 }
 
 /// <summary>

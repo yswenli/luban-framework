@@ -45,6 +45,13 @@ public class ToolResult
     public bool UserCancelled { get; set; }
 
     /// <summary>
+    /// 是否为 Plan 模式下"已记录计划项、本次未执行"。
+    /// 为 true 时，AI 不应重试该操作，也不要将其表述为用户拒绝，
+    /// 而应继续完成剩余计划说明，等待用户确认后再执行。
+    /// </summary>
+    public bool Planned { get; set; }
+
+    /// <summary>
     /// 创建一个成功结果
     /// </summary>
     public static ToolResult<T> Ok<T>(T data, string? message = null)
@@ -66,6 +73,19 @@ public class ToolResult
             IsSuccess = false,
             UserCancelled = true,
             Message = "操作已被用户拒绝。请停止尝试同类操作，向用户说明情况，等待用户指示后再继续。"
+        };
+
+    /// <summary>
+    /// 创建 Plan 模式下的"已记录计划、未执行"结果。
+    /// 与 <see cref="Cancelled{T}"/> 区分开，避免 AI 误以为用户拒绝了操作。
+    /// </summary>
+    public static ToolResult<T> Plan<T>()
+        => new()
+        {
+            IsSuccess = false,
+            Planned = true,
+            Message = "当前处于 Plan 模式，该操作已被记录为计划项，本次未执行。"
+                + "这不是用户拒绝。请不要重试该操作，继续说明剩余计划，等待用户确认后再执行。"
         };
 }
 

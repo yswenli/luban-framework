@@ -23,14 +23,30 @@ public enum ToolPermissionMode
     /// <summary>默认模式。每个工具调用逐一确认。</summary>
     Default = 0,
 
-    /// <summary>Plan 模式。Agent 先生成执行计划，用户逐项确认后再批量执行。</summary>
+    /// <summary>Plan 模式。只读操作照常执行；其余操作不执行，仅通过 OnPlannedAction 收集为计划项，待用户确认后另行发起执行。</summary>
     Plan = 1,
 
-    /// <summary>AcceptEdits 模式。接受所有编辑操作，仅确认非编辑类工具。</summary>
+    /// <summary>AcceptEdits 模式。放行编辑类操作（有目标路径且非删除类），非编辑类（脚本/数据库/Redis）与删除类仍需确认。</summary>
     AcceptEdits = 2,
 
     /// <summary>BypassPermissions 模式。跳过所有工具确认（需二次确认后生效）。</summary>
     BypassPermissions = 3
+}
+
+/// <summary>
+/// 工具调用确认的评估结果。相比 bool 多出一档 <see cref="Planned"/>，
+/// 用于区分"用户拒绝"与"Plan 模式下已记录计划但未执行"，避免向 LLM 传递错误语义。
+/// </summary>
+public enum EnumConfirmationOutcome
+{
+    /// <summary>允许执行。</summary>
+    Allowed = 0,
+
+    /// <summary>拒绝执行（用户拒绝、按 ESC 或未设置确认回调）。</summary>
+    Denied = 1,
+
+    /// <summary>Plan 模式：已记录为计划项，本次不执行。</summary>
+    Planned = 2
 }
 
 /// <summary>
@@ -94,6 +110,16 @@ public class ToolConfirmationContext
 public interface IToolConfirmationService
 {
     /// <summary>
+    /// 统一评估一次工具调用：按当前权限模式分发，再套用路径/危险度规则。
+    /// 所有工具插件应优先调用此方法，以便 Plan 模式能与"用户拒绝"区分开。
+    /// </summary>
+    /// <param name="toolName">工具名称。</param>
+    /// <param name="path">操作目标路径；无路径语义的工具（脚本/数据库/Redis）传 null。</param>
+    /// <param name="arguments">工具参数。</param>
+    /// <returns>评估结果：<see cref="EnumConfirmationOutcome.Allowed"/> 允许、<see cref="EnumConfirmationOutcome.Denied"/> 拒绝、<see cref="EnumConfirmationOutcome.Planned"/> 已记录计划未执行。</returns>
+    Task<EnumConfirmationOutcome> EvaluateAsync(string toolName, string? path, IReadOnlyDictionary<string, object?> arguments);
+
+    /// <summary>
     /// 请求对指定工具调用进行确认。
     /// </summary>
     /// <param name="toolName">工具名称。</param>
@@ -111,9 +137,24 @@ public interface IToolConfirmationService
     Task<bool> TryConfirmByPath(string toolName, string path, IReadOnlyDictionary<string, object?> arguments);
 
     /// <summary>
-    /// 判断指定工具是否需要人工确认。
+    /// 免确认名单：命中则在需要人工确认的环节直接放行，不打断用户。
+    /// 可读写，宿主可增删以筛选受信任工具（如特定 MCP 工具）。
+    /// 只免除"询问用户"，不改变 Plan 模式语义。
+    /// 默认值来自配置 <c>LuBanAgent:Confirmation:AutoConfirmTools</c>，缺省为空。
     /// </summary>
-    bool RequiresConfirmation(string toolName);
+    HashSet<string> AutoConfirmTools { get; set; }
+
+    /// <summary>
+    /// 删除类工具集合：无论路径是否在工作区内、无论何种放行策略都必须确认。可读写；
+    /// 默认值来自配置 <c>LuBanAgent:Confirmation:AlwaysConfirmTools</c>。
+    /// </summary>
+    HashSet<string> AlwaysConfirmTools { get; set; }
+
+    /// <summary>
+    /// 只读工具集合：Plan 模式下无副作用，直接放行以保证 Agent 能读取上下文产出计划。可读写；
+    /// 默认值来自配置 <c>LuBanAgent:Confirmation:ReadOnlyTools</c>。
+    /// </summary>
+    HashSet<string> ReadOnlyTools { get; set; }
 
     /// <summary>
     /// 将工具参数格式化为可读的字符串表示。
@@ -129,66 +170,153 @@ public class ToolConfirmationService : IToolConfirmationService
     private readonly ToolConfirmationContext _context;
 
     /// <summary>
+    /// 内置默认：删除类工具名，任何放行策略下都必须确认。
+    /// </summary>
+    private static readonly string[] DefaultAlwaysConfirmTools =
+    [
+        "DeleteFileAsync", "DeleteDirectoryAsync",
+    ];
+
+    /// <summary>
+    /// 内置默认：只读工具名，Plan 模式下直接放行以便 Agent 读取上下文产出计划。
+    /// </summary>
+    private static readonly string[] DefaultReadOnlyTools =
+    [
+        "ReadFileAsync", "ListDirectoryAsync", "GetWorkspaceOverviewAsync", "ExecuteQueryAsync",
+    ];
+
+    /// <summary>
     /// 创建 ToolConfirmationService 实例
     /// </summary>
     /// <param name="context">确认上下文（由 DI 容器注入的单例）</param>
-    public ToolConfirmationService(ToolConfirmationContext context)
+    /// <param name="options">Agent 配置（可选）。缺省或对应数组留空时使用内置默认工具名集合</param>
+    public ToolConfirmationService(ToolConfirmationContext context, IOptions<LuBanAgentOptions>? options = null)
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
+
+        // 配置非空即整体替换内置默认（宿主可据此筛选），留空则回退默认；
+        // 运行期仍可通过下方读写属性继续调整
+        var confirmation = options?.Value.Confirmation;
+        AlwaysConfirmTools = ToLookup(confirmation?.AlwaysConfirmTools, DefaultAlwaysConfirmTools);
+        ReadOnlyTools = ToLookup(confirmation?.ReadOnlyTools, DefaultReadOnlyTools);
+
+        // 免确认名单默认空：不做任何隐式放行，宿主显式配置或运行期添加才生效
+        AutoConfirmTools = new HashSet<string>(confirmation?.AutoConfirmTools ?? [], StringComparer.Ordinal);
     }
 
-    private static readonly HashSet<string> DangerousTools = new()
-    {
-        "WriteFileAsync", "DeleteFileAsync", "MoveFileAsync", "CopyFileAsync",
-        "CreateDirectoryAsync", "DeleteDirectoryAsync",
-        "RunShellAsync", "RunLuaAsync", "RunPythonAsync",
-        "ExecuteNonQueryAsync", "ExecuteInsertAsync", "ExecuteUpdateAsync", "ExecuteDeleteAsync",
-        "SetAsync", "DeleteAsync", "FlushDatabaseAsync",
-    };
-
     /// <summary>
-    /// 删除类工具集合，无论路径是否在工作区内都必须确认。
+    /// 把配置数组转为查找集合；配置为空时回退到内置默认。
     /// </summary>
-    private static readonly HashSet<string> AlwaysConfirmTools = new()
-    {
-        "DeleteFileAsync", "DeleteDirectoryAsync",
-    };
+    /// <param name="configured">配置提供的工具名数组。</param>
+    /// <param name="fallback">内置默认工具名数组。</param>
+    /// <returns>用于查找的集合。</returns>
+    private static HashSet<string> ToLookup(string[]? configured, string[] fallback)
+        => new(configured is { Length: > 0 } ? configured : fallback, StringComparer.Ordinal);
 
-    /// <summary>
-    /// 判断指定工具是否需要人工确认。
-    /// </summary>
-    /// <param name="toolName">工具名称。</param>
-    /// <returns>若工具为危险操作则需要确认，否则返回 false。</returns>
-    public bool RequiresConfirmation(string toolName)
-        => DangerousTools.Contains(toolName);
+    /// <inheritdoc/>
+    public HashSet<string> AutoConfirmTools { get; set; }
 
-    /// <summary>
-    /// 请求对指定工具调用进行确认。
-    /// 若未设置确认回调，则默认拒绝。
-    /// 若取消令牌已被取消，则自动拒绝。
-    /// </summary>
-    /// <param name="toolName">工具名称。</param>
-    /// <param name="arguments">工具参数。</param>
-    /// <returns>是否允许执行该工具调用的 Task。</returns>
-    public async Task<bool> RequestConfirmation(string toolName, IReadOnlyDictionary<string, object?> arguments)
+    /// <inheritdoc/>
+    public HashSet<string> AlwaysConfirmTools { get; set; }
+
+    /// <inheritdoc/>
+    public HashSet<string> ReadOnlyTools { get; set; }
+
+    /// <inheritdoc/>
+    public async Task<EnumConfirmationOutcome> EvaluateAsync(
+        string toolName, string? path, IReadOnlyDictionary<string, object?> arguments)
     {
         // ESC 已触发，自动拒绝所有工具调用
         if (_context.CancellationToken.IsCancellationRequested)
         {
-            return false;
+            return EnumConfirmationOutcome.Denied;
         }
+
+        // ── 模式分发（所有工具统一经此，避免脚本/数据库/Redis 类工具绕过权限模式）──
+        switch (_context.Mode)
+        {
+            case ToolPermissionMode.BypassPermissions:
+                return EnumConfirmationOutcome.Allowed;
+
+            case ToolPermissionMode.Plan:
+                // 只读操作无副作用，放行以便 Agent 读取上下文产出计划
+                if (ReadOnlyTools.Contains(toolName))
+                {
+                    return EnumConfirmationOutcome.Allowed;
+                }
+
+                // 其余操作仅记录为计划项，本次不执行
+                _context.OnPlannedAction?.Invoke(toolName, arguments);
+                return EnumConfirmationOutcome.Planned;
+
+            case ToolPermissionMode.AcceptEdits:
+                // 编辑类操作（有目标路径且非删除类）直接放行；
+                // 空串等同无路径语义，不能当作编辑类放行
+                if (!string.IsNullOrEmpty(path) && !AlwaysConfirmTools.Contains(toolName))
+                {
+                    return EnumConfirmationOutcome.Allowed;
+                }
+
+                // 非编辑类（脚本/数据库/Redis）与删除类走 Default 路径确认
+                break;
+
+            default: // ToolPermissionMode.Default
+                break;
+        }
+
+        // ── Default 路径 ──
 
         // 本轮已允许的工具跳过确认
         if (_context.AllowedThisTurn.Contains(toolName))
         {
-            return true;
+            return EnumConfirmationOutcome.Allowed;
+        }
+
+        // 删除类工具：无论路径是否在工作区内都必须确认
+        if (AlwaysConfirmTools.Contains(toolName))
+        {
+            return await AskUserAsync(toolName, arguments).ConfigureAwait(false);
+        }
+
+        // 有路径的非删除类工具：工作区内免确认
+        if (!string.IsNullOrEmpty(path) && IsWithinWorkspace(path))
+        {
+            return EnumConfirmationOutcome.Allowed;
+        }
+
+        // 工作区外，或无路径语义的工具（脚本/数据库/Redis）：需要确认
+        return await AskUserAsync(toolName, arguments).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// 调用宿主确认回调。未设置回调时默认拒绝。
+    /// </summary>
+    /// <param name="toolName">工具名称。</param>
+    /// <param name="arguments">工具参数。</param>
+    /// <returns>允许或拒绝。</returns>
+    private async Task<EnumConfirmationOutcome> AskUserAsync(
+        string toolName, IReadOnlyDictionary<string, object?> arguments)
+    {
+        // 免确认名单：命中则直接放行，不打断用户
+        if (AutoConfirmTools.Contains(toolName))
+        {
+            return EnumConfirmationOutcome.Allowed;
         }
 
         var callback = _context.Callback;
         if (callback == null)
-            return false;
-        return await callback(toolName, arguments).ConfigureAwait(false);
+        {
+            return EnumConfirmationOutcome.Denied;
+        }
+
+        return await callback(toolName, arguments).ConfigureAwait(false)
+            ? EnumConfirmationOutcome.Allowed
+            : EnumConfirmationOutcome.Denied;
     }
+
+    /// <inheritdoc/>
+    public async Task<bool> RequestConfirmation(string toolName, IReadOnlyDictionary<string, object?> arguments)
+        => await EvaluateAsync(toolName, null, arguments).ConfigureAwait(false) == EnumConfirmationOutcome.Allowed;
 
     /// <summary>
     /// 判断路径是否在当前工作区内。
@@ -210,61 +338,9 @@ public class ToolConfirmationService : IToolConfirmationService
         }
     }
 
-    /// <summary>
-    /// 基于路径的工具调用确认。
-    /// 规则：
-    ///   1. 删除类工具（DeleteFileAsync/DeleteDirectoryAsync）——无论路径是否在工作区内，都必须确认。
-    ///   2. 非删除类工具——路径在工作区内时免确认，工作区外时必须确认。
-    ///   3. 未设置确认回调时默认拒绝（返回 false）。
-    /// </summary>
-    /// <param name="toolName">工具名称。</param>
-    /// <param name="path">操作目标路径。</param>
-    /// <param name="arguments">工具参数。</param>
-    /// <returns>是否允许执行该工具调用。</returns>
+    /// <inheritdoc/>
     public async Task<bool> TryConfirmByPath(string toolName, string path, IReadOnlyDictionary<string, object?> arguments)
-    {
-        // ── 模式分发 ──
-        switch (_context.Mode)
-        {
-            case ToolPermissionMode.BypassPermissions:
-                return true; // 跳过所有确认
-
-            case ToolPermissionMode.Plan:
-                // Plan 模式：不立即确认，收集到计划列表
-                _context.OnPlannedAction?.Invoke(toolName, arguments);
-                return true; // Plan 模式下先允许（后续批量确认时可能拒绝）
-
-            case ToolPermissionMode.AcceptEdits:
-                // AcceptEdits：编辑类操作直接放行，非编辑类仍需确认
-                if (!AlwaysConfirmTools.Contains(toolName))
-                {
-                    return true; // 非危险操作直接放行
-                }
-                break; // 删除类操作走 Default 路径
-
-            default: // ToolPermissionMode.Default
-                break;
-        }
-
-        // ── Default 路径（现有逻辑不变）──
-
-        // 本轮已允许的工具跳过确认
-        if (_context.AllowedThisTurn.Contains(toolName))
-        {
-            return true;
-        }
-
-        // 删除类工具：始终需要确认
-        if (AlwaysConfirmTools.Contains(toolName))
-            return await RequestConfirmation(toolName, arguments).ConfigureAwait(false);
-
-        // 非删除类工具：工作区内免确认
-        if (!string.IsNullOrEmpty(path) && IsWithinWorkspace(path))
-            return true;
-
-        // 工作区外：需要确认
-        return await RequestConfirmation(toolName, arguments).ConfigureAwait(false);
-    }
+        => await EvaluateAsync(toolName, path, arguments).ConfigureAwait(false) == EnumConfirmationOutcome.Allowed;
 
     /// <summary>
     /// 将工具参数格式化为可读的字符串表示。

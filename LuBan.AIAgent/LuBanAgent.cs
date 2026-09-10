@@ -29,17 +29,30 @@ namespace LuBan.AIAgent;
 public class LuBanAgent
 {
     private readonly ChatClientAgent _innerAgent;
+    private readonly Retrieval.IRetrievalService? _retrievalService;
+    private readonly Orchestration.AutoOrchestrationMiddleware? _autoOrchestration;
+    private readonly string? _retrievalMode;
     private AgentSession? _session;
     private readonly SemaphoreSlim _sessionLock = new(1, 1);
 
     /// <summary>
     /// Represents a LuBan agent that wraps a ChatClientAgent and manages its session.
     /// </summary>
-    /// <param name="innerAgent"></param>
-    public LuBanAgent(ChatClientAgent innerAgent)
+    /// <param name="innerAgent">内部 ChatClientAgent</param>
+    /// <param name="retrievalService">语义检索服务（可选）</param>
+    /// <param name="retrievalMode">检索模式："auto" 启用自动检索注入</param>
+    /// <param name="autoOrchestration">自动编排中间件（可选）</param>
+    public LuBanAgent(
+        ChatClientAgent innerAgent,
+        Retrieval.IRetrievalService? retrievalService = null,
+        string? retrievalMode = null,
+        Orchestration.AutoOrchestrationMiddleware? autoOrchestration = null)
     {
         ArgumentNullException.ThrowIfNull(innerAgent);
         _innerAgent = innerAgent;
+        _retrievalService = retrievalService;
+        _retrievalMode = retrievalMode;
+        _autoOrchestration = autoOrchestration;
     }
 
     /// <summary>
@@ -82,6 +95,7 @@ public class LuBanAgent
     public async Task<AgentResponse> RunAsync(string input, CancellationToken cancellationToken = default)
     {
         var session = await GetOrCreateSessionAsync(cancellationToken);
+        input = await PreProcessInputAsync(input, cancellationToken);
         return await _innerAgent.RunAsync(input, session, cancellationToken: cancellationToken);
     }
 
@@ -107,6 +121,22 @@ public class LuBanAgent
         string input,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        input = await PreProcessInputAsync(input, cancellationToken);
+
+        if (_autoOrchestration != null)
+        {
+            var shouldOrchestrate = await _autoOrchestration.ShouldOrchestrateAsync(input, cancellationToken);
+            if (shouldOrchestrate)
+            {
+                var result = await _autoOrchestration.RunAsync(input, cancellationToken);
+                yield return new AgentResponseUpdate
+                {
+                    Contents = [new TextContent(result.FinalOutput ?? "编排节点已完成")]
+                };
+                yield break;
+            }
+        }
+
         var session = await GetOrCreateSessionAsync(cancellationToken);
         await foreach (var update in _innerAgent.RunStreamingAsync(input, session, cancellationToken: cancellationToken))
         {
@@ -138,4 +168,45 @@ public class LuBanAgent
     /// <returns>新创建的会话。</returns>
     public async ValueTask<AgentSession> CreateSessionAsync(CancellationToken cancellationToken = default)
         => await _innerAgent.CreateSessionAsync(cancellationToken);
+
+    /// <summary>
+    /// 输入预处理：按 retrievalMode 执行语义检索并注入检索上下文。
+    /// </summary>
+    /// <param name="input">用户输入内容。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>可能附带检索上下文的输入。</returns>
+    private async Task<string> PreProcessInputAsync(string input, CancellationToken cancellationToken)
+    {
+        if (_retrievalMode != "auto" || _retrievalService == null)
+            return input;
+
+        try
+        {
+            var hits = await _retrievalService.SearchAsync(input, topK: 5, cancellationToken: cancellationToken);
+            if (hits.Count == 0)
+                return input;
+
+            var sb = new StringBuilder();
+            sb.AppendLine("### 工作区语义检索上下文（供参考）");
+            sb.AppendLine();
+            foreach (var hit in hits.Take(5))
+            {
+                sb.AppendLine($"--- {hit.FilePath}:{hit.StartLine}-{hit.EndLine} (score={hit.Score:F3}) ---");
+                sb.AppendLine(hit.Content);
+                sb.AppendLine();
+            }
+            sb.AppendLine("### 检索上下文结束");
+            sb.AppendLine();
+            sb.AppendLine("请结合以上检索上下文回答用户问题。若检索内容与问题无关，可忽略。");
+            sb.AppendLine();
+            sb.AppendLine($"用户问题：{input}");
+
+            return sb.ToString();
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn($"自动检索失败，跳过检索注入: {ex.Message}", ex);
+            return input;
+        }
+    }
 }

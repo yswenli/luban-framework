@@ -113,8 +113,13 @@ public class ScriptToolGroup
     public async Task<ToolResult<string>> RunShellAsync(string command, string? workingDirectory = null)
     {
         // 确认执行
-        if (!await _confirmationService.RequestConfirmation("RunShellAsync",
-            new Dictionary<string, object?> { ["command"] = command, ["workingDirectory"] = workingDirectory }))
+        var outcome = await _confirmationService.EvaluateAsync(nameof(RunShellAsync), null,
+            new Dictionary<string, object?> { ["command"] = command, ["workingDirectory"] = workingDirectory });
+        if (outcome == EnumConfirmationOutcome.Planned)
+        {
+            return ToolResult.Plan<string>();
+        }
+        if (outcome != EnumConfirmationOutcome.Allowed)
         {
             return ToolResult.Cancelled<string>();
         }
@@ -181,8 +186,13 @@ public class ScriptToolGroup
     public async Task<ToolResult<string>> RunLuaAsync(string script, string? workingDirectory = null)
     {
         // 确认执行
-        if (!await _confirmationService.RequestConfirmation("RunLuaAsync",
-            new Dictionary<string, object?> { ["script"] = script, ["workingDirectory"] = workingDirectory }))
+        var outcome = await _confirmationService.EvaluateAsync(nameof(RunLuaAsync), null,
+            new Dictionary<string, object?> { ["script"] = script, ["workingDirectory"] = workingDirectory });
+        if (outcome == EnumConfirmationOutcome.Planned)
+        {
+            return ToolResult.Plan<string>();
+        }
+        if (outcome != EnumConfirmationOutcome.Allowed)
         {
             return ToolResult.Cancelled<string>();
         }
@@ -243,8 +253,13 @@ public class ScriptToolGroup
 public async Task<ToolResult<string>> RunPythonAsync(string script, string? workingDirectory = null)
 {
     // 确认执行
-    if (!await _confirmationService.RequestConfirmation("RunPythonAsync",
-        new Dictionary<string, object?> { ["script"] = script, ["workingDirectory"] = workingDirectory }))
+    var outcome = await _confirmationService.EvaluateAsync(nameof(RunPythonAsync), null,
+        new Dictionary<string, object?> { ["script"] = script, ["workingDirectory"] = workingDirectory });
+    if (outcome == EnumConfirmationOutcome.Planned)
+    {
+        return ToolResult.Plan<string>();
+    }
+    if (outcome != EnumConfirmationOutcome.Allowed)
     {
         return ToolResult.Cancelled<string>();
     }

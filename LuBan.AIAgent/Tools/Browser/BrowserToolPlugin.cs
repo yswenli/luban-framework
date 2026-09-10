@@ -59,7 +59,8 @@ public class BrowserToolPlugin : ILuBanToolPlugin
     public IReadOnlyList<AIFunction> GetTools(IServiceProvider sp)
     {
         var session = sp.GetRequiredService<PlaywrightSession>();
-        var toolGroup = new BrowserToolGroup(session);
+        var confirmationService = sp.GetRequiredService<IToolConfirmationService>();
+        var toolGroup = new BrowserToolGroup(session, confirmationService);
         return new List<AIFunction>
         {
             AIFunctionFactoryHelper.Create(toolGroup, nameof(BrowserToolGroup.NavigateAsync)),
@@ -86,14 +87,17 @@ public class BrowserToolPlugin : ILuBanToolPlugin
 public class BrowserToolGroup
 {
     private readonly PlaywrightSession _session;
+    private readonly IToolConfirmationService _confirmationService;
 
     /// <summary>
     /// 创建 BrowserToolGroup 实例
     /// </summary>
     /// <param name="session">Playwright 会话</param>
-    public BrowserToolGroup(PlaywrightSession session)
+    /// <param name="confirmationService">工具确认服务</param>
+    public BrowserToolGroup(PlaywrightSession session, IToolConfirmationService confirmationService)
     {
         _session = session;
+        _confirmationService = confirmationService;
     }
 
     /// <summary>
@@ -104,6 +108,13 @@ public class BrowserToolGroup
     [Description("导航到指定 URL")]
     public async Task<ToolResult<string>> NavigateAsync(string url)
     {
+        var outcome = await _confirmationService.EvaluateAsync(nameof(NavigateAsync), null,
+            new Dictionary<string, object?> { ["url"] = url });
+        if (outcome == EnumConfirmationOutcome.Planned)
+            return ToolResult.Plan<string>();
+        if (outcome != EnumConfirmationOutcome.Allowed)
+            return ToolResult.Cancelled<string>();
+
         if (!IsValidHttpUrl(url))
             return ToolResult.Fail<string>($"无效的 URL: {url}。仅支持 http:// 和 https:// 协议。");
 
@@ -201,6 +212,13 @@ public class BrowserToolGroup
     [Description("点击页面元素，使用 CSS 选择器定位元素")]
     public async Task<ToolResult<string>> ClickAsync(string selector)
     {
+        var outcome = await _confirmationService.EvaluateAsync(nameof(ClickAsync), null,
+            new Dictionary<string, object?> { ["selector"] = selector });
+        if (outcome == EnumConfirmationOutcome.Planned)
+            return ToolResult.Plan<string>();
+        if (outcome != EnumConfirmationOutcome.Allowed)
+            return ToolResult.Cancelled<string>();
+
         try
         {
             var page = await _session.GetPageAsync();
@@ -231,6 +249,13 @@ public class BrowserToolGroup
     [Description("在输入框中输入文本，使用 CSS 选择器定位输入框")]
     public async Task<ToolResult<string>> TypeTextAsync(string selector, string text)
     {
+        var outcome = await _confirmationService.EvaluateAsync(nameof(TypeTextAsync), null,
+            new Dictionary<string, object?> { ["selector"] = selector, ["text"] = text });
+        if (outcome == EnumConfirmationOutcome.Planned)
+            return ToolResult.Plan<string>();
+        if (outcome != EnumConfirmationOutcome.Allowed)
+            return ToolResult.Cancelled<string>();
+
         try
         {
             var page = await _session.GetPageAsync();

@@ -56,7 +56,8 @@ public class RetrievalToolPlugin : ILuBanToolPlugin
     {
         var svc = sp.GetService<IRetrievalService>();
         if (svc == null) return Array.Empty<AIFunction>();
-        var group = new RetrievalToolGroup(svc, _options.Value.Tools.Retrieval);
+        var confirmationService = sp.GetRequiredService<IToolConfirmationService>();
+        var group = new RetrievalToolGroup(svc, _options.Value.Tools.Retrieval, confirmationService);
         return new List<AIFunction>
         {
             AIFunctionFactoryHelper.Create(group, nameof(RetrievalToolGroup.IndexDirectoryAsync)),
@@ -77,14 +78,16 @@ public class RetrievalToolGroup
 {
     private readonly IRetrievalService _service;
     private readonly RetrievalToolOptions _options;
+    private readonly IToolConfirmationService _confirmationService;
 
     /// <summary>
     /// 创建工具组
     /// </summary>
-    public RetrievalToolGroup(IRetrievalService service, RetrievalToolOptions options)
+    public RetrievalToolGroup(IRetrievalService service, RetrievalToolOptions options, IToolConfirmationService confirmationService)
     {
         _service = service;
         _options = options;
+        _confirmationService = confirmationService;
     }
 
     /// <summary>
@@ -96,6 +99,13 @@ public class RetrievalToolGroup
         [Description("文件匹配模式，如 *.cs 或 *.cs;*.md，留空匹配全部")] string? glob = null,
         [Description("强制全部重建索引")] bool force = false)
     {
+        var outcome = await _confirmationService.EvaluateAsync(nameof(IndexDirectoryAsync), null,
+            new Dictionary<string, object?> { ["path"] = path, ["glob"] = glob, ["force"] = force });
+        if (outcome == EnumConfirmationOutcome.Planned)
+            return ToolResult.Plan<string>();
+        if (outcome != EnumConfirmationOutcome.Allowed)
+            return ToolResult.Cancelled<string>();
+
         if (!Directory.Exists(path)) return ToolResult.Fail<string>($"错误：目录不存在 {path}");
         try
         {
@@ -122,6 +132,13 @@ public class RetrievalToolGroup
         [Description("语言/格式，如 html、markdown、csharp")] string language,
         [Description("来源标识，如 web://example.com/page")] string sourceName)
     {
+        var outcome = await _confirmationService.EvaluateAsync(nameof(IndexContentAsync), null,
+            new Dictionary<string, object?> { ["content"] = content, ["language"] = language, ["sourceName"] = sourceName });
+        if (outcome == EnumConfirmationOutcome.Planned)
+            return ToolResult.Plan<string>();
+        if (outcome != EnumConfirmationOutcome.Allowed)
+            return ToolResult.Cancelled<string>();
+
         if (string.IsNullOrWhiteSpace(content)) return ToolResult.Fail<string>("错误：内容为空");
         if (content.Length > 2_000_000) return ToolResult.Fail<string>("错误：内容过大（>2MB），请分段索引");
         try

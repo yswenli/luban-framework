@@ -45,6 +45,7 @@ public class MCPToolPlugin : ILuBanToolPlugin
         var registry = sp.GetService<MCPRegistry>();
         if (registry == null) return Array.Empty<AIFunction>();
 
+        var confirmationService = sp.GetRequiredService<IToolConfirmationService>();
         var tools = new List<AIFunction>();
         foreach (var client in registry.GetAll().Where(c => c.IsConnected))
         {
@@ -60,7 +61,7 @@ public class MCPToolPlugin : ILuBanToolPlugin
 
             foreach (var tool in mcpTools)
             {
-                tools.Add(new MCPToolAIFunction(client, tool));
+                tools.Add(new MCPToolAIFunction(client, tool, confirmationService));
             }
         }
         return tools;
@@ -77,11 +78,13 @@ public class MCPToolPlugin : ILuBanToolPlugin
         private readonly IMCPClient _client;
         private readonly MCPTool _tool;
         private readonly string _name;
+        private readonly IToolConfirmationService _confirmationService;
 
-        public MCPToolAIFunction(IMCPClient client, MCPTool tool)
+        public MCPToolAIFunction(IMCPClient client, MCPTool tool, IToolConfirmationService confirmationService)
         {
             _client = client;
             _tool = tool;
+            _confirmationService = confirmationService;
             _name = Sanitize($"mcp_{client.Name}_{tool.Name}");
         }
 
@@ -104,6 +107,13 @@ public class MCPToolPlugin : ILuBanToolPlugin
         protected override async ValueTask<object?> InvokeCoreAsync(
             AIFunctionArguments arguments, CancellationToken cancellationToken)
         {
+            var outcome = await _confirmationService.EvaluateAsync(_name, null,
+                new Dictionary<string, object?>(arguments));
+            if (outcome == EnumConfirmationOutcome.Planned)
+                return ToolResult.Plan<string>();
+            if (outcome != EnumConfirmationOutcome.Allowed)
+                return ToolResult.Cancelled<string>();
+
             var result = await _client.CallToolAsync(
                 _tool.Name,
                 new Dictionary<string, object?>(arguments),
