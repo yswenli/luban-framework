@@ -22,9 +22,6 @@
 *
 *****************************************************************************/
 
-using LuBan.Common.Sms.Models;
-using LuBan.Threading;
-
 namespace LuBan.Web.Core.Utils;
 
 /// <summary>
