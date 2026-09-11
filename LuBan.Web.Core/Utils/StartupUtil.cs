@@ -162,6 +162,8 @@ public static class StartupUtil
             //异常捕获
             app.UseErrorHandler();
 
+            app.UseApiLog();
+
             //使用默认策略跨域
             app.UseCors();
 

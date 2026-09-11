@@ -269,6 +269,24 @@ public abstract class BaseBackgroundService : BaseService, IJob
     }
 
     /// <summary>
+    /// 设置 Cron 表达式但不重启调度器（供 Start/StartJob 从 DB 加载配置时使用）。
+    /// DB 中的 cron 无效时回退到硬编码默认值并记录警告。
+    /// </summary>
+    /// <param name="cron">6 段秒级 cron 表达式</param>
+    internal void SetCronWithoutRestart(string cron)
+    {
+        try
+        {
+            CronExpression.Parse(cron, CronFormat.IncludeSeconds);
+            _cron = cron;
+        }
+        catch (CronFormatException)
+        {
+            Logger.Warn($"Job [{GetJobName()}] DB 中的 Cron 表达式无效：{cron}，回退到默认 cron：{_cron}");
+        }
+    }
+
+    /// <summary>
     /// 带日志记录的RunAsync方法执行
     /// </summary>
     private async Task RunAsyncWithLog()

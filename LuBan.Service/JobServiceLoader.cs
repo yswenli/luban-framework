@@ -79,27 +79,57 @@ public static class JobServiceLoader
     /// <param name="args">方法参数</param>
     public static void Start(string methodName, params object[] args)
     {
-        if (_jobFactories != null && _jobFactories.Count > 0)
+        if (_jobFactories == null || _jobFactories.Count == 0) return;
+
+        foreach (var factoryItem in _jobFactories)
         {
-            foreach (var factoryItem in _jobFactories)
+            if (!_runningJobs.ContainsKey(factoryItem.Key))
             {
-                // 延迟实例化，只在启动时创建实例
-                if (!_runningJobs.ContainsKey(factoryItem.Key))
+                var jobInstance = factoryItem.Value();
+                _runningJobs.TryAdd(factoryItem.Key, jobInstance);
+            }
+        }
+
+        var enabledStates = new Dictionary<Type, bool>();
+
+        foreach (var kv in _runningJobs)
+        {
+            var instance = kv.Value;
+            if (instance is BaseBackgroundService bgService)
+            {
+                var jobName = JobInfoAttribute.GetJobName(instance.GetType());
+                var defaultCron = bgService.Cron;
+
+                if (!string.IsNullOrEmpty(defaultCron))
                 {
-                    var jobInstance = factoryItem.Value();
-                    _runningJobs.TryAdd(factoryItem.Key, jobInstance);
+                    JobConfigService.Instance.InitJobConfig(jobName, defaultCron);
+                    var dbConfig = JobConfigService.Instance.GetJobConfig(jobName);
+                    if (dbConfig != null)
+                    {
+                        bgService.SetCronWithoutRestart(dbConfig.Cron);
+                        enabledStates[kv.Key] = dbConfig.IsEnabled;
+                        continue;
+                    }
                 }
             }
+            enabledStates[kv.Key] = true;
+        }
 
-            // 启动所有运行中的任务
-            if (_runningJobs.Count > 0)
+        if (_runningJobs.Count > 0)
+        {
+            var toStart = new Dictionary<Type, IJob>();
+            foreach (var kv in _runningJobs)
             {
-                _ = _runningJobs.DynamicExecute(methodName, args);
-
-                foreach (var item in _runningJobs)
+                if (enabledStates.TryGetValue(kv.Key, out var enabled) && enabled)
                 {
-                    JobInfosCache.Instance.Start(JobInfoAttribute.GetJobName(item.Value.GetType()));
+                    toStart[kv.Key] = kv.Value;
                 }
+            }
+            _ = toStart.DynamicExecute(methodName, args);
+
+            foreach (var kv in toStart)
+            {
+                JobInfosCache.Instance.Start(JobInfoAttribute.GetJobName(kv.Value.GetType()));
             }
         }
     }
@@ -210,7 +240,6 @@ public static class JobServiceLoader
     /// <param name="jobName">任务名称</param>
     public static void StartJob(string jobName)
     {
-        // 先检查是否已经在运行中
         var runningJob = _runningJobs.FirstOrDefault(u => JobInfoAttribute.GetJobName(u.Key).Equals(jobName, StringComparison.InvariantCultureIgnoreCase)).Value;
         if (runningJob != null)
         {
@@ -219,13 +248,21 @@ public static class JobServiceLoader
             return;
         }
 
-        // 如果不在运行中，检查工厂集合
         var factoryItem = _jobFactories.FirstOrDefault(u => JobInfoAttribute.GetJobName(u.Key).Equals(jobName, StringComparison.InvariantCultureIgnoreCase));
         if (factoryItem.Value != null)
         {
-            // 延迟实例化
             var jobInstance = factoryItem.Value();
             _runningJobs.TryAdd(factoryItem.Key, jobInstance);
+
+            if (jobInstance is BaseBackgroundService bgService && !string.IsNullOrEmpty(bgService.Cron))
+            {
+                var dbConfig = JobConfigService.Instance.GetJobConfig(jobName);
+                if (dbConfig != null)
+                {
+                    bgService.SetCronWithoutRestart(dbConfig.Cron);
+                }
+            }
+
             jobInstance.DynamicExecute("Start");
             JobInfosCache.Instance.Start(jobName);
         }
@@ -315,7 +352,7 @@ public static class JobServiceLoader
         bgService.SetCron(cron);
     }
 
-    private static IJob? GetJobInstance(string jobName)
+    public static IJob? GetJobInstance(string jobName)
     {
         // 先从运行中的任务中查找
         var runningItem = _runningJobs.FirstOrDefault(u => JobInfoAttribute.GetJobName(u.Key).Equals(jobName, StringComparison.InvariantCultureIgnoreCase));

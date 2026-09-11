@@ -15,10 +15,10 @@
 *
 *=================================================
 *修改标记
-*修改时间：2026/01/13 00:00:00
+*修改时间：2026/09/11 00:00:00
 *修改人： yswenli
 *版本号： V1.0.0.0
-*描述：作业监控与日志管理控制器
+*描述：GET→POST 全面改造，新增配置管理端点，移除 UpdateJobCron
 *
 *****************************************************************************/
 namespace LuBan.Web.Core.Controllers;
@@ -32,15 +32,7 @@ public sealed class JobsController : BaseAdminController
     /// <summary>
     /// 获取作业日志列表
     /// </summary>
-    /// <param name="jobName">作业名称</param>
-    /// <param name="startTime">开始时间</param>
-    /// <param name="endTime">结束时间</param>
-    /// <param name="status">运行状态</param>
-    /// <param name="result">运行结果</param>
-    /// <param name="pageIndex">页码</param>
-    /// <param name="pageSize">每页条数</param>
-    /// <returns>作业日志列表</returns>
-    [HttpGet]
+    [HttpPost]
     public PagedList<DbLogJob> GetJobLogs(string? jobName = null, DateTime? startTime = null, DateTime? endTime = null,
         EnumJobStatus? status = null, EnumJobResult? result = null, int pageIndex = 1, int pageSize = 20)
     {
@@ -50,9 +42,7 @@ public sealed class JobsController : BaseAdminController
     /// <summary>
     /// 获取作业日志详情
     /// </summary>
-    /// <param name="id">日志ID</param>
-    /// <returns>作业日志详情</returns>
-    [HttpGet]
+    [HttpPost]
     public DbLogJob GetJobLogDetail(long id)
     {
         return JobLogService.Instance.GetJobLogDetail(id);
@@ -61,9 +51,7 @@ public sealed class JobsController : BaseAdminController
     /// <summary>
     /// 获取作业当前状态
     /// </summary>
-    /// <param name="jobName">作业名称</param>
-    /// <returns>作业当前状态</returns>
-    [HttpGet]
+    [HttpPost]
     public dynamic GetJobStatus(string jobName)
     {
         var jobInfo = JobInfosCache.Instance[jobName];
@@ -73,7 +61,6 @@ public sealed class JobsController : BaseAdminController
         }
         else
         {
-            // 如果缓存中没有找到，再尝试从数据库获取最新状态
             var dbStatus = JobLogService.Instance.GetJobCurrentStatus(jobName);
             return new { JobName = jobName, Status = dbStatus };
         }
@@ -82,8 +69,7 @@ public sealed class JobsController : BaseAdminController
     /// <summary>
     /// 获取所有作业信息
     /// </summary>
-    /// <returns>所有作业信息</returns>
-    [HttpGet]
+    [HttpPost]
     public List<JobInfo> GetAllJobs()
     {
         return JobInfosCache.Instance.List;
@@ -92,7 +78,6 @@ public sealed class JobsController : BaseAdminController
     /// <summary>
     /// 启动所有作业
     /// </summary>
-    /// <returns>操作结果</returns>
     [HttpPost]
     public string StartAllJobs()
     {
@@ -103,7 +88,6 @@ public sealed class JobsController : BaseAdminController
     /// <summary>
     /// 停止所有作业
     /// </summary>
-    /// <returns>操作结果</returns>
     [HttpPost]
     public string StopAllJobs()
     {
@@ -114,8 +98,6 @@ public sealed class JobsController : BaseAdminController
     /// <summary>
     /// 启动指定作业
     /// </summary>
-    /// <param name="jobName">作业名称</param>
-    /// <returns>操作结果</returns>
     [HttpPost]
     public string StartJob(string jobName)
     {
@@ -126,8 +108,6 @@ public sealed class JobsController : BaseAdminController
     /// <summary>
     /// 停止指定作业
     /// </summary>
-    /// <param name="jobName">作业名称</param>
-    /// <returns>操作结果</returns>
     [HttpPost]
     public string StopJob(string jobName)
     {
@@ -138,8 +118,6 @@ public sealed class JobsController : BaseAdminController
     /// <summary>
     /// 删除作业日志
     /// </summary>
-    /// <param name="jobName">作业名称（可选，为空则删除所有日志）</param>
-    /// <returns>操作结果</returns>
     [HttpPost]
     public string DeleteJobLogs(string? jobName = null)
     {
@@ -157,9 +135,7 @@ public sealed class JobsController : BaseAdminController
     /// <summary>
     /// 获取指定作业的 Cron 表达式
     /// </summary>
-    /// <param name="name">作业名称</param>
-    /// <returns>作业的 Cron 表达式</returns>
-    [HttpGet]
+    [HttpPost]
     public dynamic GetJobCron(string name)
     {
         var cron = JobServiceLoader.GetJobCron(name);
@@ -169,9 +145,7 @@ public sealed class JobsController : BaseAdminController
     /// <summary>
     /// 获取指定作业的下一次执行时间
     /// </summary>
-    /// <param name="name">作业名称</param>
-    /// <returns>下一次执行时间</returns>
-    [HttpGet]
+    [HttpPost]
     public dynamic GetJobNextOccurrence(string name)
     {
         var next = JobServiceLoader.GetJobNextOccurrence(name);
@@ -179,20 +153,48 @@ public sealed class JobsController : BaseAdminController
     }
 
     /// <summary>
-    /// 更新指定作业的 Cron 表达式
+    /// 获取所有作业配置
     /// </summary>
-    /// <param name="name">作业名称</param>
-    /// <param name="request">Cron 更新请求</param>
-    /// <returns>操作结果</returns>
-    [HttpPut]
-    public dynamic UpdateJobCron(string name, [FromBody] UpdateCronRequest request)
+    [HttpPost]
+    public List<DbJobInfo> GetJobConfigs()
     {
-        JobServiceLoader.UpdateJobCron(name, request.Cron);
-        return new { JobName = name, Cron = request.Cron };
+        return JobConfigService.Instance.GetAllJobConfigs();
+    }
+
+    /// <summary>
+    /// 更新指定作业的配置
+    /// </summary>
+    [HttpPost]
+    public dynamic UpdateJobConfig(string name, string? cron = null, bool? isEnabled = null, string? remark = null)
+    {
+        var oldConfig = JobConfigService.Instance.GetJobConfig(name);
+        if (oldConfig == null)
+            throw new FriendlyException($"作业 '{name}' 的配置不存在", ErrorCategory.Business);
+
+        var oldCron = oldConfig.Cron;
+        var oldEnabled = oldConfig.IsEnabled;
+
+        JobConfigService.Instance.UpdateJobConfig(name, cron, isEnabled, remark);
+
+        if (cron != null && cron != oldCron)
+        {
+            var job = JobServiceLoader.GetJobInstance(name);
+            if (job is BaseBackgroundService bgService)
+                bgService.SetCron(cron);
+        }
+
+        if (isEnabled.HasValue && isEnabled.Value != oldEnabled)
+        {
+            if (isEnabled.Value)
+            {
+                JobServiceLoader.StartJob(name);
+            }
+            else
+            {
+                JobServiceLoader.StopJob(name);
+            }
+        }
+
+        return new { JobName = name, Cron = cron ?? oldCron, IsEnabled = isEnabled ?? oldEnabled };
     }
 }
-
-/// <summary>
-/// Cron 更新请求
-/// </summary>
-public record UpdateCronRequest(string Cron);

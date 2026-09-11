@@ -27,12 +27,15 @@ global using LuBan.Common.Data;
 global using LuBan.Common.Errors;
 global using LuBan.DI;
 global using LuBan.Orm;
+global using LuBan.Orm.Attributes;
 global using LuBan.Orm.Entities;
 global using LuBan.Orm.Enums;
+global using LuBan.Orm.Models;
 global using LuBan.Service.Core;
 global using LuBan.Service.Interfaces;
 global using LuBan.Service.Models;
 global using LuBan.Threading;
+global using SqlSugar;
 
 global using System.Collections.Concurrent;
 global using System.Diagnostics;
