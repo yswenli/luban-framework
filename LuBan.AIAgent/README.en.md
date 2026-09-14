@@ -114,10 +114,10 @@ Skills, MCPs, and Rules use a unified three-tier priority registry pattern:
 | **Browser Tools** | `browser` | Navigate, click, type, screenshot, get content, wait for selector, get URL (Playwright-based) |
 | **File System Tools** | `filesystem` | Read files, write files, list directories, delete files, delete directories, search files (glob), content search (regex), create directories, copy files, move files, get file info, with AllowedRoots security restrictions |
 | **Script Tools** | `script` | Execute Shell, Lua, Python scripts |
-| **Database Tools** | `database` | Execute SQL via ADO.NET direct connections (MySQL/PostgreSQL/SQL Server/SQLite), read-only query whitelist validation, write operations require user confirmation, supports dynamic connection strings |
-| **Redis Tools** | `redis` | Execute Redis commands via redis-cli |
 | **Web Tools** | `web` | Send HTTP requests to fetch web content |
 | **Retrieval Tools** | `retrieval` | Index local code/documents, semantic search |
+| **Context Compaction** | `context` | Compact conversation history to free token budget (LLM-accessible, callable on demand) |
+| **Local Memory Tools** | `localmemory` | Long-term memory storage, query, and management |
 
 ### Skill System
 
@@ -241,11 +241,6 @@ Main Agent parses composite tasks → decomposes into DAG task graph → dispatc
     "Session": {
       "CompactTargetMessages": 20,
       "CompactThreshold": 10
-    },
-    "Tools": {
-      "Browser": { "Enabled": true, "Headless": false },
-      "FileSystem": { "Enabled": true, "AllowedRoots": ["C:\\Work"] },
-      "Retrieval": { "Enabled": true, "ModelId": "bge-small-zh-v1.5" }
     }
   }
 }
@@ -313,7 +308,7 @@ public class MyToolPlugin : ILuBanToolPlugin
     public string GroupName => "my-tools";
     public string? Description => "Custom toolset";
 
-    public IReadOnlyList<AIFunction> GetTools(IServiceProvider sp)
+    public IReadOnlyList<AIFunction> GetTools(IServiceProvider sp, ToolGroupOptions? toolsOptions = null)
     {
         return new List<AIFunction> { /* ... */ };
     }
@@ -543,9 +538,7 @@ LuBan.AIAgent/
 │   ├── McpServerConfig.cs             # External MCP server config
 │   ├── LuBanAgentOptions.cs           # Agent configuration options
 │   ├── BrowserToolOptions.cs          # Browser tool options
-│   ├── DatabaseToolOptions.cs         # Database tool options
 │   ├── FileSystemToolOptions.cs       # File system tool options
-│   ├── RedisToolOptions.cs            # Redis tool options
 │   ├── ScriptToolOptions.cs           # Script tool options
 │   ├── WebToolOptions.cs              # Web tool options
 │   ├── RetrievalToolOptions.cs        # Retrieval tool options
@@ -562,6 +555,8 @@ LuBan.AIAgent/
 │   ├── FileSystem/FileSystemToolPlugin.cs  # File system tools
 │   ├── Script/ScriptToolPlugin.cs     # Script execution tools
 │   ├── Web/WebToolPlugin.cs           # Web tools
+│   ├── Context/
+│   │   └── CompactContextToolPlugin.cs # Context compaction tools
 │   ├── LocalMemory/LocalMemoryToolPlugin.cs  # Local memory tools
 │   ├── Retrieval/RetrievalToolPlugin.cs # Semantic retrieval tools
 │   └── Orchestration/                 # Orchestration tools
@@ -656,7 +651,7 @@ LuBan.AIAgent/
 ## Tips
 
 - Model routing uses `provider:model` format; configure providers via `IAppConfigReader` / host implementation
-- **7 built-in tool groups** cover browser automation, file operations, script execution, database, Redis, web requests, and semantic retrieval
+- **9 built-in tool groups** cover browser automation, file operations, script execution, web requests, semantic retrieval, context compaction, local memory, MCP, and multi-agent orchestration
 - `ToolConfirmationService` automatically requires user confirmation for dangerous operations (write, delete, execute)
 - `FileSystemToolOptions.AllowedRoots` restricts file access scope to prevent Agent overreach
 - **Session history auto-persistence** with compression (SummarizingChatReducer), context never lost

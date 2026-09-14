@@ -40,7 +40,7 @@ public class MCPToolPlugin : ILuBanToolPlugin
     public string? Description => "MCP 外部服务器工具";
 
     /// <inheritdoc />
-    public IReadOnlyList<AIFunction> GetTools(IServiceProvider sp)
+    public IReadOnlyList<AIFunction> GetTools(IServiceProvider sp, ToolGroupOptions? toolsOptions = null)
     {
         var registry = sp.GetService<MCPRegistry>();
         if (registry == null) return Array.Empty<AIFunction>();

@@ -60,7 +60,7 @@ public class FileSystemToolPlugin : ILuBanToolPlugin
     /// </summary>
     /// <param name="sp">服务提供者</param>
     /// <returns>工具函数列表</returns>
-    public IReadOnlyList<AIFunction> GetTools(IServiceProvider sp)
+    public IReadOnlyList<AIFunction> GetTools(IServiceProvider sp, ToolGroupOptions? toolsOptions = null)
     {
         var confirmationService = sp.GetRequiredService<IToolConfirmationService>();
         var toolGroup = new FileSystemToolGroup(_pathGuard, confirmationService);

@@ -44,5 +44,6 @@ public interface ILuBanAgentFactory
         IEnumerable<string>? toolGroups = null,
         string? retrievalMode = null,
         bool useSessionHistory = false,
+        ToolGroupOptions? toolsOptions = null,
         CancellationToken cancellationToken = default);
 }

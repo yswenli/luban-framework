@@ -52,10 +52,11 @@ public class LocalMemoryToolPlugin : ILuBanToolPlugin
     public string? Description => "本地长期记忆工具，支持保存、搜索、列出和删除跨会话的事实与偏好";
 
     /// <inheritdoc />
-    public IReadOnlyList<AIFunction> GetTools(IServiceProvider sp)
+    public IReadOnlyList<AIFunction> GetTools(IServiceProvider sp, ToolGroupOptions? toolsOptions = null)
     {
+        var memoryOptions = toolsOptions?.LocalMemory ?? _options;
         var confirmationService = sp.GetRequiredService<IToolConfirmationService>();
-        var group = new LocalMemoryToolGroup(sp.GetRequiredService<ILocalMemoryService>(), _options, confirmationService);
+        var group = new LocalMemoryToolGroup(sp.GetRequiredService<ILocalMemoryService>(), memoryOptions, confirmationService);
         return new List<AIFunction>
         {
             AIFunctionFactoryHelper.Create(group, nameof(LocalMemoryToolGroup.SaveAsync)),

@@ -52,12 +52,13 @@ public class RetrievalToolPlugin : ILuBanToolPlugin
     public string? Description => "语义检索工具：索引本地代码/文档/网页内容并按语义搜索";
 
     /// <inheritdoc />
-    public IReadOnlyList<AIFunction> GetTools(IServiceProvider sp)
+    public IReadOnlyList<AIFunction> GetTools(IServiceProvider sp, ToolGroupOptions? toolsOptions = null)
     {
         var svc = sp.GetService<IRetrievalService>();
         if (svc == null) return Array.Empty<AIFunction>();
         var confirmationService = sp.GetRequiredService<IToolConfirmationService>();
-        var group = new RetrievalToolGroup(svc, _options.Value.Tools.Retrieval, confirmationService);
+        var retrievalOptions = toolsOptions?.Retrieval ?? _options.Value.Tools.Retrieval;
+        var group = new RetrievalToolGroup(svc, retrievalOptions, confirmationService);
         return new List<AIFunction>
         {
             AIFunctionFactoryHelper.Create(group, nameof(RetrievalToolGroup.IndexDirectoryAsync)),

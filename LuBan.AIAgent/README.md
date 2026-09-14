@@ -114,10 +114,10 @@ Skills、MCPs、Rules 采用统一的三级优先级注册表模式：
 | **浏览器工具** | `browser` | 导航、点击、输入、截图、获取内容、等待元素、获取 URL（基于 Playwright） |
 | **文件系统工具** | `filesystem` | 读取文件、写入文件、列出目录、删除文件、删除目录、搜索文件（glob）、内容搜索（regex）、创建目录、复制文件、移动文件、获取文件信息，支持 AllowedRoots 安全限制 |
 | **脚本执行工具** | `script` | 执行 Shell、Lua、Python 脚本 |
-| **数据库工具** | `database` | 通过 ADO.NET 直连执行 SQL（MySQL/PostgreSQL/SQL Server/SQLite），只读查询白名单校验，写操作需用户确认，支持动态连接字符串 |
-| **Redis 工具** | `redis` | 通过 redis-cli 执行 Redis 命令 |
 | **Web 工具** | `web` | 发送 HTTP 请求获取网页内容 |
 | **语义检索工具** | `retrieval` | 索引本地代码/文档，按语义搜索相关片段 |
+| **上下文压缩工具** | `context` | 压缩当前会话的对话历史，释放 token 预算（LLM 可见、可主动调用） |
+| **本地记忆工具** | `localmemory` | 长期记忆的存储、查询和管理 |
 
 ### Skill 系统
 
@@ -241,11 +241,6 @@ category: custom
     "Session": {
       "CompactTargetMessages": 20,
       "CompactThreshold": 10
-    },
-    "Tools": {
-      "Browser": { "Enabled": true, "Headless": false },
-      "FileSystem": { "Enabled": true, "AllowedRoots": ["C:\\Work"] },
-      "Retrieval": { "Enabled": true, "ModelId": "bge-small-zh-v1.5" }
     }
   }
 }
@@ -313,7 +308,7 @@ public class MyToolPlugin : ILuBanToolPlugin
     public string GroupName => "my-tools";
     public string? Description => "自定义工具集";
 
-    public IReadOnlyList<AIFunction> GetTools(IServiceProvider sp)
+    public IReadOnlyList<AIFunction> GetTools(IServiceProvider sp, ToolGroupOptions? toolsOptions = null)
     {
         // 返回自定义工具函数
         return new List<AIFunction> { /* ... */ };
@@ -544,9 +539,7 @@ LuBan.AIAgent/
 │   ├── McpServerConfig.cs             # 外部 MCP 服务器配置
 │   ├── LuBanAgentOptions.cs           # Agent 配置选项
 │   ├── BrowserToolOptions.cs          # 浏览器工具选项
-│   ├── DatabaseToolOptions.cs         # 数据库工具选项
 │   ├── FileSystemToolOptions.cs       # 文件系统工具选项
-│   ├── RedisToolOptions.cs            # Redis 工具选项
 │   ├── ScriptToolOptions.cs           # 脚本工具选项
 │   ├── WebToolOptions.cs              # Web 工具选项
 │   ├── RetrievalToolOptions.cs        # 检索工具选项
@@ -563,6 +556,8 @@ LuBan.AIAgent/
 │   ├── FileSystem/FileSystemToolPlugin.cs  # 文件系统工具
 │   ├── Script/ScriptToolPlugin.cs     # 脚本执行工具
 │   ├── Web/WebToolPlugin.cs           # Web 工具
+│   ├── Context/
+│   │   └── CompactContextToolPlugin.cs # 上下文压缩工具
 │   ├── LocalMemory/LocalMemoryToolPlugin.cs  # 本地记忆工具
 │   ├── Retrieval/RetrievalToolPlugin.cs # 语义检索工具
 │   └── Orchestration/                 # 编排工具
@@ -657,7 +652,7 @@ LuBan.AIAgent/
 ## 小贴士
 
 - 模型路由使用 `provider:model` 格式，新增 Provider 只需通过 `IAppConfigReader` / 宿主实现添加
-- **7 大内置工具组**覆盖浏览器自动化、文件操作、脚本执行、数据库、Redis、Web 请求、语义检索等场景
+- **9 大内置工具组**覆盖浏览器自动化、文件操作、脚本执行、Web 请求、语义检索、上下文压缩、本地记忆、MCP、多 Agent 编排
 - `ToolConfirmationService` 对写入、删除、执行等危险操作自动要求用户确认
 - `FileSystemToolOptions.AllowedRoots` 限制文件访问范围，防止 Agent 越权操作
 - **会话历史自动持久化**，支持长对话压缩（SummarizingChatReducer），上下文永不丢失；启动对话时显示最近历史，快速了解上下文

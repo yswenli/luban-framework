@@ -78,6 +78,6 @@ public class ToolPluginRegistry
     /// <returns>AIFunction 列表</returns>
     public IReadOnlyList<AIFunction> GetAllFunctions(IServiceProvider sp, IEnumerable<string>? groupNames = null)
         => GetPlugins(groupNames)
-            .SelectMany(p => p.GetTools(sp))
+            .SelectMany(p => p.GetTools(sp, null))
             .ToList();
 }

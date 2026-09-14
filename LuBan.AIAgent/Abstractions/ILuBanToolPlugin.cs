@@ -42,8 +42,9 @@ public interface ILuBanToolPlugin
     /// 获取该分组下的所有工具函数
     /// </summary>
     /// <param name="sp">服务提供者，用于解析工具依赖</param>
+    /// <param name="toolsOptions">运行期工具参数覆盖，null 使用构造时默认值</param>
     /// <returns>AIFunction 工具函数列表</returns>
-    IReadOnlyList<AIFunction> GetTools(IServiceProvider sp);
+    IReadOnlyList<AIFunction> GetTools(IServiceProvider sp, ToolGroupOptions? toolsOptions = null);
 
     /// <summary>
     /// 根据配置判断该插件是否启用

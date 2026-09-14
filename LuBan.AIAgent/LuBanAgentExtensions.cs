@@ -43,13 +43,15 @@ public static class LuBanAgentExtensions
         services.Configure<LuBanAgentOptions>(configuration.GetSection("LuBanAgent"));
 
         // 注册工具插件
-        services.AddScoped<ILuBanToolPlugin, Tools.Browser.BrowserToolPlugin>();
+        services.AddSingleton<ILuBanToolPlugin, Tools.Browser.BrowserToolPlugin>();
         services.AddSingleton<ILuBanToolPlugin, Tools.FileSystem.FileSystemToolPlugin>();
         services.AddSingleton<ILuBanToolPlugin, Tools.Script.ScriptToolPlugin>();
         services.AddSingleton<ILuBanToolPlugin, Tools.Web.WebToolPlugin>();
         services.AddSingleton<ILuBanToolPlugin, Tools.Retrieval.RetrievalToolPlugin>();
         services.AddSingleton<ILuBanToolPlugin, Tools.LocalMemory.LocalMemoryToolPlugin>();
         services.AddSingleton<ILuBanToolPlugin, MCP.MCPToolPlugin>();
+
+        services.AddSingleton<ILuBanToolPlugin, Tools.Context.CompactContextToolPlugin>();
 
         LoadExternalPlugins(services, configuration);
 

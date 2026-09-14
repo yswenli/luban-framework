@@ -65,12 +65,13 @@ public class LuBanAgentFactory : ILuBanAgentFactory, IScoped
         IEnumerable<string>? toolGroups = null,
         string? retrievalMode = null,
         bool useSessionHistory = false,
+        ToolGroupOptions? toolsOptions = null,
         CancellationToken cancellationToken = default)
     {
         var opts = _options.Value;
         var instructions = systemPrompt ?? opts.SystemPrompt ?? "你是一个智能助手。";
 
-        var tools = BuildTools(toolGroups);
+        var tools = BuildTools(toolGroups, toolsOptions);
 
         var functionClient = BuildFunctionClient(tools, opts, modelName);
         var historyProvider = BuildHistoryProvider(useSessionHistory, opts);
@@ -117,10 +118,11 @@ public class LuBanAgentFactory : ILuBanAgentFactory, IScoped
         string? modelName,
         IEnumerable<string>? toolGroups,
         string systemPrompt,
+        ToolGroupOptions? toolsOptions = null,
         CancellationToken cancellationToken = default)
     {
         var opts = _options.Value;
-        var tools = BuildTools(toolGroups);
+        var tools = BuildTools(toolGroups, toolsOptions);
 
         var functionClient = BuildFunctionClient(tools, opts, modelName);
 
@@ -147,12 +149,12 @@ public class LuBanAgentFactory : ILuBanAgentFactory, IScoped
     /// </summary>
     /// <param name="toolGroups">工具组筛选，null 表示全部。</param>
     /// <returns>装饰后的工具列表。</returns>
-    private List<AITool> BuildTools(IEnumerable<string>? toolGroups)
+    private List<AITool> BuildTools(IEnumerable<string>? toolGroups, ToolGroupOptions? toolsOptions = null)
     {
         var plugins = _pluginRegistry.GetPlugins(toolGroups);
 
         var tools = plugins
-            .SelectMany(p => p.GetTools(_serviceProvider))
+            .SelectMany(p => p.GetTools(_serviceProvider, toolsOptions))
             .Cast<AITool>()
             .ToList();
 

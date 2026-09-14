@@ -56,7 +56,7 @@ public class BrowserToolPlugin : ILuBanToolPlugin
     /// </summary>
     /// <param name="sp">服务提供者</param>
     /// <returns>工具函数列表</returns>
-    public IReadOnlyList<AIFunction> GetTools(IServiceProvider sp)
+    public IReadOnlyList<AIFunction> GetTools(IServiceProvider sp, ToolGroupOptions? toolsOptions = null)
     {
         var session = sp.GetRequiredService<PlaywrightSession>();
         var confirmationService = sp.GetRequiredService<IToolConfirmationService>();

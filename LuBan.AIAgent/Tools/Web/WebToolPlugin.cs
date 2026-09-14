@@ -54,9 +54,10 @@ public class WebToolPlugin : ILuBanToolPlugin
     /// </summary>
     /// <param name="sp">服务提供者</param>
     /// <returns>工具函数列表</returns>
-    public IReadOnlyList<AIFunction> GetTools(IServiceProvider sp)
+    public IReadOnlyList<AIFunction> GetTools(IServiceProvider sp, ToolGroupOptions? toolsOptions = null)
     {
-        var toolGroup = new WebToolGroup(_options);
+        var opts = toolsOptions?.Web ?? _options;
+        var toolGroup = new WebToolGroup(opts);
         return new List<AIFunction>
         {
             AIFunctionFactoryHelper.Create(toolGroup, nameof(WebToolGroup.FetchUrlAsync))

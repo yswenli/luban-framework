@@ -11,7 +11,7 @@
     <Title>$(AssemblyName)</Title>
     <Version>2026.9.11.1</Version>
     <Authors>yswenli</Authors>
-    <Description>LuBan.AIAgent 是基于 Microsoft Agent Framework 的 AI Agent 库，支持自然语言操作浏览器、文件系统、脚本执行、数据库、Redis 等。</Description>
+    <Description>LuBan.AIAgent 是基于 Microsoft Agent Framework 的 AI Agent 库，支持自然语言操作浏览器、文件系统、脚本、Web、检索、长期记忆、MCP、上下文压缩等。</Description>
     <Copyright>$(Authors)</Copyright>
     <PackageIcon>favicon.png</PackageIcon>
     <PackageReadmeFile>README.md</PackageReadmeFile>
@@ -39,16 +39,12 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Agents.AI.Foundry" Version="1.5.0" />
-    <PackageReference Include="Microsoft.Data.Sqlite.Core" Version="10.0.12" />
     <!-- 勿升到 10.10.0：Microsoft.Extensions.AI.OpenAI 10.10.0 强制依赖 OpenAI 2.13.0，
          而 2.13.0 的流式工具调用表示有破坏性变更（工具调用 chunk 解析为空 update、轮次静默结束），
          下游 LubanAgentCli 因此钉住 OpenAI [2.12.0, 2.13.0)。升级前必须先适配并实测流式工具调用。 -->
     <PackageReference Include="Microsoft.Extensions.AI" Version="10.9.0" />
     <PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="10.9.0" />
     <PackageReference Include="Microsoft.Playwright" Version="1.62.0" />
-    <PackageReference Include="MySqlConnector" Version="2.6.2" />
-    <PackageReference Include="Npgsql" Version="10.0.3" />
-    <PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.2" />
   </ItemGroup>
 
 </Project>

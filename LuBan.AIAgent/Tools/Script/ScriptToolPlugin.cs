@@ -59,10 +59,11 @@ public class ScriptToolPlugin : ILuBanToolPlugin
     /// </summary>
     /// <param name="sp">服务提供者</param>
     /// <returns>工具函数列表</returns>
-    public IReadOnlyList<AIFunction> GetTools(IServiceProvider sp)
+    public IReadOnlyList<AIFunction> GetTools(IServiceProvider sp, ToolGroupOptions? toolsOptions = null)
     {
+        var opts = toolsOptions?.Script ?? _options;
         var confirmationService = sp.GetRequiredService<IToolConfirmationService>();
-        var toolGroup = new ScriptToolGroup(_options, _processRunner, confirmationService);
+        var toolGroup = new ScriptToolGroup(opts, _processRunner, confirmationService);
         return new List<AIFunction>
         {
             AIFunctionFactoryHelper.Create(toolGroup, nameof(ScriptToolGroup.RunShellAsync)),

@@ -36,7 +36,7 @@ public class OrchestrationToolPlugin : ILuBanToolPlugin
         => options.Orchestration?.Enabled ?? false;
 
     /// <inheritdoc/>
-    public IReadOnlyList<AIFunction> GetTools(IServiceProvider sp)
+    public IReadOnlyList<AIFunction> GetTools(IServiceProvider sp, ToolGroupOptions? toolsOptions = null)
     {
         var toolGroup = new OrchestrationToolGroup(sp);
         return new List<AIFunction>

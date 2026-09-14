@@ -182,7 +182,7 @@ public class ToolConfirmationService : IToolConfirmationService
     /// </summary>
     private static readonly string[] DefaultReadOnlyTools =
     [
-        "ReadFileAsync", "ListDirectoryAsync", "GetWorkspaceOverviewAsync",
+        "ReadFileAsync", "ListDirectoryAsync", "GetWorkspaceOverviewAsync", "CompactContextAsync",
     ];
 
     /// <summary>
