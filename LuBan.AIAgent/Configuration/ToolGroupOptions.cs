@@ -24,7 +24,13 @@
 namespace LuBan.AIAgent.Configuration;
 
 /// <summary>
-/// 工具组配置
+/// 工具组配置。
+/// <para>
+/// 注意各组成员均为非 null 默认实例：把本对象整体传给
+/// <c>ILuBanToolPlugin.GetTools</c> 时，未被显式赋值的组会以
+/// 「框架默认值」参与构建，而不会回落到宿主 configuration 中的
+/// <c>LuBanAgent:Tools:*</c>。若要保留宿主配置，请勿传本对象，或保证显式填齐所需成员。
+/// </para>
 /// </summary>
 public class ToolGroupOptions
 {

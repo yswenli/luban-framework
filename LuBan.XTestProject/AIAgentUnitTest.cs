@@ -97,9 +97,7 @@ public class AIAgentUnitTest
                 FileSystem = new FileSystemToolOptions { Enabled = true },
                 Web = new WebToolOptions { Enabled = true },
                 Browser = new BrowserToolOptions { Enabled = false },
-                Script = new ScriptToolOptions { Enabled = false },
-                Database = new DatabaseToolOptions { Enabled = false },
-                Redis = new RedisToolOptions { Enabled = false }
+                Script = new ScriptToolOptions { Enabled = false }
             }
         };
 

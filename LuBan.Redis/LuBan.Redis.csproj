@@ -4,7 +4,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <Version>2026.9.11.1</Version>
+    <Version>2026.9.14.1</Version>
     <PackageId>$(AssemblyName)</PackageId>
     <Title>$(AssemblyName)</Title>
     <Authors>yswenli</Authors>
@@ -29,7 +29,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="StackExchange.Redis" Version="3.1.31" />
+    <PackageReference Include="StackExchange.Redis" Version="3.2.1" />
   </ItemGroup>
 
   <ItemGroup>

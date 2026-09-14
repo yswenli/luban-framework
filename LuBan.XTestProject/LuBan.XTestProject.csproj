@@ -76,6 +76,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\LuBan.Common\LuBan.Common.csproj" />
+    <ProjectReference Include="..\LuBan.EventBus\LuBan.EventBus.csproj" />
     <ProjectReference Include="..\LuBan.Lives\LuBan.Lives.csproj" />
     <ProjectReference Include="..\LuBan.Office\LuBan.Office.csproj" />
     <ProjectReference Include="..\LuBan.Orm\LuBan.Orm.csproj" />
@@ -90,6 +91,7 @@
     <ProjectReference Include="..\LuBan.PdfKit\LuBan.PdfKit.csproj" />
     <ProjectReference Include="..\LuBan.Qingflow\LuBan.Qingflow.csproj" />
     <ProjectReference Include="..\LuBan.Reporting\LuBan.Reporting.csproj" />
+    <ProjectReference Include="..\LuBan.VideoKit\LuBan.VideoKit.csproj" />
   </ItemGroup>
 
   <ItemGroup>

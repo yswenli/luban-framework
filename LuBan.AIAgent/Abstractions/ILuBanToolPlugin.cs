@@ -42,7 +42,11 @@ public interface ILuBanToolPlugin
     /// 获取该分组下的所有工具函数
     /// </summary>
     /// <param name="sp">服务提供者，用于解析工具依赖</param>
-    /// <param name="toolsOptions">运行期工具参数覆盖，null 使用构造时默认值</param>
+    /// <param name="toolsOptions">
+    /// 运行期工具参数覆盖。语义为「整组替换」：传非 null 时，本插件按 <c>toolsOptions</c> 中对应的组实例构造工具，
+    /// 该组未显式赋值的成员取框架默认值（不会回落到宿主配置）；传 null 才使用宿主配置。
+    /// 因此调用方应传入包含全部所需成员的对象，或保持为 null。
+    /// </param>
     /// <returns>AIFunction 工具函数列表</returns>
     IReadOnlyList<AIFunction> GetTools(IServiceProvider sp, ToolGroupOptions? toolsOptions = null);
 

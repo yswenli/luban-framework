@@ -107,7 +107,7 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
             return recallMessages;
 
         var history = messages
-            .Select(m => new ChatMessage(m.Role == "user" ? ChatRole.User : ChatRole.Assistant, m.Content))
+            .Select(m => new ChatMessage(MapRole(m.Role), m.Content))
             .ToList();
 
         if (history.Count > _targetCount + _threshold)
@@ -124,14 +124,15 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
                 var compactedIds = messages.Take(messages.Count - keptCount).Select(m => m.Id)
                     .Concat(summaries.Select(s => s.Id))
                     .ToList();
-                await _sessionManager.MarkMessagesCompactedAsync(sessionId, compactedIds);
 
+                // 先写摘要、后归档：反序执行时若归档成功而写摘要失败，历史会被永久裁掉且无摘要兜底。
                 var summaryText = reduced[0].Text ?? "";
                 await _sessionManager.AddMessageAsync(sessionId, "summary", summaryText, EstimateTokens(summaryText));
+                await _sessionManager.MarkMessagesCompactedAsync(sessionId, compactedIds);
 
                 latestSummary = new SessionMessage { Id = long.MaxValue, Role = "summary", Content = summaryText };
                 history = keptTail
-                    .Select(m => new ChatMessage(m.Role == "user" ? ChatRole.User : ChatRole.Assistant, m.Content))
+                    .Select(m => new ChatMessage(MapRole(m.Role), m.Content))
                     .ToList();
             }
         }
@@ -195,4 +196,12 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
     }
 
     private static int EstimateTokens(string text) => Math.Max(1, text.Length / 4);
+
+    private static ChatRole MapRole(string role) => role switch
+    {
+        "user" => ChatRole.User,
+        "assistant" => ChatRole.Assistant,
+        "system" => ChatRole.System,
+        _ => ChatRole.Assistant
+    };
 }

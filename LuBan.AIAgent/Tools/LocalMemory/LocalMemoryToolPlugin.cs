@@ -124,18 +124,20 @@ public class LocalMemoryToolGroup
     /// </summary>
     /// <param name="query">查询文本</param>
     /// <param name="category">可选类别过滤</param>
-    /// <param name="topK">返回条数</param>
+    /// <param name="topK">返回条数，留空则使用配置的 DefaultTopK</param>
     [Description("基于语义相似度搜索本地长期记忆")]
     [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026", 
         Justification = "JSON 序列化仅用于简单结果类型，已通过 JsonSerializerOptions 处理")]
-    public async Task<ToolResult<string>> SearchAsync(string query, string? category = null, int topK = 5)
+    public async Task<ToolResult<string>> SearchAsync(string query, string? category = null, int? topK = null)
     {
         if (string.IsNullOrWhiteSpace(query))
             return ToolResult.Fail<string>("查询不能为空");
 
         try
         {
-            var results = await _service.SearchAsync(query, category, topK);
+            // 未显式指定时回落到配置值：此前写死 5，导致 Tools:LocalMemory:DefaultTopK 配置永不生效
+            var effectiveTopK = topK ?? _options.DefaultTopK;
+            var results = await _service.SearchAsync(query, category, effectiveTopK);
             if (results.Count == 0)
                 return ToolResult.Ok<string>("未找到相关记忆");
 

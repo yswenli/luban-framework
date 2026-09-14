@@ -31,7 +31,7 @@ public sealed class PlaywrightSession : IAsyncDisposable, IDisposable
     private IPlaywright? _playwright;
     private IBrowser? _browser;
     private IPage? _page;
-    private readonly BrowserToolOptions _options;
+    private BrowserToolOptions _options;
     private readonly SemaphoreSlim _lock = new(1, 1);
     private bool _disposed;
     private bool _initialized;
@@ -130,6 +130,17 @@ public sealed class PlaywrightSession : IAsyncDisposable, IDisposable
         try { _playwright?.Dispose(); } catch { }
         _playwright = null;
         _initialized = false;
+    }
+
+    /// <summary>
+    /// 运行期覆盖浏览器配置。由 BrowserToolPlugin 在构建工具时调用，
+    /// 将 Profile 硬编码的 BrowserToolOptions（如 Headless）注入会话。
+    /// 需在首次 GetPageAsync 之前调用。
+    /// </summary>
+    /// <param name="options">浏览器工具配置。</param>
+    public void SetOptions(BrowserToolOptions options)
+    {
+        _options = options ?? throw new ArgumentNullException(nameof(options));
     }
 
     /// <summary>

@@ -59,6 +59,7 @@ public class BrowserToolPlugin : ILuBanToolPlugin
     public IReadOnlyList<AIFunction> GetTools(IServiceProvider sp, ToolGroupOptions? toolsOptions = null)
     {
         var session = sp.GetRequiredService<PlaywrightSession>();
+        session.SetOptions(toolsOptions?.Browser ?? _options);
         var confirmationService = sp.GetRequiredService<IToolConfirmationService>();
         var toolGroup = new BrowserToolGroup(session, confirmationService);
         return new List<AIFunction>

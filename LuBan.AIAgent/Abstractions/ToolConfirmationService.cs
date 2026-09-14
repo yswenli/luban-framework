@@ -178,11 +178,13 @@ public class ToolConfirmationService : IToolConfirmationService
     ];
 
     /// <summary>
-    /// 内置默认：只读工具名，Plan 模式下直接放行以便 Agent 读取上下文产出计划。
+    /// 内置默认：只读工具名。Plan 模式下直接放行以便 Agent 读取上下文产出计划；
+    /// Default / AcceptEdits 路径同样据此免确认（仅限无副作用的读取类工具）。
+    /// 注意：任何会写库或有其它副作用的工具都不应加入此名单（例如 CompactContextAsync）。
     /// </summary>
     private static readonly string[] DefaultReadOnlyTools =
     [
-        "ReadFileAsync", "ListDirectoryAsync", "GetWorkspaceOverviewAsync", "CompactContextAsync",
+        "ReadFileAsync", "ListDirectoryAsync", "GetWorkspaceOverviewAsync",
     ];
 
     /// <summary>
@@ -232,7 +234,7 @@ public class ToolConfirmationService : IToolConfirmationService
             return EnumConfirmationOutcome.Denied;
         }
 
-        // ── 模式分发（所有工具统一经此，避免脚本 类工具绕过权限模式）──
+        // ── 模式分发（所有工具统一经此，避免脚本类工具绕过权限模式）──
         switch (_context.Mode)
         {
             case ToolPermissionMode.BypassPermissions:
