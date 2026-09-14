@@ -307,7 +307,7 @@ public class LlmTaskPlanner : ITaskPlanner
       ""prompt"": ""执行 prompt，可使用 {{dep:节点id}} 引用前驱输出"",
       ""role"": ""analyst|researcher|coder|writer|null"",
       ""dependencies"": [""依赖的节点id""],
-      ""toolGroups"": [""web"" | ""filesystem"" | ""script"" | ""database"" | ""redis"" | ""retrieval"" | ""localmemory"" | ""browser"" | null],
+      ""toolGroups"": [""web"" | ""filesystem"" | ""script"" | ""retrieval"" | ""localmemory"" | ""browser"" | null],
       ""isCritical"": true | false
     }}
   ]
@@ -316,7 +316,7 @@ public class LlmTaskPlanner : ITaskPlanner
 ## 可用角色
 - analyst: 问题分析专家，默认工具组 [""filesystem""]
 - researcher: 信息检索专家，默认工具组 [""web"", ""filesystem""]
-- coder: 代码实现专家，默认工具组 [""filesystem"", ""script"", ""database""]
+- coder: 代码实现专家，默认工具组 [""filesystem"", ""script""]
 - writer: 文案撰写专家，默认工具组 [""filesystem""]
 
 ## 可用工具组

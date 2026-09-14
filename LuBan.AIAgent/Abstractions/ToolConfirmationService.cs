@@ -26,7 +26,7 @@ public enum ToolPermissionMode
     /// <summary>Plan 模式。只读操作照常执行；其余操作不执行，仅通过 OnPlannedAction 收集为计划项，待用户确认后另行发起执行。</summary>
     Plan = 1,
 
-    /// <summary>AcceptEdits 模式。放行编辑类操作（有目标路径且非删除类），非编辑类（脚本/数据库/Redis）与删除类仍需确认。</summary>
+    /// <summary>AcceptEdits 模式。放行编辑类操作（有目标路径且非删除类），非编辑类（脚本）与删除类仍需确认。</summary>
     AcceptEdits = 2,
 
     /// <summary>BypassPermissions 模式。跳过所有工具确认（需二次确认后生效）。</summary>
@@ -114,7 +114,7 @@ public interface IToolConfirmationService
     /// 所有工具插件应优先调用此方法，以便 Plan 模式能与"用户拒绝"区分开。
     /// </summary>
     /// <param name="toolName">工具名称。</param>
-    /// <param name="path">操作目标路径；无路径语义的工具（脚本/数据库/Redis）传 null。</param>
+    /// <param name="path">操作目标路径；无路径语义的工具（脚本）传 null。</param>
     /// <param name="arguments">工具参数。</param>
     /// <returns>评估结果：<see cref="EnumConfirmationOutcome.Allowed"/> 允许、<see cref="EnumConfirmationOutcome.Denied"/> 拒绝、<see cref="EnumConfirmationOutcome.Planned"/> 已记录计划未执行。</returns>
     Task<EnumConfirmationOutcome> EvaluateAsync(string toolName, string? path, IReadOnlyDictionary<string, object?> arguments);
@@ -182,7 +182,7 @@ public class ToolConfirmationService : IToolConfirmationService
     /// </summary>
     private static readonly string[] DefaultReadOnlyTools =
     [
-        "ReadFileAsync", "ListDirectoryAsync", "GetWorkspaceOverviewAsync", "ExecuteQueryAsync",
+        "ReadFileAsync", "ListDirectoryAsync", "GetWorkspaceOverviewAsync",
     ];
 
     /// <summary>
@@ -232,7 +232,7 @@ public class ToolConfirmationService : IToolConfirmationService
             return EnumConfirmationOutcome.Denied;
         }
 
-        // ── 模式分发（所有工具统一经此，避免脚本/数据库/Redis 类工具绕过权限模式）──
+        // ── 模式分发（所有工具统一经此，避免脚本 类工具绕过权限模式）──
         switch (_context.Mode)
         {
             case ToolPermissionMode.BypassPermissions:
@@ -257,7 +257,7 @@ public class ToolConfirmationService : IToolConfirmationService
                     return EnumConfirmationOutcome.Allowed;
                 }
 
-                // 非编辑类（脚本/数据库/Redis）与删除类走 Default 路径确认
+                // 非编辑类（脚本）与删除类走 Default 路径确认
                 break;
 
             default: // ToolPermissionMode.Default
@@ -268,6 +268,14 @@ public class ToolConfirmationService : IToolConfirmationService
 
         // 本轮已允许的工具跳过确认
         if (_context.AllowedThisTurn.Contains(toolName))
+        {
+            return EnumConfirmationOutcome.Allowed;
+        }
+
+        // 只读工具（读取/概览/查询）无副作用，直接放行，不打断用户；
+        // 实际文件/数据访问仍受 PathGuard 工作区授权约束，不会越权。
+        // 对应“读取不需要授权”的预期（Default 模式即如此，不再仅 Plan 模式放行）。
+        if (ReadOnlyTools.Contains(toolName))
         {
             return EnumConfirmationOutcome.Allowed;
         }
@@ -284,7 +292,7 @@ public class ToolConfirmationService : IToolConfirmationService
             return EnumConfirmationOutcome.Allowed;
         }
 
-        // 工作区外，或无路径语义的工具（脚本/数据库/Redis）：需要确认
+        // 工作区外，或无路径语义的工具（脚本）：需要确认
         return await AskUserAsync(toolName, arguments).ConfigureAwait(false);
     }
 

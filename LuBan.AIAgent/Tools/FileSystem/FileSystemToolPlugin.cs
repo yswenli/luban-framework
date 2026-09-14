@@ -183,8 +183,29 @@ public class FileSystemToolGroup
                 continue;
             }
 
-            foreach (var file in files)
-                yield return file;
+            // 物化当前目录的文件列表（在 try 内完成枚举，避免迭代器 yield 与 catch 冲突 CS1626）；
+            // 单个文件枚举失败（超长路径/中文路径/重解析点）仅跳过该目录，不中断整轮搜索。
+            List<string>? fileList;
+            try
+            {
+                fileList = new List<string>(files);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                Logger.Debug("文件枚举跳过：权限不足", ex, current);
+                fileList = null;
+            }
+            catch (IOException ex)
+            {
+                Logger.Debug("文件枚举跳过：IO 错误", ex, current);
+                fileList = null;
+            }
+
+            if (fileList is not null)
+            {
+                foreach (var file in fileList)
+                    yield return file;
+            }
 
             IEnumerable<string> subDirs;
             try
@@ -199,6 +220,11 @@ public class FileSystemToolGroup
             catch (DirectoryNotFoundException ex)
             {
                 Logger.Debug("子目录遍历跳过：目录不存在", ex, current);
+                continue;
+            }
+            catch (IOException ex)
+            {
+                Logger.Debug("子目录遍历跳过：IO 错误", ex, current);
                 continue;
             }
 
@@ -310,9 +336,46 @@ public class FileSystemToolGroup
             if (fileInfo.Length > 50 * 1024 * 1024)
                 return ToolResult.Fail<string>($"错误：文件过大 ({fileInfo.Length / 1024 / 1024}MB)，最大支持 50MB");
 
+            // 行级切片：避免把大文件（日志/源码）整体塞进对话上下文撑爆 token。
+            // 单次最多返回 readFileMaxLines 行 / readFileMaxChars 字符，超出则截断并提示改用 Grep 或 RAG。
+            const int readFileMaxLines = 2000;
+            const int readFileMaxChars = 256 * 1024;
+
+            var sb = new StringBuilder();
+            var truncated = false;
+            var lineNo = 0;
             using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
             using var reader = new StreamReader(stream);
-            return ToolResult.Ok<string>(await reader.ReadToEndAsync());
+            string? line;
+            while ((line = await reader.ReadLineAsync()) != null)
+            {
+                lineNo++;
+                if (lineNo > readFileMaxLines)
+                {
+                    truncated = true;
+                    break;
+                }
+
+                if (sb.Length + line.Length + Environment.NewLine.Length > readFileMaxChars)
+                {
+                    var budget = readFileMaxChars - sb.Length;
+                    if (budget > 0)
+                        sb.AppendLine(line.Substring(0, Math.Min(line.Length, budget)));
+                    truncated = true;
+                    break;
+                }
+
+                sb.AppendLine(line);
+            }
+
+            if (truncated)
+            {
+                sb.AppendLine();
+                sb.AppendLine($"[内容已截断] 源文件大小 {fileInfo.Length / 1024}KB，本次仅返回前 {Math.Min(lineNo, readFileMaxLines)} 行（约 {readFileMaxChars / 1024}KB）。");
+                sb.AppendLine("如需检索特定内容请用 Grep 工具（按正则/关键字匹配，按行返回）；超大文件建议先建立 RAG 索引再提问。");
+            }
+
+            return ToolResult.Ok<string>(sb.ToString());
         }
         catch (FileNotFoundException ex)
         {

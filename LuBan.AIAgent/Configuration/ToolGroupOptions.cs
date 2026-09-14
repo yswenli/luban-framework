@@ -44,16 +44,6 @@ public class ToolGroupOptions
     public ScriptToolOptions Script { get; set; } = new();
 
     /// <summary>
-    /// 数据库工具配置
-    /// </summary>
-    public DatabaseToolOptions Database { get; set; } = new();
-
-    /// <summary>
-    /// Redis 工具配置
-    /// </summary>
-    public RedisToolOptions Redis { get; set; } = new();
-
-    /// <summary>
     /// Web 工具配置
     /// </summary>
     public WebToolOptions Web { get; set; } = new();

@@ -562,8 +562,6 @@ LuBan.AIAgent/
 │   ├── Browser/BrowserToolPlugin.cs   # 浏览器工具
 │   ├── FileSystem/FileSystemToolPlugin.cs  # 文件系统工具
 │   ├── Script/ScriptToolPlugin.cs     # 脚本执行工具
-│   ├── Database/DatabaseToolPlugin.cs # 数据库工具
-│   ├── Redis/RedisToolPlugin.cs       # Redis 工具
 │   ├── Web/WebToolPlugin.cs           # Web 工具
 │   ├── LocalMemory/LocalMemoryToolPlugin.cs  # 本地记忆工具
 │   ├── Retrieval/RetrievalToolPlugin.cs # 语义检索工具

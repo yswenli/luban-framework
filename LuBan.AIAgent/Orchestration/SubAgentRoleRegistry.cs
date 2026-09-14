@@ -54,7 +54,7 @@ public class SubAgentRoleRegistry
         {
             Name = "coder",
             SystemPromptTemplate = "You are a code implementation expert. Write clean, runnable code with proper error handling. Task: {prompt}",
-            DefaultToolGroups = new List<string> { "filesystem", "script", "database" }
+            DefaultToolGroups = new List<string> { "filesystem", "script" }
         });
 
         Register(new SubAgentRole
