@@ -101,6 +101,9 @@ public static class LuBanAgentExtensions
         // SubAgent 角色注册表
         services.AddSingleton<Orchestration.SubAgentRoleRegistry>();
 
+        // context-build 注入构造器：常规对话（SessionChatHistoryProvider）与编排分支（Orchestrator）共用
+        services.AddSingleton<Rules.ContextInjectBuilder>();
+
         // SubAgentFactory / DagScheduler / Orchestrator 依赖 Scoped 的 LuBanAgentFactory，必须 Scoped
         services.AddScoped<Orchestration.SubAgentFactory>();
         services.AddScoped<Orchestration.DagScheduler>();

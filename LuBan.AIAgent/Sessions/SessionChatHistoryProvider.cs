@@ -29,7 +29,7 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
     private readonly IChatClient _chatClient;
     private readonly int _targetCount;
     private readonly int _threshold;
-    private readonly RuleEngine? _ruleEngine;
+    private readonly ContextInjectBuilder _contextInjectBuilder;
     private string? _pendingRawUserInput;
 
     /// <summary>
@@ -52,7 +52,7 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
         _chatClient = chatClient;
         _targetCount = targetCount;
         _threshold = threshold;
-        _ruleEngine = ruleEngine;
+        _contextInjectBuilder = new ContextInjectBuilder(ruleEngine);
     }
 
     /// <summary>
@@ -77,30 +77,10 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
 
         // context-build 规则注入（如记忆召回），仅消费 Inject，忽略 Allow。
         // 必须先于空历史判断：新会话首轮无消息时也要能召回长期记忆。
-        var recallMessages = new List<ChatMessage>();
-        if (_ruleEngine != null)
-        {
-            var lastUserText = context.RequestMessages?.LastOrDefault(m => m.Role == ChatRole.User)?.Text;
-            if (!string.IsNullOrWhiteSpace(lastUserText))
-            {
-                try
-                {
-                    var eval = await _ruleEngine.EvaluateAsync(new RuleContext
-                    {
-                        ActionType = "context-build",
-                        UserInput = lastUserText
-                    });
-                    recallMessages = eval.Inject
-                        .Where(s => !string.IsNullOrWhiteSpace(s))
-                        .Select(s => new ChatMessage(ChatRole.System, s))
-                        .ToList();
-                }
-                catch (Exception ex)
-                {
-                    Logger.Error("context-build 规则评估失败", ex, sessionId);
-                }
-            }
-        }
+        var lastUserText = context.RequestMessages?.LastOrDefault(m => m.Role == ChatRole.User)?.Text;
+        var recallMessages = (await _contextInjectBuilder.BuildAsync(lastUserText))
+            .Select(s => new ChatMessage(ChatRole.System, s))
+            .ToList();
 
         // 无历史消息：仍返回召回内容
         if (active.Count == 0)

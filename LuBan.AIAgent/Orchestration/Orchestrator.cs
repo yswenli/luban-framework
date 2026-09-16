@@ -29,6 +29,7 @@ public class Orchestrator : IOrchestrator
     private readonly DagScheduler _scheduler;
     private readonly ContextStore _contextStore;
     private readonly IOptions<LuBanAgentOptions> _options;
+    private readonly ContextInjectBuilder _contextInjectBuilder;
 
     /// <summary>
     /// 创建 Orchestrator 实例。
@@ -37,16 +38,19 @@ public class Orchestrator : IOrchestrator
     /// <param name="scheduler">DAG 调度器。</param>
     /// <param name="contextStore">跨节点上下文存储。</param>
     /// <param name="options">配置选项。</param>
+    /// <param name="contextInjectBuilder">context-build 注入构造器（记忆召回等），可为 null。</param>
     public Orchestrator(
         ITaskPlanner planner,
         DagScheduler scheduler,
         ContextStore contextStore,
-        IOptions<LuBanAgentOptions> options)
+        IOptions<LuBanAgentOptions> options,
+        ContextInjectBuilder? contextInjectBuilder = null)
     {
         _planner = planner;
         _scheduler = scheduler;
         _contextStore = contextStore;
         _options = options;
+        _contextInjectBuilder = contextInjectBuilder ?? new ContextInjectBuilder();
     }
 
     /// <inheritdoc/>
@@ -98,6 +102,10 @@ public class Orchestrator : IOrchestrator
     {
         var orchestrationOpts = _options.Value.Orchestration ?? new();
         var maxReplan = orchestrationOpts.MaxReplanAttempts;
+
+        // 编排分支不经过 SessionChatHistoryProvider，需在此显式执行 context-build 规则
+        // （长期记忆召回等）并注入到图谱，再由调度器透传给每个子代理，否则子代理零记忆。
+        graph.SharedContext ??= await _contextInjectBuilder.BuildTextAsync(originalTask);
 
         var attempt = 0;
         OrchestrationResult? lastResult = null;
@@ -316,7 +324,8 @@ public class Orchestrator : IOrchestrator
         {
             GraphId = originalGraph.GraphId,
             OriginalTask = originalGraph.OriginalTask,
-            Source = "replan"
+            Source = "replan",
+            SharedContext = originalGraph.SharedContext
         };
 
         var prefix = $"fix_{attempt}_";

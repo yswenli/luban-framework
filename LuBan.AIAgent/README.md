@@ -431,7 +431,9 @@ services.AddSingleton<IRule, MyRule>();
       "ExposeAsTool": false,
       "HeuristicFilter": {
         "Enabled": true,
-        "MaxLength": 20,
+        "MinLength": 8,
+        "MaxLength": 200,
+        "RequireKeyword": true,
         "Keywords": [ "和", "同时", "然后", "并且", "另外", "还有", "分析并", "搜索并" ]
       }
     }
@@ -457,7 +459,7 @@ services.AddSingleton<IRule, MyRule>();
 
 #### 启发式预过滤
 
-`Orchestration:HeuristicFilter`（Enabled / MaxLength / Keywords）：短输入且无复合关键词时跳过 planner，节省一次 LLM 调用。
+`Orchestration:HeuristicFilter`（Enabled / MinLength / MaxLength / RequireKeyword / Keywords）：仅当输入长度落在 `[MinLength, MaxLength]` 且命中关键词时才进入 planner；空白、过短、超长或未命中关键词均跳过 planner，直接走主 Agent 对话（保留记忆召回），节省一次 LLM 调用并避免普通长问题被误判为复合任务。
 
 **动态重规划**：当关键节点失败导致整体状态为 `failed` 时，编排器自动触发反思阶段：
 1. **反思**：LLM 分析失败节点及其直接依赖的输出，判断是否可修复

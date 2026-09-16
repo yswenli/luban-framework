@@ -61,6 +61,13 @@ public class SubAgentSpec
     public string? WorkspaceRoot { get; set; }
 
     /// <summary>
+    /// 获取或设置跨节点共享上下文（如长期记忆召回、规则注入文本）。
+    /// 由调度器从 <see cref="TaskGraph.SharedContext"/> 透传，子代理工厂会将其追加到系统提示词。
+    /// null 表示无共享上下文。
+    /// </summary>
+    public string? SharedContext { get; set; }
+
+    /// <summary>
     /// 获取或设置运行时填充的 SessionId。
     /// </summary>
     public string? SessionId { get; set; }

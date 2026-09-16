@@ -47,7 +47,7 @@ public class AutoOrchestrationMiddleware
 
         if (opts.HeuristicFilter.ShouldSkipPlanning(input))
         {
-            Logger.Debug($"[OrchDiag] skip: heuristic filter (len={input.Length} max={opts.HeuristicFilter.MaxLength})");
+            Logger.Debug($"[OrchDiag] skip: heuristic filter (len={input.Trim().Length} range=[{opts.HeuristicFilter.MinLength},{opts.HeuristicFilter.MaxLength}] requireKeyword={opts.HeuristicFilter.RequireKeyword})");
             return false;
         }
 

@@ -429,7 +429,9 @@ Specify assembly names via `ExternalPlugins` configuration — the framework aut
       "ExposeAsTool": false,
       "HeuristicFilter": {
         "Enabled": true,
-        "MaxLength": 20,
+        "MinLength": 8,
+        "MaxLength": 200,
+        "RequireKeyword": true,
         "Keywords": [ "和", "同时", "然后", "并且", "另外", "还有", "分析并", "搜索并" ]
       }
     }
@@ -455,7 +457,7 @@ When an `IProviderRouter` is registered, `TaskNode.ModelName` (format `provider:
 
 #### Heuristic Pre-Filter
 
-`Orchestration:HeuristicFilter` (Enabled / MaxLength / Keywords): short inputs without composite keywords skip the planner, saving one LLM call.
+`Orchestration:HeuristicFilter` (Enabled / MinLength / MaxLength / RequireKeyword / Keywords): the planner is only invoked when the input length falls within `[MinLength, MaxLength]` and a keyword matches. Blank, too-short, too-long, or keyword-less inputs skip the planner and go straight to the main agent conversation (keeping memory recall), saving one LLM call and preventing ordinary long questions from being misclassified as composite tasks.
 
 **Dynamic Replanning**: When critical node failures cause overall status `failed`, the orchestrator automatically triggers reflection:
 1. **Reflect**: LLM analyzes failed nodes and their direct dependencies' outputs to determine if fixable

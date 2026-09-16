@@ -152,7 +152,8 @@ public class DagScheduler
                 ToolGroups = node.ToolGroups,
                 ModelName = node.ModelName,
                 ParentSessionId = graph.GraphId,
-                WorkspaceRoot = _options.Value.WorkspaceRoot
+                WorkspaceRoot = _options.Value.WorkspaceRoot,
+                SharedContext = graph.SharedContext
             };
 
             Logger.Debug($"[OrchDiag] node exec: id={node.Id} node.role={(node.Role ?? "null")} spec.role={(spec.Role ?? "null")} node.tools={(node.ToolGroups == null ? "null" : $"[{string.Join(",", node.ToolGroups)}]")} promptLen={resolvedPrompt.Length}");

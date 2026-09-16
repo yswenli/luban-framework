@@ -53,13 +53,13 @@ public class Message
     /// <summary>
     /// 邮件信息
     /// </summary>
-    public Message()
+        public Message()
     {
         Header = new Header()
         {
-            To = new List<UserAddress>(),
-            Bcc = new List<UserAddress>(),
-            Cc = new List<UserAddress>()
+            To = [],
+            Bcc = [],
+            Cc = []
         };
     }
 
@@ -73,16 +73,16 @@ public class Message
     /// <param name="body"></param>
     /// <param name="isHtml"></param>
     /// <param name="attachments"></param>
-    public Message(List<(string, string)> to,
+        public Message(List<(string, string)> to,
             List<(string, string)>? cc,
             List<(string, string)>? bcc,
             string subject, string body, bool isHtml = false, List<Attachment>? attachments = null)
     {
         Header = new Header()
         {
-            To = new List<UserAddress>(),
-            Bcc = new List<UserAddress>(),
-            Cc = new List<UserAddress>(),
+            To = [],
+            Bcc = [],
+            Cc = [],
             Subject = subject
         };
         Header.To.AddRange(to.Select(x => new UserAddress() { Name = x.Item1, Address = x.Item2 }));
@@ -113,12 +113,12 @@ public class Message
     {
         Header = new Header()
         {
-            To = new List<UserAddress>(),
-            Bcc = new List<UserAddress>(),
-            Cc = new List<UserAddress>(),
+            To = to,
+            Bcc = [],
+            Cc = [],
             Subject = subject
         };
-        Header.To = to;
+
         if (cc != null && cc.Count > 0)
         {
             Header.Cc = cc;
@@ -127,6 +127,10 @@ public class Message
         {
             Header.Bcc = bcc;
         }
+
+        Body = body;
+        IsHtml = isHtml;
+        Attachments = attachments;
     }
 
     /// <summary>
@@ -141,13 +145,14 @@ public class Message
         string subject,
         string body,
         bool isHtml = false,
-        List<Attachment>? attachments = null) : this(new List<(string, string)>() { (to, to) },
-            null,
-            null,
-            subject,
-            body,
-            isHtml,
-            attachments)
+        List<Attachment>? attachments = null) 
+        : this([(to, to)],
+               null,
+               null,
+               subject,
+               body,
+               isHtml,
+               attachments)
     {
 
     }
@@ -161,7 +166,7 @@ public class Message
     /// <returns></returns>
     public static Message FromInput(MsgInput input, List<Attachment>? attachments)
     {
-        var msg = new Message(new List<(string, string)>() { (input.ToName, input.To) }, null, null, input.Subject, input.Body, input.IsHtml, attachments);
+        var msg = new Message([(input.ToName, input.To)], null, null, input.Subject, input.Body, input.IsHtml, attachments);
         return msg;
     }
 

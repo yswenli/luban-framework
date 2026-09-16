@@ -24,6 +24,8 @@
 
 namespace LuBan.Common;
 
+using System.Diagnostics.CodeAnalysis;
+
 /// <summary>
 /// 序列化
 /// </summary>
@@ -163,11 +165,9 @@ public static class SerializeUtil
     /// </summary>
     /// <typeparam name="T"></typeparam>
     /// <param name="json"></param>
-    /// <param name="defalutVal"></param>
-    /// <param name="nullValue"></param>
     /// <returns></returns>
     [RequiresUnreferencedCode("json反序列化")]
-    public static T? Deserialize<T>(string json, bool defalutVal = true, bool nullValue = false)
+    public static T? Deserialize<T>(string json)
     {
         if (json.IsNullOrEmpty()) return default;
         try
@@ -187,16 +187,21 @@ public static class SerializeUtil
     /// </summary>
     /// <param name="json"></param>
     /// <param name="type"></param>
-    /// <param name="defalutVal"></param>
-    /// <param name="nullValue"></param>
     /// <returns></returns>
     [RequiresUnreferencedCode("json反序列化")]
-    public static object? Deserialize(string json, Type type, bool defalutVal = true, bool nullValue = false)
+    public static object? Deserialize(string json, Type type)
     {
         if (json.IsNullOrEmpty()) return null;
         try
         {
-            return JsonSerializer.Deserialize(json, type, ReadOptions);
+            var method = typeof(JsonSerializer)
+                .GetMethod("Deserialize", [typeof(string), typeof(JsonSerializerOptions)]);
+            if (method != null && method.IsGenericMethodDefinition)
+            {
+                var gen = method.MakeGenericMethod(type);
+                return gen.Invoke(null, [json, ReadOptions]);
+            }
+            return JsonSerializer.Deserialize(json, type, ReadOptions); // 回退
         }
         catch
         {
@@ -208,16 +213,14 @@ public static class SerializeUtil
     /// json反序列化
     /// </summary>
     /// <param name="json"></param>
-    /// <param name="defalutVal"></param>
-    /// <param name="nullValue"></param>
     /// <returns></returns>
     [RequiresUnreferencedCode("json反序列化")]
-    public static object? Deserialize(string json, bool defalutVal = true, bool nullValue = false)
+    public static object? Deserialize(string json)
     {
         if (json.IsNullOrEmpty()) return null;
         try
         {
-            return JsonSerializer.Deserialize(json, typeof(object), ReadOptions);
+            return JsonSerializer.Deserialize<object>(json, ReadOptions);
         }
         catch
         {
@@ -230,11 +233,9 @@ public static class SerializeUtil
     /// </summary>
     /// <typeparam name="T"></typeparam>
     /// <param name="val"></param>
-    /// <param name="defalutVal"></param>
-    /// <param name="nullValue"></param>
     /// <returns></returns>
     [RequiresUnreferencedCode("通过json序列化和反序列化方式转换模型")]
-    public static T? Convert<T>(dynamic val, bool defalutVal = true, bool nullValue = false)
+    public static T? Convert<T>(dynamic val)
     {
         try
         {
@@ -276,7 +277,7 @@ public static class SerializeUtil
         var json = Serialize(obj);
         if (!string.IsNullOrEmpty(json))
             return Deserialize<T>(json);
-        return default(T);
+        return default;
     }
 
     /// <summary>
@@ -304,13 +305,11 @@ public static class SerializeUtil
     /// </summary>
     /// <typeparam name="T"></typeparam>
     /// <param name="json"></param>
-    /// <param name="defalutVal"></param>
-    /// <param name="nullValue"></param>
     /// <returns></returns>
     [RequiresUnreferencedCode("转换为对象")]
-    public static T? ToObject<T>(this string json, bool defalutVal = true, bool nullValue = false)
+    public static T? ToObject<T>(this string json)
     {
-        return Deserialize<T>(json, defalutVal, nullValue);
+        return Deserialize<T>(json);
     }
 
 
@@ -330,7 +329,7 @@ public static class SerializeUtil
     /// <returns></returns>
     public delegate object TypeDeserializeHandler(string data);
 
-    private static ConcurrentDictionary<Type, KeyValuePair<TypeSerializeHandler, TypeDeserializeHandler>> handlers = new ConcurrentDictionary<Type, KeyValuePair<TypeSerializeHandler, TypeDeserializeHandler>>();
+    private static readonly ConcurrentDictionary<Type, KeyValuePair<TypeSerializeHandler, TypeDeserializeHandler>> handlers = new();
 
     /// <summary>
     /// Deserializes the specified return type.
@@ -346,9 +345,9 @@ public static class SerializeUtil
             return null;
         }
 
-        if (handlers.ContainsKey(returnType))
+        if (handlers.TryGetValue(returnType, out KeyValuePair<TypeSerializeHandler, TypeDeserializeHandler> value))
         {
-            return handlers[returnType].Value(data);
+            return value.Value(data);
         }
         else
         {
@@ -383,13 +382,11 @@ public static class SerializeUtil
         {
             serializer = new XmlSerializer(typeof(T));
         }
-        using (var reader = new StringReader(xml))
-        {
-            var obj = serializer.Deserialize(reader);
-            if (obj is T t)
-                return t;
-            return default;
-        }
+        using var reader = new StringReader(xml);
+        var obj = serializer.Deserialize(reader);
+        if (obj is T t)
+            return t;
+        return default;
     }
 
     /// <summary>
@@ -414,7 +411,7 @@ public static class SerializeUtil
         {
             StringBuilder sb = new();
             StringWriter sw = new(sb);
-            XmlSerializer serializer = new XmlSerializer(obj.GetType());
+            XmlSerializer serializer = new(obj.GetType());
             serializer.Serialize(sw, obj);
             sw.Close();
             return sb.ToString();

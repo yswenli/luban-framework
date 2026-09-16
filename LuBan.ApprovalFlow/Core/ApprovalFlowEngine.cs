@@ -30,26 +30,17 @@ namespace LuBan.ApprovalFlow.Core;
 /// 审批流程引擎：提供流程启动、审批处理、网关路由等核心功能。
 /// 作为审批流程的主入口，协调各组件完成流程的完整生命周期管理。
 /// </summary>
-public class ApprovalFlowEngine
+/// <remarks>
+/// 初始化审批流程引擎实例。
+/// </remarks>
+/// <param name="builder">流程构建器，用于创建流程执行器。</param>
+public class ApprovalFlowEngine(FlowBuilder builder)
 {
-    private readonly FlowBuilder _builder;
-    private readonly FlowEventListenerManager _listenerManager;
-    private readonly AggregationEvaluator _aggregationEvaluator;
-    private readonly RuleEngine _ruleEngine;
-    private readonly HttpCallbackExecutor _httpExecutor;
-
-    /// <summary>
-    /// 初始化审批流程引擎实例。
-    /// </summary>
-    /// <param name="builder">流程构建器，用于创建流程执行器。</param>
-    public ApprovalFlowEngine(FlowBuilder builder)
-    {
-        _builder = builder;
-        _listenerManager = FlowEventListenerManager.Instance;
-        _aggregationEvaluator = new AggregationEvaluator();
-        _ruleEngine = new RuleEngine();
-        _httpExecutor = new HttpCallbackExecutor();
-    }
+    private readonly FlowBuilder _builder = builder;
+    private readonly FlowEventListenerManager _listenerManager = FlowEventListenerManager.Instance;
+    private readonly AggregationEvaluator _aggregationEvaluator = new();
+    private readonly RuleEngine _ruleEngine = new();
+    private readonly HttpCallbackExecutor _httpExecutor = new();
 
     /// <summary>
     /// 启动一个新的审批流程实例。
@@ -71,9 +62,9 @@ public class ApprovalFlowEngine
         {
             Status = ConstApprovalFlowStatus.Processing,
             CurrentNodeKey = FindStartNode(definition)?.Id,
-            Variables = request.Variables ?? new Dictionary<string, object>(),
-            Context = new Dictionary<string, object>(),
-            History = new List<FlowStepResult>()
+            Variables = request.Variables ?? [],
+            Context = [],
+            History = []
         };
 
         // 保存表单数据到上下文
@@ -136,7 +127,7 @@ public class ApprovalFlowEngine
         var currentNode = definition.Nodes.FirstOrDefault(n => n.Id == newState.CurrentNodeKey);
         if (currentNode != null && currentNode.Type == ConstNodeType.UserNode)
         {
-            var assignees = GetAssignees(currentNode, newState);
+            var assignees = GetAssignees(currentNode);
             foreach (var assignee in assignees)
             {
                 pendingTasks.Add(new PendingTaskInfo
@@ -176,8 +167,7 @@ public class ApprovalFlowEngine
     public async Task<ApprovalResponse> ApprovalAsync(
         ApprovalRequest request,
         GraphFlowDefinition definition,
-        FlowRuntimeState state,
-        IApprovalRepository? repository = null)
+        FlowRuntimeState state)
     {
         var executor = _builder.Bind(definition);
 
@@ -322,17 +312,14 @@ public class ApprovalFlowEngine
     /// </summary>
     /// <param name="definition">流程定义。</param>
     /// <returns>开始节点，未找到则返回null。</returns>
-    private GraphNode? FindStartNode(GraphFlowDefinition definition)
-    {
-        return definition.Nodes.FirstOrDefault(n => n.Type == ConstNodeType.StartNode);
-    }
+    private static GraphNode? FindStartNode(GraphFlowDefinition definition) => definition.Nodes.FirstOrDefault(n => n.Type == ConstNodeType.StartNode);
 
     /// <summary>
     /// 判断节点是否为会签节点。
     /// </summary>
     /// <param name="node">图节点。</param>
     /// <returns>是会签节点返回true，否则返回false。</returns>
-    private bool IsCountersignNode(GraphNode node)
+    private static bool IsCountersignNode(GraphNode node)
     {
         if (node.Properties == null) return false;
         return node.Properties.TryGetValue("multiApproval", out var multi) && multi is bool m && m;
@@ -351,7 +338,7 @@ public class ApprovalFlowEngine
         string action)
     {
         // 获取会签配置
-        var props = node.Properties ?? new Dictionary<string, object>();
+        var props = node.Properties ?? [];
         var aggregationType = props.TryGetValue("aggregationType", out var at) ? at as string : ConstAggregationType.AllApprove;
         var approvePercentage = props.TryGetValue("approvePercentage", out var ap) ? ap as int? : 60;
 
@@ -370,7 +357,7 @@ public class ApprovalFlowEngine
         // totalCount 为 0 时，从节点审批人列表推导
         if (totalCount <= 0)
         {
-            var assignees = GetAssignees(node, state);
+            var assignees = GetAssignees(node);
             totalCount = assignees?.Count ?? 0;
         }
 
@@ -412,7 +399,7 @@ public class ApprovalFlowEngine
         long recordId)
     {
         // 获取网关规则配置
-        var props = gatewayNode.Properties ?? new Dictionary<string, object>();
+        var props = gatewayNode.Properties ?? [];
         var rules = props.TryGetValue("rules", out var r) ? r as List<GatewayRule> : null;
         var defaultEdgeId = props.TryGetValue("defaultEdgeId", out var de) ? de as string : null;
 
@@ -420,10 +407,7 @@ public class ApprovalFlowEngine
         var result = _ruleEngine.Evaluate(rules, state.Context, defaultEdgeId);
 
         // 保存网关结果到上下文
-        if (state.Context != null)
-        {
-            state.Context["gatewayResult"] = result.EdgeText ?? "default";
-        }
+        state.Context?["gatewayResult"] = result.EdgeText ?? "default";
 
         // 触发节点进入事件
         var enterArgs = new NodeEnterEventArgs(
@@ -462,7 +446,7 @@ public class ApprovalFlowEngine
         long recordId)
     {
         // 获取HTTP回调配置
-        var props = httpNode.Properties ?? new Dictionary<string, object>();
+        var props = httpNode.Properties ?? [];
         var callback = props.TryGetValue("callback", out var cb) ? cb as HttpCallbackConfig : null;
 
         if (callback != null)
@@ -494,7 +478,7 @@ public class ApprovalFlowEngine
             if (successCondition != null && response != null)
             {
                 // 合并响应变量到上下文
-                var mergedVars = new Dictionary<string, object>(state.Context ?? new Dictionary<string, object>());
+                var mergedVars = new Dictionary<string, object>(state.Context ?? []);
                 foreach (var kvp in response)
                 {
                     mergedVars[$"response.{kvp.Key}"] = kvp.Value;
@@ -510,10 +494,7 @@ public class ApprovalFlowEngine
             }
 
             // 保存成功状态到上下文
-            if (state.Context != null)
-            {
-                state.Context["httpSuccess"] = isSuccess;
-            }
+            state.Context?["httpSuccess"] = isSuccess;
         }
 
         // 触发节点进入事件
@@ -583,7 +564,7 @@ public class ApprovalFlowEngine
         FlowRuntimeState state,
         long recordId)
     {
-        var events = definition.Events ?? new Dictionary<string, object>();
+        var events = definition.Events ?? [];
         if (events.TryGetValue(eventKey, out var callbackObj) && callbackObj is HttpCallbackConfig callback)
         {
             var context = new FlowExecutionContext
@@ -675,9 +656,8 @@ private async Task ExecuteNodeCallbackAsync(
     /// 获取节点的审批人列表。
     /// </summary>
     /// <param name="node">图节点。</param>
-    /// <param name="state">流程运行时状态。</param>
     /// <returns>审批人信息列表。</returns>
-    private List<AssigneeInfo> GetAssignees(GraphNode node, FlowRuntimeState state)
+    private static List<AssigneeInfo> GetAssignees(GraphNode node)
     {
         var result = new List<AssigneeInfo>();
 
@@ -707,7 +687,7 @@ private async Task ExecuteNodeCallbackAsync(
     /// </summary>
     /// <param name="action">操作类型。</param>
     /// <returns>节点状态字符串。</returns>
-    private string MapActionToStatus(string action)
+    private static string MapActionToStatus(string action)
     {
         return action switch
         {
@@ -724,7 +704,7 @@ private async Task ExecuteNodeCallbackAsync(
     /// </summary>
     /// <param name="result">聚合结果。</param>
     /// <returns>操作类型字符串。</returns>
-    private string MapAggregationToAction(AggregationResult result)
+    private static string MapAggregationToAction(AggregationResult result)
     {
         return result.Value switch
         {

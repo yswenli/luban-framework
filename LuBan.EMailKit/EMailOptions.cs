@@ -64,5 +64,5 @@ public class EMailOptions
     /// <summary>
     /// 邮件客户端配置列表
     /// </summary>
-    public List<EMailClientConfig> EMailClientConfigs { get; set; } = new List<EMailClientConfig>();
+    public List<EMailClientConfig> EMailClientConfigs { get; set; } = [];
 }

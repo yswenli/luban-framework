@@ -42,6 +42,13 @@ public class TaskGraph
     public string Source { get; set; } = "llm";
 
     /// <summary>
+    /// 获取或设置跨节点共享上下文（如长期记忆召回、规则注入文本）。
+    /// 由编排入口在规划完成后填充，调度时注入每个子代理的系统提示词，
+    /// 使子代理具备与主对话一致的工作区记忆上下文。
+    /// </summary>
+    public string? SharedContext { get; set; }
+
+    /// <summary>
     /// 获取或设置创建时间（UTC）。
     /// </summary>
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

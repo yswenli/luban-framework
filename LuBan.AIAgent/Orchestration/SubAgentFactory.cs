@@ -75,7 +75,8 @@ public class SubAgentFactory
                 resolvedToolGroups = spec.ToolGroups ?? role.DefaultToolGroups;
                 // 角色模板只描述角色职责，工作区上下文必须由 BuildSubAgentSystemPrompt 统一追加
                 systemPrompt = $"你是任务图谱中的子执行单元，角色为「{role.Name}」，负责完成「{spec.NodeId}」节点的任务。\n{role.SystemPromptTemplate.Replace("{prompt}", spec.Prompt)}"
-                    + BuildWorkspaceContext(spec);
+                    + BuildWorkspaceContext(spec)
+                    + BuildSharedContext(spec);
             }
             else
             {
@@ -119,7 +120,8 @@ public class SubAgentFactory
     private static string BuildSubAgentSystemPrompt(SubAgentSpec spec)
         => $"你是任务图谱中的子执行单元，负责完成「{spec.NodeId}」节点的任务。" +
            "请专注于当前任务，使用可用工具完成任务后给出简洁结果。"
-           + BuildWorkspaceContext(spec);
+           + BuildWorkspaceContext(spec)
+           + BuildSharedContext(spec);
 
     /// <summary>
     /// 构建工作区路径上下文。子代理不会继承父 Agent 的系统提示词，
@@ -141,4 +143,16 @@ public class SubAgentFactory
                $"\n- 示例: Grep(rootPath=\"{workspaceRoot}\", pattern=\"关键字\")" +
                "\n- 示例: ListDirectory(path=\".\")";
     }
+
+    /// <summary>
+    /// 构建跨节点共享上下文片段（长期记忆召回、规则注入等）。
+    /// 子代理不继承父 Agent 的会话历史与规则注入，需由编排入口显式传入，
+    /// 否则子代理会丢失工作区长期记忆，表现为"有记忆却用不上"。
+    /// </summary>
+    /// <param name="spec">SubAgent 规格。</param>
+    /// <returns>共享上下文片段；无内容时返回空串。</returns>
+    private static string BuildSharedContext(SubAgentSpec spec)
+        => string.IsNullOrWhiteSpace(spec.SharedContext)
+            ? string.Empty
+            : "\n\n以下是当前工作区的长期记忆与规则上下文，回答时请优先参考：\n" + spec.SharedContext;
 }
