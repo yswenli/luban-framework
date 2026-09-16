@@ -119,12 +119,13 @@ public class LuBanAgentFactory : ILuBanAgentFactory, IScoped
         IEnumerable<string>? toolGroups,
         string systemPrompt,
         ToolGroupOptions? toolsOptions = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? timingTag = null)
     {
         var opts = _options.Value;
         var tools = BuildTools(toolGroups, toolsOptions);
 
-        var functionClient = BuildFunctionClient(tools, opts, modelName);
+        var functionClient = BuildFunctionClient(tools, opts, modelName, timingTag);
 
         var agent = new ChatClientAgent(
             functionClient,
@@ -175,9 +176,13 @@ public class LuBanAgentFactory : ILuBanAgentFactory, IScoped
     /// <param name="opts">配置选项。</param>
     /// <param name="modelName">模型名称（格式 "provider:model"），null 表示默认模型。</param>
     /// <returns>FunctionInvokingChatClient 实例。</returns>
-    private FunctionInvokingChatClient BuildFunctionClient(List<AITool> tools, LuBanAgentOptions opts, string? modelName = null)
+    private FunctionInvokingChatClient BuildFunctionClient(List<AITool> tools, LuBanAgentOptions opts, string? modelName = null, string? timingTag = null)
     {
-        var sanitizedClient = new SanitizingChatClient(ResolveChatClient(modelName));
+        IChatClient sanitizedClient = new SanitizingChatClient(ResolveChatClient(modelName));
+        if (!string.IsNullOrEmpty(timingTag))
+        {
+            sanitizedClient = new TimingChatClient(sanitizedClient, timingTag);
+        }
         var loggerFactory = _serviceProvider.GetService<ILoggerFactory>();
         return new FunctionInvokingChatClient(sanitizedClient, loggerFactory, _serviceProvider)
         {

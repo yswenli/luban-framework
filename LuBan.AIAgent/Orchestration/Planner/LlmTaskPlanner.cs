@@ -98,6 +98,8 @@ public class LlmTaskPlanner : ITaskPlanner
                 if (string.IsNullOrWhiteSpace(json))
                     throw new TaskPlanningException("LLM 返回空内容");
 
+                Logger.Debug($"[OrchDiag] planner raw json (attempt={attempt + 1}): {json}");
+
                 var graph = json.ToObject<TaskGraph>();
 
                 if (graph == null || graph.Nodes.Count == 0)

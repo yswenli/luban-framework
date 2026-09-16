@@ -40,4 +40,9 @@ public class OrchestrationProgress
     /// 获取或设置关联的节点结果。
     /// </summary>
     public NodeResult? NodeResult { get; set; }
+
+    /// <summary>
+    /// 获取或设置节点内部活动明细（<see cref="ProgressEventType.NodeActivity"/> 时提供）。
+    /// </summary>
+    public NodeActivityItem? Activity { get; set; }
 }

@@ -40,12 +40,16 @@ public interface IOrchestrator
     Task<OrchestrationResult> RunAsync(TaskGraph graph, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// 流式执行，实时推送节点进度事件。
+    /// 执行预计算的任务图谱，并在执行过程中实时推送进度事件。
+    /// 默认实现忽略进度回调，保持既有实现者二进制兼容。
     /// </summary>
-    /// <param name="task">用户的复合任务描述。</param>
+    /// <param name="graph">预计算的任务图谱。</param>
+    /// <param name="onProgress">进度回调；实现需保证线程安全（同层节点并行上报）。</param>
     /// <param name="cancellationToken">取消令牌。</param>
-    /// <returns>进度事件流。</returns>
-    IAsyncEnumerable<OrchestrationProgress> RunStreamingAsync(
-        string task,
-        CancellationToken cancellationToken = default);
+    /// <returns>编排结果。</returns>
+    Task<OrchestrationResult> RunAsync(
+        TaskGraph graph,
+        Action<OrchestrationProgress>? onProgress,
+        CancellationToken cancellationToken = default)
+        => RunAsync(graph, cancellationToken);
 }

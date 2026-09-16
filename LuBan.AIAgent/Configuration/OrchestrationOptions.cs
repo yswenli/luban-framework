@@ -38,8 +38,11 @@ public class OrchestrationOptions
 
     /// <summary>
     /// 获取或设置 SubAgent 默认超时时间（秒）。
+    /// 该值是节点执行的<b>总墙钟上限</b>，需覆盖「多轮 LLM 调用 + 全部工具调用」的累计耗时；
+    /// 慢速模型（单轮可达数十秒）下 120 秒会在工具链跑完前误杀节点，故默认放宽到 300 秒。
+    /// 节点可通过 <see cref="Orchestration.Models.TaskNode.TimeoutSeconds"/> 单独覆盖。
     /// </summary>
-    public int DefaultNodeTimeoutSeconds { get; set; } = 120;
+    public int DefaultNodeTimeoutSeconds { get; set; } = 300;
 
     /// <summary>
     /// 获取或设置同层最大并行度。0 表示不限制。
@@ -73,11 +76,18 @@ public class OrchestrationOptions
 
     /// <summary>
     /// 获取或设置反思阶段 LLM 调用的超时时间（秒）。
+    /// 反思是单次 LLM 调用，慢速模型下单次即可耗时数十秒，60 秒几乎无余量，故默认放宽到 180 秒。
     /// </summary>
-    public int ReflectionTimeoutSeconds { get; set; } = 60;
+    public int ReflectionTimeoutSeconds { get; set; } = 180;
 
     /// <summary>
     /// 获取或设置启发式预过滤配置。
     /// </summary>
     public HeuristicFilterOptions HeuristicFilter { get; set; } = new();
+
+    /// <summary>
+    /// 获取或设置节点既未指定 Role、也未显式指定 ToolGroups 时使用的兜底工具组。
+    /// 空列表表示不挂载任何工具（子 Agent 仅凭模型自身知识作答）。
+    /// </summary>
+    public List<string> DefaultToolGroups { get; set; } = new();
 }

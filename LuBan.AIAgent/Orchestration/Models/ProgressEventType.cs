@@ -47,12 +47,17 @@ public enum ProgressEventType
     NodeFailed,
 
     /// <summary>
-    /// 层级执行完成。
+    /// 节点因关键前驱失败被跳过（未实际执行）。
     /// </summary>
-    LayerCompleted,
+    NodeSkipped,
 
     /// <summary>
-    /// 编排完成。
+    /// 反思/重规划开始。
     /// </summary>
-    OrchestratingCompleted
+    ReflectionStarted,
+
+    /// <summary>
+    /// 节点内部活动（思考/正文/工具调用/工具结果），随 <see cref="OrchestrationProgress.Activity"/> 附带明细。
+    /// </summary>
+    NodeActivity
 }

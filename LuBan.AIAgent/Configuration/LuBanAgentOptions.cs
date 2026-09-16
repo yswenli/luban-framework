@@ -79,6 +79,13 @@ public class LuBanAgentOptions
     public string? BaseBehavior { get; set; }
 
     /// <summary>
+    /// 当前工作区根目录（由宿主在初始化 Agent 时显式设置）。
+    /// 用于向子代理注入路径上下文，避免子代理因不知道工作区根目录而漏传
+    /// <c>rootPath</c>/<c>path</c> 等必填参数。null 表示未设置。
+    /// </summary>
+    public string? WorkspaceRoot { get; set; }
+
+    /// <summary>
     /// 工具调用确认策略配置（工具名分类集合，可在配置文件中覆盖以适配自定义工具）
     /// </summary>
     public ToolConfirmationOptions Confirmation { get; set; } = new();

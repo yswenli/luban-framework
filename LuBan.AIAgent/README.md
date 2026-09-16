@@ -226,6 +226,7 @@ category: custom
 | `ContextStore` | 跨节点上下文存储，按图谱 ID 隔离，线程安全 |
 | `TaskGraph` / `TaskNode` | DAG 数据模型，支持依赖声明、占位符引用、关键节点、角色指定 |
 | `OrchestrationToolPlugin` | 工具插件，将编排能力暴露给主 Agent 自动调用 |
+| `OrchestrationProgress` / `OrchestrationProgressContent` | 编排进度事件与流式内容载体（`AIContent`），供 UI 在规划/节点执行期间实时渲染 |
 | `ReflectionResult` / `ReplanContext` | 动态重规划数据模型，关键节点失败后 LLM 分析并生成修正图谱 |
 
 ## 使用指南
@@ -424,9 +425,9 @@ services.AddSingleton<IRule, MyRule>();
       "AutoDetect": true,
       "MaxNodes": 10,
       "MaxParallelism": 4,
-      "DefaultNodeTimeoutSeconds": 120,
+      "DefaultNodeTimeoutSeconds": 300,
       "MaxReplanAttempts": 3,
-      "ReflectionTimeoutSeconds": 60,
+      "ReflectionTimeoutSeconds": 180,
       "ExposeAsTool": false,
       "HeuristicFilter": {
         "Enabled": true,
@@ -460,7 +461,7 @@ services.AddSingleton<IRule, MyRule>();
 
 **动态重规划**：当关键节点失败导致整体状态为 `failed` 时，编排器自动触发反思阶段：
 1. **反思**：LLM 分析失败节点及其直接依赖的输出，判断是否可修复
-2. **重规划**：LLM 生成修正节点（`fix_{attempt}_` 前缀），复用已成功的节点
+2. **重规划**：LLM 生成修正节点（`fix_{attempt}_` 前缀）；指向已成功节点的依赖会被解析并内联为 prompt 文本，避免引用不在修正图谱中的节点
 3. **重试**：执行修正图谱，最多尝试 `MaxReplanAttempts` 次（默认 3）
 
 ```csharp
@@ -472,12 +473,19 @@ Console.WriteLine($"整体状态: {result.OverallStatus}");
 Console.WriteLine($"重规划次数: {result.ReplanningAttempts}");
 Console.WriteLine($"最终输出:\n{result.FinalOutput}");
 
-// 流式订阅进度事件
-await foreach (var progress in orchestrator.RunStreamingAsync("..."))
-{
-    Console.WriteLine($"{progress.EventType}: {progress.Message}");
-}
+// 带进度回调执行（不丢最终结果）：规划/节点级事件实时回调，返回值仍是完整编排结果
+var result2 = await orchestrator.RunAsync(
+    graph,
+    onProgress: p => Console.WriteLine($"{p.EventType}: {p.Message}"),
+    cancellationToken: default);
 ```
+
+`LuBanAgent.RunStreamingAsync` 命中自动编排时会把进度包装为 `OrchestrationProgressContent`
+（`EventType` / `NodeId` / `Message` / `NodeResult`）随流产出，最后再产出 `TextContent` 承载
+`OrchestrationResult.FinalOutput`，上层 UI 因此可在规划与节点执行期间逐条渲染进度。
+进度事件类型包含：`PlanningStarted`、`PlanningCompleted`、`NodeStarted`、`NodeCompleted`、
+`NodeFailed`、`NodeSkipped`（关键前驱失败导致后继被跳过，逐节点上报）、`ReflectionStarted`、
+`NodeActivity`（节点内部思考/工具调用明细）。
 
 **编排执行流程**：
 

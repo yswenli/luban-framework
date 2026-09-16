@@ -64,20 +64,22 @@ public class FileSystemToolPlugin : ILuBanToolPlugin
     {
         var confirmationService = sp.GetRequiredService<IToolConfirmationService>();
         var toolGroup = new FileSystemToolGroup(_pathGuard, confirmationService);
+        var options = sp.GetService<IOptions<LuBanAgentOptions>>();
+        Func<string?> workspaceRootProvider = () => options?.Value.WorkspaceRoot;
         return new List<AIFunction>
         {
-            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.ReadFileAsync)),
-            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.WriteFileAsync)),
-            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.ListDirectoryAsync)),
-            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.GetWorkspaceOverviewAsync)),
-            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.DeleteFileAsync)),
-            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.DeleteDirectoryAsync)),
-            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.SearchFilesAsync)),
-            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.GrepAsync)),
-            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.CreateDirectoryAsync)),
-            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.CopyFileAsync)),
-            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.MoveFileAsync)),
-            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.GetFileInfoAsync))
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.ReadFileAsync), workspaceRootProvider),
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.WriteFileAsync), workspaceRootProvider),
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.ListDirectoryAsync), workspaceRootProvider),
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.GetWorkspaceOverviewAsync), workspaceRootProvider),
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.DeleteFileAsync), workspaceRootProvider),
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.DeleteDirectoryAsync), workspaceRootProvider),
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.SearchFilesAsync), workspaceRootProvider),
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.GrepAsync), workspaceRootProvider),
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.CreateDirectoryAsync), workspaceRootProvider),
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.CopyFileAsync), workspaceRootProvider),
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.MoveFileAsync), workspaceRootProvider),
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.GetFileInfoAsync), workspaceRootProvider)
         };
     }
 

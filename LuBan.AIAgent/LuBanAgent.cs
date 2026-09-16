@@ -133,14 +133,67 @@ public class LuBanAgent
         string input,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        // 编排判定基于原始用户输入；命中编排则跳过 RAG 注入，直接产出编排结果并写 session
-        if (await TryOrchestrateAsync(input, cancellationToken) is { } orchestratedResponse)
+        // 编排分支：规划与执行均为长耗时非流式过程，先用 Channel 桥接进度回调，
+        // 把"规划中/节点开始/节点完成"等事件实时产出，最后再产出编排结果文本。
+        // 未命中编排（TryRunOrchestrationAsync 返回 null）时回落到常规对话路径。
+        if (_autoOrchestration != null && _autoOrchestration.ShouldAttemptPlanning(input))
         {
-            yield return new AgentResponseUpdate
+            var autoOrchestration = _autoOrchestration;
+
+            yield return ProgressUpdate(ProgressEventType.PlanningStarted, null, "正在规划任务…");
+
+            var channel = Channel.CreateUnbounded<OrchestrationProgress>(
+                new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
+            var writer = channel.Writer;
+            OrchestrationResult? orchestratedResult = null;
+
+            var runTask = Task.Run(async () =>
             {
-                Contents = [new TextContent(orchestratedResponse.Text ?? "编排节点已完成")]
-            };
-            yield break;
+                try
+                {
+                    orchestratedResult = await autoOrchestration.TryRunOrchestrationAsync(
+                        input, p => writer.TryWrite(p), cancellationToken);
+                }
+                finally
+                {
+                    writer.TryComplete();
+                }
+            }, CancellationToken.None);
+
+            try
+            {
+                await foreach (var progress in channel.Reader.ReadAllAsync(cancellationToken))
+                {
+                    yield return new AgentResponseUpdate
+                    {
+                        Contents = [OrchestrationProgressContent.From(progress)]
+                    };
+                }
+            }
+            finally
+            {
+                // 消费方提前中断（如上层 Esc 取消）时，仍要观测后台任务异常，避免未观察异常
+                _ = runTask.ContinueWith(t => { _ = t.Exception; }, TaskScheduler.Default);
+            }
+
+            await runTask.ConfigureAwait(false);
+
+            if (orchestratedResult is not null)
+            {
+                // 编排器已保证失败时有可读摘要，此处仅作空白防御，避免空串静默结束
+                var orchestratedOutput = string.IsNullOrWhiteSpace(orchestratedResult.FinalOutput)
+                    ? "编排未产出结果，请重试或把任务拆得更小。"
+                    : orchestratedResult.FinalOutput;
+
+                // 编排分支显式写入 session，保证多轮上下文连续（用户消息 + 编排结果）
+                await PersistTurnAsync(input, orchestratedOutput, cancellationToken);
+
+                yield return new AgentResponseUpdate
+                {
+                    Contents = [new TextContent(orchestratedOutput)]
+                };
+                yield break;
+            }
         }
 
         var session = await GetOrCreateSessionAsync(cancellationToken);
@@ -150,6 +203,15 @@ public class LuBanAgent
             yield return update;
         }
     }
+
+    /// <summary>
+    /// 构造仅承载编排进度的流式更新。
+    /// </summary>
+    private static AgentResponseUpdate ProgressUpdate(ProgressEventType eventType, string? nodeId, string? message)
+        => new()
+        {
+            Contents = [new OrchestrationProgressContent(eventType, nodeId, message)]
+        };
 
     /// <summary>
     /// 自动编排前哨：基于原始用户输入判定是否为复合任务并执行编排。
@@ -165,7 +227,9 @@ public class LuBanAgent
             return null;
 
         var result = await _autoOrchestration.RunAsync(input, cancellationToken);
-        var output = result.FinalOutput ?? "编排节点已完成";
+        var output = string.IsNullOrWhiteSpace(result.FinalOutput)
+            ? "编排未产出结果，请重试或把任务拆得更小。"
+            : result.FinalOutput;
 
         // 编排分支显式写入 session，保证多轮上下文连续（用户消息 + 编排结果）
         await PersistTurnAsync(input, output, cancellationToken);

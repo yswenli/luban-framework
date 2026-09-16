@@ -54,6 +54,13 @@ public class SubAgentSpec
     public string ParentSessionId { get; set; } = "";
 
     /// <summary>
+    /// 获取或设置工作区根目录（由编排器显式传入）。
+    /// 用于向子代理注入路径上下文，避免其漏传 <c>rootPath</c>/<c>path</c> 等必填参数。
+    /// null 表示未传入，此时子代理提示词回退到当前进程工作目录。
+    /// </summary>
+    public string? WorkspaceRoot { get; set; }
+
+    /// <summary>
     /// 获取或设置运行时填充的 SessionId。
     /// </summary>
     public string? SessionId { get; set; }

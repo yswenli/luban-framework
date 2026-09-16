@@ -21,7 +21,9 @@
 *描述：支持 Role 映射、toolGroups 过滤、null 校验
 *
 *****************************************************************************/
+using LuBan.AIAgent.Configuration;
 using LuBan.AIAgent.Orchestration.Models;
+using Microsoft.Extensions.Options;
 
 namespace LuBan.AIAgent.Orchestration;
 
@@ -35,16 +37,22 @@ public class SubAgentFactory
 {
     private readonly LuBanAgentFactory _innerFactory;
     private readonly SubAgentRoleRegistry _roleRegistry;
+    private readonly IOptions<LuBanAgentOptions> _options;
 
     /// <summary>
     /// 创建 SubAgentFactory 实例。
     /// </summary>
     /// <param name="innerFactory">内部 LuBanAgent 工厂。</param>
     /// <param name="roleRegistry">角色注册表。</param>
-    public SubAgentFactory(LuBanAgentFactory innerFactory, SubAgentRoleRegistry roleRegistry)
+    /// <param name="options">配置选项。</param>
+    public SubAgentFactory(
+        LuBanAgentFactory innerFactory,
+        SubAgentRoleRegistry roleRegistry,
+        IOptions<LuBanAgentOptions> options)
     {
         _innerFactory = innerFactory;
         _roleRegistry = roleRegistry;
+        _options = options;
     }
 
     /// <summary>
@@ -55,7 +63,7 @@ public class SubAgentFactory
     /// <returns>LuBanAgent 实例。</returns>
     public async Task<LuBanAgent> CreateAsync(SubAgentSpec spec, CancellationToken ct = default)
     {
-        // Resolve tool groups: explicit > role default
+        // Resolve tool groups: explicit > role default > configured fallback
         List<string>? resolvedToolGroups = spec.ToolGroups;
         string? systemPrompt = null;
 
@@ -65,7 +73,9 @@ public class SubAgentFactory
             if (role != null)
             {
                 resolvedToolGroups = spec.ToolGroups ?? role.DefaultToolGroups;
-                systemPrompt = $"你是任务图谱中的子执行单元，角色为「{role.Name}」，负责完成「{spec.NodeId}」节点的任务。\n{role.SystemPromptTemplate.Replace("{prompt}", spec.Prompt)}";
+                // 角色模板只描述角色职责，工作区上下文必须由 BuildSubAgentSystemPrompt 统一追加
+                systemPrompt = $"你是任务图谱中的子执行单元，角色为「{role.Name}」，负责完成「{spec.NodeId}」节点的任务。\n{role.SystemPromptTemplate.Replace("{prompt}", spec.Prompt)}"
+                    + BuildWorkspaceContext(spec);
             }
             else
             {
@@ -73,10 +83,13 @@ public class SubAgentFactory
             }
         }
 
-        // Validate: tool groups must be resolved (either explicit, role default, or fallback)
+        // 兜底：既无显式 ToolGroups、又无有效 Role 默认值时，使用配置的默认工具组，避免整图因单节点失败
         if (resolvedToolGroups == null)
         {
-            throw new ArgumentException("ToolGroups must be specified (either explicitly or via a valid Role)");
+            var fallback = _options.Value.Orchestration?.DefaultToolGroups;
+            resolvedToolGroups = fallback is { Count: > 0 } ? new List<string>(fallback) : new List<string>();
+            Logger.Warn($"节点 '{spec.NodeId}' 未指定 ToolGroups 且 Role='{spec.Role ?? "null"}' 未解析到默认工具组，" +
+                $"已回退到配置默认值 [{(resolvedToolGroups.Count == 0 ? "无工具" : string.Join(",", resolvedToolGroups))}]");
         }
 
         // Filter out orchestration to prevent recursion
@@ -91,7 +104,8 @@ public class SubAgentFactory
             modelName: spec.ModelName,
             toolGroups: resolvedToolGroups,
             systemPrompt: systemPrompt ?? BuildSubAgentSystemPrompt(spec),
-            cancellationToken: ct);
+            cancellationToken: ct,
+            timingTag: spec.NodeId);
 
         spec.SessionId = agent.Id;
         return agent;
@@ -104,5 +118,27 @@ public class SubAgentFactory
     /// <returns>系统提示词字符串。</returns>
     private static string BuildSubAgentSystemPrompt(SubAgentSpec spec)
         => $"你是任务图谱中的子执行单元，负责完成「{spec.NodeId}」节点的任务。" +
-           "请专注于当前任务，使用可用工具完成任务后给出简洁结果。";
+           "请专注于当前任务，使用可用工具完成任务后给出简洁结果。"
+           + BuildWorkspaceContext(spec);
+
+    /// <summary>
+    /// 构建工作区路径上下文。子代理不会继承父 Agent 的系统提示词，
+    /// 缺少该上下文时 LLM 会漏传 <c>rootPath</c>/<c>path</c> 等必填参数，
+    /// 导致 AIFunctionFactory 参数绑定抛 ArgumentException（表现为工具调用失败）。
+    /// </summary>
+    /// <param name="spec">SubAgent 规格。</param>
+    /// <returns>工作区路径上下文片段。</returns>
+    private static string BuildWorkspaceContext(SubAgentSpec spec)
+    {
+        var workspaceRoot = string.IsNullOrWhiteSpace(spec.WorkspaceRoot)
+            ? Environment.CurrentDirectory
+            : spec.WorkspaceRoot;
+
+        return $"\n\n当前工作区根目录: {workspaceRoot}" +
+               "\n路径使用说明：" +
+               $"\n- 调用文件系统工具时，rootPath 参数请使用工作区根目录的绝对路径 \"{workspaceRoot}\"，或使用 \".\"（已指向工作区根目录）" +
+               "\n- 任何情况下都不要省略 rootPath/path 参数；不确定时传 \".\"" +
+               $"\n- 示例: Grep(rootPath=\"{workspaceRoot}\", pattern=\"关键字\")" +
+               "\n- 示例: ListDirectory(path=\".\")";
+    }
 }

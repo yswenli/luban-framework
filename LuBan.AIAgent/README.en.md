@@ -423,9 +423,9 @@ Specify assembly names via `ExternalPlugins` configuration — the framework aut
       "AutoDetect": true,
       "MaxNodes": 10,
       "MaxParallelism": 4,
-      "DefaultNodeTimeoutSeconds": 120,
+      "DefaultNodeTimeoutSeconds": 300,
       "MaxReplanAttempts": 3,
-      "ReflectionTimeoutSeconds": 60,
+      "ReflectionTimeoutSeconds": 180,
       "ExposeAsTool": false,
       "HeuristicFilter": {
         "Enabled": true,
@@ -459,7 +459,7 @@ When an `IProviderRouter` is registered, `TaskNode.ModelName` (format `provider:
 
 **Dynamic Replanning**: When critical node failures cause overall status `failed`, the orchestrator automatically triggers reflection:
 1. **Reflect**: LLM analyzes failed nodes and their direct dependencies' outputs to determine if fixable
-2. **Replan**: LLM generates fix nodes (with `fix_{attempt}_` prefix), reusing succeeded nodes
+2. **Replan**: LLM generates fix nodes (with `fix_{attempt}_` prefix); dependencies pointing to already-succeeded nodes are resolved and inlined into the prompt text, so no reference is left to a node outside the fix graph
 3. **Retry**: Executes fix graph, up to `MaxReplanAttempts` times (default: 3)
 
 ```csharp
@@ -471,12 +471,21 @@ Console.WriteLine($"Overall status: {result.OverallStatus}");
 Console.WriteLine($"Replanning attempts: {result.ReplanningAttempts}");
 Console.WriteLine($"Final output:\n{result.FinalOutput}");
 
-// Subscribe to streaming progress events
-await foreach (var progress in orchestrator.RunStreamingAsync("..."))
-{
-    Console.WriteLine($"{progress.EventType}: {progress.Message}");
-}
+// Execute with a progress callback (keeps the final result): planning/node-level events
+// are reported in real time, while the return value remains the full orchestration result.
+var result2 = await orchestrator.RunAsync(
+    graph,
+    onProgress: p => Console.WriteLine($"{p.EventType}: {p.Message}"),
+    cancellationToken: default);
 ```
+
+When auto-orchestration is hit, `LuBanAgent.RunStreamingAsync` wraps progress into
+`OrchestrationProgressContent` (`EventType` / `NodeId` / `Message` / `NodeResult`) streamed as
+updates, followed by a final `TextContent` carrying `OrchestrationResult.FinalOutput`. Upper-layer
+UIs can therefore render progress line by line during planning and node execution.
+Progress event types include: `PlanningStarted`, `PlanningCompleted`, `NodeStarted`, `NodeCompleted`,
+`NodeFailed`, `NodeSkipped` (a node skipped because a critical predecessor failed, reported per node),
+`ReflectionStarted`, and `NodeActivity` (per-node thinking/tool-call details).
 
 **Orchestration Flow**:
 
