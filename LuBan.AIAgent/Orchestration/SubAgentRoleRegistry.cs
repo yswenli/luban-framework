@@ -116,15 +116,15 @@ public int LoadFromWorkspace(string workspaceRoot)
         var dir = Path.Combine(workspaceRoot, ".luban-agent", "roles");
         if (Directory.Exists(dir))
         {
-            var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
             foreach (var file in Directory.EnumerateFiles(dir, "*.json"))
             {
                 try
                 {
-                    var role = JsonSerializer.Deserialize<SubAgentRole>(File.ReadAllText(file), opts);
+                    // ToObject 内部吞掉解析异常并返回 default，因此 JSON 非法与缺 name 走同一分支
+                    var role = File.ReadAllText(file).ToObject<SubAgentRole>();
                     if (role == null || string.IsNullOrWhiteSpace(role.Name))
                     {
-                        Logger.Warn($"角色文件无效（缺少 name），已跳过: {file}");
+                        Logger.Warn($"角色文件无效（JSON 解析失败或缺少 name），已跳过: {file}");
                         continue;
                     }
                     if (_roles.ContainsKey(role.Name) || loaded.ContainsKey(role.Name))

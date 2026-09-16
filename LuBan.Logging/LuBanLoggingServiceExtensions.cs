@@ -23,7 +23,6 @@
 *****************************************************************************/
 
 using LuBan.Logging.Configuration;
-using LuBan.Logging.Serialization;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -64,10 +63,12 @@ public static class LuBanLoggingServiceExtensions
 
     /// <summary>
     /// 创建 LuBan STJ 序列化器委托，用于注入到 static Logger。
+    /// 复用 LuBan.Common 的 SerializeUtil，输出格式与原 LuBanJsonSerializer 完全一致：
+    /// 不缩进、camelCase、忽略默认值、保留 null。
     /// </summary>
     /// <returns>序列化委托。</returns>
     public static Func<object, string> CreateLuBanSerializer()
     {
-        return obj => LuBanJsonSerializer.Serialize(obj);
+        return obj => SerializeUtil.Serialize(obj, indented: false, defalutVal: false, nullValue: true, camelCase: true);
     }
 }

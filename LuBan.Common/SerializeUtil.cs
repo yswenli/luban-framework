@@ -29,6 +29,96 @@ namespace LuBan.Common;
 /// </summary>
 public static class SerializeUtil
 {
+    #region options 缓存
+
+    /// <summary>
+    /// 日期时间统一格式，读写共用，保证序列化往返无损
+    /// </summary>
+    private const string DateTimeFormat = "yyyy-MM-dd HH:mm:ss.fff";
+
+    /// <summary>
+    /// 写出 options 缓存，键为 indented/defalutVal/nullValue/camelCase 四个开关的位组合。
+    /// JsonSerializerOptions 首次使用后即冻结并持有元数据缓存，必须复用；
+    /// 每次新建会在 HttpClientProxy、Logger、LocalCacheUtil 等高频路径上反复重建缓存。
+    /// </summary>
+    private static readonly ConcurrentDictionary<int, JsonSerializerOptions> _writeOptionsCache = new();
+
+    /// <summary>
+    /// 模型转换 options 缓存，读写共用同一份，需同时具备大小写不敏感与完整转换器集合
+    /// </summary>
+    private static JsonSerializerOptions? _convertOptions;
+
+    /// <summary>
+    /// 读入 options 缓存
+    /// </summary>
+    private static JsonSerializerOptions? _readOptions;
+
+    /// <summary>
+    /// 按开关组合取出（必要时创建）写出 options
+    /// </summary>
+    private static JsonSerializerOptions GetWriteOptions(bool indented, bool defalutVal, bool nullValue, bool camelCase)
+    {
+        var key = (indented ? 1 : 0) | (defalutVal ? 2 : 0) | (nullValue ? 4 : 0) | (camelCase ? 8 : 0);
+        return _writeOptionsCache.GetOrAdd(key, static k =>
+        {
+            var options = new JsonSerializerOptions
+            {
+                WriteIndented = (k & 1) != 0,
+                PropertyNamingPolicy = (k & 8) != 0 ? JsonNamingPolicy.CamelCase : null,
+                DefaultIgnoreCondition = GetIgnoreCondition((k & 2) != 0, (k & 4) != 0),
+                Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+            };
+            AddConverters(options);
+            return options;
+        });
+    }
+
+    /// <summary>
+    /// 读入 options：属性名大小写不敏感 + 日期转换器。
+    /// 此处刻意不注册 Exception/Assembly/MemberInfo 转换器——它们的 Read 实现不还原对象
+    /// （ExceptionJsonConverter.Read 恒返回 null），注册进读入链路会改变反序列化语义。
+    /// </summary>
+    private static JsonSerializerOptions ReadOptions => _readOptions ??= new JsonSerializerOptions
+    {
+        PropertyNameCaseInsensitive = true,
+        Converters = { new DateTimeJsonConverter(DateTimeFormat) }
+    };
+
+    /// <summary>
+    /// 模型转换 options：先序列化再反序列化，读写共用，需完整转换器集合
+    /// </summary>
+    private static JsonSerializerOptions ConvertOptions => _convertOptions ??= CreateConvertOptions();
+
+    private static JsonSerializerOptions CreateConvertOptions()
+    {
+        var options = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true,
+            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+        };
+        AddConverters(options);
+        return options;
+    }
+
+    /// <summary>
+    /// 注册框架自定义转换器集合
+    /// </summary>
+    private static void AddConverters(JsonSerializerOptions options)
+    {
+        options.Converters.Add(new DateTimeJsonConverter(DateTimeFormat));
+        options.Converters.Add(new ExceptionJsonConverter());
+        options.Converters.Add(new AssemblyJsonConverter());
+        options.Converters.Add(new MemberInfoJsonConverter());
+    }
+
+    private static JsonIgnoreCondition GetIgnoreCondition(bool defalutVal, bool nullValue)
+    {
+        if (!defalutVal) return JsonIgnoreCondition.WhenWritingDefault;
+        return nullValue ? JsonIgnoreCondition.Never : JsonIgnoreCondition.WhenWritingNull;
+    }
+
+    #endregion options 缓存
+
     /// <summary>
     /// json序列化
     /// </summary>
@@ -45,25 +135,7 @@ public static class SerializeUtil
         {
             return string.Empty;
         }
-        var options = new JsonSerializerOptions
-        {
-            WriteIndented = indented,
-            PropertyNamingPolicy = camelCase ? JsonNamingPolicy.CamelCase : null,
-            DefaultIgnoreCondition = GetIgnoreCondition(defalutVal, nullValue),
-            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-        };
-
-        options.Converters.Add(new DateTimeJsonConverter("yyyy-MM-dd HH:mm:ss.fff"));
-        options.Converters.Add(new ExceptionJsonConverter());
-        options.Converters.Add(new AssemblyJsonConverter());
-        options.Converters.Add(new MemberInfoJsonConverter());
-        return JsonSerializer.Serialize(obj, obj!.GetType(), options);
-    }
-
-    private static JsonIgnoreCondition GetIgnoreCondition(bool defalutVal, bool nullValue)
-    {
-        if (!defalutVal) return JsonIgnoreCondition.WhenWritingDefault;
-        return nullValue ? JsonIgnoreCondition.Never : JsonIgnoreCondition.WhenWritingNull;
+        return JsonSerializer.Serialize(obj, obj!.GetType(), GetWriteOptions(indented, defalutVal, nullValue, camelCase));
     }
 
     /// <summary>
@@ -100,12 +172,7 @@ public static class SerializeUtil
         if (json.IsNullOrEmpty()) return default;
         try
         {
-            var options = new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true
-            };
-            options.Converters.Add(new DateTimeJsonConverter("yyyy-MM-dd HH:mm:ss.fff"));
-            return JsonSerializer.Deserialize<T>(json, options);
+            return JsonSerializer.Deserialize<T>(json, ReadOptions);
         }
         catch
         {
@@ -129,12 +196,7 @@ public static class SerializeUtil
         if (json.IsNullOrEmpty()) return null;
         try
         {
-            var options = new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true
-            };
-            options.Converters.Add(new DateTimeJsonConverter("yyyy-MM-dd HH:mm:ss.fff"));
-            return JsonSerializer.Deserialize(json, type, options);
+            return JsonSerializer.Deserialize(json, type, ReadOptions);
         }
         catch
         {
@@ -155,12 +217,7 @@ public static class SerializeUtil
         if (json.IsNullOrEmpty()) return null;
         try
         {
-            var options = new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true
-            };
-            options.Converters.Add(new DateTimeJsonConverter("yyyy-MM-dd HH:mm:ss.fff"));
-            return JsonSerializer.Deserialize(json, typeof(object), options);
+            return JsonSerializer.Deserialize(json, typeof(object), ReadOptions);
         }
         catch
         {
@@ -181,15 +238,7 @@ public static class SerializeUtil
     {
         try
         {
-            var options = new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true,
-                Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-            };
-            options.Converters.Add(new DateTimeJsonConverter("yyyy-MM-dd HH:mm:ss.fff"));
-            options.Converters.Add(new ExceptionJsonConverter());
-            options.Converters.Add(new AssemblyJsonConverter());
-            options.Converters.Add(new MemberInfoJsonConverter());
+            var options = ConvertOptions;
             var json = JsonSerializer.Serialize(val, val?.GetType() ?? typeof(object), options);
             return JsonSerializer.Deserialize<T>(json, options);
         }
@@ -244,18 +293,7 @@ public static class SerializeUtil
         if (obj == null) return string.Empty;
         try
         {
-            var options = new JsonSerializerOptions
-            {
-                WriteIndented = hasIndentation,
-                DefaultIgnoreCondition = GetIgnoreCondition(defalutVal, nullValue),
-                Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-            };
-
-            options.Converters.Add(new DateTimeJsonConverter("yyyy-MM-dd HH:mm:ss.fff"));
-            options.Converters.Add(new ExceptionJsonConverter());
-            options.Converters.Add(new AssemblyJsonConverter());
-            options.Converters.Add(new MemberInfoJsonConverter());
-            return JsonSerializer.Serialize(obj, obj.GetType(), options);
+            return JsonSerializer.Serialize(obj, obj.GetType(), GetWriteOptions(hasIndentation, defalutVal, nullValue, camelCase: false));
         }
         catch { }
         return string.Empty;
@@ -275,26 +313,6 @@ public static class SerializeUtil
         return Deserialize<T>(json, defalutVal, nullValue);
     }
 
-
-    /// <summary>
-    /// 转json格式
-    /// </summary>
-    /// <param name="str"></param>
-    /// <returns></returns> 
-    [RequiresUnreferencedCode("转json格式")]
-    private static string ConvertJsonString(string str)
-    {
-        try
-        {
-            using var doc = JsonDocument.Parse(str);
-            var options = new JsonSerializerOptions { WriteIndented = true, Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
-            return JsonSerializer.Serialize(doc.RootElement, options);
-        }
-        catch
-        {
-            return str;
-        }
-    }
 
     #region stuct
 

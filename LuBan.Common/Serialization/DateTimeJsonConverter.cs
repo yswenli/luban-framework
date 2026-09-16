@@ -44,11 +44,15 @@ public sealed class DateTimeJsonConverter : JsonConverter<DateTime>
     public override DateTime Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
         var str = reader.GetString();
-        if (string.IsNullOrEmpty(str)) return default;
-        if (DateTime.TryParseExact(str, _format, null, System.Globalization.DateTimeStyles.None, out var exact))
+        // 空值返回 default，避免 DateTime.Parse("") 抛异常
+        if (string.IsNullOrWhiteSpace(str)) return default;
+        // 优先按自身写出格式精确解析，保证序列化往返无损
+        if (DateTime.TryParseExact(str, _format, CultureInfo.InvariantCulture, DateTimeStyles.None, out var exact))
             return exact;
-        if (DateTime.TryParse(str, out var fallback))
-            return fallback;
+        // RoundtripKind 保留原始时区语义，避免跨时区解析歧义
+        if (DateTime.TryParse(str, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var roundtrip))
+            return roundtrip;
+        // 无法解析时返回 default，交由上层校验；不抛异常避免中断整个序列化流程
         return default;
     }
 

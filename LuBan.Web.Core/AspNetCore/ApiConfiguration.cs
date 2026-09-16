@@ -64,8 +64,8 @@ public static class ApiConfiguration
             // 允许JSON末尾有多余逗号
             options.JsonSerializerOptions.AllowTrailingCommas = true;
 
-            //自定义输出的时间格式
-            options.JsonSerializerOptions.Converters.Add(new DateTimeJsonConverter());
+            //自定义输出的时间格式（显式传入无毫秒格式，保持对外 API 响应格式不变）
+            options.JsonSerializerOptions.Converters.Add(new LuBan.Common.Serialization.DateTimeJsonConverter("yyyy-MM-dd HH:mm:ss"));
 
             //枚举类型处理：支持字符串与数值互转
             //options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));

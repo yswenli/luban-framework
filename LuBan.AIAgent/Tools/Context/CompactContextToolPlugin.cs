@@ -181,7 +181,7 @@ public class CompactContextToolGroup
             archivedSummaries = summaries.Count,
             remainingMessages = keptTail.Count
         };
-        var json = JsonSerializer.Serialize(result);
+        var json = SerializeUtil.Serialize(result);
         return ToolResult.Ok(json, $"压缩完成: 归档 {archivedMessages.Count} 条消息 + {summaries.Count} 条旧摘要, 保留 {keptTail.Count} 条活跃");
     }
 

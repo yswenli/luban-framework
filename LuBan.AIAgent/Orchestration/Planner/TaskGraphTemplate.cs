@@ -94,18 +94,13 @@ public static TaskGraphTemplate? FromJson(string json)
     if (!root.TryGetProperty("graph", out var g) || g.ValueKind != JsonValueKind.Object)
         return null;
 
-    var graph = JsonSerializer.Deserialize<TaskGraph>(g.GetRawText(), JsonOpts);
+    var graph = g.GetRawText().ToObject<TaskGraph>();
     if (graph == null || graph.Nodes.Count == 0)
         return null;
 
     template.Prototype = graph;
     return template;
 }
-
-    private static readonly JsonSerializerOptions JsonOpts = new()
-    {
-        PropertyNameCaseInsensitive = true
-    };
 }
 
 /// <summary>

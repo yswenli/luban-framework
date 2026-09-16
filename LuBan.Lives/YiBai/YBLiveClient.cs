@@ -74,7 +74,8 @@ namespace LuBan.Lives.YiBai
                     sign = signature,
                     postTime = timeStamp.ToString()
                 };
-                var json = JsonSerializer.Serialize(requestBody);
+                // nullValue: true 保持与裸 STJ 默认行为一致（写出 null 字段而非省略）
+                var json = SerializeUtil.Serialize(requestBody, nullValue: true);
 
                 var headers = new Dictionary<string, string>();
                 headers.Add("remote-host", "sinqi.100doc.com.cn");
@@ -123,7 +124,8 @@ namespace LuBan.Lives.YiBai
                     password = _liveOption.Password,
                     passwordSha = _liveOption.Salt
                 };
-                var json = JsonSerializer.Serialize(requestBody);
+                // nullValue: true 保持与裸 STJ 默认行为一致（未配置项仍写出 null 字段）
+                var json = SerializeUtil.Serialize(requestBody, nullValue: true);
 
                 var headers = new Dictionary<string, string>();
                 headers.Add("remote-host", "sinqi.100doc.com.cn");

@@ -54,7 +54,7 @@ namespace LuBan.XTestProject
         {
             var json = @"{""ZhuTong"":{""UserName"":""u"",""Password"":""p"",""TemplateId"":123,""Signature"":""s""}}";
 
-            var option = JsonSerializer.Deserialize<SmsOption>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            var option = json.ToObject<SmsOption>();
 
             Assert.IsNotNull(option);
             // STJ 反序列化会运行属性初始化器：JSON 缺 Provider 字段时保留默认值 "ZhuTong"（向后兼容的关键）
@@ -236,7 +236,7 @@ namespace LuBan.XTestProject
         {
             var json = @"{""Provider"":""ZhuTong"",""ZhuTong"":{""UserName"":""u"",""Password"":""p"",""TemplateId"":123,""Signature"":""s""}}";
 
-            var option = JsonSerializer.Deserialize<SmsOption>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            var option = json.ToObject<SmsOption>();
 
             Assert.IsNotNull(option);
             Assert.AreEqual(4, option.VerifyCodeLength);
@@ -247,7 +247,7 @@ namespace LuBan.XTestProject
         {
             var json = @"{""VerifyCodeLength"":6,""ZhuTong"":{""UserName"":""u"",""Password"":""p"",""TemplateId"":123,""Signature"":""s""}}";
 
-            var option = JsonSerializer.Deserialize<SmsOption>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            var option = json.ToObject<SmsOption>();
 
             Assert.IsNotNull(option);
             Assert.AreEqual(6, option.VerifyCodeLength);
@@ -258,7 +258,7 @@ namespace LuBan.XTestProject
         {
             var json = @"{""Provider"":""ZhuTong"",""ZhuTong"":{""UserName"":""u"",""Password"":""p"",""TemplateId"":123,""Signature"":""s""}}";
 
-            var option = JsonSerializer.Deserialize<SmsOption>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            var option = json.ToObject<SmsOption>();
 
             Assert.IsNotNull(option);
             Assert.AreEqual(5, option.VerifyCodeExpireMinutes);
@@ -269,7 +269,7 @@ namespace LuBan.XTestProject
         {
             var json = @"{""VerifyCodeExpireMinutes"":10,""ZhuTong"":{""UserName"":""u"",""Password"":""p"",""TemplateId"":123,""Signature"":""s""}}";
 
-            var option = JsonSerializer.Deserialize<SmsOption>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            var option = json.ToObject<SmsOption>();
 
             Assert.IsNotNull(option);
             Assert.AreEqual(10, option.VerifyCodeExpireMinutes);
