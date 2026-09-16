@@ -173,6 +173,7 @@ category: custom
 | `IRule` | 规则接口，定义执行条件和行为 |
 | `RuleBase` | 规则基类 |
 | `RuleEngine` | 规则引擎，按优先级评估规则 |
+| `ContextInjectBuilder` | 上下文注入构建器，把规则引擎产出的 `Inject` 文本装配为可注入对话/系统提示词的上下文 |
 | `PathAccessRule` | 内置路径访问规则，限制文件系统访问范围 |
 
 ### MCP 系统
@@ -224,7 +225,8 @@ category: custom
 | `SubAgentRoleRegistry` | SubAgent 角色注册表，管理内置角色与自定义角色 |
 | `SubAgentRole` | SubAgent 角色定义，包含名称、系统提示词模板、默认工具组 |
 | `ContextStore` | 跨节点上下文存储，按图谱 ID 隔离，线程安全 |
-| `TaskGraph` / `TaskNode` | DAG 数据模型，支持依赖声明、占位符引用、关键节点、角色指定 |
+| `TaskGraph` / `TaskNode` | DAG 数据模型，支持依赖声明、占位符引用、关键节点、角色指定；`TaskGraph.SharedContext` 承载工作区记忆/规则上下文 |
+| `SubAgentSpec` | SubAgent 规格（提示词、工具组、工作区根等），其 `SharedContext` 会追加到子代理系统提示词 |
 | `OrchestrationToolPlugin` | 工具插件，将编排能力暴露给主 Agent 自动调用 |
 | `OrchestrationProgress` / `OrchestrationProgressContent` | 编排进度事件与流式内容载体（`AIContent`），供 UI 在规划/节点执行期间实时渲染 |
 | `ReflectionResult` / `ReplanContext` | 动态重规划数据模型，关键节点失败后 LLM 分析并生成修正图谱 |
@@ -498,12 +500,18 @@ var result2 = await orchestrator.RunAsync(
 5. **错误处理**：关键节点失败时跳过后继节点；非关键节点失败时继续执行
 6. **结果聚合**：终点节点（无后继）的输出聚合为 `FinalOutput`
 
+**记忆上下文注入**：编排入口（`Orchestrator.ExecuteGraphAsync`）会通过 `ContextInjectBuilder` 构建工作区长期记忆与规则上下文，
+一次性写入 `TaskGraph.SharedContext`（仅填充一次，重规划生成的修正图谱继承同一份），再由 `SubAgentFactory` 追加到每个
+SubAgent 的系统提示词，使子代理与主 Agent 对话共享同一份工作区记忆。常规对话路径则由 `SessionChatHistoryProvider`
+直接把召回结果作为 System 消息注入，两条路径共用同一个 `ContextInjectBuilder`。
+
 **关键概念**：
 
 - **关键节点**（`IsCritical = true`）：失败时阻止后继节点执行，整体状态为 `failed`
 - **非关键节点**：失败时后继节点继续执行，整体状态为 `partial`
 - **占位符**：`{dep:节点id}` 引用前驱节点输出，运行时自动替换
 - **并行度**：`MaxParallelism` 限制同层最大并行节点数，0 表示不限制
+- **共享上下文**（`SharedContext`）：工作区记忆/规则上下文，由编排入口构建并注入所有子代理
 
 ## 支持的 AI Provider
 

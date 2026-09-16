@@ -173,6 +173,7 @@ Prompt template content here...
 | `IRule` | Rule interface, defines execution conditions and behavior |
 | `RuleBase` | Rule base class |
 | `RuleEngine` | Rule engine, evaluates rules by priority |
+| `ContextInjectBuilder` | Context injection builder, assembles rule engine `Inject` text into context injectable into chat/system prompts |
 | `PathAccessRule` | Built-in path access rule, restricts file system access scope |
 
 ### MCP System
@@ -224,7 +225,8 @@ Main Agent parses composite tasks → decomposes into DAG task graph → dispatc
 | `SubAgentRoleRegistry` | SubAgent role registry, manages built-in and custom roles |
 | `SubAgentRole` | SubAgent role definition, includes name, system prompt template, default tool groups |
 | `ContextStore` | Cross-node context store, isolated by graph ID, thread-safe |
-| `TaskGraph` / `TaskNode` | DAG data models, support dependency declaration, placeholder references, critical nodes, role assignment |
+| `TaskGraph` / `TaskNode` | DAG data models, support dependency declaration, placeholder references, critical nodes, role assignment; `TaskGraph.SharedContext` carries workspace memory/rule context |
+| `SubAgentSpec` | SubAgent specification (prompt, tool groups, workspace root, etc.); its `SharedContext` is appended to the sub-agent system prompt |
 | `OrchestrationToolPlugin` | Tool plugin, exposes orchestration capability to main Agent |
 | `ReflectionResult` / `ReplanContext` | Dynamic replanning models, LLM analyzes failures and generates fix graph after critical node failure |
 
@@ -498,12 +500,19 @@ Progress event types include: `PlanningStarted`, `PlanningCompleted`, `NodeStart
 5. **Error Handling**: Critical node failure skips successors; non-critical failure continues execution
 6. **Result Aggregation**: Terminal nodes (no successors) outputs are aggregated into `FinalOutput`
 
+**Memory Context Injection**: The orchestration entry (`Orchestrator.ExecuteGraphAsync`) uses `ContextInjectBuilder` to build
+workspace long-term memory and rule context, writes it once into `TaskGraph.SharedContext` (filled once; replan fix graphs inherit
+the same copy), and `SubAgentFactory` then appends it to each SubAgent's system prompt, so sub-agents share the same workspace
+memory as the main agent conversation. The regular chat path injects recall results directly as System messages via
+`SessionChatHistoryProvider`; both paths share the same `ContextInjectBuilder`.
+
 **Key Concepts**:
 
 - **Critical Node** (`IsCritical = true`): Failure blocks successor execution, overall status is `failed`
 - **Non-Critical Node**: Failure allows successors to continue, overall status is `partial`
 - **Placeholder**: `{dep:node-id}` references predecessor output, auto-replaced at runtime
 - **Parallelism**: `MaxParallelism` limits max parallel nodes per layer, 0 means unlimited
+- **Shared Context** (`SharedContext`): Workspace memory/rule context, built by the orchestration entry and injected into all sub-agents
 
 ## Supported AI Providers
 
