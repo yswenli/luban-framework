@@ -143,6 +143,7 @@ Skills, MCPs, and Rules use a unified three-tier priority registry pattern:
 | `debug-assistant` | Debug Assistant | development | Assist with debugging issues |
 | `git-commit` | Git Commit | productivity | Generate standardized Git commit messages |
 | `find-skills` | Skill Discovery | meta | Automatically discover and recommend suitable skills |
+| `agents-md-generator` | Agents.md Spec Generator | productivity | Generate workspace AGENTS.md meta-description document |
 
 ### File-based Skills
 
@@ -513,6 +514,48 @@ memory as the main agent conversation. The regular chat path injects recall resu
 - **Placeholder**: `{dep:node-id}` references predecessor output, auto-replaced at runtime
 - **Parallelism**: `MaxParallelism` limits max parallel nodes per layer, 0 means unlimited
 - **Shared Context** (`SharedContext`): Workspace memory/rule context, built by the orchestration entry and injected into all sub-agents
+
+### 10. Error Handling and Automatic Retry
+
+All LLM/API calls are classified by the framework (structured first: HTTP status + `error.code`). On final failure an `AgentApiException` is thrown; hosts only need to render `Error.FriendlyMessage`:
+
+| Category | Typical error | Auto retry |
+|---|---|---|
+| Auth / permission / balance | 401 / 402 / 403 | No — abort and show guidance |
+| Model not found | 404 / 410 | No — abort with a checklist |
+| Bad request / context length / unsupported capability | 400 / 413 / 422 | No — abort with guidance |
+| Content moderation | `content_filter` | No — abort and suggest rewording |
+| Rate limit | 429 `rate_limit_exceeded` | Yes (3 attempts by default, 1s/2s exponential backoff with jitter, honors `Retry-After`, single-wait cap 30s) |
+| Server / network / timeout | 5xx / DNS/TLS / timeout | Yes (same as above) |
+| Quota exhausted | 429 `insufficient_quota` | No — abort; the server-provided reset time is included in the message |
+| Stream interruption | Connection drops after content was emitted | No — keep partial output and report the interruption |
+
+Configuration (`LuBanAgent` section in `appsettings.json`):
+
+```json
+"ApiRetry": {
+  "Enabled": true,
+  "MaxAttempts": 3,
+  "BaseDelayMs": 1000,
+  "BackoffFactor": 2,
+  "MaxDelayMs": 30000
+}
+```
+
+Retry progress callback (set by the host at startup; invoked on the calling thread):
+
+```csharp
+options.Value.OnApiRetry = notice =>
+    Console.WriteLine($"{notice.Category} retrying in {notice.Delay.TotalSeconds:F0}s (attempt {notice.Attempt})");
+```
+
+Notes:
+
+- Streaming calls are retried only **before the first token**; once content has been emitted a failure is not retried to avoid duplicated output.
+- The resilience middleware sits inside `FunctionInvokingChatClient`, so each tool round retries its own API call independently.
+- The OpenAI SDK's built-in retries (`ClientRetryPolicy.Default`, 3 extra attempts) are disabled on the host side so the configured retry budget and progress notifications are authoritative.
+- Recognizable API failures during orchestration planning are no longer silently downgraded to a normal chat; they surface with their classification.
+- Session summarization failures degrade to "skip compaction" instead of breaking the main conversation.
 
 ## Supported AI Providers
 

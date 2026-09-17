@@ -143,6 +143,7 @@ Skills、MCPs、Rules 采用统一的三级优先级注册表模式：
 | `debug-assistant` | 调试助手 | development | 辅助调试问题 |
 | `git-commit` | Git 提交 | productivity | 生成规范的 Git 提交信息 |
 | `find-skills` | 技能发现 | meta | 自动发现和推荐合适的技能 |
+| `agents-md-generator` | Agents.md 规约生成器 | productivity | 生成工作区 AGENTS.md 元描述文档 |
 
 ### 文件化 Skill
 
@@ -512,6 +513,48 @@ SubAgent 的系统提示词，使子代理与主 Agent 对话共享同一份工�
 - **占位符**：`{dep:节点id}` 引用前驱节点输出，运行时自动替换
 - **并行度**：`MaxParallelism` 限制同层最大并行节点数，0 表示不限制
 - **共享上下文**（`SharedContext`）：工作区记忆/规则上下文，由编排入口构建并注入所有子代理
+
+### 10. 错误处理与自动重试
+
+框架对所有 LLM/API 调用做统一错误分类（结构化优先：HTTP 状态码 + `error.code`），最终失败抛出 `AgentApiException`，宿主渲染 `Error.FriendlyMessage` 即可：
+
+| 类别 | 典型错误 | 是否自动重试 |
+|---|---|---|
+| 认证/权限/余额 | 401 / 402 / 403 | 否，终止并提示 |
+| 模型不存在 | 404 / 410 | 否，终止并给出排查清单 |
+| 参数错误 / 上下文超长 / 能力不支持 | 400 / 413 / 422 | 否，终止并提示 |
+| 内容风控 | `content_filter` | 否，终止并建议改措辞 |
+| 限流 | 429 `rate_limit_exceeded` | 是（默认 3 次尝试，1s/2s 指数退避 + 抖动，遵循 `Retry-After`，单次等待上限 30s） |
+| 服务端错误 / 网络错误 / 超时 | 5xx / DNS/TLS / 超时 | 是（同上） |
+| 配额耗尽 | 429 `insufficient_quota` | 否，终止并在文案中带上服务端给出的重置时间 |
+| 流式中断 | 已输出内容后连接断开 | 否，保留已输出并提示响应中断 |
+
+配置（`appsettings.json` 的 `LuBanAgent` 节）：
+
+```json
+"ApiRetry": {
+  "Enabled": true,
+  "MaxAttempts": 3,
+  "BaseDelayMs": 1000,
+  "BackoffFactor": 2,
+  "MaxDelayMs": 30000
+}
+```
+
+重试进度回调（由宿主在启动时设置，回调在调用线程执行）：
+
+```csharp
+options.Value.OnApiRetry = notice =>
+    Console.WriteLine($"{notice.Category} 将在 {notice.Delay.TotalSeconds:F0}s 后重试（第 {notice.Attempt} 次）");
+```
+
+说明：
+
+- 流式调用仅在**首个 token 产出前**重试；已产出内容后中断不会重试，避免内容重复。
+- 容错中间件包裹在 `FunctionInvokingChatClient` 之内，每个工具轮次的 API 调用独立重试。
+- OpenAI SDK 的内置重试（`ClientRetryPolicy.Default`，默认再重试 3 次）已在宿主侧禁用，重试次数与进度提示以本配置为准。
+- 编排规划期的可识别 API 故障不再静默降级为常规对话，而是按分类结果透出。
+- 会话摘要压缩失败会降级为「跳过压缩」继续对话，不再打断主对话。
 
 ## 支持的 AI Provider
 

@@ -56,6 +56,7 @@ public class AutoOrchestrationMiddleware
 
     /// <summary>
     /// 执行规划并缓存图谱；未命中编排（节点数 ≤ 1 或校验失败）时返回 null，调用方走常规对话。
+    /// 可识别的 API 故障（认证/配额/限流/网络/服务端等）会抛出 <see cref="AgentApiException"/>，不再静默降级。
     /// </summary>
     /// <param name="input">用户输入。</param>
     /// <param name="cancellationToken">取消令牌。</param>
@@ -67,8 +68,21 @@ public class AutoOrchestrationMiddleware
         {
             graph = await _planner.PlanAsync(input, cancellationToken);
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
+            // 可识别的 API 故障（认证/配额/限流/网络/服务端等）不再静默降级为常规对话，向上透出分类结果；
+            // 仅「规划结果格式/校验失败」这类非 API 错误继续降级
+            var info = ApiErrorClassifier.Classify(ex, cancellationToken.IsCancellationRequested);
+            if (info.Category is not AgentApiErrorCategory.Unknown and not AgentApiErrorCategory.Canceled)
+            {
+                Logger.Error("编排规划失败（API 错误）", ex, info.Category.ToString());
+                throw new AgentApiException(info, ex);
+            }
+
             Logger.Debug($"[OrchDiag] skip: planner threw {ex.GetType().Name}: {ex.Message}");
             return null;
         }
@@ -95,6 +109,7 @@ public class AutoOrchestrationMiddleware
 
     /// <summary>
     /// 规划 + 执行编排，并在执行过程中实时上报进度；未命中编排时返回 null（调用方走常规对话）。
+    /// 可识别的 API 故障（认证/配额/限流/网络/服务端等）会抛出 <see cref="AgentApiException"/>，不再静默降级。
     /// </summary>
     /// <param name="input">用户输入。</param>
     /// <param name="onProgress">进度回调。</param>

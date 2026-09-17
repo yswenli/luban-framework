@@ -170,6 +170,9 @@ public class FileSystemMCPClient : MCPClientBase
         if (!IsPathAllowed(path))
             return Fail($"路径不在允许访问范围内: {path}");
 
+        if (Directory.Exists(path))
+            return Fail($"路径是目录: {path}。读取文件需要文件路径，请改为传入目录下的具体文件（可用 list_directory 查看目录内容）。");
+
         if (!File.Exists(path))
             return Fail($"未找到文件: {path}。请检查路径是否正确。");
 
@@ -231,6 +234,9 @@ public class FileSystemMCPClient : MCPClientBase
 
         if (!IsPathAllowed(path))
             return Fail($"路径不在允许访问范围内: {path}");
+
+        if (Directory.Exists(path))
+            return Fail($"路径是目录: {path}。写入文件需要包含文件名的文件路径，请改为传入目录下的具体文件（可用 list_directory 查看目录内容）。");
 
         await File.WriteAllTextAsync(path, content);
         return Ok($"已写入文件: {path}");

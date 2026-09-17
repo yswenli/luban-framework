@@ -132,6 +132,15 @@ public class FileSystemToolGroup
         };
     }
 
+    /// <summary>
+    /// 生成「传入的是目录、但该工具需要文件」的可操作提示，
+    /// 避免模型把目录当文件反复重试（历史上曾因「未找到文件」误导导致死循环）。
+    /// </summary>
+    /// <param name="path">传入的目录路径。</param>
+    /// <param name="requirement">该工具对路径的要求描述。</param>
+    private static string DirectoryPathMessage(string path, string requirement)
+        => $"路径是目录: {path}。{requirement}，请改为传入目录下的具体文件（可用 ListDirectory 查看目录内容）。";
+
     private static readonly HashSet<string> BinaryFileExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".dll", ".exe", ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".tif", ".tiff",
@@ -155,7 +164,7 @@ public class FileSystemToolGroup
         "Cargo.toml", "go.mod", "requirements.txt", "pyproject.toml",
         "appsettings.json", "web.config", "app.config",
         "application.yml", "application.yaml", "application.properties",
-        "readme.md", "readme.en.md", "readme.txt",
+        "readme.md", "readme.en.md", "readme.txt", "agents.md",
         ".gitignore", "dockerfile", "docker-compose.yml",
         "makefile", "cmakelists.txt"
     };
@@ -332,6 +341,9 @@ public class FileSystemToolGroup
             return blocked;
         }
 
+        if (Directory.Exists(path))
+            return ToolResult.Fail<string>(DirectoryPathMessage(path, "读取文件需要文件路径"));
+
         try
         {
             var fileInfo = new FileInfo(path);
@@ -434,6 +446,9 @@ public class FileSystemToolGroup
         {
             return blocked;
         }
+
+        if (Directory.Exists(path))
+            return ToolResult.Fail<string>(DirectoryPathMessage(path, "写入文件需要包含文件名的文件路径"));
 
         try
         {
@@ -750,6 +765,9 @@ public class FileSystemToolGroup
 
         try
         {
+            if (Directory.Exists(path))
+                return ToolResult.Fail<string>(DirectoryPathMessage(path, "删除文件需要文件路径；如需删除目录请改用 DeleteDirectory"));
+
             if (!File.Exists(path))
                 return ToolResult.Fail<string>($"错误：文件不存在 ({path})");
 
@@ -1128,6 +1146,9 @@ public class FileSystemToolGroup
 
         try
         {
+            if (Directory.Exists(sourcePath))
+                return ToolResult.Fail<string>(DirectoryPathMessage(sourcePath, "复制源必须是文件"));
+
             if (!File.Exists(sourcePath))
                 return ToolResult.Fail<string>($"错误：源文件不存在 ({sourcePath})");
 
@@ -1214,6 +1235,9 @@ public class FileSystemToolGroup
 
         try
         {
+            if (Directory.Exists(sourcePath))
+                return ToolResult.Fail<string>(DirectoryPathMessage(sourcePath, "移动源必须是文件"));
+
             if (!File.Exists(sourcePath))
                 return ToolResult.Fail<string>($"错误：源文件不存在 ({sourcePath})");
 

@@ -77,6 +77,7 @@ public static class LuBanAgentExtensions
         services.AddSingleton<ISkill, DebugAssistantSkill>();
         services.AddSingleton<ISkill, GitCommitSkill>();
         services.AddSingleton<ISkill, FindSkillsSkill>();
+        services.AddSingleton<ISkill, AgentsMdGeneratorSkill>();
         services.AddSingleton<SkillRegistry>();
 
         services.AddScoped<ILuBanAgentFactory, LuBanAgentFactory>();

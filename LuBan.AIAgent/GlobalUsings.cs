@@ -23,6 +23,7 @@
 *****************************************************************************/
 global using LuBan.AIAgent.Abstractions;
 global using LuBan.AIAgent.Configuration;
+global using LuBan.AIAgent.Errors;
 global using LuBan.AIAgent.Infrastructure;
 global using LuBan.AIAgent.LocalMemory;
 global using LuBan.AIAgent.MCP;

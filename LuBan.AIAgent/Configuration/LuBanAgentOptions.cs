@@ -89,6 +89,18 @@ public class LuBanAgentOptions
     /// 工具调用确认策略配置（工具名分类集合，可在配置文件中覆盖以适配自定义工具）
     /// </summary>
     public ToolConfirmationOptions Confirmation { get; set; } = new();
+
+    /// <summary>
+    /// API 重试配置（限流/5xx/网络错误/超时的自动退避重试）
+    /// </summary>
+    public ApiRetryOptions ApiRetry { get; set; } = new();
+
+    /// <summary>
+    /// 重试通知回调（不可配置绑定，由宿主在启动时设置；回调在调用线程执行，宿主需自行编组到 UI 线程）。
+    /// 标记 JsonIgnore 以避免宿主在序列化配置对象时误触发回调。
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public Action<AgentRetryNotice>? OnApiRetry { get; set; }
 }
 
 /// <summary>
@@ -139,4 +151,36 @@ public class SessionOptions
     /// 超出保留数多少条后触发压缩（默认 10，即超过 30 条触发）
     /// </summary>
     public int CompactThreshold { get; set; } = 10;
+}
+
+/// <summary>
+/// API 重试配置。
+/// </summary>
+public class ApiRetryOptions
+{
+    /// <summary>
+    /// 是否启用自动重试（关闭时等效于最大尝试次数 1）
+    /// </summary>
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>
+    /// 最大尝试次数（含首次调用），默认 3
+    /// </summary>
+    public int MaxAttempts { get; set; } = 3;
+
+    /// <summary>
+    /// 首次重试的基础延迟（毫秒），默认 1000
+    /// </summary>
+    public int BaseDelayMs { get; set; } = 1000;
+
+    /// <summary>
+    /// 指数退避倍数，默认 2（1s、2s…）
+    /// </summary>
+    public double BackoffFactor { get; set; } = 2;
+
+    /// <summary>
+    /// 单次重试等待上限（毫秒），默认 30000；对 Retry-After 与退避计算结果统一收口，
+    /// 避免服务端返回超大 Retry-After 或畸形配置导致等待溢出/异常
+    /// </summary>
+    public int MaxDelayMs { get; set; } = 30000;
 }

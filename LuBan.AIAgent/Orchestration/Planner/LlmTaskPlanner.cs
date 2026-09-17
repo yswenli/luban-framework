@@ -41,7 +41,9 @@ public class LlmTaskPlanner : ITaskPlanner
     {
         _serviceProvider = serviceProvider;
         _options = options;
-        _chatClient = ResolvePlannerClient(chatClient, providerRouter, options.Value.Orchestration?.PlannerModel);
+        _chatClient = ChatClientResilience.Wrap(
+            ResolvePlannerClient(chatClient, providerRouter, options.Value.Orchestration?.PlannerModel),
+            options.Value);
     }
 
     /// <summary>

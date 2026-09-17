@@ -92,28 +92,40 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
 
         if (history.Count > _targetCount + _threshold)
         {
-#pragma warning disable MEAI001
-            var reducer = new SummarizingChatReducer(_chatClient, _targetCount, _threshold);
-#pragma warning restore MEAI001
-            var reduced = (await reducer.ReduceAsync(history, cancellationToken)).ToList();
-
-            if (reduced.Count > 0 && reduced.Count < history.Count)
+            try
             {
-                var keptCount = Math.Min(reduced.Count - 1, history.Count);
-                var keptTail = messages.Skip(messages.Count - keptCount).ToList();
-                var compactedIds = messages.Take(messages.Count - keptCount).Select(m => m.Id)
-                    .Concat(summaries.Select(s => s.Id))
-                    .ToList();
+#pragma warning disable MEAI001
+                var reducer = new SummarizingChatReducer(_chatClient, _targetCount, _threshold);
+#pragma warning restore MEAI001
+                var reduced = (await reducer.ReduceAsync(history, cancellationToken)).ToList();
 
-                // 先写摘要、后归档：反序执行时若归档成功而写摘要失败，历史会被永久裁掉且无摘要兜底。
-                var summaryText = reduced[0].Text ?? "";
-                await _sessionManager.AddMessageAsync(sessionId, "summary", summaryText, EstimateTokens(summaryText));
-                await _sessionManager.MarkMessagesCompactedAsync(sessionId, compactedIds);
+                if (reduced.Count > 0 && reduced.Count < history.Count)
+                {
+                    var keptCount = Math.Min(reduced.Count - 1, history.Count);
+                    var keptTail = messages.Skip(messages.Count - keptCount).ToList();
+                    var compactedIds = messages.Take(messages.Count - keptCount).Select(m => m.Id)
+                        .Concat(summaries.Select(s => s.Id))
+                        .ToList();
 
-                latestSummary = new SessionMessage { Id = long.MaxValue, Role = "summary", Content = summaryText };
-                history = keptTail
-                    .Select(m => new ChatMessage(MapRole(m.Role), m.Content))
-                    .ToList();
+                    // 先写摘要、后归档：反序执行时若归档成功而写摘要失败，历史会被永久裁掉且无摘要兜底。
+                    var summaryText = reduced[0].Text ?? "";
+                    await _sessionManager.AddMessageAsync(sessionId, "summary", summaryText, EstimateTokens(summaryText));
+                    await _sessionManager.MarkMessagesCompactedAsync(sessionId, compactedIds);
+
+                    latestSummary = new SessionMessage { Id = long.MaxValue, Role = "summary", Content = summaryText };
+                    history = keptTail
+                        .Select(m => new ChatMessage(MapRole(m.Role), m.Content))
+                        .ToList();
+                }
+            }
+            catch (Exception ex)
+            {
+                var info = ApiErrorClassifier.Classify(ex, cancellationToken.IsCancellationRequested);
+                if (info.Category == AgentApiErrorCategory.Canceled)
+                    throw;
+
+                // 压缩失败不打断主对话：跳过压缩，用未压缩历史继续
+                Logger.Warn($"历史摘要压缩失败（{info.Category}），已跳过压缩继续对话", ex);
             }
         }
 

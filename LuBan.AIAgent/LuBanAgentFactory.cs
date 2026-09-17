@@ -49,7 +49,8 @@ public class LuBanAgentFactory : ILuBanAgentFactory, IScoped
         IServiceProvider serviceProvider,
         IProviderRouter? providerRouter = null)
     {
-        _chatClient = chatClient;
+        // 默认客户端统一套容错重试：覆盖主对话、摘要压缩（历史压缩也使用该实例）
+        _chatClient = ChatClientResilience.Wrap(chatClient, options.Value);
         _pluginRegistry = pluginRegistry;
         _options = options;
         _serviceProvider = serviceProvider;
@@ -178,7 +179,8 @@ public class LuBanAgentFactory : ILuBanAgentFactory, IScoped
     /// <returns>FunctionInvokingChatClient 实例。</returns>
     private FunctionInvokingChatClient BuildFunctionClient(List<AITool> tools, LuBanAgentOptions opts, string? modelName = null, string? timingTag = null)
     {
-        IChatClient sanitizedClient = new SanitizingChatClient(ResolveChatClient(modelName));
+        IChatClient sanitizedClient = new SanitizingChatClient(
+            ChatClientResilience.Wrap(ResolveChatClient(modelName), opts));
         if (!string.IsNullOrEmpty(timingTag))
         {
             sanitizedClient = new TimingChatClient(sanitizedClient, timingTag);
