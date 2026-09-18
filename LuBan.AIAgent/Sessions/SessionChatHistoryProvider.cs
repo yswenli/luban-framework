@@ -190,7 +190,15 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
                     // 回放直接读它，既避免重读原始大图，也保证 MediaType 与字节真实格式一致
                     case DataContent dc when a.Info.Kind == Attachments.AttachmentKind.Image:
                         record.MediaType = dc.MediaType ?? record.MediaType;
-                        record.ProcessedPath = await SaveProcessedImageAsync(dc, cancellationToken).ConfigureAwait(false);
+                        try
+                        {
+                            record.ProcessedPath = await SaveProcessedImageAsync(dc, cancellationToken).ConfigureAwait(false);
+                        }
+                        catch (Exception ex) when (ex is not OperationCanceledException)
+                        {
+                            // 落盘失败不阻断本轮持久化：回放退化为读取源文件
+                            Logger.Warn($"附件处理结果临时文件写入失败，回放将回退源文件: {ex.Message}", ex);
+                        }
                         break;
                 }
 
