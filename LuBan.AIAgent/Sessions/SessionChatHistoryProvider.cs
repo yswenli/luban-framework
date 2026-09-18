@@ -33,6 +33,9 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
     private string? _pendingRawUserInput;
     private IReadOnlyList<Attachments.ProcessedAttachment>? _pendingAttachments;
 
+    /// <summary>历史重建时，最近多少轮 user 消息的附件会被重新附加（图片与文本同规则）。</summary>
+    private const int RecentImageReattachTurns = 3;
+
     /// <summary>
     /// 创建会话历史提供者
     /// </summary>
@@ -87,9 +90,7 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
         if (active.Count == 0)
             return recallMessages;
 
-        var history = messages
-            .Select(m => new ChatMessage(MapRole(m.Role), m.Content))
-            .ToList();
+        var history = await BuildHistoryAsync(messages, cancellationToken);
 
         if (history.Count > _targetCount + _threshold)
         {
@@ -114,9 +115,7 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
                     await _sessionManager.MarkMessagesCompactedAsync(sessionId, compactedIds);
 
                     latestSummary = new SessionMessage { Id = long.MaxValue, Role = "summary", Content = summaryText };
-                    history = keptTail
-                        .Select(m => new ChatMessage(MapRole(m.Role), m.Content))
-                        .ToList();
+                    history = await BuildHistoryAsync(keptTail, cancellationToken);
                 }
             }
             catch (Exception ex)
@@ -157,9 +156,26 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
         _pendingRawUserInput = null;
         newUserText ??= context.RequestMessages
             .LastOrDefault(m => m.Role == ChatRole.User)?.Text;
-        if (!string.IsNullOrWhiteSpace(newUserText))
+
+        var pending = _pendingAttachments;
+        _pendingAttachments = null;
+        string? attachmentsJson = null;
+        if (pending is { Count: > 0 })
         {
-            await _sessionManager.AddMessageAsync(sessionId, "user", newUserText, EstimateTokens(newUserText));
+            var records = pending.Select(a => new AttachmentRecord
+            {
+                FileName = a.Info.FileName,
+                MediaType = a.Info.MediaType,
+                FileSize = a.Info.FileSize,
+                SourcePath = a.Info.SourcePath,
+                Kind = a.Info.Kind.ToString()
+            }).ToList();
+            attachmentsJson = System.Text.Json.JsonSerializer.Serialize(records);
+        }
+
+        if (!string.IsNullOrWhiteSpace(newUserText) || attachmentsJson != null)
+        {
+            await _sessionManager.AddMessageAsync(sessionId, "user", newUserText ?? "", EstimateTokens(newUserText ?? ""), attachments: attachmentsJson);
         }
 
         if (context.ResponseMessages == null) return;
@@ -195,6 +211,74 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
     public void SetPendingAttachments(IReadOnlyList<Attachments.ProcessedAttachment> attachments)
     {
         _pendingAttachments = attachments.Count > 0 ? attachments : null;
+    }
+
+    /// <summary>
+    /// 按“从最新往旧”的 user 轮次计数重建历史；最近 N 轮的附件重新附加，更早降级为占位文本。
+    /// </summary>
+    private async Task<List<ChatMessage>> BuildHistoryAsync(
+        IReadOnlyList<SessionMessage> messages, CancellationToken ct)
+    {
+        var result = new List<ChatMessage>(messages.Count);
+        var userTurnsFromEnd = 0;
+        for (var i = messages.Count - 1; i >= 0; i--)
+        {
+            var m = messages[i];
+            var isUser = m.Role == "user";
+            if (isUser) userTurnsFromEnd++;
+            result.Insert(0, await RebuildMessageAsync(m, isUser, userTurnsFromEnd, ct));
+        }
+        return result;
+    }
+
+    private async Task<ChatMessage> RebuildMessageAsync(
+        SessionMessage m, bool isUser, int userTurnsFromEnd, CancellationToken ct)
+    {
+        var role = MapRole(m.Role);
+        if (!isUser || string.IsNullOrWhiteSpace(m.Attachments))
+            return new ChatMessage(role, m.Content);
+
+        List<AttachmentRecord>? records;
+        try { records = System.Text.Json.JsonSerializer.Deserialize<List<AttachmentRecord>>(m.Attachments); }
+        catch { records = null; }
+        if (records is not { Count: > 0 })
+            return new ChatMessage(role, m.Content);
+
+        var contents = new List<AIContent>();
+        if (!string.IsNullOrEmpty(m.Content))
+            contents.Add(new TextContent(m.Content));
+
+        foreach (var r in records)
+        {
+            var isImage = string.Equals(r.Kind, "Image", StringComparison.OrdinalIgnoreCase);
+            var label = isImage ? "图片" : "附件";
+
+            if (userTurnsFromEnd > RecentImageReattachTurns)
+            {
+                contents.Add(new TextContent($"[历史{label}: {r.FileName}]"));
+                continue;
+            }
+
+            if (!File.Exists(r.SourcePath))
+            {
+                contents.Add(new TextContent($"[附件: {r.FileName} - 文件已不存在]"));
+                continue;
+            }
+
+            try
+            {
+                if (isImage)
+                    contents.Add(new DataContent(await File.ReadAllBytesAsync(r.SourcePath, ct), r.MediaType));
+                else
+                    contents.Add(new TextContent(await File.ReadAllTextAsync(r.SourcePath, ct)));
+            }
+            catch
+            {
+                contents.Add(new TextContent($"[附件: {r.FileName} - 读取失败]"));
+            }
+        }
+
+        return new ChatMessage(role, contents);
     }
 
     private static int EstimateTokens(string text) => Math.Max(1, text.Length / 4);
