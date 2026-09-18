@@ -181,6 +181,17 @@ public class SanitizingChatClient : IChatClient
                     .Where(c => !IsEmptyContent(c))
                     .ToList();
 
+                // 显式契约：user 消息中的图片/文件内容（DataContent/UriContent 等）不得在此丢弃。
+                // IsEmptyContent 仅对空 TextContent 返回 true，故非文本内容天然保留；此断言防止未来重构误删。
+                if (msg.Role == ChatRole.User)
+                {
+                    var droppedNonText = msg.Contents
+                        .Where(c => c is not TextContent)
+                        .Any(c => !validParts.Contains(c));
+                    if (droppedNonText)
+                        throw new InvalidOperationException("SanitizingChatClient 丢弃了非文本内容，违反多模态附件契约");
+                }
+
                 if (validParts.Count == 0)
                     continue;
 
