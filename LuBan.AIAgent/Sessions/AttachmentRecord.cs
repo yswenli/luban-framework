@@ -17,4 +17,13 @@ public sealed class AttachmentRecord
 
     /// <summary>"Image" 或 "TextFile"。</summary>
     public string Kind { get; set; } = "";
+
+    /// <summary>文本附件快照内容（大文本为指引文本）；图片为 null。</summary>
+    public string? TextPayload { get; set; }
+
+    /// <summary>图片处理结果（缩放/重编码后）临时文件路径；文本为 null。</summary>
+    public string? ProcessedPath { get; set; }
+
+    /// <summary>文本是否为大文件（快照仅为指引）。</summary>
+    public bool IsLargeText { get; set; }
 }

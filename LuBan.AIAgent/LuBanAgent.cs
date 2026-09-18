@@ -216,10 +216,14 @@ public class LuBanAgent
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var session = await GetOrCreateSessionAsync(cancellationToken);
+        var rawInput = input;
         input = await PreProcessInputAsync(input, cancellationToken);
 
         // 通知历史 provider：本轮附件需持久化；无条件设置以清除上一轮残留状态
         _historyProvider?.SetPendingAttachments(attachments);
+        // 历史库只存用户原始输入：附件正文由 provider 从附件快照重建，
+        // 否则内联正文会随 RequestMessages.Text 入库并与回放内容重复。
+        _historyProvider?.SetPendingRawUserInput(rawInput);
 
         var messages = new[] { Attachments.AttachmentMessageBuilder.Build(input, attachments) };
 

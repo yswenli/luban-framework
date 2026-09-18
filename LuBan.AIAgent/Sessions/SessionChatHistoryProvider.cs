@@ -36,6 +36,9 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
     /// <summary>历史重建时，最近多少轮 user 消息的附件会被重新附加（图片与文本同规则）。</summary>
     private const int RecentImageReattachTurns = 3;
 
+    /// <summary>图片回退源文件时按扩展名解析真实 MIME。</summary>
+    private static readonly Attachments.DefaultAttachmentProcessor _mediaTypeResolver = new();
+
     /// <summary>
     /// 创建会话历史提供者
     /// </summary>
@@ -145,31 +148,54 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
     protected override async ValueTask StoreChatHistoryAsync(
         InvokedContext context, CancellationToken cancellationToken = default)
     {
+        // 先取走并清空挂起状态：即便本轮早退也必须清空，避免污染下一轮
+        var pending = _pendingAttachments;
+        _pendingAttachments = null;
+        var pendingRawInput = _pendingRawUserInput;
+        _pendingRawUserInput = null;
+
         var sessionId = _sessionManager.CurrentSession?.SessionId;
         if (string.IsNullOrEmpty(sessionId))
             return;
 
-        // RequestMessages 仅含本轮新输入（框架默认存储过滤器已排除 ChatHistory 来源的历史消息），
-        // 仅持久化最后一条 user 消息（本轮新输入）
-        // 若外层已设置原始输入（RAG 注入场景），优先持久化原始输入，避免膨胀串污染历史
-        var newUserText = _pendingRawUserInput;
-        _pendingRawUserInput = null;
+        // RequestMessages 仅含本轮新输入。本轮若带附件，LuBanAgent 已无条件写入原始输入，
+        // 因此这里拿到的是纯用户输入；附件正文完全由下方快照重建，不会与正文重复入库。
+        var newUserText = pendingRawInput;
         newUserText ??= context.RequestMessages
             .LastOrDefault(m => m.Role == ChatRole.User)?.Text;
 
-        var pending = _pendingAttachments;
-        _pendingAttachments = null;
         string? attachmentsJson = null;
         if (pending is { Count: > 0 })
         {
-            var records = pending.Select(a => new AttachmentRecord
+            var records = new List<AttachmentRecord>(pending.Count);
+            foreach (var a in pending)
             {
-                FileName = a.Info.FileName,
-                MediaType = a.Info.MediaType,
-                FileSize = a.Info.FileSize,
-                SourcePath = a.Info.SourcePath,
-                Kind = a.Info.Kind.ToString()
-            }).ToList();
+                var record = new AttachmentRecord
+                {
+                    FileName = a.Info.FileName,
+                    MediaType = a.Info.MediaType,
+                    FileSize = a.Info.FileSize,
+                    SourcePath = a.Info.SourcePath,
+                    Kind = a.Info.Kind.ToString(),
+                    IsLargeText = a.IsLargeText
+                };
+
+                switch (a.Content)
+                {
+                    // 文本：快照正文（大文本即指引文本），回放不再读源文件，>50KB 也保持“仅指引”
+                    case TextContent tc:
+                        record.TextPayload = tc.Text;
+                        break;
+                    // 图片：把“实际发送的字节”（缩放/重编码后的 DataContent）落到临时文件，
+                    // 回放直接读它，既避免重读原始大图，也保证 MediaType 与字节真实格式一致
+                    case DataContent dc when a.Info.Kind == Attachments.AttachmentKind.Image:
+                        record.MediaType = dc.MediaType ?? record.MediaType;
+                        record.ProcessedPath = await SaveProcessedImageAsync(dc, cancellationToken).ConfigureAwait(false);
+                        break;
+                }
+
+                records.Add(record);
+            }
             attachmentsJson = System.Text.Json.JsonSerializer.Serialize(records);
         }
 
@@ -259,26 +285,71 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
                 continue;
             }
 
-            if (!File.Exists(r.SourcePath))
-            {
-                contents.Add(new TextContent($"[附件: {r.FileName} - 文件已不存在]"));
-                continue;
-            }
-
             try
             {
                 if (isImage)
-                    contents.Add(new DataContent(await File.ReadAllBytesAsync(r.SourcePath, ct), r.MediaType));
+                {
+                    var resolved = ResolveReadableImage(r);
+                    if (resolved == null)
+                    {
+                        contents.Add(new TextContent($"[附件: {r.FileName} - 文件已不存在]"));
+                        continue;
+                    }
+                    var (path, mediaType) = resolved.Value;
+                    contents.Add(new DataContent(await File.ReadAllBytesAsync(path, ct).ConfigureAwait(false), mediaType));
+                }
                 else
-                    contents.Add(new TextContent(await File.ReadAllTextAsync(r.SourcePath, ct)));
+                {
+                    // 文本用快照，绝不重读源文件：既避免重复内联，也保证 >50KB 仍是“仅指引”
+                    if (r.TextPayload == null)
+                    {
+                        contents.Add(new TextContent($"[附件: {r.FileName} - 内容缺失]"));
+                        continue;
+                    }
+                    contents.Add(new TextContent(r.TextPayload));
+                }
             }
-            catch
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 contents.Add(new TextContent($"[附件: {r.FileName} - 读取失败]"));
             }
         }
 
         return new ChatMessage(role, contents);
+    }
+
+    /// <summary>
+    /// 图片回放取数：优先处理结果临时文件（MediaType 已准确），其次回退源文件并按扩展名重解析类型。
+    /// </summary>
+    private static (string Path, string MediaType)? ResolveReadableImage(AttachmentRecord r)
+    {
+        if (!string.IsNullOrEmpty(r.ProcessedPath) && File.Exists(r.ProcessedPath))
+            return (r.ProcessedPath, r.MediaType);
+        if (!string.IsNullOrEmpty(r.SourcePath) && File.Exists(r.SourcePath))
+            return (r.SourcePath, _mediaTypeResolver.ResolveMediaType(r.SourcePath));
+        return null;
+    }
+
+    /// <summary>
+    /// 把图片处理结果写入临时文件，供历史回放读取，避免回放时重读原始大图。
+    /// </summary>
+    private static async Task<string> SaveProcessedImageAsync(DataContent content, CancellationToken ct)
+    {
+        var dir = LuBan.Common.IO.TempDirectory.GetTempDir();
+        Directory.CreateDirectory(dir);
+        var ext = content.MediaType switch
+        {
+            "image/png" => ".png",
+            "image/jpeg" => ".jpg",
+            "image/webp" => ".webp",
+            "image/gif" => ".gif",
+            "image/bmp" => ".bmp",
+            "image/tiff" => ".tiff",
+            _ => ".img"
+        };
+        var path = Path.Combine(dir, Guid.NewGuid().ToString("N") + ext);
+        await File.WriteAllBytesAsync(path, content.Data.ToArray(), ct).ConfigureAwait(false);
+        return path;
     }
 
     private static int EstimateTokens(string text) => Math.Max(1, text.Length / 4);
