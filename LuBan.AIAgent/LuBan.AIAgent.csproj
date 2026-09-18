@@ -44,6 +44,7 @@
          下游 LubanAgentCli 因此钉住 OpenAI [2.12.0, 2.13.0)。升级前必须先适配并实测流式工具调用。 -->
     <PackageReference Include="Microsoft.Extensions.AI" Version="10.10.0" />
     <PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="10.10.0" />
+    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.7" />
     <PackageReference Include="Microsoft.Playwright" Version="1.62.0" />
   </ItemGroup>
 
