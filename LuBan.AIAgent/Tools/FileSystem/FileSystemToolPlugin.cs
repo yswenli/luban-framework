@@ -394,12 +394,12 @@ public class FileSystemToolGroup
         catch (FileNotFoundException ex)
         {
             Logger.Error("文件读取异常：文件不存在", ex, path);
-            return ToolResult.Fail<string>($"未找到文件: {path}。请检查路径是否正确，或尝试其他路径。");
+            return ToolResult.Fail<string>($"未找到文件: {path}。请检查路径是否正确；若不确定文件位置，请先用 ListDirectory 查看目录内容，再传入目录下的具体文件路径。");
         }
         catch (DirectoryNotFoundException ex)
         {
             Logger.Error("文件读取异常：目录不存在", ex, path);
-            return ToolResult.Fail<string>($"未找到目录: {path}。请检查路径是否正确，或尝试其他路径。");
+            return ToolResult.Fail<string>($"未找到目录: {path}。请检查路径是否正确；若不确定目录位置，请先用 ListDirectory 查看上级目录内容。");
         }
         catch (UnauthorizedAccessException ex)
         {
@@ -1152,6 +1152,9 @@ public class FileSystemToolGroup
             if (!File.Exists(sourcePath))
                 return ToolResult.Fail<string>($"错误：源文件不存在 ({sourcePath})");
 
+            if (Directory.Exists(destPath))
+                return ToolResult.Fail<string>(DirectoryPathMessage(destPath, "复制目标是文件路径（含文件名），不能是目录"));
+
             var sourceInfo = new FileInfo(sourcePath);
             if (sourceInfo.Length > 500 * 1024 * 1024)
                 return ToolResult.Fail<string>($"错误：源文件过大 ({sourceInfo.Length / 1024 / 1024}MB)，复制操作最大支持 500MB");
@@ -1240,6 +1243,9 @@ public class FileSystemToolGroup
 
             if (!File.Exists(sourcePath))
                 return ToolResult.Fail<string>($"错误：源文件不存在 ({sourcePath})");
+
+            if (Directory.Exists(destPath))
+                return ToolResult.Fail<string>(DirectoryPathMessage(destPath, "移动目标是文件路径（含文件名），不能是目录"));
 
             if (File.Exists(destPath))
                 return ToolResult.Fail<string>($"错误：目标文件已存在 ({destPath})，无法覆盖");

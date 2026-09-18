@@ -132,7 +132,7 @@ public class FileSystemMCPClient : MCPClientBase
     /// <summary>
     /// 调用工具
     /// </summary>
-    public override Task<MCPToolResult> CallToolAsync(
+    public override async Task<MCPToolResult> CallToolAsync(
         string toolName,
         Dictionary<string, object?> arguments,
         CancellationToken cancellationToken = default)
@@ -142,22 +142,22 @@ public class FileSystemMCPClient : MCPClientBase
             switch (toolName)
             {
                 case "read_file":
-                    return ReadFileAsync(arguments);
+                    return await ReadFileAsync(arguments).ConfigureAwait(false);
 
                 case "write_file":
-                    return WriteFileAsync(arguments);
+                    return await WriteFileAsync(arguments).ConfigureAwait(false);
 
                 case "list_directory":
-                    return ListDirectoryAsync(arguments);
+                    return await ListDirectoryAsync(arguments).ConfigureAwait(false);
 
                 default:
-                    return Task.FromResult(Fail($"未知工具: {toolName}"));
+                    return Fail($"未知工具: {toolName}");
             }
         }
         catch (Exception ex)
         {
             Logger.Error("FileSystemMCPClient 执行工具失败", ex, toolName);
-            return Task.FromResult(Fail(ex.Message));
+            return Fail(ex.Message);
         }
     }
 

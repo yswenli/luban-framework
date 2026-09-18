@@ -28,36 +28,52 @@ public class FileSystemToolPathUnitTest
     public static void Setup(TestContext context)
     {
         _root = Path.Combine(Path.GetTempPath(), "luban-fs-path-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(_root);
-        File.WriteAllText(Path.Combine(_root, "AGENTS.md"), "# AGENTS.md");
-
-        var options = Options.Create(new LuBanAgentOptions
+        try
         {
-            Tools = new ToolGroupOptions
+            Directory.CreateDirectory(_root);
+            File.WriteAllText(Path.Combine(_root, "AGENTS.md"), "# AGENTS.md");
+
+            var options = Options.Create(new LuBanAgentOptions
             {
-                FileSystem = new FileSystemToolOptions
+                Tools = new ToolGroupOptions
                 {
-                    Enabled = true,
-                    AllowedRoots = new List<string> { _root }
+                    FileSystem = new FileSystemToolOptions
+                    {
+                        Enabled = true,
+                        AllowedRoots = new List<string> { _root }
+                    }
                 }
-            }
-        });
+            });
 
-        var confirmationContext = new ToolConfirmationContext
+            var confirmationContext = new ToolConfirmationContext
+            {
+                Callback = (_, _) => Task.FromResult(true),
+                WorkspacePathChecker = _ => true
+            };
+
+            _group = new FileSystemToolGroup(
+                new PathGuard(options),
+                new ToolConfirmationService(confirmationContext, options));
+        }
+        catch
         {
-            Callback = (_, _) => Task.FromResult(true),
-            WorkspacePathChecker = _ => true
-        };
-
-        _group = new FileSystemToolGroup(
-            new PathGuard(options),
-            new ToolConfirmationService(confirmationContext, options));
+            // ClassInitialize 抛异常时 MSTest 不会调用 ClassCleanup：此处先自清理，避免残留临时目录
+            TryDeleteRoot();
+            throw;
+        }
     }
 
     [ClassCleanup]
-    public static void Cleanup()
+    public static void Cleanup() => TryDeleteRoot();
+
+    private static void TryDeleteRoot()
     {
-        try { Directory.Delete(_root, true); } catch { }
+        try
+        {
+            if (!string.IsNullOrEmpty(_root) && Directory.Exists(_root))
+                Directory.Delete(_root, true);
+        }
+        catch { }
     }
 
     [TestMethod]
@@ -89,6 +105,7 @@ public class FileSystemToolPathUnitTest
         Assert.IsFalse(result.IsSuccess);
         Assert.IsNotNull(result.Message);
         StringAssert.Contains(result.Message, "路径是目录");
+        StringAssert.Contains(result.Message, "写入文件需要包含文件名的文件路径");
     }
 
     [TestMethod]
@@ -110,6 +127,7 @@ public class FileSystemToolPathUnitTest
         Assert.IsFalse(result.IsSuccess);
         Assert.IsNotNull(result.Message);
         StringAssert.Contains(result.Message, "路径是目录");
+        StringAssert.Contains(result.Message, "复制源必须是文件");
     }
 
     [TestMethod]
@@ -120,6 +138,7 @@ public class FileSystemToolPathUnitTest
         Assert.IsFalse(result.IsSuccess);
         Assert.IsNotNull(result.Message);
         StringAssert.Contains(result.Message, "路径是目录");
+        StringAssert.Contains(result.Message, "移动源必须是文件");
     }
 
     [TestMethod]
@@ -148,5 +167,53 @@ public class FileSystemToolPathUnitTest
         Assert.IsFalse(result.Success);
         Assert.IsNotNull(result.Error);
         StringAssert.Contains(result.Error, "路径是目录");
+    }
+
+    [TestMethod]
+    public async Task CopyFileAsync_DirectoryDestination_ReturnsActionableMessage()
+    {
+        var result = await _group.CopyFileAsync(Path.Combine(_root, "AGENTS.md"), _root);
+
+        Assert.IsFalse(result.IsSuccess);
+        Assert.IsNotNull(result.Message);
+        StringAssert.Contains(result.Message, "路径是目录");
+        StringAssert.Contains(result.Message, "复制目标");
+    }
+
+    [TestMethod]
+    public async Task MoveFileAsync_DirectoryDestination_ReturnsActionableMessage()
+    {
+        var result = await _group.MoveFileAsync(Path.Combine(_root, "AGENTS.md"), _root);
+
+        Assert.IsFalse(result.IsSuccess);
+        Assert.IsNotNull(result.Message);
+        StringAssert.Contains(result.Message, "路径是目录");
+        StringAssert.Contains(result.Message, "移动目标");
+    }
+
+    [TestMethod]
+    public async Task ReadFileAsync_MissingFile_GuidesToListDirectory()
+    {
+        var result = await _group.ReadFileAsync(Path.Combine(_root, "no-such-file.md"));
+
+        Assert.IsFalse(result.IsSuccess);
+        Assert.IsNotNull(result.Message);
+        StringAssert.Contains(result.Message, "ListDirectory");
+    }
+
+    [TestMethod]
+    public async Task McpCallTool_AsyncFailure_IsReturnedAsFail()
+    {
+        var client = new FileSystemMCPClient();
+        var missingDirPath = Path.Combine(_root, "no-such-dir", "x.txt");
+
+        var result = await client.CallToolAsync("write_file", new Dictionary<string, object?>
+        {
+            ["path"] = missingDirPath,
+            ["content"] = "x"
+        });
+
+        Assert.IsFalse(result.Success);
+        Assert.IsNotNull(result.Error);
     }
 }
