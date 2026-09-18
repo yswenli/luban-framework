@@ -60,4 +60,21 @@ public class AttachmentProcessorUnitTest
         }
         finally { File.Delete(path); }
     }
+
+    [TestMethod]
+    public async Task ProcessAsync_SmallNonPngImage_KeepsOriginalMediaType()
+    {
+        // 回归：原样返回原始字节（未缩放、未超限）时，媒体类型必须与载荷真实格式一致
+        var p = NewProcessor();
+        var path = TestImageFactory.CreateGif(32, 32);
+        try
+        {
+            var result = await p.ProcessAsync(path);
+            Assert.AreEqual(AttachmentKind.Image, result.Info.Kind);
+            Assert.AreEqual("image/gif", result.Info.MediaType);
+            var data = (Microsoft.Extensions.AI.DataContent)result.Content;
+            Assert.AreEqual("image/gif", data.MediaType);
+        }
+        finally { File.Delete(path); }
+    }
 }

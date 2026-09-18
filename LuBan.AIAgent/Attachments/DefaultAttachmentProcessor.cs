@@ -123,6 +123,7 @@ public sealed class DefaultAttachmentProcessor : IAttachmentProcessor
         var pixelSize = $"{width}x{height}";
 
         byte[] bytes;
+        string outMedia;
         if (width > MaxWidth || height > MaxHeight)
         {
             var ratio = Math.Min((double)MaxWidth / width, (double)MaxHeight / height);
@@ -130,15 +131,24 @@ public sealed class DefaultAttachmentProcessor : IAttachmentProcessor
             var targetH = Math.Max(1, (int)(height * ratio));
             source.Mutate(x => x.Resize(targetW, targetH, KnownResamplers.Lanczos3));
             bytes = await EncodeUnderLimitAsync(source, ct).ConfigureAwait(false);
+            outMedia = IsPng(bytes) ? "image/png" : "image/jpeg";
         }
         else
         {
             bytes = await File.ReadAllBytesAsync(filePath, ct).ConfigureAwait(false);
             if (bytes.LongLength > MaxImageBytes)
+            {
                 bytes = await EncodeUnderLimitAsync(source, ct).ConfigureAwait(false);
+                outMedia = IsPng(bytes) ? "image/png" : "image/jpeg";
+            }
+            else
+            {
+                // 原样返回原始字节时，媒体类型必须与载荷真实格式一致（gif/webp/bmp/tiff 原格式），
+                // 不能一律标 image/jpeg，否则模型侧按声明类型解码会失败。
+                outMedia = mediaType;
+            }
         }
 
-        var outMedia = bytes.Length > 0 && IsPng(bytes) ? "image/png" : "image/jpeg";
         string? thumb = generateThumbnail ? await SaveThumbnailAsync(source, ct).ConfigureAwait(false) : null;
 
         return new ProcessedAttachment
