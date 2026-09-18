@@ -72,8 +72,9 @@ public interface ISessionManager
     /// <param name="content">消息内容</param>
     /// <param name="tokens">Token 数量（可选）</param>
     /// <param name="thinking">AI 思考内容（reasoning，仅 assistant 角色有，可选）</param>
+    /// <param name="attachments">附件元数据 JSON（序列化的 AttachmentInfo 数组，可选）</param>
     /// <returns>消息信息</returns>
-    Task<SessionMessage> AddMessageAsync(string sessionId, string role, string content, int? tokens = null, string? thinking = null);
+    Task<SessionMessage> AddMessageAsync(string sessionId, string role, string content, int? tokens = null, string? thinking = null, string? attachments = null);
 
     /// <summary>
     /// 获取会话消息
@@ -215,6 +216,11 @@ public class SessionMessage
     /// AI 思考内容（reasoning，仅 assistant 消息可能有）
     /// </summary>
     public string? Thinking { get; set; }
+
+    /// <summary>
+    /// 附件元数据 JSON（序列化的 AttachmentInfo 数组）；无附件为 null。
+    /// </summary>
+    public string? Attachments { get; set; }
 
     /// <summary>
     /// Token 数量
