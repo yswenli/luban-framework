@@ -51,7 +51,12 @@ public class ApiLogMiddleware(RequestDelegate next)
             return;
         }
 
-        context.Request.EnableBuffering();
+        //仅当请求体需要被日志读取时才启用缓冲：避免上传等大文件被 EnableBuffering
+        //整体缓冲到内存/磁盘（FileBufferingReadStream 超过阈值会落盘），产生额外 IO。
+        if (ApiLogAttribute.ShouldBufferRequestBody(context))
+        {
+            context.Request.EnableBuffering();
+        }
 
         var originalBodyStream = context.Response.Body;
         using var responseStream = new CappedResponseStream(originalBodyStream, ResponseBufferLimit);
@@ -84,7 +89,7 @@ public class ApiLogMiddleware(RequestDelegate next)
             string output;
             if (responseStream.IsOverflow)
             {
-                output = $"[response body > {ResponseBufferLimit} bytes truncated]";
+                output = $"[response body not fully captured (streamed or > {ResponseBufferLimit} bytes)]";
             }
             else
             {

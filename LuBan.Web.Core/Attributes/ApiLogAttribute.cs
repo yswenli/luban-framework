@@ -73,6 +73,27 @@ public class ApiLogAttribute : BaseFilterAttribute, IAsyncActionFilter, IAsyncEx
     }
 
     /// <summary>
+    /// 判断请求体是否需要被日志读取（文本类且非 multipart）。
+    /// 仅在需要读取时才启用缓冲：multipart/二进制大文件（如上传）不应被整体缓冲到内存/磁盘。
+    /// </summary>
+    internal static bool ShouldBufferRequestBody(HttpContext httpContext)
+    {
+        var request = httpContext.Request;
+        var contentType = request.ContentType;
+        //multipart可能包含文件二进制内容，日志不读原文，无需缓冲
+        if (contentType?.StartsWith("multipart/", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return false;
+        }
+        //非文本类型（如application/octet-stream）日志只记录元信息，无需缓冲
+        if (!request.HasFormContentType && !IsTextualContentType(contentType))
+        {
+            return false;
+        }
+        return true;
+    }
+
+    /// <summary>
     /// 判断是否为可安全按文本读取的ContentType
     /// </summary>
     static bool IsTextualContentType(string? contentType)

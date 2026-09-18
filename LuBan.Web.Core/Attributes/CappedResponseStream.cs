@@ -33,7 +33,28 @@ internal sealed class CappedResponseStream : Stream
 
     public override void Flush()
     {
-        if (_overflow) _inner.Flush();
+        // 禁止对底层流执行同步 Flush：Kestrel 默认 AllowSynchronousIO=false，
+        // 超限后调用 _inner.Flush() 会抛 InvalidOperationException。
+        // 此时响应头已提交，异常会导致响应中断，表现为大响应（>64KB）被截断。
+        // 数据在超限时已直写底层流，未超限时由 ApiLogMiddleware 末尾统一写出，无需在此刷新。
+    }
+
+    public override async Task FlushAsync(CancellationToken cancellationToken)
+    {
+        // 显式刷新代表调用方要求数据立即送达客户端（如 SSE / 分块传输）。
+        // 此时交出缓冲区内容并停止缓冲，随后刷新底层流；否则数据会滞留在缓冲区中，
+        // 直到请求结束才写出，SSE 等流式响应将失去实时性。
+        if (!_overflow)
+        {
+            _overflow = true;
+            if (_buffer.Length > 0)
+            {
+                var buffered = _buffer.ToArray();
+                _buffer.SetLength(0);
+                await _inner.WriteAsync(buffered, cancellationToken);
+            }
+        }
+        await _inner.FlushAsync(cancellationToken);
     }
 
     public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
