@@ -31,6 +31,7 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
     private readonly int _threshold;
     private readonly ContextInjectBuilder _contextInjectBuilder;
     private string? _pendingRawUserInput;
+    private IReadOnlyList<Attachments.ProcessedAttachment>? _pendingAttachments;
 
     /// <summary>
     /// 创建会话历史提供者
@@ -185,6 +186,15 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
     public void SetPendingRawUserInput(string? rawUserInput)
     {
         _pendingRawUserInput = rawUserInput;
+    }
+
+    /// <summary>
+    /// 设置本轮待持久化的附件（由 <c>LuBanAgent</c> 在发起请求前注入），消费后自动清空。
+    /// </summary>
+    /// <param name="attachments">已处理的附件列表；传空列表表示清除残留状态。</param>
+    public void SetPendingAttachments(IReadOnlyList<Attachments.ProcessedAttachment> attachments)
+    {
+        _pendingAttachments = attachments.Count > 0 ? attachments : null;
     }
 
     private static int EstimateTokens(string text) => Math.Max(1, text.Length / 4);

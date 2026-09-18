@@ -205,6 +205,31 @@ public class LuBanAgent
     }
 
     /// <summary>
+    /// 运行一轮对话（带附件）。先执行输入预处理（RAG/上下文注入），但不进入自动编排分支。
+    /// </summary>
+    /// <param name="input">用户输入文本。</param>
+    /// <param name="attachments">已处理的附件列表。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    public async IAsyncEnumerable<AgentResponseUpdate> RunStreamingAsync(
+        string input,
+        IReadOnlyList<Attachments.ProcessedAttachment> attachments,
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        var session = await GetOrCreateSessionAsync(cancellationToken);
+        input = await PreProcessInputAsync(input, cancellationToken);
+
+        // 通知历史 provider：本轮附件需持久化；无条件设置以清除上一轮残留状态
+        _historyProvider?.SetPendingAttachments(attachments);
+
+        var messages = new[] { Attachments.AttachmentMessageBuilder.Build(input, attachments) };
+
+        await foreach (var update in _innerAgent.RunStreamingAsync(messages, session, cancellationToken: cancellationToken))
+        {
+            yield return update;
+        }
+    }
+
+    /// <summary>
     /// 构造仅承载编排进度的流式更新。
     /// </summary>
     private static AgentResponseUpdate ProgressUpdate(ProgressEventType eventType, string? nodeId, string? message)
