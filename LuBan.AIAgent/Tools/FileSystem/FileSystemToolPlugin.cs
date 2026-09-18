@@ -128,7 +128,7 @@ public class FileSystemToolGroup
         {
             EnumConfirmationOutcome.Allowed => null,
             EnumConfirmationOutcome.Planned => ToolResult.Plan<string>(),
-            _ => ToolResult.Cancelled<string>()
+            _ => ToolResult.Denied<string>()
         };
     }
 

@@ -114,7 +114,7 @@ public class BrowserToolGroup
         if (outcome == EnumConfirmationOutcome.Planned)
             return ToolResult.Plan<string>();
         if (outcome != EnumConfirmationOutcome.Allowed)
-            return ToolResult.Cancelled<string>();
+            return ToolResult.Denied<string>();
 
         if (!IsValidHttpUrl(url))
             return ToolResult.Fail<string>($"无效的 URL: {url}。仅支持 http:// 和 https:// 协议。");
@@ -218,7 +218,7 @@ public class BrowserToolGroup
         if (outcome == EnumConfirmationOutcome.Planned)
             return ToolResult.Plan<string>();
         if (outcome != EnumConfirmationOutcome.Allowed)
-            return ToolResult.Cancelled<string>();
+            return ToolResult.Denied<string>();
 
         try
         {
@@ -255,7 +255,7 @@ public class BrowserToolGroup
         if (outcome == EnumConfirmationOutcome.Planned)
             return ToolResult.Plan<string>();
         if (outcome != EnumConfirmationOutcome.Allowed)
-            return ToolResult.Cancelled<string>();
+            return ToolResult.Denied<string>();
 
         try
         {

@@ -438,9 +438,9 @@ Specify assembly names via `ExternalPlugins` configuration — the framework aut
       "AutoDetect": true,
       "MaxNodes": 10,
       "MaxParallelism": 4,
-      "DefaultNodeTimeoutSeconds": 300,
+      "DefaultNodeTimeoutSeconds": 0,
       "MaxReplanAttempts": 3,
-      "ReflectionTimeoutSeconds": 180,
+      "ReflectionTimeoutSeconds": 0,
       "ExposeAsTool": false,
       "HeuristicFilter": {
         "Enabled": true,
@@ -568,6 +568,14 @@ Notes:
 - The OpenAI SDK's built-in retries (`ClientRetryPolicy.Default`, 3 extra attempts) are disabled on the host side so the configured retry budget and progress notifications are authoritative.
 - Recognizable API failures during orchestration planning are no longer silently downgraded to a normal chat; they surface with their classification.
 - Session summarization failures degrade to "skip compaction" instead of breaking the main conversation.
+
+### 11. Tool Confirmation and Abort Semantics
+
+- **Deny aborts the turn**: when the user chooses "Deny" in a tool confirmation, the host immediately aborts the current turn (partial output is kept). Both CLI and Codex show "已拒绝，本轮终止"; CLI marks the denied tool block "已被用户拒绝", while Codex marks the confirmation card "已拒绝" and the tool card with the framework-neutral result "工具调用被拒绝或已取消".
+- **Unbounded waits**: tool confirmations and workspace authorization wait indefinitely for user input; there is no timeout. Esc cancels the turn at any time ("任务已取消" in CLI, "已取消" in Codex).
+- **Sub-agent delegated confirmation**: orchestration sub-agents never prompt the user. Tool calls that would need manual confirmation are decided by the main code against the turn's allowed set — allowed when present, otherwise a sub-agent-specific denial (not a user denial).
+- **Turn allow-list**: `ToolConfirmationContext.AllowedThisTurn` is no longer public; hosts call `AllowThisTurn(toolName)` and the framework checks `IsAllowedThisTurn(toolName)`.
+- **Unbounded sub-agent waits**: `Orchestration.DefaultNodeTimeoutSeconds` and `ReflectionTimeoutSeconds` default to 0 (unbounded); set them above 0 to enforce limits, and `TimeoutSeconds` can still override per node.
 
 ## Supported AI Providers
 

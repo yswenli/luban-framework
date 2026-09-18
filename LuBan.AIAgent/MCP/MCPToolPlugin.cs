@@ -112,7 +112,7 @@ public class MCPToolPlugin : ILuBanToolPlugin
             if (outcome == EnumConfirmationOutcome.Planned)
                 return ToolResult.Plan<string>();
             if (outcome != EnumConfirmationOutcome.Allowed)
-                return ToolResult.Cancelled<string>();
+                return ToolResult.Denied<string>();
 
             var result = await _client.CallToolAsync(
                 _tool.Name,

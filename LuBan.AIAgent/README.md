@@ -440,9 +440,9 @@ services.AddSingleton<IRule, MyRule>();
       "AutoDetect": true,
       "MaxNodes": 10,
       "MaxParallelism": 4,
-      "DefaultNodeTimeoutSeconds": 300,
+      "DefaultNodeTimeoutSeconds": 0,
       "MaxReplanAttempts": 3,
-      "ReflectionTimeoutSeconds": 180,
+      "ReflectionTimeoutSeconds": 0,
       "ExposeAsTool": false,
       "HeuristicFilter": {
         "Enabled": true,
@@ -567,6 +567,14 @@ options.Value.OnApiRetry = notice =>
 - OpenAI SDK 的内置重试（`ClientRetryPolicy.Default`，默认再重试 3 次）已在宿主侧禁用，重试次数与进度提示以本配置为准。
 - 编排规划期的可识别 API 故障不再静默降级为常规对话，而是按分类结果透出。
 - 会话摘要压缩失败会降级为「跳过压缩」继续对话，不再打断主对话。
+
+### 11. 工具确认与终止语义
+
+- **拒绝即终止**：用户在工具确认中选择「拒绝」时，宿主立即终止当前对话回合（保留已输出内容）。CLI 与 Codex 均显示「已拒绝，本轮终止」；CLI 被拒工具块显示「已被用户拒绝」，Codex 确认卡显示「已拒绝」、工具卡显示框架中性结果「工具调用被拒绝或已取消」。
+- **等待无限期**：工具确认与工作区授权均无限期等待用户响应，无超时兜底；Esc 可随时取消本轮（CLI 显示「任务已取消」，Codex 显示「已取消」）。
+- **子代理代确认**：编排子代理不会向用户弹确认；其工具调用在需要人工确认时，由主代码按「本轮已允许集合」代判——命中放行，否则返回子代理专用拒绝结果（不代表用户拒绝）。
+- **本轮允许集合**：`ToolConfirmationContext.AllowedThisTurn` 不再公开；宿主使用 `AllowThisTurn(toolName)` 写入、框架使用 `IsAllowedThisTurn(toolName)` 读取。
+- **子代理等待无限期**：`Orchestration.DefaultNodeTimeoutSeconds` 与 `ReflectionTimeoutSeconds` 默认 0（无限期）；显式配置大于 0 时才限时，节点仍可用 `TimeoutSeconds` 单独覆盖。
 
 ## 支持的 AI Provider
 

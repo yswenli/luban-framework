@@ -105,7 +105,7 @@ public class RetrievalToolGroup
         if (outcome == EnumConfirmationOutcome.Planned)
             return ToolResult.Plan<string>();
         if (outcome != EnumConfirmationOutcome.Allowed)
-            return ToolResult.Cancelled<string>();
+            return ToolResult.Denied<string>();
 
         if (!Directory.Exists(path)) return ToolResult.Fail<string>($"错误：目录不存在 {path}");
         try
@@ -138,7 +138,7 @@ public class RetrievalToolGroup
         if (outcome == EnumConfirmationOutcome.Planned)
             return ToolResult.Plan<string>();
         if (outcome != EnumConfirmationOutcome.Allowed)
-            return ToolResult.Cancelled<string>();
+            return ToolResult.Denied<string>();
 
         if (string.IsNullOrWhiteSpace(content)) return ToolResult.Fail<string>("错误：内容为空");
         if (content.Length > 2_000_000) return ToolResult.Fail<string>("错误：内容过大（>2MB），请分段索引");

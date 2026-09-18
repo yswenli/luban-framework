@@ -61,7 +61,8 @@ public class TaskNode
     public string? ModelName { get; set; }
 
     /// <summary>
-    /// 获取或设置节点超时时间（秒）。null 表示使用默认值。
+    /// 获取或设置节点超时时间（秒）。null 表示沿用 <see cref="Configuration.OrchestrationOptions.DefaultNodeTimeoutSeconds"/>；
+    /// 显式指定时 0/负数表示无限期（不再回落默认），大于 0 时限时。
     /// </summary>
     public int? TimeoutSeconds { get; set; }
 

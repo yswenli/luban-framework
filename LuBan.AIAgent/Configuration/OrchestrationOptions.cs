@@ -37,12 +37,11 @@ public class OrchestrationOptions
     public string? PlannerModel { get; set; }
 
     /// <summary>
-    /// 获取或设置 SubAgent 默认超时时间（秒）。
-    /// 该值是节点执行的<b>总墙钟上限</b>，需覆盖「多轮 LLM 调用 + 全部工具调用」的累计耗时；
-    /// 慢速模型（单轮可达数十秒）下 120 秒会在工具链跑完前误杀节点，故默认放宽到 300 秒。
-    /// 节点可通过 <see cref="Orchestration.Models.TaskNode.TimeoutSeconds"/> 单独覆盖。
+    /// 获取或设置 SubAgent 默认超时时间（秒）。默认 0 表示<b>无限期</b>等待子代理完成；
+    /// 显式配置大于 0 时作为节点执行的墙钟上限（需覆盖「多轮 LLM 调用 + 全部工具调用」的累计耗时）。
+    /// 节点可通过 <see cref="Orchestration.Models.TaskNode.TimeoutSeconds"/> 单独覆盖（0/负数=无限）。
     /// </summary>
-    public int DefaultNodeTimeoutSeconds { get; set; } = 300;
+    public int DefaultNodeTimeoutSeconds { get; set; } = 0;
 
     /// <summary>
     /// 获取或设置同层最大并行度。0 表示不限制。
@@ -75,10 +74,10 @@ public class OrchestrationOptions
     public int MaxReplanAttempts { get; set; } = 3;
 
     /// <summary>
-    /// 获取或设置反思阶段 LLM 调用的超时时间（秒）。
-    /// 反思是单次 LLM 调用，慢速模型下单次即可耗时数十秒，60 秒几乎无余量，故默认放宽到 180 秒。
+    /// 获取或设置反思阶段 LLM 调用的超时时间（秒）。默认 0 表示<b>无限期</b>；
+    /// 显式配置大于 0 时作为单次反思调用的上限。
     /// </summary>
-    public int ReflectionTimeoutSeconds { get; set; } = 180;
+    public int ReflectionTimeoutSeconds { get; set; } = 0;
 
     /// <summary>
     /// 获取或设置启发式预过滤配置。

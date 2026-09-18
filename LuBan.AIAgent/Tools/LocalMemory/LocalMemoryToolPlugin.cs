@@ -102,7 +102,7 @@ public class LocalMemoryToolGroup
         if (outcome == EnumConfirmationOutcome.Planned)
             return ToolResult.Plan<string>();
         if (outcome != EnumConfirmationOutcome.Allowed)
-            return ToolResult.Cancelled<string>();
+            return ToolResult.Denied<string>();
 
         if (string.IsNullOrWhiteSpace(content))
             return ToolResult.Fail<string>("内容不能为空");
@@ -204,7 +204,7 @@ public class LocalMemoryToolGroup
         if (outcome == EnumConfirmationOutcome.Planned)
             return ToolResult.Plan<string>();
         if (outcome != EnumConfirmationOutcome.Allowed)
-            return ToolResult.Cancelled<string>();
+            return ToolResult.Denied<string>();
 
         if (string.IsNullOrWhiteSpace(id))
             return ToolResult.Fail<string>("ID 不能为空");

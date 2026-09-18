@@ -77,18 +77,48 @@ public class ToolConfirmationContext
     /// </summary>
     public ToolPermissionMode Mode { get; set; } = ToolPermissionMode.Default;
 
+    private readonly object _allowedLock = new();
+
+    private HashSet<string> AllowedThisTurn { get; } = new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>
-    /// 本轮（当前 agent 交互回合内）已允许的工具名称集合。
-    /// 用户选择"本轮全部允许"后，后续同类工具跳过确认直到本轮结束。
-    /// <see cref="Reset"/> 时清空。
+    /// 判断本轮是否已允许指定工具（用户选择过"本轮全部允许"）。
+    /// 线程安全：主代理写入与并行子代理读取可能并发。
     /// </summary>
-    public HashSet<string> AllowedThisTurn { get; } = new(StringComparer.OrdinalIgnoreCase);
+    /// <param name="toolName">工具名称。</param>
+    /// <returns>本轮已允许返回 true。</returns>
+    public bool IsAllowedThisTurn(string toolName)
+    {
+        lock (_allowedLock)
+        {
+            return AllowedThisTurn.Contains(toolName);
+        }
+    }
+
+    /// <summary>
+    /// 将工具加入本轮已允许集合（用户选择"本轮全部允许"时由宿主调用）。
+    /// </summary>
+    /// <param name="toolName">工具名称。</param>
+    public void AllowThisTurn(string toolName)
+    {
+        lock (_allowedLock)
+        {
+            AllowedThisTurn.Add(toolName);
+        }
+    }
 
     /// <summary>
     /// Plan 模式计划项回调。Plan 模式下每个危险工具调用不立即确认，
     /// 而是通过此回调收集为 PlannedAction 列表，退出 Plan 时批量确认。
     /// </summary>
     public Action<string, IReadOnlyDictionary<string, object?>>? OnPlannedAction { get; set; }
+
+    /// <summary>
+    /// 用户明确拒绝本轮工具调用时的通知回调。宿主订阅后应立即取消本轮令牌以终止对话：
+    /// 仅当用户确认回调返回 false、且本轮取消令牌尚未取消时触发（Esc 取消不触发）。
+    /// 子代理代确认拒绝不触发（那不是用户的选择）。
+    /// </summary>
+    public Action<string, IReadOnlyDictionary<string, object?>>? OnUserDenied { get; set; }
 
     /// <summary>
     /// 重置上下文到初始状态（每轮对话结束时调用）。
@@ -99,8 +129,48 @@ public class ToolConfirmationContext
         WorkspacePathChecker = null;
         CancellationToken = default;
         Mode = ToolPermissionMode.Default;
-        AllowedThisTurn.Clear();
+        lock (_allowedLock)
+        {
+            AllowedThisTurn.Clear();
+        }
         OnPlannedAction = null;
+        OnUserDenied = null;
+    }
+
+    private static readonly AsyncLocal<int> SubAgentScopeDepth = new();
+
+    /// <summary>
+    /// 当前调用链是否处于编排子代理执行作用域。
+    /// 子代理不向用户弹确认，由主代码按本轮已允许集合代确认。
+    /// </summary>
+    public static bool IsInSubAgentScope => SubAgentScopeDepth.Value > 0;
+
+    /// <summary>
+    /// 进入子代理执行作用域（DagScheduler 在节点执行期调用）；Dispose 退出。
+    /// AsyncLocal 保证并行节点各自独立，互不串扰。
+    /// 返回的令牌必须按 LIFO 顺序释放（重复释放会被忽略）。
+    /// </summary>
+    /// <returns>作用域令牌。</returns>
+    public static IDisposable EnterSubAgentScope()
+    {
+        var previous = SubAgentScopeDepth.Value;
+        SubAgentScopeDepth.Value = previous + 1;
+        return new SubAgentScopeToken(previous);
+    }
+
+    /// <summary>
+    /// 子代理作用域令牌。必须按 LIFO 顺序释放；重复 Dispose 不再改写深度，避免作用域泄漏。
+    /// </summary>
+    private sealed class SubAgentScopeToken(int previous) : IDisposable
+    {
+        private int _disposed;
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) == 1)
+                return;
+            SubAgentScopeDepth.Value = previous;
+        }
     }
 }
 
@@ -269,7 +339,7 @@ public class ToolConfirmationService : IToolConfirmationService
         // ── Default 路径 ──
 
         // 本轮已允许的工具跳过确认
-        if (_context.AllowedThisTurn.Contains(toolName))
+        if (_context.IsAllowedThisTurn(toolName))
         {
             return EnumConfirmationOutcome.Allowed;
         }
@@ -313,15 +383,33 @@ public class ToolConfirmationService : IToolConfirmationService
             return EnumConfirmationOutcome.Allowed;
         }
 
+        // 子代理作用域：不向用户弹确认，改由主代码按本轮已允许集合代确认
+        if (ToolConfirmationContext.IsInSubAgentScope)
+        {
+            return _context.IsAllowedThisTurn(toolName)
+                ? EnumConfirmationOutcome.Allowed
+                : EnumConfirmationOutcome.Denied;
+        }
+
         var callback = _context.Callback;
         if (callback == null)
         {
             return EnumConfirmationOutcome.Denied;
         }
 
-        return await callback(toolName, arguments).ConfigureAwait(false)
-            ? EnumConfirmationOutcome.Allowed
-            : EnumConfirmationOutcome.Denied;
+        var allowed = await callback(toolName, arguments).ConfigureAwait(false);
+        if (allowed)
+        {
+            return EnumConfirmationOutcome.Allowed;
+        }
+
+        // 用户明确拒绝（token 未取消）：通知宿主终止本轮
+        if (!_context.CancellationToken.IsCancellationRequested)
+        {
+            _context.OnUserDenied?.Invoke(toolName, arguments);
+        }
+
+        return EnumConfirmationOutcome.Denied;
     }
 
     /// <inheritdoc/>

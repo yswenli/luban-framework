@@ -122,7 +122,7 @@ public class CompactContextToolGroup
         if (outcome == EnumConfirmationOutcome.Planned)
             return ToolResult.Plan<string>();
         if (outcome != EnumConfirmationOutcome.Allowed)
-            return ToolResult.Cancelled<string>();
+            return ToolResult.Denied<string>();
 
         var sessionId = _sessionManager.CurrentSession?.SessionId;
         if (string.IsNullOrEmpty(sessionId))

@@ -161,9 +161,15 @@ public class DagScheduler
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             var orchestrationOpts = _options.Value.Orchestration ?? new();
             if (node.TimeoutSeconds.HasValue)
-                cts.CancelAfter(TimeSpan.FromSeconds(node.TimeoutSeconds.Value));
+            {
+                // 节点显式指定：>0 限时；0/负数表示无限期，不再回落到全局默认
+                if (node.TimeoutSeconds.Value > 0)
+                    cts.CancelAfter(TimeSpan.FromSeconds(node.TimeoutSeconds.Value));
+            }
             else if (orchestrationOpts.DefaultNodeTimeoutSeconds > 0)
+            {
                 cts.CancelAfter(TimeSpan.FromSeconds(orchestrationOpts.DefaultNodeTimeoutSeconds));
+            }
 
             var swCreate = Stopwatch.StartNew();
             var agent = await _subAgentFactory.CreateAsync(spec, ct);
@@ -171,33 +177,37 @@ public class DagScheduler
 
             var swRun = Stopwatch.StartNew();
             // 改为流式执行：把子 Agent 的思考/正文/工具调用/工具结果按时间轴上报，
-            // 使上层 UI 能像主对话一样实时看到子代理在做什么（节点执行期最长可达超时阈值）。
+            // 使上层 UI 能像主对话一样实时看到子代理在做什么。
+            // 子代理执行期进入确认作用域：工具确认不弹窗，由框架按本轮已允许集合代确认。
             var reporter = new NodeActivityReporter(node.Id, onProgress, reportGate);
             var output = new StringBuilder();
-            await foreach (var update in agent.RunStreamingAsync(resolvedPrompt, cts.Token))
+            using (ToolConfirmationContext.EnterSubAgentScope())
             {
-                if (update.Contents is null) continue;
-
-                foreach (var content in update.Contents)
+                await foreach (var update in agent.RunStreamingAsync(resolvedPrompt, cts.Token))
                 {
-                    switch (content)
+                    if (update.Contents is null) continue;
+
+                    foreach (var content in update.Contents)
                     {
-                        case TextReasoningContent reasoning when !string.IsNullOrEmpty(reasoning.Text):
-                            reporter.Thinking(reasoning.Text);
-                            break;
+                        switch (content)
+                        {
+                            case TextReasoningContent reasoning when !string.IsNullOrEmpty(reasoning.Text):
+                                reporter.Thinking(reasoning.Text);
+                                break;
 
-                        case FunctionCallContent functionCall:
-                            reporter.ToolCall(functionCall.Name, SummarizeArguments(functionCall.Arguments), functionCall.CallId);
-                            break;
+                            case FunctionCallContent functionCall:
+                                reporter.ToolCall(functionCall.Name, SummarizeArguments(functionCall.Arguments), functionCall.CallId);
+                                break;
 
-                        case FunctionResultContent functionResult:
-                            reporter.ToolResult(functionResult, functionResult.CallId);
-                            break;
+                            case FunctionResultContent functionResult:
+                                reporter.ToolResult(functionResult, functionResult.CallId);
+                                break;
 
-                        case TextContent text when !string.IsNullOrEmpty(text.Text):
-                            output.Append(text.Text);
-                            reporter.Text(text.Text);
-                            break;
+                            case TextContent text when !string.IsNullOrEmpty(text.Text):
+                                output.Append(text.Text);
+                                reporter.Text(text.Text);
+                                break;
+                        }
                     }
                 }
             }

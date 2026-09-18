@@ -122,7 +122,7 @@ public class ScriptToolGroup
         }
         if (outcome != EnumConfirmationOutcome.Allowed)
         {
-            return ToolResult.Cancelled<string>();
+            return ToolResult.Denied<string>();
         }
 
         try
@@ -195,7 +195,7 @@ public class ScriptToolGroup
         }
         if (outcome != EnumConfirmationOutcome.Allowed)
         {
-            return ToolResult.Cancelled<string>();
+            return ToolResult.Denied<string>();
         }
 
         try
@@ -262,7 +262,7 @@ public async Task<ToolResult<string>> RunPythonAsync(string script, string? work
     }
     if (outcome != EnumConfirmationOutcome.Allowed)
     {
-        return ToolResult.Cancelled<string>();
+        return ToolResult.Denied<string>();
     }
 
     try

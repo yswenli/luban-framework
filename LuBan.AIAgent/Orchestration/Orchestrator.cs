@@ -254,7 +254,8 @@ public class Orchestrator : IOrchestrator
         };
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        cts.CancelAfter(TimeSpan.FromSeconds(orchestrationOpts.ReflectionTimeoutSeconds));
+        if (orchestrationOpts.ReflectionTimeoutSeconds > 0)
+            cts.CancelAfter(TimeSpan.FromSeconds(orchestrationOpts.ReflectionTimeoutSeconds));
 
         return await _planner.ReflectAsync(context, cts.Token);
     }
