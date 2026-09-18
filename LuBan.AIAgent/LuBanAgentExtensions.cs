@@ -85,6 +85,7 @@ public static class LuBanAgentExtensions
         services.AddScoped<PlaywrightSession>();
         services.AddSingleton<ProcessRunner>();
         services.AddSingleton<PathGuard>();
+        services.AddSingleton<LuBan.AIAgent.Attachments.IAttachmentProcessor, LuBan.AIAgent.Attachments.DefaultAttachmentProcessor>();
 
         // 注册工具确认服务（上下文为单例，由宿主层每轮对话设置/重置）
         services.AddSingleton<ToolConfirmationContext>();
