@@ -195,6 +195,18 @@ category: custom
 | `SessionChatHistoryProvider` | 会话历史提供者，自动持久化对话历史 |
 | `SessionOptions` | 会话配置，支持压缩阈值设置 |
 
+### 附件系统
+
+| 组件 | 说明 |
+|------|------|
+| `IAttachmentProcessor` | 附件处理器接口，判定可支持类型/媒体类型并按需生成缩略图 |
+| `DefaultAttachmentProcessor` | 默认实现：图片（PNG/JPEG/GIF/WebP/BMP/TIFF/HEIC）与文本文件；图片解码校验并缩放，文本读取内容 |
+| `AttachmentInfo` | 附件元数据（文件名、MIME、大小、类型、源路径） |
+| `AttachmentKind` | 附件类型枚举（Image / Text） |
+| `ProcessedAttachment` | 处理结果（元数据 + 文本内容 / 缩略图路径 + 像素尺寸） |
+| `AttachmentMessageBuilder` | 把附件装配为 `ChatMessage`（图片 → base64 `DataContent`；≤50KB 文本内联；>50KB 仅注入路径指引） |
+| `AttachmentRecord` | 会话持久化记录（仅存路径与元数据，不存 base64），供历史回放重建 |
+
 ### 规则拦截
 
 | 组件 | 说明 |
@@ -657,8 +669,16 @@ LuBan.AIAgent/
 │   ├── MCPToolPlugin.cs               # MCP 工具插件
 │   └── BuiltIn/
 │       └── FileSystemMCPClient.cs     # 文件系统 MCP 客户端
+├── Attachments/
+│   ├── IAttachmentProcessor.cs        # 附件处理器接口
+│   ├── DefaultAttachmentProcessor.cs  # 默认实现（图片/文本）
+│   ├── AttachmentInfo.cs              # 附件元数据
+│   ├── AttachmentKind.cs              # 附件类型枚举
+│   ├── ProcessedAttachment.cs         # 处理结果
+│   └── AttachmentMessageBuilder.cs    # 附件 → ChatMessage 装配
 ├── Sessions/
 │   ├── ISessionManager.cs             # 会话管理接口
+│   ├── AttachmentRecord.cs            # 附件持久化记录
 │   └── SessionChatHistoryProvider.cs  # 会话历史提供者
 ├── Retrieval/
 │   ├── IRetrievalService.cs           # 语义检索接口
@@ -724,6 +744,7 @@ LuBan.AIAgent/
 - 通过 `ExternalPlugins` 配置可热加载外部工具插件程序集
 - 结合 LuBan.AIFlow 可对接 RagFlow / Dify / Coze 等 AI 平台
 - **多 Agent 编排**：复合任务自动拆解为 DAG，SubAgent 串行/并行混合执行，支持关键节点失败跳过、超时控制、上下文传递
+- **附件支持**：`IAttachmentProcessor` 统一处理图片与文本文件；图片本地缩放后以 base64 `DataContent` 发送，大文本仅注入路径指引；会话仅持久化路径与元数据
 
 ## 许可证
 

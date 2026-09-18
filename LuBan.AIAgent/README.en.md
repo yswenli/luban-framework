@@ -195,6 +195,18 @@ Prompt template content here...
 | `SessionChatHistoryProvider` | Session history provider, auto-persists conversation history |
 | `SessionOptions` | Session config, supports compression thresholds |
 
+### Attachment System
+
+| Component | Description |
+|-----------|-------------|
+| `IAttachmentProcessor` | Attachment processor interface: reports supported types/MIME types and generates thumbnails on demand |
+| `DefaultAttachmentProcessor` | Default implementation: images (PNG/JPEG/GIF/WebP/BMP/TIFF/HEIC) and text files; decodes and resizes images, reads text content |
+| `AttachmentInfo` | Attachment metadata (file name, MIME, size, kind, source path) |
+| `AttachmentKind` | Attachment kind enum (Image / Text) |
+| `ProcessedAttachment` | Processing result (metadata + text content / thumbnail path + pixel size) |
+| `AttachmentMessageBuilder` | Assembles attachments into a `ChatMessage` (images → base64 `DataContent`; text ≤50KB inlined; >50KB injects only a path hint) |
+| `AttachmentRecord` | Session persistence record (paths and metadata only, no base64) for history replay |
+
 ### Rule Interception
 
 | Component | Description |
@@ -658,8 +670,16 @@ LuBan.AIAgent/
 │   ├── MCPToolPlugin.cs               # MCP tool plugin
 │   └── BuiltIn/
 │       └── FileSystemMCPClient.cs     # File system MCP client
+├── Attachments/
+│   ├── IAttachmentProcessor.cs        # Attachment processor interface
+│   ├── DefaultAttachmentProcessor.cs  # Default implementation (images/text)
+│   ├── AttachmentInfo.cs              # Attachment metadata
+│   ├── AttachmentKind.cs              # Attachment kind enum
+│   ├── ProcessedAttachment.cs         # Processing result
+│   └── AttachmentMessageBuilder.cs    # Attachment → ChatMessage builder
 ├── Sessions/
 │   ├── ISessionManager.cs             # Session manager interface
+│   ├── AttachmentRecord.cs            # Attachment persistence record
 │   └── SessionChatHistoryProvider.cs  # Session history provider
 ├── Retrieval/
 │   ├── IRetrievalService.cs           # Semantic retrieval interface
@@ -725,6 +745,7 @@ LuBan.AIAgent/
 - External tool plugin assemblies can be hot-loaded via `ExternalPlugins` configuration
 - Combine with LuBan.AIFlow to connect to RagFlow / Dify / Coze and other AI platforms
 - **Multi-Agent Orchestration**: composite tasks decomposed into DAG, SubAgents execute serially/parallelly with skip-on-failure, timeout, and context passing
+- **Attachment Support**: `IAttachmentProcessor` handles images and text files uniformly; images are resized locally and sent as base64 `DataContent`, large text injects only a path hint, and sessions persist paths/metadata only
 
 ## License
 
