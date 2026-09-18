@@ -77,4 +77,51 @@ public class AttachmentProcessorUnitTest
         }
         finally { File.Delete(path); }
     }
+
+    [TestMethod]
+    public async Task ProcessAsync_SmallText_InlinesContent()
+    {
+        var p = NewProcessor();
+        var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".cs");
+        await File.WriteAllTextAsync(path, "class A { }");
+        try
+        {
+            var r = await p.ProcessAsync(path);
+            Assert.AreEqual(AttachmentKind.TextFile, r.Info.Kind);
+            Assert.IsFalse(r.IsLargeText);
+            Assert.AreEqual("class A { }", ((Microsoft.Extensions.AI.TextContent)r.Content).Text);
+        }
+        finally { File.Delete(path); }
+    }
+
+    [TestMethod]
+    public async Task ProcessAsync_LargeText_EmitsGuidanceWithReadFileAsync()
+    {
+        var p = NewProcessor();
+        var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".log");
+        await File.WriteAllTextAsync(path, new string('x', 60 * 1024));
+        try
+        {
+            var r = await p.ProcessAsync(path);
+            Assert.IsTrue(r.IsLargeText);
+            var text = ((Microsoft.Extensions.AI.TextContent)r.Content).Text;
+            StringAssert.Contains(text, "ReadFileAsync");
+            StringAssert.Contains(text, path);
+        }
+        finally { File.Delete(path); }
+    }
+
+    [TestMethod]
+    public async Task ProcessAsync_TextOver10Mb_Throws()
+    {
+        var p = NewProcessor();
+        var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".log");
+        await using (var fs = new FileStream(path, FileMode.CreateNew))
+            fs.SetLength(11 * 1024 * 1024);
+        try
+        {
+            await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => p.ProcessAsync(path));
+        }
+        finally { File.Delete(path); }
+    }
 }

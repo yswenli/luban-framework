@@ -207,7 +207,33 @@ public sealed class DefaultAttachmentProcessor : IAttachmentProcessor
         return path;
     }
 
-    private Task<ProcessedAttachment> ProcessTextAsync(
+    private async Task<ProcessedAttachment> ProcessTextAsync(
         string filePath, FileInfo info, string mediaType, CancellationToken ct)
-        => throw new NotImplementedException();
+    {
+        if (info.Length > MaxTextFileBytes)
+            throw new InvalidOperationException($"文本文件过大（{info.Length / 1024 / 1024}MB，上限 10MB），请使用 RAG 知识库");
+
+        var fullPath = Path.GetFullPath(filePath);
+        if (info.Length <= LargeTextThreshold)
+        {
+            var content = await File.ReadAllTextAsync(filePath, Encoding.UTF8, ct).ConfigureAwait(false);
+            return new ProcessedAttachment
+            {
+                Info = new AttachmentInfo(info.Name, mediaType, info.Length, AttachmentKind.TextFile, fullPath),
+                Content = new TextContent(content)
+            };
+        }
+
+        var sizeText = $"{info.Length / 1024.0:F1}KB";
+        var guidance =
+            $"用户附加了文件 {info.Name}（{sizeText}），内容过长未直接注入。" +
+            $"请使用 filesystem 的 ReadFileAsync 工具读取（单次返回前 2000 行/256KB），" +
+            $"如需定位特定内容用 GrepAsync 工具按关键字检索。文件路径: {fullPath}";
+        return new ProcessedAttachment
+        {
+            Info = new AttachmentInfo(info.Name, mediaType, info.Length, AttachmentKind.TextFile, fullPath),
+            Content = new TextContent(guidance),
+            IsLargeText = true
+        };
+    }
 }
