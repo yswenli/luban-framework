@@ -17,6 +17,7 @@
 using LuBan.AIAgent.Abstractions;
 using LuBan.AIAgent.Configuration;
 using LuBan.AIAgent.Wiki;
+using LuBan.AIAgent.Wiki.Extractors;
 
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Options;
@@ -100,5 +101,22 @@ public class WikiUnitTest
     {
         var existing = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "张三", "张三-2" };
         Assert.AreEqual("张三-3", WikiSlug.EnsureUnique("张三", existing));
+    }
+
+    [TestMethod]
+    public async Task SourceExtractorRegistry_UnknownExtension_FallsBackToText()
+    {
+        var registry = SourceExtractorRegistry.CreateDefault();
+        var dir = Path.Combine(Path.GetTempPath(), "luban-wiki-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var file = Path.Combine(dir, "a.unknown");
+            await File.WriteAllTextAsync(file, "hello");
+            var source = await registry.ExtractAsync(file);
+            Assert.AreEqual("hello", source.Text);
+            StringAssert.Contains(source.Markdown, "hello");
+        }
+        finally { Directory.Delete(dir, true); }
     }
 }
