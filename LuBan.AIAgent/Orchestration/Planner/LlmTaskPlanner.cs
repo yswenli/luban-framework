@@ -355,7 +355,7 @@ public class LlmTaskPlanner : ITaskPlanner
     /// <returns>工具组名称列表。</returns>
     private List<string> GetAvailableToolGroups()
         => _serviceProvider.GetRequiredService<ToolPluginRegistry>()
-            .GetEnabledPlugins().Select(p => p.GroupName).ToList();
+            .GetPlugins(null).Select(p => p.GroupName).ToList();
 
 
 }

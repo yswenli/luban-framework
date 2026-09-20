@@ -111,7 +111,7 @@ public class LuBanAgentFactory : ILuBanAgentFactory, IScoped
     /// 创建 SubAgent 实例。静默创建，不打印工具列表，不启用 SessionHistory。
     /// </summary>
     /// <param name="modelName">模型名称（格式 "provider:model"，经 IProviderRouter 路由；null 表示默认模型）。</param>
-    /// <param name="toolGroups">工具组列表，null 表示全部启用。</param>
+    /// <param name="toolGroups">工具组列表，null 表示全部已启用组（不含 opt-in 组）。</param>
     /// <param name="systemPrompt">系统提示词。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     /// <returns>LuBanAgent 实例。</returns>
@@ -149,7 +149,7 @@ public class LuBanAgentFactory : ILuBanAgentFactory, IScoped
     /// <summary>
     /// 构建工具列表，应用规则装饰。
     /// </summary>
-    /// <param name="toolGroups">工具组筛选，null 表示全部。</param>
+    /// <param name="toolGroups">工具组筛选，null 表示全部已启用组（不含 opt-in 组）。</param>
     /// <returns>装饰后的工具列表。</returns>
     private List<AITool> BuildTools(IEnumerable<string>? toolGroups, ToolGroupOptions? toolsOptions = null)
     {

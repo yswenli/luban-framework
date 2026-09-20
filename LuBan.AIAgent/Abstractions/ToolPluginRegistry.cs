@@ -74,7 +74,7 @@ public class ToolPluginRegistry
     /// 获取所有插件的 AIFunction 集合
     /// </summary>
     /// <param name="sp">服务提供者</param>
-    /// <param name="groupNames">工具组名称列表，null 表示全部启用</param>
+    /// <param name="groupNames">工具组名称列表，null 表示全部已启用组（不含 opt-in 组）</param>
     /// <returns>AIFunction 列表</returns>
     public IReadOnlyList<AIFunction> GetAllFunctions(IServiceProvider sp, IEnumerable<string>? groupNames = null)
         => GetPlugins(groupNames)

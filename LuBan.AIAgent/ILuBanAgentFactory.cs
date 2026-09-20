@@ -33,7 +33,7 @@ public interface ILuBanAgentFactory
     /// </summary>
     /// <param name="modelName">模型名称，格式 "provider:model"</param>
     /// <param name="systemPrompt">自定义系统提示词</param>
-    /// <param name="toolGroups">指定启用的工具组，null 表示全部启用</param>
+    /// <param name="toolGroups">指定启用的工具组，null 表示全部已启用组（不含 opt-in 组）</param>
     /// <param name="retrievalMode">检索模式："auto" 启用自动语义检索注入，null 禁用</param>
     /// <param name="useSessionHistory">是否启用 Session 历史</param>
     /// <param name="cancellationToken">取消令牌</param>
