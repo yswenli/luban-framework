@@ -75,7 +75,7 @@ public class WikiToolGroup
         CancellationToken cancellationToken = default)
     {
         var args = new Dictionary<string, object?> { ["relativePath"] = relativePath };
-        var outcome = await _confirmation.EvaluateAsync("wiki.savePage", relativePath, args);
+        var outcome = await _confirmation.EvaluateAsync(nameof(SavePageAsync), relativePath, args);
         if (outcome == EnumConfirmationOutcome.Planned) return ToolResult.Plan<string>();
         if (outcome == EnumConfirmationOutcome.Denied) return ToolResult.Denied<string>();
 
@@ -106,7 +106,7 @@ public class WikiToolGroup
         CancellationToken cancellationToken = default)
     {
         var args = new Dictionary<string, object?> { ["relativePath"] = relativePath };
-        var outcome = await _confirmation.EvaluateAsync("wiki.deletePage", relativePath, args);
+        var outcome = await _confirmation.EvaluateAsync(nameof(DeletePageAsync), relativePath, args);
         if (outcome == EnumConfirmationOutcome.Planned) return ToolResult.Plan<string>();
         if (outcome == EnumConfirmationOutcome.Denied) return ToolResult.Denied<string>();
 

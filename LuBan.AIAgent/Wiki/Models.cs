@@ -21,6 +21,7 @@
 *描述：wiki 领域模型
 *
 *****************************************************************************/
+using System.Globalization;
 using System.Text.RegularExpressions;
 
 namespace LuBan.AIAgent.Wiki;
@@ -69,16 +70,23 @@ public class WikiIndex
     /// <summary>条目集合。</summary>
     public List<WikiIndexEntry> Entries { get; } = new();
 
-    /// <summary>按相对路径 upsert 条目。</summary>
+    /// <summary>index.md 中摘要与更新时间的日期格式（Render/Parse 共用）。</summary>
+    private const string DateFormat = "yyyy-MM-dd";
+
+    /// <summary>渲染 index.md 中摘要与更新时间之间的分隔标记。</summary>
+    private const string UpdatedMarker = " ｜ updated:";
+
+    /// <summary>按相对路径 upsert 条目；页面未提供摘要时保留原条目摘要，避免被静默清空。</summary>
     public void Upsert(string relativePath, WikiPage page)
     {
+        var existing = Entries.FirstOrDefault(e => string.Equals(e.RelativePath, relativePath, StringComparison.OrdinalIgnoreCase));
         Entries.RemoveAll(e => string.Equals(e.RelativePath, relativePath, StringComparison.OrdinalIgnoreCase));
         Entries.Add(new WikiIndexEntry
         {
             Category = CategoryOf(relativePath),
             RelativePath = relativePath,
             Title = page.Title,
-            Summary = page.IndexSummary,
+            Summary = page.IndexSummary ?? existing?.Summary,
             Updated = page.Updated
         });
     }
@@ -106,11 +114,34 @@ public class WikiIndex
             if (line.StartsWith("## ")) { category = line[3..].Trim(); continue; }
             var m = regex.Match(line);
             if (!m.Success) continue;
+
+            // 解析 [Title](path) 之后的可选后缀： — <summary> ｜ updated:<yyyy-MM-dd>
+            var summary = default(string);
+            DateTime? updated = null;
+            var rest = line[m.Length..];
+            if (rest.Length > 0)
+            {
+                var idx = rest.IndexOf(UpdatedMarker, StringComparison.Ordinal);
+                var summaryPart = idx >= 0 ? rest[..idx] : rest;
+                if (idx >= 0)
+                {
+                    var dateText = rest[(idx + UpdatedMarker.Length)..].Trim();
+                    if (DateTime.TryParseExact(dateText, DateFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsedDate))
+                        updated = parsedDate.Date;
+                }
+
+                summaryPart = summaryPart.Trim();
+                if (summaryPart.StartsWith('—')) summaryPart = summaryPart[1..].Trim();
+                if (summaryPart.Length > 0) summary = summaryPart;
+            }
+
             index.Entries.Add(new WikiIndexEntry
             {
                 Category = category,
                 RelativePath = m.Groups["path"].Value,
-                Title = m.Groups["title"].Value
+                Title = m.Groups["title"].Value,
+                Summary = summary,
+                Updated = updated
             });
         }
         return index;
@@ -129,7 +160,7 @@ public class WikiIndex
             {
                 sb.Append("- [").Append(e.Title).Append("](").Append(e.RelativePath).Append(')');
                 if (!string.IsNullOrWhiteSpace(e.Summary)) sb.Append(" — ").Append(e.Summary);
-                if (e.Updated.HasValue) sb.Append(" ｜ updated:").Append(e.Updated.Value.ToString("yyyy-MM-dd"));
+                if (e.Updated.HasValue) sb.Append(UpdatedMarker).Append(e.Updated.Value.ToString(DateFormat));
                 sb.Append('\n');
             }
             sb.Append('\n');

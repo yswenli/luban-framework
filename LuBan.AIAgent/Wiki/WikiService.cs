@@ -47,7 +47,11 @@ public class WikiService : IWikiService
     }
 
     private static string NormalizeRel(string path)
-        => path.Replace('\\', '/').Trim('/');
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            throw new ArgumentException("路径不能为空。", nameof(path));
+        return path.Replace('\\', '/').Trim('/');
+    }
 
     private static string ToFull(string wikiRoot, string relative)
     {
@@ -164,98 +168,113 @@ public class WikiService : IWikiService
     /// <inheritdoc />
     public async Task<IndexReport> RebuildIndexAsync(CancellationToken cancellationToken = default)
     {
-        var root = RequireRoot();
-        Directory.CreateDirectory(root);
-        var report = new IndexReport();
-        var pages = EnumeratePages(root);
-
-        foreach (var page in pages)
+        // 与 SavePage/DeletePage 共用写锁，避免重建与单页写在 index.md/向量库上交错
+        await _writeLock.WaitAsync(cancellationToken);
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            try
-            {
-                var r = await _retrieval.IndexFileAsync(page, force: true, cancellationToken: cancellationToken);
-                report.ScannedFiles++;
-                report.TotalChunks += r.TotalChunks;
-            }
-            catch (Exception ex) { report.Errors.Add($"{page}: {ex.Message}"); }
-        }
+            var root = RequireRoot();
+            Directory.CreateDirectory(root);
+            var report = new IndexReport();
+            var pages = EnumeratePages(root);
 
-        var index = await ReadIndexAsync(cancellationToken);
-        var known = new HashSet<string>(pages.Select(p => NormalizeRel(Path.GetRelativePath(root, p))), StringComparer.OrdinalIgnoreCase);
-        foreach (var entry in index.Entries.ToList())
-        {
-            if (known.Contains(entry.RelativePath)) continue;
-            try
+            foreach (var page in pages)
             {
-                await _retrieval.RemoveAsync(ToFull(root, entry.RelativePath), cancellationToken);
-                report.DeletedFiles++;
+                cancellationToken.ThrowIfCancellationRequested();
+                try
+                {
+                    var r = await _retrieval.IndexFileAsync(page, force: true, cancellationToken: cancellationToken);
+                    report.ScannedFiles++;
+                    report.TotalChunks += r.TotalChunks;
+                }
+                catch (Exception ex) { report.Errors.Add($"{page}: {ex.Message}"); }
             }
-            catch (Exception ex) { report.Errors.Add($"{entry.RelativePath}: {ex.Message}"); }
-        }
 
-        _lastRebuild = report;
-        return report;
+            var index = await ReadIndexAsync(cancellationToken);
+            var known = new HashSet<string>(pages.Select(p => NormalizeRel(Path.GetRelativePath(root, p))), StringComparer.OrdinalIgnoreCase);
+            foreach (var entry in index.Entries.ToList())
+            {
+                if (known.Contains(entry.RelativePath)) continue;
+                try
+                {
+                    await _retrieval.RemoveAsync(ToFull(root, entry.RelativePath), cancellationToken);
+                    report.DeletedFiles++;
+                }
+                catch (Exception ex) { report.Errors.Add($"{entry.RelativePath}: {ex.Message}"); }
+            }
+
+            _lastRebuild = report;
+            return report;
+        }
+        finally { _writeLock.Release(); }
     }
 
     /// <inheritdoc />
     public async Task<WikiLintReport> LintAsync(CancellationToken cancellationToken = default)
     {
-        var root = RequireRoot();
-        var pages = EnumeratePages(root);
-        var rels = new HashSet<string>(pages.Select(p => NormalizeRel(Path.GetRelativePath(root, p))), StringComparer.OrdinalIgnoreCase);
-        var index = await ReadIndexAsync(cancellationToken);
-        var indexed = new HashSet<string>(index.Entries.Select(e => e.RelativePath), StringComparer.OrdinalIgnoreCase);
-        var findings = new List<LintFinding>();
-        var inbound = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var linkRegex = new Regex(@"\]\(([^)]+\.md)\)", RegexOptions.Compiled);
-
-        foreach (var page in pages)
+        // 与 SavePage/DeletePage 共用写锁，避免 lint 读到写入中的中间态
+        await _writeLock.WaitAsync(cancellationToken);
+        try
         {
-            var rel = NormalizeRel(Path.GetRelativePath(root, page));
-            var parsed = WikiPageSerializer.Parse(rel, await File.ReadAllTextAsync(page, cancellationToken));
+            var root = RequireRoot();
+            var pages = EnumeratePages(root);
+            var rels = new HashSet<string>(pages.Select(p => NormalizeRel(Path.GetRelativePath(root, p))), StringComparer.OrdinalIgnoreCase);
+            var index = await ReadIndexAsync(cancellationToken);
+            var indexed = new HashSet<string>(index.Entries.Select(e => e.RelativePath), StringComparer.OrdinalIgnoreCase);
+            var findings = new List<LintFinding>();
+            var inbound = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var linkRegex = new Regex(@"\]\(([^)]+\.md)\)", RegexOptions.Compiled);
 
-            if (!indexed.Contains(rel))
-                findings.Add(new LintFinding(LintFindingKind.Unindexed, rel, "页面未收录于 index.md"));
-
-            foreach (var src in parsed.Sources.Where(s => s.Contains('/') && !s.StartsWith("http", StringComparison.OrdinalIgnoreCase)))
-                if (!File.Exists(ToFull(_context.WorkspaceRoot!, src)))
-                    findings.Add(new LintFinding(LintFindingKind.MissingSource, rel, $"来源缺失: {src}"));
-
-            var dir = rel.Contains('/') ? rel[..rel.LastIndexOf('/')] : "";
-            foreach (Match m in linkRegex.Matches(parsed.Body))
+            foreach (var page in pages)
             {
-                var target = m.Groups[1].Value;
-                if (target.StartsWith("http", StringComparison.OrdinalIgnoreCase)) continue;
-                var targetRel = NormalizeRel(string.IsNullOrEmpty(dir) ? target : $"{dir}/{target}");
-                if (!rels.Contains(targetRel))
-                    findings.Add(new LintFinding(LintFindingKind.DeadLink, rel, $"死链: {target}"));
-                else
-                    inbound.Add(targetRel);
+                var rel = NormalizeRel(Path.GetRelativePath(root, page));
+                var parsed = WikiPageSerializer.Parse(rel, await File.ReadAllTextAsync(page, cancellationToken));
+
+                // index.md/overview.md 为保留页，天然不进入 index.Entries，不算"未收录"（与下方孤儿页豁免一致）
+                if (!rel.Equals("index.md", StringComparison.OrdinalIgnoreCase)
+                    && !rel.Equals("overview.md", StringComparison.OrdinalIgnoreCase)
+                    && !indexed.Contains(rel))
+                    findings.Add(new LintFinding(LintFindingKind.Unindexed, rel, "页面未收录于 index.md"));
+
+                foreach (var src in parsed.Sources.Where(s => s.Contains('/') && !s.StartsWith("http", StringComparison.OrdinalIgnoreCase)))
+                    if (!File.Exists(ToFull(_context.WorkspaceRoot!, src)))
+                        findings.Add(new LintFinding(LintFindingKind.MissingSource, rel, $"来源缺失: {src}"));
+
+                var dir = rel.Contains('/') ? rel[..rel.LastIndexOf('/')] : "";
+                foreach (Match m in linkRegex.Matches(parsed.Body))
+                {
+                    var target = m.Groups[1].Value;
+                    if (target.StartsWith("http", StringComparison.OrdinalIgnoreCase)) continue;
+                    var targetRel = NormalizeRel(string.IsNullOrEmpty(dir) ? target : $"{dir}/{target}");
+                    if (!rels.Contains(targetRel))
+                        findings.Add(new LintFinding(LintFindingKind.DeadLink, rel, $"死链: {target}"));
+                    else
+                        inbound.Add(targetRel);
+                }
             }
-        }
 
-        foreach (var rel in rels)
-            if (!rel.Equals("index.md", StringComparison.OrdinalIgnoreCase)
-                && !rel.Equals("overview.md", StringComparison.OrdinalIgnoreCase)
-                && !inbound.Contains(rel)
-                && !index.Entries.Any(e => string.Equals(e.RelativePath, rel, StringComparison.OrdinalIgnoreCase) && e.Category == "sources"))
-                findings.Add(new LintFinding(LintFindingKind.Orphan, rel, "无入链"));
+            foreach (var rel in rels)
+                if (!rel.Equals("index.md", StringComparison.OrdinalIgnoreCase)
+                    && !rel.Equals("overview.md", StringComparison.OrdinalIgnoreCase)
+                    && !inbound.Contains(rel)
+                    && !index.Entries.Any(e => string.Equals(e.RelativePath, rel, StringComparison.OrdinalIgnoreCase) && e.Category == "sources"))
+                    findings.Add(new LintFinding(LintFindingKind.Orphan, rel, "无入链"));
 
-        foreach (var page in pages)
-        {
-            var rel = NormalizeRel(Path.GetRelativePath(root, page));
-            var parsed = WikiPageSerializer.Parse(rel, await File.ReadAllTextAsync(page, cancellationToken));
-            if (parsed.Updated == null) continue;
-            foreach (var src in parsed.Sources.Where(s => s.Contains('/') && !s.StartsWith("http", StringComparison.OrdinalIgnoreCase)))
+            foreach (var page in pages)
             {
-                var full = ToFull(_context.WorkspaceRoot!, src);
-                if (File.Exists(full) && File.GetLastWriteTime(full).Date > parsed.Updated.Value.Date)
-                    findings.Add(new LintFinding(LintFindingKind.StaleCandidate, rel, $"来源较新: {src}"));
+                var rel = NormalizeRel(Path.GetRelativePath(root, page));
+                var parsed = WikiPageSerializer.Parse(rel, await File.ReadAllTextAsync(page, cancellationToken));
+                if (parsed.Updated == null) continue;
+                foreach (var src in parsed.Sources.Where(s => s.Contains('/') && !s.StartsWith("http", StringComparison.OrdinalIgnoreCase)))
+                {
+                    var full = ToFull(_context.WorkspaceRoot!, src);
+                    if (File.Exists(full) && File.GetLastWriteTime(full).Date > parsed.Updated.Value.Date)
+                        findings.Add(new LintFinding(LintFindingKind.StaleCandidate, rel, $"来源较新: {src}"));
+                }
             }
-        }
 
-        return new WikiLintReport { Findings = findings, PageCount = rels.Count };
+            return new WikiLintReport { Findings = findings, PageCount = rels.Count };
+        }
+        finally { _writeLock.Release(); }
     }
 
     /// <inheritdoc />

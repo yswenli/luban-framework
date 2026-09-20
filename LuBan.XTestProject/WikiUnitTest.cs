@@ -325,4 +325,136 @@ public class WikiUnitTest
         public Task<WikiStats> GetStatsAsync(CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
     }
+
+    private sealed class CapturingConfirmationService : IToolConfirmationService
+    {
+        public List<string> CapturedToolNames { get; } = new();
+        public HashSet<string> AutoConfirmTools { get; set; } = new();
+        public HashSet<string> AlwaysConfirmTools { get; set; } = new();
+        public HashSet<string> ReadOnlyTools { get; set; } = new();
+
+        public Task<EnumConfirmationOutcome> EvaluateAsync(string toolName, string? path, IReadOnlyDictionary<string, object?> arguments)
+        {
+            CapturedToolNames.Add(toolName);
+            return Task.FromResult(EnumConfirmationOutcome.Denied);
+        }
+
+        public Task<bool> RequestConfirmation(string toolName, IReadOnlyDictionary<string, object?> arguments)
+            => Task.FromResult(false);
+
+        public Task<bool> TryConfirmByPath(string toolName, string path, IReadOnlyDictionary<string, object?> arguments)
+            => Task.FromResult(false);
+
+        public string FormatArguments(IReadOnlyDictionary<string, object?> arguments, int maxLength = 200)
+            => string.Empty;
+    }
+
+    [TestMethod]
+    public void WikiIndex_Parse_RestoresSummaryAndUpdated()
+    {
+        var source = new WikiIndex();
+        source.Entries.Add(new WikiIndexEntry
+        {
+            Category = "entities",
+            RelativePath = "entities/张三.md",
+            Title = "张三",
+            Summary = "客户负责人",
+            Updated = new DateTime(2026, 9, 20)
+        });
+
+        var parsed = WikiIndex.Parse(source.Render());
+
+        Assert.AreEqual(1, parsed.Entries.Count);
+        Assert.AreEqual("entities/张三.md", parsed.Entries[0].RelativePath);
+        Assert.AreEqual("张三", parsed.Entries[0].Title);
+        Assert.AreEqual("客户负责人", parsed.Entries[0].Summary);
+        Assert.AreEqual(new DateTime(2026, 9, 20), parsed.Entries[0].Updated);
+    }
+
+    [TestMethod]
+    public async Task WikiService_SavePage_PreservesOtherEntriesSummary()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "luban-wiki-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var service = new WikiService(new FakeRetrievalService(), new FakeWikiContext { WorkspaceRoot = root }, new WikiToolOptions());
+
+            await service.SavePageAsync(new WikiPage
+            {
+                RelativePath = "entities/张三.md",
+                Title = "张三",
+                Type = "entity",
+                Body = "正文",
+                IndexSummary = "客户负责人"
+            });
+            await service.SavePageAsync(new WikiPage
+            {
+                RelativePath = "entities/李四.md",
+                Title = "李四",
+                Type = "entity",
+                Body = "正文"
+            });
+
+            var index = await service.ReadIndexAsync();
+            var zhang = index.Entries.Single(e => e.RelativePath == "entities/张三.md");
+            Assert.AreEqual("客户负责人", zhang.Summary, "保存其它页面后原条目摘要不应丢失");
+            Assert.IsNotNull(zhang.Updated, "保存其它页面后原条目更新时间不应丢失");
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [TestMethod]
+    public async Task WikiService_Lint_NoUnindexedFindingForIndexAndOverview()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "luban-wiki-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var service = new WikiService(new FakeRetrievalService(), new FakeWikiContext { WorkspaceRoot = root }, new WikiToolOptions());
+            await service.SavePageAsync(new WikiPage
+            {
+                RelativePath = "entities/张三.md",
+                Title = "张三",
+                Type = "entity",
+                Body = "正文"
+            });
+            await File.WriteAllTextAsync(
+                Path.Combine(root, "wiki", "overview.md"),
+                "# 概览\n\n参见 [张三](entities/张三.md)。\n");
+
+            var report = await service.LintAsync();
+
+            Assert.IsFalse(report.Findings.Any(f => f.Kind == LintFindingKind.Unindexed && f.Path.Equals("index.md", StringComparison.OrdinalIgnoreCase)));
+            Assert.IsFalse(report.Findings.Any(f => f.Kind == LintFindingKind.Unindexed && f.Path.Equals("overview.md", StringComparison.OrdinalIgnoreCase)));
+            Assert.AreEqual(0, report.Findings.Count, "干净 wiki 不应有任何 lint 发现");
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [TestMethod]
+    public async Task WikiService_ReadPage_EmptyPath_ThrowsArgumentException()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "luban-wiki-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var service = new WikiService(new FakeRetrievalService(), new FakeWikiContext { WorkspaceRoot = root }, new WikiToolOptions());
+            await Assert.ThrowsExactlyAsync<ArgumentException>(() => service.ReadPageAsync("   "));
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [TestMethod]
+    public async Task WikiToolGroup_Delete_UsesMethodNameForConfirmation()
+    {
+        var confirmation = new CapturingConfirmationService();
+        var group = new WikiToolGroup(new StubWikiService(), new WikiToolOptions(), confirmation);
+
+        await group.DeletePageAsync("entities/张三.md");
+        Assert.AreEqual(nameof(WikiToolGroup.DeletePageAsync), confirmation.CapturedToolNames.Single());
+
+        await group.SavePageAsync("entities/李四.md", "李四", "entity", "正文");
+        Assert.AreEqual(nameof(WikiToolGroup.SavePageAsync), confirmation.CapturedToolNames.Last());
+    }
 }

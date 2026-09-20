@@ -245,6 +245,7 @@ public class ToolConfirmationService : IToolConfirmationService
     private static readonly string[] DefaultAlwaysConfirmTools =
     [
         "DeleteFileAsync", "DeleteDirectoryAsync",
+        "DeletePageAsync", // wiki 删除工具（WikiToolGroup.DeletePageAsync），删除均需确认
     ];
 
     /// <summary>

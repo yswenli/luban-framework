@@ -27,9 +27,9 @@ public static class WikiDefaults
         1. 目录：`sources/`（来源摘要，一源一页）、`entities/`（实体）、`concepts/`（概念）、`queries/`（问答沉淀）；根目录保留 `index.md`、`log.md`、`overview.md`。
         2. 每个页面以 YAML frontmatter 开头，必须包含：`title`、`type`（source|entity|concept|overview|query）、`tags`、`sources`（相对工作区根的来源路径）、`created`、`updated`。
         3. 页面之间用**相对 markdown 链接**互链（如 `../entities/张三.md`）。
-        4. 写入/删除页面**必须**调用 `wiki.savePage` / `wiki.deletePage`，由服务负责 index.md、log.md 与向量索引；不要手写 index.md 或 log.md。
-        5. 新增内容前先 `wiki.readIndex` 了解已有页面，避免重复建页；发现相关内容应优先并入既有页面。
-        6. 回答用户前先 `wiki.search`；wiki 无相关内容时再考虑回落 raw（`includeRaw=true`）。
-        7. 定期可用 `wiki.lint` 检查孤儿页、死链、未收录、来源缺失。
+        4. 写入/删除页面**必须**调用 `SavePageAsync` / `DeletePageAsync`，由服务负责 index.md、log.md 与向量索引；不要手写 index.md 或 log.md。
+        5. 新增内容前先 `ReadIndexAsync` 了解已有页面，避免重复建页；发现相关内容应优先并入既有页面。
+        6. 回答用户前先 `SearchAsync`；wiki 无相关内容时再考虑回落 raw（`includeRaw=true`）。
+        7. 定期可用 `LintAsync` 检查孤儿页、死链、未收录、来源缺失。
         """;
 }
