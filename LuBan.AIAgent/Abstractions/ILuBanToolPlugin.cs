@@ -51,6 +51,12 @@ public interface ILuBanToolPlugin
     IReadOnlyList<AIFunction> GetTools(IServiceProvider sp, ToolGroupOptions? toolsOptions = null);
 
     /// <summary>
+    /// 是否为 opt-in 工具组：为 true 时，仅当 profile 显式在 ToolGroups 中点名才注入；
+    /// ToolGroups 为 null（表示"全部"）时不包含本组。默认 false。
+    /// </summary>
+    bool IsOptIn => false;
+
+    /// <summary>
     /// 根据配置判断该插件是否启用
     /// </summary>
     /// <param name="options">LuBan Agent 配置选项</param>
