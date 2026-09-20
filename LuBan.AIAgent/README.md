@@ -128,12 +128,12 @@ Skills、MCPs、Rules 采用统一的三级优先级注册表模式：
 
 | 工具 | 说明 | 需要确认 |
 |------|------|----------|
-| `wiki.readIndex` | 读取 `index.md`，了解已有页面清单 | 否 |
-| `wiki.readPage` | 读取指定页面正文（相对 wiki 根的路径） | 否 |
-| `wiki.savePage` | 写入/更新页面，自动维护 `index.md`、`log.md` 与向量索引 | 是 |
-| `wiki.deletePage` | 删除页面，同步移除 index 条目与向量索引 | 是 |
-| `wiki.search` | 在 wiki 中做向量搜索，可回落到 raw 工作区文件 | 否 |
-| `wiki.lint` | 检查孤儿页、死链、未收录、来源缺失、来源过期 | 否 |
+| `ReadIndexAsync` | 读取 `index.md`，了解已有页面清单 | 否 |
+| `ReadPageAsync` | 读取指定页面正文（相对 wiki 根的路径） | 否 |
+| `SavePageAsync` | 写入/更新页面，自动维护 `index.md`、`log.md` 与向量索引 | 是 |
+| `DeletePageAsync` | 删除页面，同步移除 index 条目与向量索引 | 是 |
+| `SearchAsync` | 在 wiki 中做向量搜索，可回落到 raw 工作区文件 | 否 |
+| `LintAsync` | 检查孤儿页、死链、未收录、来源缺失、来源过期 | 否 |
 
 **目录布局**：
 

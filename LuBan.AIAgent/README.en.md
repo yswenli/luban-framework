@@ -128,12 +128,12 @@ Skills, MCPs, and Rules use a unified three-tier priority registry pattern:
 
 | Tool | Description | Confirmation |
 |------|-------------|--------------|
-| `wiki.readIndex` | Read `index.md` to see the existing page list | No |
-| `wiki.readPage` | Read a page body (path relative to the wiki root) | No |
-| `wiki.savePage` | Write/update a page, auto-maintaining `index.md`, `log.md`, and the vector index | Yes |
-| `wiki.deletePage` | Delete a page and remove its index entry and vector index | Yes |
-| `wiki.search` | Vector search within the wiki, optionally falling back to raw workspace files | No |
-| `wiki.lint` | Check orphan pages, dead links, unindexed pages, missing/outdated sources | No |
+| `ReadIndexAsync` | Read `index.md` to see the existing page list | No |
+| `ReadPageAsync` | Read a page body (path relative to the wiki root) | No |
+| `SavePageAsync` | Write/update a page, auto-maintaining `index.md`, `log.md`, and the vector index | Yes |
+| `DeletePageAsync` | Delete a page and remove its index entry and vector index | Yes |
+| `SearchAsync` | Vector search within the wiki, optionally falling back to raw workspace files | No |
+| `LintAsync` | Check orphan pages, dead links, unindexed pages, missing/outdated sources | No |
 
 **Directory layout**:
 
