@@ -128,20 +128,6 @@ public class ChunkerFactory
         new StatementChunker("sql", new[] { ".sql" }),
         new StatementChunker("prisma", new[] { ".prisma" }),
         new JsonChunker("json", new[] { ".json", ".jsonc", ".ipynb", ".jsonl", ".ndjson" }),
-        new PlainTextChunker(),
         new RuleBlockChunker("css", new[] { ".css", ".scss", ".less" }),
     };
-
-    /// <summary>
-    /// 纯文本切块器：txt/csv/tsv 走滑窗，语言标识为 text
-    /// </summary>
-    private sealed class PlainTextChunker : SlidingWindowChunker
-    {
-        private static readonly string[] TextExtensions = { ".txt", ".csv", ".tsv" };
-
-        public PlainTextChunker() : base("text") { }
-
-        /// <inheritdoc />
-        public override IReadOnlyList<string> Extensions => TextExtensions;
-    }
 }
