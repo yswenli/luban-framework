@@ -86,25 +86,36 @@ public class ApiLogMiddleware(RequestDelegate next)
 
             var statusCode = context.Response.StatusCode;
 
+            var captured = responseStream.GetBufferedContent();
+
             string output;
-            if (responseStream.IsOverflow)
+            if (responseStream.IsTruncated)
             {
-                output = $"[response body not fully captured (streamed or > {ResponseBufferLimit} bytes)]";
+                output = $"[response body not fully captured (> {ResponseBufferLimit / 1024}KB)]";
             }
             else
             {
-                output = Encoding.UTF8.GetString(responseStream.GetBufferedContent());
+                output = Encoding.UTF8.GetString(captured);
                 if (output.Length > LogBodyMaxLength)
                     output = output[..LogBodyMaxLength];
             }
 
-            if (!responseStream.IsOverflow)
+            try
             {
-                var buffered = responseStream.GetBufferedContent();
-                await originalBodyStream.WriteAsync(buffered);
+                //未交付时才需要写回；超限或已显式刷新的场景数据已直写底层流，避免重复输出
+                if (!responseStream.IsCommitted && captured.Length > 0)
+                {
+                    await originalBodyStream.WriteAsync(captured);
+                }
             }
-
-            context.Response.Body = originalBodyStream;
+            catch (Exception ex)
+            {
+                Logger.Warn("写出响应缓冲内容失败", ex);
+            }
+            finally
+            {
+                context.Response.Body = originalBodyStream;
+            }
 
             long userId = 0;
             try
