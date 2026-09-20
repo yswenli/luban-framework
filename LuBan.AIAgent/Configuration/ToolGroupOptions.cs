@@ -63,4 +63,9 @@ public class ToolGroupOptions
     /// 本地长期记忆工具配置
     /// </summary>
     public LocalMemoryOptions LocalMemory { get; set; } = new();
+
+    /// <summary>
+    /// Wiki 工具组选项（opt-in）。
+    /// </summary>
+    public WikiToolOptions Wiki { get; set; } = new();
 }
