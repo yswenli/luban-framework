@@ -16,6 +16,7 @@
 *****************************************************************************/
 using LuBan.AIAgent.Abstractions;
 using LuBan.AIAgent.Configuration;
+using LuBan.AIAgent.Wiki;
 
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Options;
@@ -49,5 +50,40 @@ public class WikiUnitTest
 
         var explicitWiki = registry.GetPlugins(new[] { "wiki" });
         Assert.IsTrue(explicitWiki.Any(p => p.GroupName == "wiki"), "显式点名时应包含 opt-in 工具组");
+    }
+
+    [TestMethod]
+    public void WikiPageSerializer_RoundTrip_PreservesFieldsAndBody()
+    {
+        var page = new WikiPage
+        {
+            RelativePath = "entities/张三.md",
+            Title = "张三",
+            Type = "entity",
+            Tags = { "人物", "客户" },
+            Sources = { "raw/a.md" },
+            Body = "# 张三\n\n正文",
+            IndexSummary = "客户负责人",
+            Created = new DateTime(2026, 9, 1),
+            Updated = new DateTime(2026, 9, 20)
+        };
+
+        var markdown = WikiPageSerializer.Render(page);
+        Assert.IsTrue(markdown.StartsWith("---\n"), "应以 frontmatter 开头");
+
+        var parsed = WikiPageSerializer.Parse(page.RelativePath, markdown);
+        Assert.AreEqual(page.Title, parsed.Title);
+        Assert.AreEqual(page.Type, parsed.Type);
+        CollectionAssert.AreEqual(page.Tags, parsed.Tags);
+        CollectionAssert.AreEqual(page.Sources, parsed.Sources);
+        StringAssert.Contains(parsed.Body, "正文");
+    }
+
+    [TestMethod]
+    public void WikiFrontmatter_NoFrontmatter_ReturnsWholeAsBody()
+    {
+        var (fields, body) = WikiFrontmatter.Parse("纯文本内容");
+        Assert.AreEqual(0, fields.Count);
+        Assert.AreEqual("纯文本内容", body);
     }
 }
