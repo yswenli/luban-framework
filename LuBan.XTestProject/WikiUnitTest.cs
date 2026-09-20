@@ -16,6 +16,7 @@
 *****************************************************************************/
 using LuBan.AIAgent.Abstractions;
 using LuBan.AIAgent.Configuration;
+using LuBan.AIAgent.Retrieval;
 using LuBan.AIAgent.Wiki;
 using LuBan.AIAgent.Wiki.Extractors;
 
@@ -187,5 +188,83 @@ public class WikiUnitTest
             StringAssert.Contains(source.Markdown, "张三");
         }
         finally { Directory.Delete(dir, true); }
+    }
+
+    private sealed class FakeRetrievalService : IRetrievalService
+    {
+        public List<string> IndexedFiles { get; } = new();
+        public List<string> RemovedSources { get; } = new();
+        public List<string> SearchedPrefixes { get; } = new();
+
+        public Task<IndexReport> IndexFileAsync(string path, bool force = false, CancellationToken ct = default)
+        {
+            IndexedFiles.Add(path);
+            return Task.FromResult(new IndexReport { ScannedFiles = 1, TotalChunks = 1 });
+        }
+
+        public Task RemoveAsync(string sourceName, CancellationToken ct = default)
+        {
+            RemovedSources.Add(sourceName);
+            return Task.CompletedTask;
+        }
+
+        public Task<IReadOnlyList<RetrievalResult>> SearchAsync(string query, int topK = 5, string? pathPrefix = null, string? language = null, CancellationToken ct = default)
+        {
+            SearchedPrefixes.Add(pathPrefix ?? "<all>");
+            return Task.FromResult<IReadOnlyList<RetrievalResult>>(Array.Empty<RetrievalResult>());
+        }
+
+        public Task<IndexReport> IndexDirectoryAsync(string path, string? glob = null, bool force = false, CancellationToken ct = default)
+            => Task.FromResult(new IndexReport());
+        public Task<IndexReport> IndexContentAsync(string content, string language, string sourceName, CancellationToken ct = default)
+            => Task.FromResult(new IndexReport());
+        public Task<IndexStats> GetStatsAsync() => Task.FromResult(new IndexStats());
+    }
+
+    private sealed class FakeWikiContext : IWikiContext
+    {
+        public string? WorkspaceRoot { get; set; }
+    }
+
+    [TestMethod]
+    public async Task WikiService_SaveAndDeletePage_MaintainsIndexLogAndVector()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "luban-wiki-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        var retrieval = new FakeRetrievalService();
+        try
+        {
+            var service = new WikiService(retrieval, new FakeWikiContext { WorkspaceRoot = root }, new WikiToolOptions());
+            var page = new WikiPage { RelativePath = "entities/张三.md", Title = "张三", Type = "entity", Body = "内容" };
+
+            await service.SavePageAsync(page);
+            Assert.IsTrue(File.Exists(Path.Combine(root, "wiki", "entities", "张三.md")));
+            Assert.IsTrue(File.Exists(Path.Combine(root, "wiki", "index.md")));
+            Assert.IsTrue(File.Exists(Path.Combine(root, "wiki", "log.md")));
+            var index = await service.ReadIndexAsync();
+            Assert.IsTrue(index.Entries.Any(e => e.RelativePath == "entities/张三.md"));
+            Assert.IsTrue(retrieval.IndexedFiles.Any(p => p.EndsWith("张三.md")));
+
+            await service.DeletePageAsync("entities/张三.md");
+            Assert.IsFalse(File.Exists(Path.Combine(root, "wiki", "entities", "张三.md")));
+            Assert.IsFalse((await service.ReadIndexAsync()).Entries.Any(e => e.RelativePath == "entities/张三.md"));
+            Assert.IsTrue(retrieval.RemovedSources.Any(p => p.EndsWith("张三.md")));
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [TestMethod]
+    public async Task WikiService_Search_DefaultsToWikiPrefix()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "luban-wiki-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var retrieval = new FakeRetrievalService();
+            var service = new WikiService(retrieval, new FakeWikiContext { WorkspaceRoot = root }, new WikiToolOptions());
+            await service.SearchAsync("q");
+            Assert.AreEqual(Path.Combine(root, "wiki"), retrieval.SearchedPrefixes[0]);
+        }
+        finally { Directory.Delete(root, true); }
     }
 }
