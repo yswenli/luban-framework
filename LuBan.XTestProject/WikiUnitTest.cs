@@ -17,12 +17,14 @@
 using LuBan.AIAgent.Abstractions;
 using LuBan.AIAgent.Configuration;
 using LuBan.AIAgent.Retrieval;
+using LuBan.AIAgent.Tools.Wiki;
 using LuBan.AIAgent.Wiki;
 using LuBan.AIAgent.Wiki.Extractors;
 
 using MiniExcelLibs;
 
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
 namespace LuBan.XTestProject;
@@ -281,5 +283,46 @@ public class WikiUnitTest
             Assert.IsFalse(File.Exists(Path.Combine(root, "evil.md")));
         }
         finally { Directory.Delete(root, true); }
+    }
+
+    [TestMethod]
+    public void WikiToolPlugin_IsOptIn_AndEnabledByDefault()
+    {
+        var plugin = new WikiToolPlugin(Options.Create(new LuBanAgentOptions()));
+        Assert.AreEqual("wiki", plugin.GroupName);
+        Assert.IsTrue(plugin.IsOptIn);
+        Assert.IsTrue(plugin.IsEnabled(new LuBanAgentOptions()));
+    }
+
+    [TestMethod]
+    public void WikiToolPlugin_GetTools_RespectsDisabledOption()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton<IWikiService>(new StubWikiService());
+        var sp = services.BuildServiceProvider();
+        var plugin = new WikiToolPlugin(Options.Create(new LuBanAgentOptions()));
+
+        var disabled = new ToolGroupOptions { Wiki = { Enabled = false } };
+        Assert.AreEqual(0, plugin.GetTools(sp, disabled).Count);
+    }
+
+    private sealed class StubWikiService : IWikiService
+    {
+        public Task<WikiIndex> ReadIndexAsync(CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+        public Task<WikiPage> ReadPageAsync(string relativePath, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+        public Task SavePageAsync(WikiPage page, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+        public Task DeletePageAsync(string relativePath, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+        public Task<IReadOnlyList<RetrievalResult>> SearchAsync(string query, int topK = 8, bool includeRaw = false, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+        public Task<IndexReport> RebuildIndexAsync(CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+        public Task<WikiLintReport> LintAsync(CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+        public Task<WikiStats> GetStatsAsync(CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
     }
 }
