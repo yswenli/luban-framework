@@ -14,7 +14,6 @@
 *描述：AIFunction 工厂辅助类，支持显式方法名注册工具
 *
 *****************************************************************************/
-using LuBan.AIAgent.Tools;
 
 namespace LuBan.AIAgent;
 

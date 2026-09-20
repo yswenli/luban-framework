@@ -21,9 +21,6 @@
 *描述：文件系统工具插件
 *
 *****************************************************************************/
-using System.Text.RegularExpressions;
-using LuBan.AIAgent.Abstractions;
-
 namespace LuBan.AIAgent.Tools.FileSystem;
 
 /// <summary>
