@@ -86,4 +86,19 @@ public class WikiUnitTest
         Assert.AreEqual(0, fields.Count);
         Assert.AreEqual("纯文本内容", body);
     }
+
+    [TestMethod]
+    public void WikiSlug_FromTitle_FiltersIllegalCharsAndKeepsChinese()
+    {
+        Assert.AreEqual("张三", WikiSlug.FromTitle("张三"));
+        Assert.AreEqual("a-b", WikiSlug.FromTitle("a / b"));
+        Assert.AreEqual("untitled", WikiSlug.FromTitle("  ??  "));
+    }
+
+    [TestMethod]
+    public void WikiSlug_EnsureUnique_AppendsSuffix()
+    {
+        var existing = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "张三", "张三-2" };
+        Assert.AreEqual("张三-3", WikiSlug.EnsureUnique("张三", existing));
+    }
 }
