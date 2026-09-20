@@ -148,6 +148,31 @@ public class RetrievalService : IRetrievalService
         return await IndexSingleContentAsync(content, language, sourceName, hash, cancellationToken);
     }
 
+    /// <inheritdoc />
+    public async Task<IndexReport> IndexFileAsync(string path, bool force = false, CancellationToken cancellationToken = default)
+    {
+        using var _ = await _rwLock.WriteLockAsync(cancellationToken);
+        var fullPath = Path.GetFullPath(path);
+        var content = await File.ReadAllTextAsync(fullPath, cancellationToken);
+        var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(content)));
+
+        var existing = await _store.GetFilesAsync(null);
+        var old = existing.FirstOrDefault(f => string.Equals(f.FilePath, fullPath, StringComparison.OrdinalIgnoreCase));
+        if (!force && old != null && string.Equals(old.FileHash, hash, StringComparison.OrdinalIgnoreCase))
+            return new IndexReport { ScannedFiles = 1, SkippedFiles = 1 };
+
+        return await IndexSingleContentAsync(content, _chunkers.GetLanguage(fullPath), fullPath, hash, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task RemoveAsync(string sourceName, CancellationToken cancellationToken = default)
+    {
+        using var _ = await _rwLock.WriteLockAsync(cancellationToken);
+        var existing = await _store.GetFilesAsync(null);
+        foreach (var file in existing.Where(f => string.Equals(f.FilePath, sourceName, StringComparison.OrdinalIgnoreCase)))
+            await _store.SoftDeleteFileAsync(file.Id);
+    }
+
     private async Task<IndexReport> IndexSingleContentAsync(string content, string language, string filePath, string hash, CancellationToken ct)
     {
         var chunker = _chunkers.GetChunker(filePath);

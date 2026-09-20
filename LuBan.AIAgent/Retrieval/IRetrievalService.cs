@@ -34,6 +34,21 @@ public interface IRetrievalService
     Task<IndexReport> IndexDirectoryAsync(string path, string? glob = null, bool force = false, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// 索引/刷新单个文件（复用单文件提取 + 切块 + Upsert 逻辑）。
+    /// </summary>
+    /// <param name="path">文件绝对路径。</param>
+    /// <param name="force">为 true 时忽略哈希未变化直接重建切块。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    Task<IndexReport> IndexFileAsync(string path, bool force = false, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 按来源名（即索引时传入的 <c>FilePath</c>）软删除该文件的全部切块。
+    /// </summary>
+    /// <param name="sourceName">来源名，通常为该文件的绝对路径。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    Task RemoveAsync(string sourceName, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// 索引一段文本内容（网页等虚拟来源，sourceName 如 web://example.com/page）
     /// </summary>
     Task<IndexReport> IndexContentAsync(string content, string language, string sourceName, CancellationToken cancellationToken = default);
