@@ -119,4 +119,36 @@ public class WikiUnitTest
         }
         finally { Directory.Delete(dir, true); }
     }
+
+    [TestMethod]
+    public async Task JsonExtractor_Jsonl_ProducesOneBlockPerLine()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "luban-wiki-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var file = Path.Combine(dir, "a.jsonl");
+            await File.WriteAllTextAsync(file, "{\"a\":1}\n{\"a\":2}\n");
+            var source = await new JsonExtractor().ExtractAsync(file);
+            StringAssert.Contains(source.Markdown, "1");
+            StringAssert.Contains(source.Markdown, "2");
+        }
+        finally { Directory.Delete(dir, true); }
+    }
+
+    [TestMethod]
+    public async Task DelimitedTextExtractor_Csv_ProducesMarkdownTable()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "luban-wiki-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var file = Path.Combine(dir, "a.csv");
+            await File.WriteAllTextAsync(file, "name,age\n张三,30\n");
+            var source = await new DelimitedTextExtractor().ExtractAsync(file);
+            StringAssert.Contains(source.Markdown, "| name | age |");
+            StringAssert.Contains(source.Markdown, "张三");
+        }
+        finally { Directory.Delete(dir, true); }
+    }
 }

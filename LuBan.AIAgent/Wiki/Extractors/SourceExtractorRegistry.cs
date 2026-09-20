@@ -35,7 +35,9 @@ public class SourceExtractorRegistry
     public static SourceExtractorRegistry CreateDefault() => new(new ISourceExtractor[]
     {
         new TextExtractor(),
-        new MarkdownExtractor()
+        new MarkdownExtractor(),
+        new JsonExtractor(),
+        new DelimitedTextExtractor()
     });
 
     /// <summary>解析扩展名对应的提取器（未命中返回兜底）。</summary>
