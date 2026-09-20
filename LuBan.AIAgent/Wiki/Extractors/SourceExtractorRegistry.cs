@@ -39,7 +39,8 @@ public class SourceExtractorRegistry
         new JsonExtractor(),
         new DelimitedTextExtractor(),
         new XmlExtractor(),
-        new HtmlExtractor()
+        new HtmlExtractor(),
+        new ExcelExtractor()
     });
 
     /// <summary>解析扩展名对应的提取器（未命中返回兜底）。</summary>

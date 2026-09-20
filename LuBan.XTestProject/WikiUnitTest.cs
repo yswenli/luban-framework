@@ -19,6 +19,8 @@ using LuBan.AIAgent.Configuration;
 using LuBan.AIAgent.Wiki;
 using LuBan.AIAgent.Wiki.Extractors;
 
+using MiniExcelLibs;
+
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Options;
 
@@ -165,6 +167,24 @@ public class WikiUnitTest
             StringAssert.Contains(source.Text, "标题");
             StringAssert.Contains(source.Text, "段落");
             Assert.IsFalse(source.Text.Contains("var x=1"), "script 内容应被剥离");
+        }
+        finally { Directory.Delete(dir, true); }
+    }
+
+    [TestMethod]
+    public async Task ExcelExtractor_Xlsx_ProducesMarkdownTable()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "luban-wiki-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var file = Path.Combine(dir, "a.xlsx");
+            MiniExcel.SaveAs(file, new[]
+            {
+                new Dictionary<string, object> { ["name"] = "张三", ["age"] = 30 }
+            });
+            var source = await new ExcelExtractor().ExtractAsync(file);
+            StringAssert.Contains(source.Markdown, "张三");
         }
         finally { Directory.Delete(dir, true); }
     }

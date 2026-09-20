@@ -9,7 +9,7 @@
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <PackageId>$(AssemblyName)</PackageId>
     <Title>$(AssemblyName)</Title>
-    <Version>2026.9.20.1</Version>
+    <Version>2026.9.20.2</Version>
     <Authors>yswenli</Authors>
     <Description>LuBan.AIAgent 是基于 Microsoft Agent Framework 的 AI Agent 库，支持自然语言操作浏览器、文件系统、脚本、Web、检索、长期记忆、MCP、上下文压缩等。</Description>
     <Copyright>$(Authors)</Copyright>
@@ -48,6 +48,7 @@
     <PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="10.10.0" />
     <PackageReference Include="SixLabors.ImageSharp" Version="4.1.2" />
     <PackageReference Include="Microsoft.Playwright" Version="1.62.0" />
+    <PackageReference Include="MiniExcel" Version="1.46.0" />
   </ItemGroup>
 
 </Project>
