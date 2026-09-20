@@ -118,8 +118,53 @@ Skills, MCPs, and Rules use a unified three-tier priority registry pattern:
 | **Retrieval Tools** | `retrieval` | Index local code/documents, semantic search |
 | **Context Compaction** | `context` | Compact conversation history to free token budget (LLM-accessible, callable on demand) |
 | **Local Memory Tools** | `localmemory` | Long-term memory storage, query, and management |
+| **Wiki Knowledge Base Tools** | `wiki` | Read/write/delete wiki pages, vector search, health check (opt-in, must be named in `ToolGroups`) |
 
 > **Script execution notes**: The Shell tool auto-detects the runtime (on Windows `pwsh` > `powershell` > `cmd`; on Unix-like `bash` > `sh`), adapts argument style and quoting to the interpreter, and returns the actual `shell`/`shellPath`/`platform` in the result. The Lua tool runs on an embedded MoonSharp soft sandbox with no external `lua` interpreter required; the sandbox has no file-system or system-command access, and results are emitted via `print`.
+
+### LLM Wiki Knowledge Base (opt-in)
+
+`wiki` is an opt-in tool group: it is not included when `ToolGroups` is `null` (meaning "all"); it is injected only when `"wiki"` is explicitly named in `ToolGroups`.
+
+| Tool | Description | Confirmation |
+|------|-------------|--------------|
+| `wiki.readIndex` | Read `index.md` to see the existing page list | No |
+| `wiki.readPage` | Read a page body (path relative to the wiki root) | No |
+| `wiki.savePage` | Write/update a page, auto-maintaining `index.md`, `log.md`, and the vector index | Yes |
+| `wiki.deletePage` | Delete a page and remove its index entry and vector index | Yes |
+| `wiki.search` | Vector search within the wiki, optionally falling back to raw workspace files | No |
+| `wiki.lint` | Check orphan pages, dead links, unindexed pages, missing/outdated sources | No |
+
+**Directory layout**:
+
+```
+wiki/
+├── SCHEMA.md        # Maintenance schema (carries LLM authoring conventions)
+├── index.md         # Page list (maintained by the service; do not edit by hand)
+├── log.md           # Change log (maintained by the service; do not edit by hand)
+├── overview.md      # Overview
+├── sources/         # Source summaries, one page per source
+├── entities/        # Entities
+├── concepts/        # Concepts
+└── queries/         # Saved Q&A
+```
+
+**Frontmatter convention**: every page starts with YAML frontmatter containing `title`, `type` (`source` | `entity` | `concept` | `overview` | `query`), `tags`, `sources` (source paths relative to the workspace root), `created`, and `updated`.
+
+**Supported source formats**:
+
+| Extension | Handling |
+|-----------|----------|
+| `.txt` `.log` `.ini` `.cfg` `.toml` `.properties` | Plain text, read directly |
+| `.md` `.markdown` | Markdown parsing |
+| `.json` `.jsonc` `.jsonl` `.ndjson` | JSON pretty-printing / per-line pretty-printing |
+| `.csv` `.tsv` | Delimited table parsing |
+| `.xml` `.xaml` `.svg` | Structured XML extraction |
+| `.html` `.htm` | Regex tag stripping, degraded to plain text (no HtmlAgilityPack, no guarantee of full Markdown structure) |
+| `.xlsx` | Fully supported (read per sheet, via MiniExcel) |
+| `.xls` | Best-effort: MiniExcel does not support BIFF `.xls`; such files are skipped with a warning |
+
+**Configuration** (`LuBanAgent:Tools:Wiki`): `Enabled` (default `true`), `TopK` (default `8`), `IncludeRawDefault` (default `false`), `MaxResultChars` (default `8000`).
 
 ### Skill System
 
@@ -630,6 +675,7 @@ LuBan.AIAgent/
 │   ├── LocalMemoryOptions.cs          # Local memory options
 │   ├── ModelEndpointOptions.cs        # Model endpoint options
 │   ├── OrchestrationOptions.cs        # Orchestration options
+│   ├── WikiToolOptions.cs             # Wiki tool options
 │   └── ToolGroupOptions.cs            # Tool group configuration
 ├── Infrastructure/
 │   ├── PlaywrightSession.cs           # Playwright session management
@@ -646,6 +692,9 @@ LuBan.AIAgent/
 │   │   └── CompactContextToolPlugin.cs # Context compaction tools
 │   ├── LocalMemory/LocalMemoryToolPlugin.cs  # Local memory tools
 │   ├── Retrieval/RetrievalToolPlugin.cs # Semantic retrieval tools
+│   ├── Wiki/                          # LLM Wiki knowledge base tools
+│   │   ├── WikiToolPlugin.cs          # wiki tool plugin (opt-in)
+│   │   └── WikiToolGroup.cs           # wiki tool implementation
 │   └── Orchestration/                 # Orchestration tools
 │       ├── OrchestrationToolPlugin.cs # Orchestration tool plugin
 │       └── OrchestrationToolGroup.cs  # Orchestration tool group
@@ -697,6 +746,16 @@ LuBan.AIAgent/
 │   ├── IRetrievalService.cs           # Semantic retrieval interface
 │   ├── RetrievalService.cs            # Retrieval service
 │   └── Chunkers/                     # Code chunkers
+├── Wiki/                              # LLM Wiki knowledge base service
+│   ├── IWikiService.cs                # Wiki service interface
+│   ├── IWikiContext.cs                # Workspace context interface
+│   ├── WikiService.cs                 # Wiki service implementation (index/log/index maintenance)
+│   ├── WikiDefaults.cs                # Default schema text
+│   ├── WikiFrontmatter.cs             # YAML frontmatter parse/render
+│   ├── WikiPageSerializer.cs          # Page serializer
+│   ├── WikiSlug.cs                    # File-name slug generation
+│   ├── Models.cs                      # Page/index/lint models
+│   └── Extractors/                    # Source extractors (txt/md/json/csv/xml/html/xlsx)
 ├── LocalMemory/
 │   ├── ILocalMemoryService.cs         # Local memory service interface
 │   ├── ILocalMemoryStore.cs           # Local memory store interface
@@ -746,7 +805,7 @@ LuBan.AIAgent/
 ## Tips
 
 - Model routing uses `provider:model` format; configure providers via `IAppConfigReader` / host implementation
-- **9 built-in tool groups** cover browser automation, file operations, script execution, web requests, semantic retrieval, context compaction, local memory, MCP, and multi-agent orchestration
+- **10 built-in tool groups** cover browser automation, file operations, script execution, web requests, semantic retrieval, context compaction, local memory, MCP, multi-agent orchestration, and the LLM Wiki knowledge base (opt-in)
 - `ToolConfirmationService` automatically requires user confirmation for dangerous operations (write, delete, execute)
 - `FileSystemToolOptions.AllowedRoots` restricts file access scope to prevent Agent overreach
 - **Session history auto-persistence** with compression (SummarizingChatReducer), context never lost

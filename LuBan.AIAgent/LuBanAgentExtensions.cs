@@ -52,6 +52,7 @@ public static class LuBanAgentExtensions
         services.AddSingleton<ILuBanToolPlugin, MCP.MCPToolPlugin>();
 
         services.AddSingleton<ILuBanToolPlugin, Tools.Context.CompactContextToolPlugin>();
+        services.AddSingleton<ILuBanToolPlugin, Tools.Wiki.WikiToolPlugin>();
 
         LoadExternalPlugins(services, configuration);
 

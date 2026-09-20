@@ -118,8 +118,53 @@ Skills、MCPs、Rules 采用统一的三级优先级注册表模式：
 | **语义检索工具** | `retrieval` | 索引本地代码/文档，按语义搜索相关片段 |
 | **上下文压缩工具** | `context` | 压缩当前会话的对话历史，释放 token 预算（LLM 可见、可主动调用） |
 | **本地记忆工具** | `localmemory` | 长期记忆的存储、查询和管理 |
+| **Wiki 知识库工具** | `wiki` | 读取/写入/删除 wiki 页面、向量搜索、健康检查（opt-in，需在 `ToolGroups` 中显式点名） |
 
 > **脚本执行说明**：Shell 工具会自动探测运行环境（Windows 优先 `pwsh` > `powershell` > `cmd`，类 Unix 优先 `bash` > `sh`），并按解释器自动适配参数风格与引用方式，执行结果中回传实际使用的 `shell`/`shellPath`/`platform`。Lua 工具基于内嵌 MoonSharp 软沙箱执行，无需外部 `lua` 解释器，沙箱不具备文件系统与系统命令能力，结果通过 `print` 输出。
+
+### LLM Wiki 知识库（opt-in）
+
+`wiki` 是 opt-in 工具组：`ToolGroups` 为 `null`（表示全部）时不包含本组，只有在 `ToolGroups` 中显式点名 `"wiki"` 时才注入。
+
+| 工具 | 说明 | 需要确认 |
+|------|------|----------|
+| `wiki.readIndex` | 读取 `index.md`，了解已有页面清单 | 否 |
+| `wiki.readPage` | 读取指定页面正文（相对 wiki 根的路径） | 否 |
+| `wiki.savePage` | 写入/更新页面，自动维护 `index.md`、`log.md` 与向量索引 | 是 |
+| `wiki.deletePage` | 删除页面，同步移除 index 条目与向量索引 | 是 |
+| `wiki.search` | 在 wiki 中做向量搜索，可回落到 raw 工作区文件 | 否 |
+| `wiki.lint` | 检查孤儿页、死链、未收录、来源缺失、来源过期 | 否 |
+
+**目录布局**：
+
+```
+wiki/
+├── SCHEMA.md        # 维护规范（承载 LLM 创作约定）
+├── index.md         # 页面清单（由服务维护，勿手写）
+├── log.md           # 变更日志（由服务维护，勿手写）
+├── overview.md      # 总览
+├── sources/         # 来源摘要，一源一页
+├── entities/        # 实体
+├── concepts/        # 概念
+└── queries/         # 问答沉淀
+```
+
+**frontmatter 约定**：每个页面以 YAML frontmatter 开头，包含 `title`、`type`（`source` | `entity` | `concept` | `overview` | `query`）、`tags`、`sources`（相对工作区根的来源路径）、`created`、`updated`。
+
+**源格式支持**：
+
+| 扩展名 | 处理方式 |
+|--------|----------|
+| `.txt` `.log` `.ini` `.cfg` `.toml` `.properties` | 纯文本直读 |
+| `.md` `.markdown` | Markdown 解析 |
+| `.json` `.jsonc` `.jsonl` `.ndjson` | JSON 美化 / 分行美化 |
+| `.csv` `.tsv` | 分隔符表格解析 |
+| `.xml` `.xaml` `.svg` | XML 结构化提取 |
+| `.html` `.htm` | 正则去标签降级为纯文本（不引入 HtmlAgilityPack，不保证完整 Markdown 结构） |
+| `.xlsx` | 完整支持（按 sheet 读取，MiniExcel） |
+| `.xls` | 尽力而为：MiniExcel 不支持 BIFF 格式 `.xls`，此类文件会被跳过并告警 |
+
+**配置**（`LuBanAgent:Tools:Wiki`）：`Enabled`（默认 `true`）、`TopK`（默认 `8`）、`IncludeRawDefault`（默认 `false`）、`MaxResultChars`（默认 `8000`）。
 
 ### Skill 系统
 
@@ -629,6 +674,7 @@ LuBan.AIAgent/
 │   ├── LocalMemoryOptions.cs          # 本地记忆选项
 │   ├── ModelEndpointOptions.cs        # 模型端点选项
 │   ├── OrchestrationOptions.cs        # 编排选项
+│   ├── WikiToolOptions.cs             # Wiki 工具选项
 │   └── ToolGroupOptions.cs            # 工具组配置
 ├── Infrastructure/
 │   ├── PlaywrightSession.cs           # Playwright 会话管理
@@ -645,6 +691,9 @@ LuBan.AIAgent/
 │   │   └── CompactContextToolPlugin.cs # 上下文压缩工具
 │   ├── LocalMemory/LocalMemoryToolPlugin.cs  # 本地记忆工具
 │   ├── Retrieval/RetrievalToolPlugin.cs # 语义检索工具
+│   ├── Wiki/                          # LLM Wiki 知识库工具
+│   │   ├── WikiToolPlugin.cs          # wiki 工具插件（opt-in）
+│   │   └── WikiToolGroup.cs           # wiki 工具实现
 │   └── Orchestration/                 # 编排工具
 │       ├── OrchestrationToolPlugin.cs # 编排工具插件
 │       └── OrchestrationToolGroup.cs  # 编排工具组
@@ -696,6 +745,16 @@ LuBan.AIAgent/
 │   ├── IRetrievalService.cs           # 语义检索接口
 │   ├── RetrievalService.cs            # 检索服务实现
 │   └── Chunkers/                     # 代码切块器
+├── Wiki/                              # LLM Wiki 知识库服务
+│   ├── IWikiService.cs                # wiki 服务接口
+│   ├── IWikiContext.cs                # 工作区上下文接口
+│   ├── WikiService.cs                 # wiki 服务实现（index/log/索引维护）
+│   ├── WikiDefaults.cs                # 默认 schema 文案
+│   ├── WikiFrontmatter.cs             # YAML frontmatter 解析/渲染
+│   ├── WikiPageSerializer.cs          # 页面序列化
+│   ├── WikiSlug.cs                    # 文件名 slug 生成
+│   ├── Models.cs                      # 页面/索引/lint 模型
+│   └── Extractors/                    # 源文件提取器（txt/md/json/csv/xml/html/xlsx）
 ├── Utils/Text/
 │   ├── TextUtils.cs                   # 文本处理工具
 │   ├── NGramExtractor.cs              # N-Gram 提取器
@@ -745,7 +804,7 @@ LuBan.AIAgent/
 ## 小贴士
 
 - 模型路由使用 `provider:model` 格式，新增 Provider 只需通过 `IAppConfigReader` / 宿主实现添加
-- **9 大内置工具组**覆盖浏览器自动化、文件操作、脚本执行、Web 请求、语义检索、上下文压缩、本地记忆、MCP、多 Agent 编排
+- **10 大内置工具组**覆盖浏览器自动化、文件操作、脚本执行、Web 请求、语义检索、上下文压缩、本地记忆、MCP、多 Agent 编排、LLM Wiki 知识库（opt-in）
 - `ToolConfirmationService` 对写入、删除、执行等危险操作自动要求用户确认
 - `FileSystemToolOptions.AllowedRoots` 限制文件访问范围，防止 Agent 越权操作
 - **会话历史自动持久化**，支持长对话压缩（SummarizingChatReducer），上下文永不丢失；启动对话时显示最近历史，快速了解上下文
