@@ -21,6 +21,8 @@
 *描述：提取共享逻辑，新增 CreateSubAgentAsync
 *
 *****************************************************************************/
+using LuBan.AIAgent.Tools;
+
 namespace LuBan.AIAgent;
 
 /// <summary>
@@ -161,6 +163,13 @@ public class LuBanAgentFactory : ILuBanAgentFactory, IScoped
             .ToList();
 
         var ruleEngine = _serviceProvider.GetService<RuleEngine>();
+        // 必填参数守卫在内层：先经规则评估（deny/modify）后，再校验最终参数是否齐全。
+        // 已具备工作区根兜底的只读发现类工具（WorkspaceRootFallbackAIFunction）跳过守卫，保留原兜底语义。
+        tools = tools
+            .Select(t => t is AIFunction f && f is not WorkspaceRootFallbackAIFunction
+                ? (AITool)new RequiredArgumentGuardAIFunction(f)
+                : t)
+            .ToList();
         if (ruleEngine != null)
         {
             tools = tools

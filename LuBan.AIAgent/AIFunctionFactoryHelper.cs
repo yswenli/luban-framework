@@ -14,6 +14,8 @@
 *描述：AIFunction 工厂辅助类，支持显式方法名注册工具
 *
 *****************************************************************************/
+using LuBan.AIAgent.Tools;
+
 namespace LuBan.AIAgent;
 
 /// <summary>
@@ -35,6 +37,9 @@ internal static class AIFunctionFactoryHelper
     /// <param name="workspaceRootProvider">
     /// 工作区根目录提供者；仅在参数无默认值且名为 rootPath/path 时生效。
     /// 采用惰性求值（调用工具时才读取），避免工作区切换后取到过期值。
+    /// <b>仅用于"只读发现类"工具</b>（如 ListDirectory/GetWorkspaceOverview/SearchFiles/Grep）——
+    /// 面向具体文件/目录的读写删改工具不得启用，否则模型漏传 path 会被静默替换成工作区根，
+    /// 产生"路径被误识别为目录""返回工作区统计"等误导结果。
     /// </param>
     /// <returns>AIFunction 实例</returns>
     public static AIFunction Create<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)] T>(
@@ -75,7 +80,8 @@ internal static class AIFunctionFactoryHelper
             }
         };
 
-        return AIFunctionFactory.Create(method, instance, options);
+        // 用标记类型包装，供 BuildTools 识别"已具备工作区根兜底、无需必填参数守卫"的工具
+        return new WorkspaceRootFallbackAIFunction(AIFunctionFactory.Create(method, instance, options));
     }
 
     /// <summary>

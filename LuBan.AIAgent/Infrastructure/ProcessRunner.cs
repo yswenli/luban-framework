@@ -37,6 +37,13 @@ public sealed class ProcessRunner
     /// <param name="stdin">标准输入</param>
     /// <param name="timeoutMs">超时时间（毫秒）</param>
     /// <param name="cancellationToken">取消令牌</param>
+    /// <param name="argumentList">
+    /// 参数列表。非 null 时优先于 <paramref name="arguments"/>，由框架按目标进程的引用规则安全拼接，
+    /// 适用于参数本身含空格/引号的场景（如 PowerShell -Command）。
+    /// </param>
+    /// <param name="outputEncoding">
+    /// 标准输出/错误流解码编码。为 null 时使用平台默认（cmd 已通过 chcp 保证 UTF-8，可传 UTF-8）。
+    /// </param>
     /// <returns>执行结果</returns>
     public async Task<ProcessResult> RunAsync(
         string executable,
@@ -44,22 +51,38 @@ public sealed class ProcessRunner
         string? workingDir = null,
         string? stdin = null,
         int timeoutMs = 120000,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        IReadOnlyList<string>? argumentList = null,
+        Encoding? outputEncoding = null)
     {
-        using var process = new Process
+        var startInfo = new ProcessStartInfo
         {
-            StartInfo = new ProcessStartInfo
-            {
-                FileName = executable,
-                Arguments = arguments,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                RedirectStandardInput = stdin != null,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                WorkingDirectory = workingDir ?? AppContext.BaseDirectory
-            }
+            FileName = executable,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            RedirectStandardInput = stdin != null,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            WorkingDirectory = workingDir ?? AppContext.BaseDirectory
         };
+
+        if (argumentList != null)
+        {
+            foreach (var argument in argumentList)
+                startInfo.ArgumentList.Add(argument);
+        }
+        else
+        {
+            startInfo.Arguments = arguments;
+        }
+
+        if (outputEncoding != null)
+        {
+            startInfo.StandardOutputEncoding = outputEncoding;
+            startInfo.StandardErrorEncoding = outputEncoding;
+        }
+
+        using var process = new Process { StartInfo = startInfo };
 
         var startedAt = DateTimeOffset.UtcNow;
 

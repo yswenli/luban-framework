@@ -84,6 +84,8 @@ public static class LuBanAgentExtensions
 
         services.AddScoped<PlaywrightSession>();
         services.AddSingleton<ProcessRunner>();
+        services.AddSingleton<LuaScriptRunner>();
+        services.AddSingleton<ShellEnvironmentDetector>();
         services.AddSingleton<PathGuard>();
         services.AddSingleton<LuBan.AIAgent.Attachments.IAttachmentProcessor, LuBan.AIAgent.Attachments.DefaultAttachmentProcessor>();
 

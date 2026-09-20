@@ -113,11 +113,13 @@ Skills, MCPs, and Rules use a unified three-tier priority registry pattern:
 |------------|------------|-------------------|
 | **Browser Tools** | `browser` | Navigate, click, type, screenshot, get content, wait for selector, get URL (Playwright-based) |
 | **File System Tools** | `filesystem` | Read files, write files, list directories, delete files, delete directories, search files (glob), content search (regex), create directories, copy files, move files, get file info, with AllowedRoots security restrictions |
-| **Script Tools** | `script` | Execute Shell, Lua, Python scripts |
+| **Script Tools** | `script` | Execute Shell (adaptive runtime), Lua (embedded sandbox, no external interpreter), Python scripts |
 | **Web Tools** | `web` | Send HTTP requests to fetch web content |
 | **Retrieval Tools** | `retrieval` | Index local code/documents, semantic search |
 | **Context Compaction** | `context` | Compact conversation history to free token budget (LLM-accessible, callable on demand) |
 | **Local Memory Tools** | `localmemory` | Long-term memory storage, query, and management |
+
+> **Script execution notes**: The Shell tool auto-detects the runtime (on Windows `pwsh` > `powershell` > `cmd`; on Unix-like `bash` > `sh`), adapts argument style and quoting to the interpreter, and returns the actual `shell`/`shellPath`/`platform` in the result. The Lua tool runs on an embedded MoonSharp soft sandbox with no external `lua` interpreter required; the sandbox has no file-system or system-command access, and results are emitted via `print`.
 
 ### Skill System
 
@@ -632,6 +634,8 @@ LuBan.AIAgent/
 ├── Infrastructure/
 │   ├── PlaywrightSession.cs           # Playwright session management
 │   ├── ProcessRunner.cs               # Process executor
+│   ├── LuaScriptRunner.cs             # Embedded MoonSharp Lua sandbox executor
+│   ├── ShellEnvironmentDetector.cs    # Shell runtime detection and command builder
 │   └── PathGuard.cs                   # Path security guard
 ├── Tools/
 │   ├── Browser/BrowserToolPlugin.cs   # Browser tools

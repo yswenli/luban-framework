@@ -221,9 +221,11 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
         var thinkingText = string.Concat(context.ResponseMessages
             .SelectMany(m => m.Contents?.OfType<TextReasoningContent>() ?? Enumerable.Empty<TextReasoningContent>())
             .Select(c => c.Text));
+        // 提取本轮工具调用（名称/调用ID/参数），持久化以便事后定位"模型漏传参数"等调用问题
+        var toolCallsJson = SerializeToolCalls(context.ResponseMessages);
         if (!string.IsNullOrWhiteSpace(responseText))
         {
-            await _sessionManager.AddMessageAsync(sessionId, "assistant", responseText, EstimateTokens(responseText), thinkingText);
+            await _sessionManager.AddMessageAsync(sessionId, "assistant", responseText, EstimateTokens(responseText), thinkingText, toolCalls: toolCallsJson);
         }
     }
 
@@ -358,6 +360,27 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
         var path = Path.Combine(dir, Guid.NewGuid().ToString("N") + ext);
         await File.WriteAllBytesAsync(path, content.Data.ToArray(), ct).ConfigureAwait(false);
         return path;
+    }
+
+    /// <summary>
+    /// 提取本轮响应中的工具调用信息（名称/调用ID/参数），序列化为 JSON 供持久化诊断。
+    /// </summary>
+    private static string? SerializeToolCalls(IEnumerable<ChatMessage>? responseMessages)
+    {
+        if (responseMessages == null)
+            return null;
+
+        var calls = responseMessages
+            .SelectMany(m => m.Contents?.OfType<FunctionCallContent>() ?? Enumerable.Empty<FunctionCallContent>())
+            .Select(c => new
+            {
+                name = c.Name,
+                callId = c.CallId,
+                arguments = c.Arguments == null ? null : System.Text.Json.JsonSerializer.Serialize(c.Arguments)
+            })
+            .ToList();
+
+        return calls.Count == 0 ? null : System.Text.Json.JsonSerializer.Serialize(calls);
     }
 
     private static int EstimateTokens(string text) => Math.Max(1, text.Length / 4);

@@ -66,20 +66,23 @@ public class FileSystemToolPlugin : ILuBanToolPlugin
         var toolGroup = new FileSystemToolGroup(_pathGuard, confirmationService);
         var options = sp.GetService<IOptions<LuBanAgentOptions>>();
         Func<string?> workspaceRootProvider = () => options?.Value.WorkspaceRoot;
+        // 工作区根兜底仅用于"只读发现类"工具：模型漏传路径时用工作区根做默认扫描范围才有意义。
+        // 面向具体文件/目录的读写删改工具一律不兜底——否则漏传 path 会被静默替换成工作区根，
+        // 产生"路径被误识别为目录""返回工作区统计"等误导结果；缺参由 RequiredArgumentGuardAIFunction 统一提示。
         return new List<AIFunction>
         {
-            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.ReadFileAsync), workspaceRootProvider),
-            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.WriteFileAsync), workspaceRootProvider),
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.ReadFileAsync)),
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.WriteFileAsync)),
             AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.ListDirectoryAsync), workspaceRootProvider),
             AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.GetWorkspaceOverviewAsync), workspaceRootProvider),
-            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.DeleteFileAsync), workspaceRootProvider),
-            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.DeleteDirectoryAsync), workspaceRootProvider),
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.DeleteFileAsync)),
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.DeleteDirectoryAsync)),
             AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.SearchFilesAsync), workspaceRootProvider),
             AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.GrepAsync), workspaceRootProvider),
-            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.CreateDirectoryAsync), workspaceRootProvider),
-            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.CopyFileAsync), workspaceRootProvider),
-            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.MoveFileAsync), workspaceRootProvider),
-            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.GetFileInfoAsync), workspaceRootProvider)
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.CreateDirectoryAsync)),
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.CopyFileAsync)),
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.MoveFileAsync)),
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.GetFileInfoAsync))
         };
     }
 

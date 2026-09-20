@@ -113,11 +113,13 @@ Skills、MCPs、Rules 采用统一的三级优先级注册表模式：
 |--------|--------|----------|
 | **浏览器工具** | `browser` | 导航、点击、输入、截图、获取内容、等待元素、获取 URL（基于 Playwright） |
 | **文件系统工具** | `filesystem` | 读取文件、写入文件、列出目录、删除文件、删除目录、搜索文件（glob）、内容搜索（regex）、创建目录、复制文件、移动文件、获取文件信息，支持 AllowedRoots 安全限制 |
-| **脚本执行工具** | `script` | 执行 Shell、Lua、Python 脚本 |
+| **脚本执行工具** | `script` | 执行 Shell（运行环境自适应）、Lua（内嵌沙箱，无外部解释器依赖）、Python 脚本 |
 | **Web 工具** | `web` | 发送 HTTP 请求获取网页内容 |
 | **语义检索工具** | `retrieval` | 索引本地代码/文档，按语义搜索相关片段 |
 | **上下文压缩工具** | `context` | 压缩当前会话的对话历史，释放 token 预算（LLM 可见、可主动调用） |
 | **本地记忆工具** | `localmemory` | 长期记忆的存储、查询和管理 |
+
+> **脚本执行说明**：Shell 工具会自动探测运行环境（Windows 优先 `pwsh` > `powershell` > `cmd`，类 Unix 优先 `bash` > `sh`），并按解释器自动适配参数风格与引用方式，执行结果中回传实际使用的 `shell`/`shellPath`/`platform`。Lua 工具基于内嵌 MoonSharp 软沙箱执行，无需外部 `lua` 解释器，沙箱不具备文件系统与系统命令能力，结果通过 `print` 输出。
 
 ### Skill 系统
 
@@ -631,6 +633,8 @@ LuBan.AIAgent/
 ├── Infrastructure/
 │   ├── PlaywrightSession.cs           # Playwright 会话管理
 │   ├── ProcessRunner.cs               # 进程执行器
+│   ├── LuaScriptRunner.cs             # 内嵌 MoonSharp Lua 沙箱执行器
+│   ├── ShellEnvironmentDetector.cs    # Shell 运行环境探测与命令构造
 │   └── PathGuard.cs                   # 路径安全守卫
 ├── Tools/
 │   ├── Browser/BrowserToolPlugin.cs   # 浏览器工具

@@ -32,16 +32,26 @@ public class ScriptToolPlugin : ILuBanToolPlugin
 {
     private readonly ScriptToolOptions _options;
     private readonly ProcessRunner _processRunner;
+    private readonly LuaScriptRunner _luaRunner;
+    private readonly ShellEnvironmentDetector _shellDetector;
 
     /// <summary>
     /// 创建 ScriptToolPlugin 实例
     /// </summary>
     /// <param name="options">配置选项</param>
     /// <param name="processRunner">进程执行器</param>
-    public ScriptToolPlugin(IOptions<LuBanAgentOptions> options, ProcessRunner processRunner)
+    /// <param name="luaRunner">内嵌 Lua 沙箱执行器</param>
+    /// <param name="shellDetector">Shell 环境探测器</param>
+    public ScriptToolPlugin(
+        IOptions<LuBanAgentOptions> options,
+        ProcessRunner processRunner,
+        LuaScriptRunner luaRunner,
+        ShellEnvironmentDetector shellDetector)
     {
         _options = options.Value.Tools.Script;
         _processRunner = processRunner;
+        _luaRunner = luaRunner;
+        _shellDetector = shellDetector;
     }
 
     /// <summary>
@@ -63,7 +73,7 @@ public class ScriptToolPlugin : ILuBanToolPlugin
     {
         var opts = toolsOptions?.Script ?? _options;
         var confirmationService = sp.GetRequiredService<IToolConfirmationService>();
-        var toolGroup = new ScriptToolGroup(opts, _processRunner, confirmationService);
+        var toolGroup = new ScriptToolGroup(opts, _processRunner, _luaRunner, _shellDetector, confirmationService);
         return new List<AIFunction>
         {
             AIFunctionFactoryHelper.Create(toolGroup, nameof(ScriptToolGroup.RunShellAsync)),
@@ -87,6 +97,8 @@ public class ScriptToolGroup
 {
     private readonly ScriptToolOptions _options;
     private readonly ProcessRunner _processRunner;
+    private readonly LuaScriptRunner _luaRunner;
+    private readonly ShellEnvironmentDetector _shellDetector;
     private readonly IToolConfirmationService _confirmationService;
 
     /// <summary>
@@ -94,11 +106,20 @@ public class ScriptToolGroup
     /// </summary>
     /// <param name="options">配置选项</param>
     /// <param name="processRunner">进程执行器</param>
+    /// <param name="luaRunner">内嵌 Lua 沙箱执行器</param>
+    /// <param name="shellDetector">Shell 环境探测器</param>
     /// <param name="confirmationService">工具调用确认服务</param>
-    public ScriptToolGroup(ScriptToolOptions options, ProcessRunner processRunner, IToolConfirmationService confirmationService)
+    public ScriptToolGroup(
+        ScriptToolOptions options,
+        ProcessRunner processRunner,
+        LuaScriptRunner luaRunner,
+        ShellEnvironmentDetector shellDetector,
+        IToolConfirmationService confirmationService)
     {
         _options = options;
         _processRunner = processRunner;
+        _luaRunner = luaRunner;
+        _shellDetector = shellDetector;
         _confirmationService = confirmationService;
     }
 
@@ -108,7 +129,7 @@ public class ScriptToolGroup
     /// <param name="command">要执行的命令</param>
     /// <param name="workingDirectory">工作目录（可选）</param>
     /// <returns>执行结果</returns>
-    [Description("执行 Shell 命令")]
+    [Description("执行 Shell 命令。执行环境自动探测（Windows 优先 pwsh > powershell > cmd，类 Unix 优先 bash），返回值中的 shell/shellPath/platform 字段会告知实际使用的解释器；命令请按该解释器语法编写。")]
     [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026", 
         Justification = "JSON 序列化仅用于简单结果类型，已通过 JsonSerializerOptions 处理")]
     public async Task<ToolResult<string>> RunShellAsync(string command, string? workingDirectory = null)
@@ -127,30 +148,34 @@ public class ScriptToolGroup
 
         try
         {
-            // Windows cmd 使用 /c 参数（执行后退出），Unix shell 使用 -c
-            // 命令作为参数传递，而不是 stdin（cmd/sh 不支持 stdin 传递命令）
-            var shellName = Path.GetFileNameWithoutExtension(_options.Shell);
-            var shellArgs = shellName.Equals("cmd", StringComparison.OrdinalIgnoreCase)
-                ? $"/c \"{command.Replace("\"", "\\\"\"")}"  // Windows: cmd /c "command"
-                : $"-c \"{command.Replace("\"", "\\\"\"")}"; // Unix: sh -c "command"
-            
-            var result = await _processRunner.RunAsync(
-                _options.Shell,
-                shellArgs,
-                workingDirectory,
-                stdin: null,  // 不使用 stdin
-                timeoutMs: _options.DefaultTimeout);
-
-            // 检测可执行文件不存在错误，返回结构化错误供 AI 分析
-            if (result.ExitCode == -1 && !string.IsNullOrEmpty(result.StandardError))
+            // 先探测运行环境，再按其类型构造参数风格与引用方式
+            var environment = _shellDetector.Resolve(_options.Shell);
+            if (!environment.IsAvailable)
             {
-                if (result.StandardError.Contains("可执行文件不存在") || result.StandardError.Contains("无法启动"))
-                {
-                    return ToolResult.Fail<string>(
-                        $"Shell 工具不可用: {_options.Shell}。请检查环境配置或联系管理员。",
-                        result.StandardError);
-                }
+                Logger.Error($"Shell 环境不可用: {environment.Warning}");
+                return ToolResult.Fail<string>(
+                    $"Shell 工具不可用：{environment.Warning}",
+                    new
+                    {
+                        exitCode = -1,
+                        stdout = "",
+                        stderr = environment.Warning,
+                        durationMs = 0,
+                        timedOut = false,
+                        shell = environment.Name,
+                        platform = environment.Platform
+                    }.ToJson());
             }
+
+            var shellCommand = ShellEnvironmentDetector.BuildCommand(environment, command);
+            var result = await _processRunner.RunAsync(
+                shellCommand.Executable,
+                shellCommand.Arguments ?? string.Empty,
+                workingDirectory,
+                stdin: null,
+                timeoutMs: _options.DefaultTimeout,
+                argumentList: shellCommand.ArgumentList,
+                outputEncoding: Encoding.UTF8);
 
             return ToolResult.Ok<string>(new
             {
@@ -158,30 +183,38 @@ public class ScriptToolGroup
                 stdout = result.StandardOutput,
                 stderr = result.StandardError,
                 durationMs = result.DurationMs,
-                timedOut = result.TimedOut
+                timedOut = result.TimedOut,
+                shell = environment.Name,
+                shellPath = environment.Executable,
+                platform = environment.Platform,
+                commandLine = shellCommand.Display,
+                warning = environment.Warning
             }.ToJson());
         }
         catch (Exception ex)
         {
             Logger.Error("Shell 执行异常", ex, command);
+            var environment = _shellDetector.Resolve(_options.Shell);
             return ToolResult.Fail<string>($"执行失败: {ex.Message}", new
             {
                 exitCode = -1,
                 stdout = "",
                 stderr = $"执行失败: {ex.Message}",
                 durationMs = 0,
-                timedOut = false
+                timedOut = false,
+                shell = environment.Name,
+                platform = environment.Platform
             }.ToJson());
         }
     }
 
     /// <summary>
-    /// 执行 Lua 脚本
+    /// 执行 Lua 脚本（内嵌 MoonSharp 沙箱，无外部解释器依赖）
     /// </summary>
     /// <param name="script">Lua 脚本内容</param>
-    /// <param name="workingDirectory">工作目录（可选）</param>
+    /// <param name="workingDirectory">保留参数仅为签名兼容；内嵌沙箱无文件系统访问能力，该参数不生效。</param>
     /// <returns>执行结果</returns>
-    [Description("执行 Lua 脚本")]
+    [Description("在嵌入式 Lua 沙箱中执行脚本。沙箱无文件系统与系统命令能力，结果通过 print 输出（也可用 return 返回末尾表达式）。")]
     [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026", 
         Justification = "JSON 序列化仅用于简单结果类型，已通过 JsonSerializerOptions 处理")]
     public async Task<ToolResult<string>> RunLuaAsync(string script, string? workingDirectory = null)
@@ -200,24 +233,8 @@ public class ScriptToolGroup
 
         try
         {
-            // Lua 通过 stdin 执行脚本：lua - < script.lua
-            var result = await _processRunner.RunAsync(
-                _options.LuaPath,
-                "-",  // "-" 表示从 stdin 读取脚本
-                workingDirectory,
-                stdin: script,
-                timeoutMs: _options.DefaultTimeout);
-
-            // 检测可执行文件不存在错误，返回结构化错误供 AI 分析
-            if (result.ExitCode == -1 && !string.IsNullOrEmpty(result.StandardError))
-            {
-                if (result.StandardError.Contains("可执行文件不存在") || result.StandardError.Contains("无法启动"))
-                {
-                    return ToolResult.Fail<string>(
-                        $"Lua 工具不可用: {_options.LuaPath}。请检查环境配置或联系管理员。",
-                        result.StandardError);
-                }
-            }
+            // 内嵌沙箱执行：无需外部 lua 解释器；print 与末尾表达式值写入 stdout
+            var result = _luaRunner.Execute(script, _options.DefaultTimeout);
 
             return ToolResult.Ok<string>(new
             {
@@ -225,7 +242,8 @@ public class ScriptToolGroup
                 stdout = result.StandardOutput,
                 stderr = result.StandardError,
                 durationMs = result.DurationMs,
-                timedOut = result.TimedOut
+                timedOut = result.TimedOut,
+                runtime = "moonSharp-soft-sandbox"
             }.ToJson());
         }
         catch (Exception ex)
@@ -237,7 +255,8 @@ public class ScriptToolGroup
                 stdout = "",
                 stderr = $"执行失败: {ex.Message}",
                 durationMs = 0,
-                timedOut = false
+                timedOut = false,
+                runtime = "moonSharp-soft-sandbox"
             }.ToJson());
         }
     }

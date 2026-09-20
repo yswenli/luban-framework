@@ -34,16 +34,11 @@ public class ScriptToolOptions
     public bool Enabled { get; set; } = true;
 
     /// <summary>
-    /// Shell 程序。
-    /// 默认按平台选择：Windows 用 cmd（pwsh 属可选组件，未安装时进程无法启动），
-    /// 其它平台用 bash。宿主可通过配置或 Profile 覆盖。
+    /// Shell 程序。留空表示自动探测：Windows 优先 pwsh &gt; powershell &gt; cmd，
+    /// 类 Unix 优先 bash &gt; sh。也可显式指定可执行文件名（如 "cmd"）或绝对路径强制使用；
+    /// 指定的 shell 找不到时会回退到自动探测。
     /// </summary>
-    public string Shell { get; set; } = OperatingSystem.IsWindows() ? "cmd" : "bash";
-
-    /// <summary>
-    /// Lua 解释器路径
-    /// </summary>
-    public string LuaPath { get; set; } = "lua";
+    public string Shell { get; set; } = string.Empty;
 
     /// <summary>
     /// Python 解释器路径
