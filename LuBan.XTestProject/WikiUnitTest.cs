@@ -151,4 +151,21 @@ public class WikiUnitTest
         }
         finally { Directory.Delete(dir, true); }
     }
+
+    [TestMethod]
+    public async Task HtmlExtractor_DegradesToPlainText()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "luban-wiki-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var file = Path.Combine(dir, "a.html");
+            await File.WriteAllTextAsync(file, "<html><body><h1>标题</h1><script>var x=1;</script><p>段落</p></body></html>");
+            var source = await new HtmlExtractor().ExtractAsync(file);
+            StringAssert.Contains(source.Text, "标题");
+            StringAssert.Contains(source.Text, "段落");
+            Assert.IsFalse(source.Text.Contains("var x=1"), "script 内容应被剥离");
+        }
+        finally { Directory.Delete(dir, true); }
+    }
 }
