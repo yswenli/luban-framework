@@ -50,7 +50,15 @@ public class WikiService : IWikiService
         => path.Replace('\\', '/').Trim('/');
 
     private static string ToFull(string wikiRoot, string relative)
-        => Path.Combine(wikiRoot, NormalizeRel(relative).Replace('/', Path.DirectorySeparatorChar));
+    {
+        var normalized = NormalizeRel(relative).Replace('/', Path.DirectorySeparatorChar);
+        var full = Path.GetFullPath(Path.Combine(wikiRoot, normalized));
+        var rootFull = Path.GetFullPath(wikiRoot);
+        if (!full.Equals(rootFull, StringComparison.OrdinalIgnoreCase)
+            && !full.StartsWith(rootFull + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException($"wiki 页路径越界: {relative}", nameof(relative));
+        return full;
+    }
 
     private static List<string> EnumeratePages(string wikiRoot)
     {
@@ -127,6 +135,7 @@ public class WikiService : IWikiService
             var full = ToFull(root, rel);
             if (File.Exists(full)) File.Delete(full);
 
+            Directory.CreateDirectory(root);
             var index = await ReadIndexAsync(cancellationToken);
             index.Remove(rel);
             await File.WriteAllTextAsync(Path.Combine(root, "index.md"), index.Render(), cancellationToken);

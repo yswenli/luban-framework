@@ -267,4 +267,19 @@ public class WikiUnitTest
         }
         finally { Directory.Delete(root, true); }
     }
+
+    [TestMethod]
+    public async Task WikiService_SavePage_RejectsPathTraversal()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "luban-wiki-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var service = new WikiService(new FakeRetrievalService(), new FakeWikiContext { WorkspaceRoot = root }, new WikiToolOptions());
+            await Assert.ThrowsExactlyAsync<ArgumentException>(
+                () => service.SavePageAsync(new WikiPage { RelativePath = "../evil.md", Title = "e", Body = "x" }));
+            Assert.IsFalse(File.Exists(Path.Combine(root, "evil.md")));
+        }
+        finally { Directory.Delete(root, true); }
+    }
 }
