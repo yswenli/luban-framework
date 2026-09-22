@@ -129,8 +129,9 @@ public class WikiToolGroup
         [Description("是否同时检索 raw 工作区文件")] bool? includeRaw = null,
         CancellationToken cancellationToken = default)
     {
-        var results = await _wiki.SearchAsync(query, topK ?? _options.TopK, includeRaw ?? _options.IncludeRawDefault, cancellationToken);
-        if (results.Count == 0) return ToolResult.Fail<string>("未找到相关内容。");
+        var results = await _wiki.SearchAsync(query, topK, includeRaw, cancellationToken);
+        if (results.Count == 0)
+            return ToolResult.Ok<string>("wiki 中未找到相关内容。可改用 includeRaw=true 检索工作区原始资料，或使用 retrieval 工具组的检索工具。");
 
         var sb = new System.Text.StringBuilder();
         foreach (var r in results)

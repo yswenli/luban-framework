@@ -161,10 +161,24 @@ wiki/
 | `.csv` `.tsv` | 分隔符表格解析 |
 | `.xml` `.xaml` `.svg` | XML 结构化提取 |
 | `.html` `.htm` | 正则去标签降级为纯文本（不引入 HtmlAgilityPack，不保证完整 Markdown 结构） |
-| `.xlsx` | 完整支持（按 sheet 读取，MiniExcel） |
-| `.xls` | 尽力而为：MiniExcel 不支持 BIFF 格式 `.xls`，此类文件会被跳过并告警 |
+| `.xlsx` | 完整支持（按 sheet 读取，MiniExcel；表头按列序号读取，空白表头回落为「列A」，缺失表头不会丢列） |
+| `.xls` | 不支持：MiniExcel 无 BIFF 支持，已不再注册该扩展名（不会被索引，避免必然失败） |
+| 其他未注册扩展名 | 内容为文本时回落纯文本直读；检测到二进制（含 NUL 字节）则拒绝提取并抛出 `NotSupportedException`，避免乱码进入上下文 |
+
+表格单元格内的 `|` 会转义为 `\|`，换行转为 `<br>`，保证生成的 Markdown 表格不被破坏。
 
 **配置**（`LuBanAgent:Tools:Wiki`）：`Enabled`（默认 `true`）、`TopK`（默认 `8`）、`IncludeRawDefault`（默认 `false`）、`MaxResultChars`（默认 `8000`）。
+
+**后台索引与工作区显式指定**：
+
+- `IRetrievalService.IndexDirectoryAsync(path, glob, force, IProgress<IndexProgress>? progress, cancellationToken, workspaceId)`：索引过程不再占用方法级写锁（写锁仅包裹存储写入），嵌入调用串行化（内部信号量），并通过 `IndexProgress` 上报 `IndexStage.Scanning / Embedding / Deleting / Done`，调用方可放到后台任务执行并展示进度。
+- 检索与 wiki 的全部方法新增可选参数 `string? workspaceId = null`：显式指定目标工作区（由 `IWikiContext.WorkspaceRootFor(workspaceId)` 解析根目录），不传时沿用 `IWikiContext.WorkspaceRoot`。
+- 语义搜索改为在全部候选（不再抽样）上计算余弦相似度，并以 `Score` 降序、`ChunkId` 升序排序，保证同分结果可复现。
+- **破坏性变更**：`IVectorStore` 的 8 个方法均新增 `string? workspaceId = null`，`IRetrievalService.IndexDirectoryAsync` 第 4 个参数由 `force` 之后的布尔/无变为 `IProgress<IndexProgress>?`。自定义实现者需同步签名（不传 `workspaceId` 时行为保持为默认工作区）。
+- **索引文件白名单（行为变更）**：`ChunkerFactory.ShouldIndex` 只按扩展名判断，白名单 = 各 `ICodeChunker` 已注册扩展名 + `.txt/.csv/.tsv/.log/.properties/.xlsx`；`.xlsx` 在读取时经 `ExcelExtractor`（MiniExcel）提取为 Markdown 后再切块/嵌入（提取结果为「`## sheet 名` + markdown 表格」，按 sheet 分节切块，语言标识 `excel`）；无专用切块器的纯文本（`.txt/.csv/.tsv/.log/.properties`）走滑动窗口兜底。白名单之外的扩展名（`.docx/.pdf/.ps1/.exe` 等）与无扩展名文件一律不索引；单文件索引 `IndexFileAsync` 同样受白名单与大小上限约束。白名单内但内容含 NUL 字节或全空白的内容在读取阶段跳过。扫描阶段不再预读文件内容（二进制判断移到读取阶段），并剪枝排除目录（`.git/bin/obj/node_modules/dist/packages/.vs/.idea/target`）与重解析点，避免在云盘/网络目录上因文件水合与杀软扫描长时间卡顿。
+- `ChunkerFactory.EnumerateFiles(root, pattern)` 为公开的逐层安全枚举（剪枝排除目录与重解析点、单层不可访问时跳过该层、跨 pattern 去重），索引、wiki 页面枚举（`WikiService.EnumeratePages`）与 CLI/桌面端预扫共用，保证各处统计口径一致。
+- **表格提取上限与截断告警**：`ExcelExtractor.ExtractAsync(filePath, maxChars, cancellationToken)` 可指定单文件字符上限；索引侧使用 `ExcelExtractor.IndexingMaxChars`（200 万字符，远宽于摄入侧的 `TextExtractor.MaxChars` = 20 万），超出时截断并写入 `IndexReport.Warnings`（不再静默丢数据）。提取在线程池执行，等待期间可响应取消。
+- `IndexDirectoryAsync` 在枚举阶段即按目录上报 `IndexStage.Scanning`（`IndexProgress.CurrentFile` 为当前目录，`Total` 为已发现的可索引文件数），调用方无需额外预扫即可显示「正在扫描：&lt;目录&gt;（已发现 N 个）…」。
 
 ### Skill 系统
 
@@ -744,6 +758,7 @@ LuBan.AIAgent/
 ├── Retrieval/
 │   ├── IRetrievalService.cs           # 语义检索接口
 │   ├── RetrievalService.cs            # 检索服务实现
+│   ├── IndexProgress.cs               # 索引进度模型（阶段/已完成/总数/当前文件）
 │   └── Chunkers/                     # 代码切块器
 ├── Wiki/                              # LLM Wiki 知识库服务
 │   ├── IWikiService.cs                # wiki 服务接口

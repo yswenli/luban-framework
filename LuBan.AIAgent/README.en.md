@@ -161,10 +161,24 @@ wiki/
 | `.csv` `.tsv` | Delimited table parsing |
 | `.xml` `.xaml` `.svg` | Structured XML extraction |
 | `.html` `.htm` | Regex tag stripping, degraded to plain text (no HtmlAgilityPack, no guarantee of full Markdown structure) |
-| `.xlsx` | Fully supported (read per sheet, via MiniExcel) |
-| `.xls` | Best-effort: MiniExcel does not support BIFF `.xls`; such files are skipped with a warning |
+| `.xlsx` | Fully supported (read per sheet, via MiniExcel; headers are read by column index, blank headers fall back to `Column A`, and missing headers never drop columns) |
+| `.xls` | Not supported: MiniExcel has no BIFF support; the extension is no longer registered (never indexed, avoiding guaranteed failures) |
+| Other unregistered extensions | Falls back to plain-text reading when the content is text; binary content (containing NUL bytes) is rejected with `NotSupportedException` so garbage never enters the context |
+
+`|` inside a cell is escaped to `\|` and newlines become `<br>`, keeping the generated Markdown table intact.
 
 **Configuration** (`LuBanAgent:Tools:Wiki`): `Enabled` (default `true`), `TopK` (default `8`), `IncludeRawDefault` (default `false`), `MaxResultChars` (default `8000`).
+
+**Background indexing and explicit workspace selection**:
+
+- `IRetrievalService.IndexDirectoryAsync(path, glob, force, IProgress<IndexProgress>? progress, cancellationToken, workspaceId)`: indexing no longer holds a method-level write lock (the lock only wraps store writes), embedding calls are serialized (internal semaphore), and progress is reported through `IndexProgress` with `IndexStage.Scanning / Embedding / Deleting / Done` — callers can run it as a background task and surface progress.
+- All retrieval and wiki methods take an optional `string? workspaceId = null` to target a workspace explicitly (root resolved via `IWikiContext.WorkspaceRootFor(workspaceId)`); when omitted, `IWikiContext.WorkspaceRoot` is used.
+- Semantic search now computes cosine similarity over all candidates (no sampling) and orders by descending `Score` then ascending `ChunkId`, making equal-score results reproducible.
+- **Breaking changes**: all 8 `IVectorStore` methods now take `string? workspaceId = null`, and the 4th parameter of `IRetrievalService.IndexDirectoryAsync` changed to `IProgress<IndexProgress>?`. Custom implementers must update their signatures (behavior stays on the default workspace when `workspaceId` is not passed).
+- **Indexing whitelist (behavior change)**: `ChunkerFactory.ShouldIndex` decides by extension only; the whitelist is the union of all registered `ICodeChunker` extensions plus `.txt/.csv/.tsv/.log/.properties/.xlsx`. `.xlsx` is extracted to Markdown via `ExcelExtractor` (MiniExcel) before chunking/embedding (the extraction is `## <sheet name>` plus markdown tables, chunked per sheet with language id `excel`); plain-text extensions without a dedicated chunker (`.txt/.csv/.tsv/.log/.properties`) fall back to the sliding window. Extensions outside the whitelist (`.docx/.pdf/.ps1/.exe`, etc.) and files without an extension are never indexed; single-file indexing (`IndexFileAsync`) is subject to the same whitelist and size limit. Whitelisted content that contains NUL bytes or is entirely blank is skipped at read time. Scanning no longer pre-reads file contents (binary detection moved to read time) and prunes excluded directories (`.git/bin/obj/node_modules/dist/packages/.vs/.idea/target`) and reparse points, avoiding long stalls on cloud/network folders caused by file hydration and antivirus scanning.
+- `ChunkerFactory.EnumerateFiles(root, pattern)` is the public safe per-level enumerator (prunes excluded directories and reparse points, skips inaccessible levels without aborting, de-duplicates across patterns); it is shared by indexing, wiki page enumeration (`WikiService.EnumeratePages`), and the CLI/desktop pre-scan so every path counts identically.
+- **Spreadsheet extraction limit and truncation warnings**: `ExcelExtractor.ExtractAsync(filePath, maxChars, cancellationToken)` accepts a per-file character limit; the indexing path uses `ExcelExtractor.IndexingMaxChars` (2,000,000 chars, far wider than the ingest-side `TextExtractor.MaxChars` = 200,000). On overflow the content is truncated and recorded in `IndexReport.Warnings` instead of being dropped silently. Extraction runs on the thread pool and can observe cancellation while awaiting.
+- During enumeration `IndexDirectoryAsync` reports `IndexStage.Scanning` per directory (`IndexProgress.CurrentFile` is the current directory, `Total` is the number of indexable files found so far), so callers can show “Scanning: &lt;directory&gt; (N files found)…” without an extra pre-scan.
 
 ### Skill System
 
@@ -745,6 +759,7 @@ LuBan.AIAgent/
 ├── Retrieval/
 │   ├── IRetrievalService.cs           # Semantic retrieval interface
 │   ├── RetrievalService.cs            # Retrieval service
+│   ├── IndexProgress.cs               # Indexing progress model (stage/completed/total/current file)
 │   └── Chunkers/                     # Code chunkers
 ├── Wiki/                              # LLM Wiki knowledge base service
 │   ├── IWikiService.cs                # Wiki service interface

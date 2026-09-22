@@ -351,7 +351,7 @@ public class FileSystemToolGroup
                 return ToolResult.Fail<string>($"错误：文件过大 ({fileInfo.Length / 1024 / 1024}MB)，最大支持 50MB");
 
             // 行级切片：避免把大文件（日志/源码）整体塞进对话上下文撑爆 token。
-            // 单次最多返回 readFileMaxLines 行 / readFileMaxChars 字符，超出则截断并提示改用 Grep 或 RAG。
+            // 单次最多返回 readFileMaxLines 行 / readFileMaxChars 字符，超出则截断并提示改用 Grep 或 LLM Wiki 检索。
             const int readFileMaxLines = 2000;
             const int readFileMaxChars = 256 * 1024;
 
@@ -386,7 +386,7 @@ public class FileSystemToolGroup
             {
                 sb.AppendLine();
                 sb.AppendLine($"[内容已截断] 源文件大小 {fileInfo.Length / 1024}KB，本次仅返回前 {Math.Min(lineNo, readFileMaxLines)} 行（约 {readFileMaxChars / 1024}KB）。");
-                sb.AppendLine("如需检索特定内容请用 Grep 工具（按正则/关键字匹配，按行返回）；超大文件建议先建立 RAG 索引再提问。");
+                sb.AppendLine("如需检索特定内容请用 Grep 工具（按正则/关键字匹配，按行返回）；超大文件建议先建立 LLM Wiki 索引再提问。");
             }
 
             return ToolResult.Ok<string>(sb.ToString());

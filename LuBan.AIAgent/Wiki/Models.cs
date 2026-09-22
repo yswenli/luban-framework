@@ -152,6 +152,11 @@ public class WikiIndex
     {
         var sb = new System.Text.StringBuilder();
         sb.Append("# Wiki Index\n\n");
+        if (Entries.Count == 0)
+        {
+            sb.Append("> 本 wiki 尚无页面。若需回答用户问题，请使用检索工具（`retrieval` 组）检索工作区原始资料，或先执行 ingest 建立 wiki 页。\n");
+            return sb.ToString();
+        }
         foreach (var group in Entries.GroupBy(e => e.Category, StringComparer.OrdinalIgnoreCase)
                      .OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase))
         {

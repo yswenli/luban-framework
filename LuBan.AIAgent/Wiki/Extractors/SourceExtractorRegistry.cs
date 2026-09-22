@@ -16,7 +16,9 @@
 *****************************************************************************/
 namespace LuBan.AIAgent.Wiki.Extractors;
 
-/// <summary>按扩展名路由到提取器；未命中回落 <see cref="TextExtractor"/>。</summary>
+using LuBan.AIAgent.Retrieval;
+
+/// <summary>按扩展名路由到提取器；未注册的非二进制文件回落 <see cref="TextExtractor"/>。</summary>
 public class SourceExtractorRegistry
 {
     private readonly Dictionary<string, ISourceExtractor> _byExtension =
@@ -43,11 +45,18 @@ public class SourceExtractorRegistry
         new ExcelExtractor()
     });
 
-    /// <summary>解析扩展名对应的提取器（未命中返回兜底）。</summary>
+    /// <summary>
+    /// 解析扩展名对应的提取器。未注册的非二进制文件回落 <see cref="TextExtractor"/>；
+    /// 未注册且内容为二进制（含 NUL 字节）时抛 <see cref="NotSupportedException"/>，避免乱码进入上下文（spec E4）。
+    /// </summary>
     public ISourceExtractor Resolve(string filePath)
     {
         var ext = Path.GetExtension(filePath);
-        return _byExtension.TryGetValue(ext, out var extractor) ? extractor : _fallback;
+        if (_byExtension.TryGetValue(ext, out var extractor)) return extractor;
+        if (!File.Exists(filePath)) return _fallback;
+        if (ChunkerFactory.LooksBinary(filePath))
+            throw new NotSupportedException($"不支持的二进制文件类型: {ext}（{Path.GetFileName(filePath)}）");
+        return _fallback;
     }
 
     /// <summary>是否显式支持该扩展名。</summary>

@@ -31,4 +31,10 @@ public interface IWikiContext
 {
     /// <summary>当前工作区根目录绝对路径；无工作区时为 null。</summary>
     string? WorkspaceRoot { get; }
+
+    /// <summary>
+    /// 指定工作区的根目录绝对路径；<paramref name="workspaceId"/> 为 null 时等价于 <see cref="WorkspaceRoot"/>。
+    /// 用于后台任务显式指定目标工作区，避免受"当前工作区"切换影响。
+    /// </summary>
+    string? WorkspaceRootFor(string? workspaceId) => WorkspaceRoot;
 }

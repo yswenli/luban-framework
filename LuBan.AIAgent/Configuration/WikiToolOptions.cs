@@ -30,7 +30,7 @@ public class WikiToolOptions
 {
     /// <summary>
     /// 是否启用 wiki 工具组。默认 true，与其余 7 个工具组选项保持一致；
-    /// 普通工作区靠 opt-in 门控隔离，Rag 工作区在 ToolGroups 中点名 "wiki" 后生效。
+    /// 普通工作区靠 opt-in 门控隔离，LlmWiki 工作区在 ToolGroups 中点名 "wiki" 后生效。
     /// </summary>
     public bool Enabled { get; set; } = true;
 

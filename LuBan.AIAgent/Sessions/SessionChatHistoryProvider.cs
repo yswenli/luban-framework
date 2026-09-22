@@ -230,7 +230,7 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
     }
 
     /// <summary>
-    /// 设置本轮待持久化的原始用户输入。RAG 注入场景下由外层调用，
+    /// 设置本轮待持久化的原始用户输入。检索注入场景下由外层调用，
     /// 覆盖膨胀后的输入，确保历史库仅保存用户原始问题。
     /// 消费完后自动清空。
     /// </summary>

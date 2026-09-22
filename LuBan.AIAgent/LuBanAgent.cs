@@ -100,7 +100,7 @@ public class LuBanAgent
     /// <returns>Agent 响应结果。</returns>
     public async Task<AgentResponse> RunAsync(string input, CancellationToken cancellationToken = default)
     {
-        // 编排判定基于原始用户输入；命中编排则跳过 RAG 注入，直接返回编排结果
+        // 编排判定基于原始用户输入；命中编排则跳过检索注入，直接返回编排结果
         if (await TryOrchestrateAsync(input, cancellationToken) is { } orchestratedResponse)
         {
             return orchestratedResponse;
@@ -205,7 +205,7 @@ public class LuBanAgent
     }
 
     /// <summary>
-    /// 运行一轮对话（带附件）。先执行输入预处理（RAG/上下文注入），但不进入自动编排分支。
+    /// 运行一轮对话（带附件）。先执行输入预处理（检索增强/上下文注入），但不进入自动编排分支。
     /// </summary>
     /// <param name="input">用户输入文本。</param>
     /// <param name="attachments">已处理的附件列表。</param>
@@ -244,7 +244,7 @@ public class LuBanAgent
 
     /// <summary>
     /// 自动编排前哨：基于原始用户输入判定是否为复合任务并执行编排。
-    /// 命中编排时返回编排结果；未命中或未启用编排时返回 null（调用方继续走 RAG + 主 Agent）。
+    /// 命中编排时返回编排结果；未命中或未启用编排时返回 null（调用方继续走 检索增强 + 主 Agent）。
     /// </summary>
     private async Task<AgentResponse?> TryOrchestrateAsync(string input, CancellationToken cancellationToken)
     {

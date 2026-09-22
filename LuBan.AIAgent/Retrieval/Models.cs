@@ -107,6 +107,11 @@ public class IndexReport
     public int EmbeddedChunks { get; set; }
     public int ReusedChunks { get; set; }
     public List<string> Errors { get; set; } = new();
+
+    /// <summary>
+    /// 警告（非失败但需提示，例如 .xlsx 提取超出单文件字符上限导致内容截断）
+    /// </summary>
+    public List<string> Warnings { get; set; } = new();
 }
 
 /// <summary>

@@ -211,7 +211,7 @@ public sealed class DefaultAttachmentProcessor : IAttachmentProcessor
         string filePath, FileInfo info, string mediaType, CancellationToken ct)
     {
         if (info.Length > MaxTextFileBytes)
-            throw new InvalidOperationException($"文本文件过大（{info.Length / 1024 / 1024}MB，上限 10MB），请使用 RAG 知识库");
+            throw new InvalidOperationException($"文本文件过大（{info.Length / 1024 / 1024}MB，上限 10MB），请使用 LLM Wiki 知识库");
 
         var fullPath = Path.GetFullPath(filePath);
         if (info.Length <= LargeTextThreshold)

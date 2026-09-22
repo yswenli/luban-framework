@@ -17,6 +17,7 @@
 using LuBan.AIAgent.Abstractions;
 using LuBan.AIAgent.Configuration;
 using LuBan.AIAgent.Retrieval;
+using LuBan.AIAgent.Retrieval.Chunkers;
 using LuBan.AIAgent.Tools.Wiki;
 using LuBan.AIAgent.Wiki;
 using LuBan.AIAgent.Wiki.Extractors;
@@ -26,6 +27,9 @@ using MiniExcelLibs;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+
+using System.Security.Cryptography;
+using System.Text;
 
 namespace LuBan.XTestProject;
 
@@ -192,35 +196,113 @@ public class WikiUnitTest
         finally { Directory.Delete(dir, true); }
     }
 
+    [TestMethod]
+    public async Task ExcelExtractor_BlankHeaderCell_FallsBackToColumnName()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "luban-wiki-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var file = Path.Combine(dir, "b.xlsx");
+            MiniExcel.SaveAs(file, new[]
+            {
+                new Dictionary<string, object> { ["a"] = "姓名", ["b"] = "" }
+            }, printHeader: false);
+
+            var source = await new ExcelExtractor().ExtractAsync(file);
+            StringAssert.Contains(source.Markdown, "姓名");
+            StringAssert.Contains(source.Markdown, "列B");
+        }
+        finally { Directory.Delete(dir, true); }
+    }
+
+    [TestMethod]
+    public async Task ExcelExtractor_EscapesPipeAndNewline()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "luban-wiki-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var file = Path.Combine(dir, "c.xlsx");
+            MiniExcel.SaveAs(file, new[]
+            {
+                new Dictionary<string, object> { ["a"] = "x|y", ["b"] = "l1\nl2" }
+            }, printHeader: false);
+
+            var source = await new ExcelExtractor().ExtractAsync(file);
+            StringAssert.Contains(source.Markdown, @"x\|y");
+            StringAssert.Contains(source.Markdown, "l1<br>l2");
+        }
+        finally { Directory.Delete(dir, true); }
+    }
+
+    [TestMethod]
+    public void SourceExtractorRegistry_DoesNotRegisterXls()
+    {
+        var registry = SourceExtractorRegistry.CreateDefault();
+        Assert.IsTrue(registry.Supports("a.xlsx"));
+        Assert.IsFalse(registry.Supports("a.xls"), ".xls（BIFF）MiniExcel 不支持，不应注册");
+    }
+
+    [TestMethod]
+    public void SourceExtractorRegistry_UnregisteredBinary_Throws()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "luban-wiki-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var file = Path.Combine(dir, "d.bin");
+            File.WriteAllBytes(file, new byte[] { 0x00, 0x01, 0x7F, 0x00 });
+            var registry = SourceExtractorRegistry.CreateDefault();
+            Assert.ThrowsExactly<NotSupportedException>(() => registry.Resolve(file));
+        }
+        finally { Directory.Delete(dir, true); }
+    }
+
+    [TestMethod]
+    public void SourceExtractorRegistry_UnregisteredText_FallsBackToTextExtractor()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "luban-wiki-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var file = Path.Combine(dir, "e.log");
+            File.WriteAllText(file, "hello world");
+            var registry = SourceExtractorRegistry.CreateDefault();
+            Assert.IsInstanceOfType<TextExtractor>(registry.Resolve(file));
+        }
+        finally { Directory.Delete(dir, true); }
+    }
+
     private sealed class FakeRetrievalService : IRetrievalService
     {
         public List<string> IndexedFiles { get; } = new();
         public List<string> RemovedSources { get; } = new();
         public List<string> SearchedPrefixes { get; } = new();
 
-        public Task<IndexReport> IndexFileAsync(string path, bool force = false, CancellationToken ct = default)
+        public Task<IndexReport> IndexFileAsync(string path, bool force = false, CancellationToken ct = default, string? workspaceId = null)
         {
             IndexedFiles.Add(path);
             return Task.FromResult(new IndexReport { ScannedFiles = 1, TotalChunks = 1 });
         }
 
-        public Task RemoveAsync(string sourceName, CancellationToken ct = default)
+        public Task RemoveAsync(string sourceName, CancellationToken ct = default, string? workspaceId = null)
         {
             RemovedSources.Add(sourceName);
             return Task.CompletedTask;
         }
 
-        public Task<IReadOnlyList<RetrievalResult>> SearchAsync(string query, int topK = 5, string? pathPrefix = null, string? language = null, CancellationToken ct = default)
+        public Task<IReadOnlyList<RetrievalResult>> SearchAsync(string query, int topK = 5, string? pathPrefix = null, string? language = null, CancellationToken ct = default, string? workspaceId = null)
         {
             SearchedPrefixes.Add(pathPrefix ?? "<all>");
             return Task.FromResult<IReadOnlyList<RetrievalResult>>(Array.Empty<RetrievalResult>());
         }
 
-        public Task<IndexReport> IndexDirectoryAsync(string path, string? glob = null, bool force = false, CancellationToken ct = default)
+        public Task<IndexReport> IndexDirectoryAsync(string path, string? glob = null, bool force = false, IProgress<IndexProgress>? progress = null, CancellationToken ct = default, string? workspaceId = null)
             => Task.FromResult(new IndexReport());
-        public Task<IndexReport> IndexContentAsync(string content, string language, string sourceName, CancellationToken ct = default)
+        public Task<IndexReport> IndexContentAsync(string content, string language, string sourceName, CancellationToken ct = default, string? workspaceId = null)
             => Task.FromResult(new IndexReport());
-        public Task<IndexStats> GetStatsAsync() => Task.FromResult(new IndexStats());
+        public Task<IndexStats> GetStatsAsync(string? workspaceId = null) => Task.FromResult(new IndexStats());
     }
 
     private sealed class FakeWikiContext : IWikiContext
@@ -308,21 +390,21 @@ public class WikiUnitTest
 
     private sealed class StubWikiService : IWikiService
     {
-        public Task<WikiIndex> ReadIndexAsync(CancellationToken cancellationToken = default)
+        public Task<WikiIndex> ReadIndexAsync(CancellationToken cancellationToken = default, string? workspaceId = null)
             => throw new NotImplementedException();
-        public Task<WikiPage> ReadPageAsync(string relativePath, CancellationToken cancellationToken = default)
+        public Task<WikiPage> ReadPageAsync(string relativePath, CancellationToken cancellationToken = default, string? workspaceId = null)
             => throw new NotImplementedException();
-        public Task SavePageAsync(WikiPage page, CancellationToken cancellationToken = default)
+        public Task SavePageAsync(WikiPage page, CancellationToken cancellationToken = default, string? workspaceId = null)
             => throw new NotImplementedException();
-        public Task DeletePageAsync(string relativePath, CancellationToken cancellationToken = default)
+        public Task DeletePageAsync(string relativePath, CancellationToken cancellationToken = default, string? workspaceId = null)
             => throw new NotImplementedException();
-        public Task<IReadOnlyList<RetrievalResult>> SearchAsync(string query, int topK = 8, bool includeRaw = false, CancellationToken cancellationToken = default)
+        public Task<IReadOnlyList<RetrievalResult>> SearchAsync(string query, int? topK = null, bool? includeRaw = null, CancellationToken cancellationToken = default, string? workspaceId = null)
             => throw new NotImplementedException();
-        public Task<IndexReport> RebuildIndexAsync(CancellationToken cancellationToken = default)
+        public Task<IndexReport> RebuildIndexAsync(CancellationToken cancellationToken = default, string? workspaceId = null)
             => throw new NotImplementedException();
-        public Task<WikiLintReport> LintAsync(CancellationToken cancellationToken = default)
+        public Task<WikiLintReport> LintAsync(CancellationToken cancellationToken = default, string? workspaceId = null)
             => throw new NotImplementedException();
-        public Task<WikiStats> GetStatsAsync(CancellationToken cancellationToken = default)
+        public Task<WikiStats> GetStatsAsync(CancellationToken cancellationToken = default, string? workspaceId = null)
             => throw new NotImplementedException();
     }
 
@@ -456,5 +538,385 @@ public class WikiUnitTest
 
         await group.SavePageAsync("entities/李四.md", "李四", "entity", "正文");
         Assert.AreEqual(nameof(WikiToolGroup.SavePageAsync), confirmation.CapturedToolNames.Last());
+    }
+
+    private sealed class FakeEmbedder : IEmbeddingGenerator<string, Embedding<float>>
+    {
+        public Task<GeneratedEmbeddings<Embedding<float>>> GenerateAsync(IEnumerable<string> values, EmbeddingGenerationOptions? options = null, CancellationToken cancellationToken = default)
+        {
+            var list = values.Select(_ => new Embedding<float>(new float[] { 1f, 0f, 0f })).ToList();
+            return Task.FromResult(new GeneratedEmbeddings<Embedding<float>>(list));
+        }
+
+        public object? GetService(Type serviceType, object? serviceKey = null) => null;
+
+        public void Dispose() { }
+    }
+
+    private sealed class InMemoryVectorStore : IVectorStore
+    {
+        private sealed class FileRow
+        {
+            public string FilePath = "";
+            public string FileHash = "";
+            public string Language = "";
+            public List<ChunkVectorPair> Chunks = new();
+        }
+
+        private readonly Dictionary<long, FileRow> _files = new();
+        private long _nextId;
+
+        public int ReplaceCalls { get; private set; }
+
+        public Task<IReadOnlyList<IndexedFile>> GetFilesAsync(string? pathPrefix = null, string? workspaceId = null)
+        {
+            IReadOnlyList<IndexedFile> result = _files
+                .Where(kv => pathPrefix == null || kv.Value.FilePath.StartsWith(pathPrefix, StringComparison.OrdinalIgnoreCase))
+                .Select(kv => new IndexedFile { Id = kv.Key, FilePath = kv.Value.FilePath, FileHash = kv.Value.FileHash, Language = kv.Value.Language })
+                .ToList();
+            return Task.FromResult(result);
+        }
+
+        public Task<long> UpsertFileAsync(string filePath, string fileHash, string language, int chunkCount, string? workspaceId = null)
+        {
+            var hit = _files.FirstOrDefault(kv => string.Equals(kv.Value.FilePath, filePath, StringComparison.OrdinalIgnoreCase));
+            if (hit.Key != 0)
+            {
+                hit.Value.FileHash = fileHash;
+                hit.Value.Language = language;
+                return Task.FromResult(hit.Key);
+            }
+            var id = ++_nextId;
+            _files[id] = new FileRow { FilePath = filePath, FileHash = fileHash, Language = language };
+            return Task.FromResult(id);
+        }
+
+        public Task SoftDeleteFileAsync(long fileId, string? workspaceId = null)
+        {
+            _files.Remove(fileId);
+            return Task.CompletedTask;
+        }
+
+        public Task<IReadOnlyList<StoredChunk>> GetFileChunksAsync(long fileId, string? workspaceId = null)
+        {
+            IReadOnlyList<StoredChunk> result = _files.TryGetValue(fileId, out var row)
+                ? row.Chunks.Select((p, i) => new StoredChunk { Id = i + 1, ChunkIndex = i, ContentHash = Hash(p.Chunk.Content), Vector = p.Vector }).ToList()
+                : new List<StoredChunk>();
+            return Task.FromResult(result);
+        }
+
+        public Task ReplaceFileChunksAsync(long fileId, string modelId, IReadOnlyList<ChunkVectorPair> chunks, string? workspaceId = null)
+        {
+            if (_files.TryGetValue(fileId, out var row)) row.Chunks = chunks.ToList();
+            ReplaceCalls++;
+            return Task.CompletedTask;
+        }
+
+        public Task<IReadOnlyList<VectorEntry>> LoadVectorsAsync(string? pathPrefix = null, string? language = null, int maxResults = int.MaxValue, string? workspaceId = null)
+        {
+            var list = new List<VectorEntry>();
+            long id = 0;
+            foreach (var row in _files.Values)
+                foreach (var p in row.Chunks)
+                    list.Add(new VectorEntry { ChunkId = ++id, Vector = p.Vector });
+            IReadOnlyList<VectorEntry> result = list;
+            return Task.FromResult(result);
+        }
+
+        public Task<Dictionary<long, CodeChunk>> GetChunksAsync(IReadOnlyList<long> chunkIds, string? workspaceId = null)
+        {
+            var map = new Dictionary<long, CodeChunk>();
+            long id = 0;
+            foreach (var row in _files.Values)
+                foreach (var p in row.Chunks)
+                {
+                    id++;
+                    if (chunkIds.Contains(id)) map[id] = p.Chunk;
+                }
+            return Task.FromResult(map);
+        }
+
+        public Task<StoreStats> GetStatsAsync(string? workspaceId = null)
+            => Task.FromResult(new StoreStats { FileCount = _files.Count, ChunkCount = _files.Values.Sum(r => r.Chunks.Count) });
+
+        private static string Hash(string content) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(content)));
+    }
+
+    [TestMethod]
+    public async Task RetrievalService_IndexFileAsync_DoesNotDeadlock()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "luban-retrieval-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var file = Path.Combine(dir, "a.txt");
+            await File.WriteAllTextAsync(file, "hello world");
+            var store = new InMemoryVectorStore();
+            var service = new RetrievalService(store, new FakeEmbedder(), Options.Create(new LuBanAgentOptions()));
+
+            var report = await service.IndexFileAsync(file, force: true, workspaceId: "ws").WaitAsync(TimeSpan.FromSeconds(10));
+
+            Assert.AreEqual(1, report.ScannedFiles);
+            Assert.AreEqual(1, store.ReplaceCalls, "IndexFileAsync 必须完成落库并返回，写锁重入会导致永久死锁");
+        }
+        finally { Directory.Delete(dir, true); }
+    }
+
+    [TestMethod]
+    public async Task RetrievalService_IndexContentAsync_DoesNotDeadlock()
+    {
+        var store = new InMemoryVectorStore();
+        var service = new RetrievalService(store, new FakeEmbedder(), Options.Create(new LuBanAgentOptions()));
+
+        var report = await service.IndexContentAsync("hello world", "text", "inline.txt", workspaceId: "ws").WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.AreEqual(1, report.ScannedFiles);
+        Assert.AreEqual(1, store.ReplaceCalls, "IndexContentAsync 必须完成落库并返回，写锁重入会导致永久死锁");
+    }
+
+    [TestMethod]
+    public async Task RetrievalService_IndexThenSearch_ReturnsIndexedChunk()
+    {
+        var store = new InMemoryVectorStore();
+        var service = new RetrievalService(store, new FakeEmbedder(), Options.Create(new LuBanAgentOptions()));
+
+        await service.IndexContentAsync("hello world", "text", "inline.txt", workspaceId: "ws").WaitAsync(TimeSpan.FromSeconds(10));
+        var results = await service.SearchAsync("hello", topK: 5, workspaceId: "ws").WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.AreEqual(1, results.Count);
+        Assert.AreEqual("inline.txt", results[0].FilePath);
+    }
+
+    [TestMethod]
+    public void ChunkerFactory_ShouldIndex_UsesExtensionWhitelistWithoutReadingContent()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "luban-index-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var factory = new ChunkerFactory();
+            var root = Path.GetFullPath(dir);
+
+            foreach (var ext in new[] { ".txt", ".csv", ".tsv", ".log", ".properties", ".xlsx", ".md", ".cs", ".json" })
+            {
+                var file = Path.Combine(dir, "a" + ext);
+                File.WriteAllText(file, "hello world");
+                Assert.IsTrue(factory.ShouldIndex(file, root, 5120 * 1024L), $"{ext} 应位于索引白名单内");
+            }
+
+            foreach (var ext in new[] { ".docx", ".pdf", ".png", ".ps1", ".exe" })
+            {
+                var file = Path.Combine(dir, "a" + ext);
+                File.WriteAllText(file, "hello world");
+                Assert.IsFalse(factory.ShouldIndex(file, root, 5120 * 1024L), $"{ext} 不在白名单内，应跳过");
+            }
+
+            var noExt = Path.Combine(dir, "Dockerfile");
+            File.WriteAllText(noExt, "FROM scratch");
+            Assert.IsFalse(factory.ShouldIndex(noExt, root, 5120 * 1024L), "无扩展名文件不在白名单内，应跳过");
+        }
+        finally { Directory.Delete(dir, true); }
+    }
+
+    [TestMethod]
+    public void ChunkerFactory_ShouldIndex_SkipsExcludedDirsAndOversizedFiles()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "luban-index-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(dir, "node_modules"));
+        try
+        {
+            var factory = new ChunkerFactory();
+            var root = Path.GetFullPath(dir);
+
+            var excluded = Path.Combine(dir, "node_modules", "a.txt");
+            File.WriteAllText(excluded, "hello");
+            Assert.IsFalse(factory.ShouldIndex(excluded, root, 5120 * 1024L), "排除目录内的文件应跳过");
+
+            var oversized = Path.Combine(dir, "big.txt");
+            File.WriteAllText(oversized, "0123456789");
+            Assert.IsFalse(factory.ShouldIndex(oversized, root, 4), "超出大小上限的文件应跳过");
+            Assert.IsTrue(factory.ShouldIndex(oversized, root, 64), "未超上限时应通过");
+        }
+        finally { Directory.Delete(dir, true); }
+    }
+
+    [TestMethod]
+    public void ChunkerFactory_EnumerateFiles_SkipsExcludedDirectoriesAndReparsePoints()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "luban-index-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(dir, "obj"));
+        Directory.CreateDirectory(Path.Combine(dir, "src"));
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, "a.txt"), "a");
+            File.WriteAllText(Path.Combine(dir, "obj", "b.txt"), "b");
+            File.WriteAllText(Path.Combine(dir, "src", "c.txt"), "c");
+
+            var files = ChunkerFactory.EnumerateFiles(Path.GetFullPath(dir), "*")
+                .Select(Path.GetFileName)
+                .ToList();
+
+            CollectionAssert.Contains(files, "a.txt");
+            CollectionAssert.Contains(files, "c.txt");
+            CollectionAssert.DoesNotContain(files, "b.txt");
+        }
+        finally { Directory.Delete(dir, true); }
+    }
+
+    [TestMethod]
+    public async Task RetrievalService_IndexDirectoryAsync_ExtractsXlsxContent()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "luban-index-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var xlsx = Path.Combine(dir, "people.xlsx");
+            MiniExcel.SaveAs(xlsx, new[] { new { Name = "张三", Age = 18 } });
+            File.WriteAllText(Path.Combine(dir, "note.txt"), "hello world");
+
+            var store = new InMemoryVectorStore();
+            var service = new RetrievalService(store, new FakeEmbedder(), Options.Create(new LuBanAgentOptions()));
+
+            var report = await service.IndexDirectoryAsync(dir, workspaceId: "ws").WaitAsync(TimeSpan.FromSeconds(10));
+
+            Assert.AreEqual(2, report.ScannedFiles, ".xlsx 与 .txt 都应进入索引");
+            Assert.AreEqual(0, report.Warnings.Count, "未超上限的表格不应产生截断警告");
+            var results = await service.SearchAsync("张三", topK: 5, workspaceId: "ws").WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.IsTrue(results.Any(r => r.FilePath.EndsWith("people.xlsx", StringComparison.OrdinalIgnoreCase) && r.Content.Contains("张三")),
+                ".xlsx 应被提取为文本后参与检索（不能按 UTF-8 直读出乱码）");
+        }
+        finally { Directory.Delete(dir, true); }
+    }
+
+    [TestMethod]
+    public async Task RetrievalService_IndexDirectoryAsync_SkipsBinaryContentInWhitelistedExtension()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "luban-index-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            await File.WriteAllBytesAsync(Path.Combine(dir, "weird.log"), new byte[] { 0x01, 0x00, 0x02, 0x00 });
+            File.WriteAllText(Path.Combine(dir, "note.txt"), "hello world");
+
+            var store = new InMemoryVectorStore();
+            var service = new RetrievalService(store, new FakeEmbedder(), Options.Create(new LuBanAgentOptions()));
+
+            var report = await service.IndexDirectoryAsync(dir, workspaceId: "ws").WaitAsync(TimeSpan.FromSeconds(10));
+
+            Assert.AreEqual(2, report.ScannedFiles, "白名单扩展名在扫描阶段一律计入");
+            Assert.AreEqual(1, report.SkippedFiles, "读取阶段发现 NUL 字节的伪文本应被跳过");
+        }
+        finally { Directory.Delete(dir, true); }
+    }
+
+    [TestMethod]
+    public void ChunkerFactory_RoutesXlsxToHeaderChunker()
+    {
+        var factory = new ChunkerFactory();
+
+        Assert.AreEqual("excel", factory.GetLanguage("a.xlsx"), ".xlsx 提取后是 markdown 表格，应路由到标题分节切块器");
+
+        // 每节 >MinChars(150)，避免被 MergeSmall 合并，从而验证“按 sheet 分节”本身
+        static string Sheet(string name)
+            => $"## {name}\n" + string.Concat(Enumerable.Range(0, 12).Select(i => $"| {name}列{i} | 值{i:D4} |\n"));
+
+        var chunks = factory.GetChunker("a.xlsx").Chunk("a.xlsx", Sheet("S1") + "\n" + Sheet("S2"));
+
+        Assert.AreEqual(2, chunks.Count, ".xlsx 应按 sheet（## 标题）分节，而非整体滑动窗口");
+        CollectionAssert.AreEqual(new[] { "S1", "S2" }, chunks.Select(c => c.SymbolName).ToArray());
+    }
+
+    [TestMethod]
+    public void ExcelExtractor_ExtractAsync_RespectsMaxChars()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "luban-index-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var xlsx = Path.Combine(dir, "big.xlsx");
+            MiniExcel.SaveAs(xlsx, Enumerable.Range(0, 50).Select(i => new { Name = "row" + i, Value = i }).ToArray());
+
+            var full = new ExcelExtractor().ExtractAsync(xlsx).GetAwaiter().GetResult();
+            Assert.IsFalse(full.Truncated, "默认上限下小表不应截断");
+            Assert.IsTrue(full.Markdown.Contains("row49"), "小表应完整提取");
+
+            var cut = new ExcelExtractor().ExtractAsync(xlsx, maxChars: 80).GetAwaiter().GetResult();
+            Assert.IsTrue(cut.Truncated, "超出 maxChars 应标记 Truncated（索引侧据此写入 IndexReport.Warnings）");
+            Assert.AreEqual(80, cut.Markdown.Length);
+        }
+        finally { Directory.Delete(dir, true); }
+    }
+
+    [TestMethod]
+    public async Task RetrievalService_IndexFileAsync_SkipsNonWhitelistedExtension()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "luban-index-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var file = Path.Combine(dir, "a.docx");
+            await File.WriteAllTextAsync(file, "not really docx");
+
+            var store = new InMemoryVectorStore();
+            var service = new RetrievalService(store, new FakeEmbedder(), Options.Create(new LuBanAgentOptions()));
+
+            var report = await service.IndexFileAsync(file, force: true, workspaceId: "ws").WaitAsync(TimeSpan.FromSeconds(10));
+
+            Assert.AreEqual(1, report.ScannedFiles);
+            Assert.AreEqual(1, report.SkippedFiles);
+            Assert.AreEqual(0, store.ReplaceCalls, ".docx 不在白名单内，不应按 UTF-8 直读入库");
+        }
+        finally { Directory.Delete(dir, true); }
+    }
+
+    [TestMethod]
+    public async Task RetrievalService_IndexDirectoryAsync_DeduplicatesOverlappingGlobs()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "luban-index-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, "a.txt"), "hello");
+            File.WriteAllText(Path.Combine(dir, "b.log"), "world");
+
+            var store = new InMemoryVectorStore();
+            var service = new RetrievalService(store, new FakeEmbedder(), Options.Create(new LuBanAgentOptions()));
+
+            var report = await service.IndexDirectoryAsync(dir, glob: "a.*;*.txt", workspaceId: "ws").WaitAsync(TimeSpan.FromSeconds(10));
+
+            Assert.AreEqual(1, report.ScannedFiles, "重叠 glob 命中的同一文件只应扫描一次");
+            Assert.AreEqual(1, report.NewFiles);
+        }
+        finally { Directory.Delete(dir, true); }
+    }
+
+    [TestMethod]
+    public async Task RetrievalService_IndexDirectoryAsync_ReportsScanningProgressPerDirectory()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "luban-index-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(dir, "sub"));
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, "a.txt"), "hello");
+            File.WriteAllText(Path.Combine(dir, "sub", "b.txt"), "world");
+
+            var collector = new ProgressCollector();
+            var store = new InMemoryVectorStore();
+            var service = new RetrievalService(store, new FakeEmbedder(), Options.Create(new LuBanAgentOptions()));
+
+            await service.IndexDirectoryAsync(dir, progress: collector, workspaceId: "ws").WaitAsync(TimeSpan.FromSeconds(10));
+
+            var scanning = collector.Items.Where(p => p.Stage == IndexStage.Scanning).ToList();
+            Assert.IsTrue(scanning.Any(p => p.CurrentFile != null && p.CurrentFile.EndsWith("sub", StringComparison.OrdinalIgnoreCase)),
+                "扫描阶段应按目录上报，调用方据此显示“正在扫描：<目录>（已发现 N 个）”");
+            Assert.AreEqual(2, scanning[^1].Total, "枚举结束时应上报最终可索引文件数");
+        }
+        finally { Directory.Delete(dir, true); }
+    }
+
+    private sealed class ProgressCollector : IProgress<IndexProgress>
+    {
+        public List<IndexProgress> Items { get; } = new();
+        public void Report(IndexProgress value) => Items.Add(value);
     }
 }
