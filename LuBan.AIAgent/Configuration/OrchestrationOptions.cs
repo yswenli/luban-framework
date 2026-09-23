@@ -37,6 +37,14 @@ public class OrchestrationOptions
     public string? PlannerModel { get; set; }
 
     /// <summary>
+    /// 获取或设置规划/反思调用时的推理强度。规划只需产出 JSON，推理模型（如 glm-5）默认开思考时会
+    /// 长时间输出 reasoning 内容，导致单次规划耗时 1 分钟以上、表现为「长时间无响应」；
+    /// 建议设为 <see cref="ReasoningEffort.None"/> 关闭思考。null（默认）表示不传递该参数，
+    /// 沿用模型自身默认值（对不支持 reasoning_effort 的非推理模型保持兼容）。
+    /// </summary>
+    public ReasoningEffort? PlannerReasoningEffort { get; set; }
+
+    /// <summary>
     /// 获取或设置 SubAgent 默认超时时间（秒）。默认 0 表示<b>无限期</b>等待子代理完成；
     /// 显式配置大于 0 时作为节点执行的墙钟上限（需覆盖「多轮 LLM 调用 + 全部工具调用」的累计耗时）。
     /// 节点可通过 <see cref="Orchestration.Models.TaskNode.TimeoutSeconds"/> 单独覆盖（0/负数=无限）。

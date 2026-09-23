@@ -496,6 +496,7 @@ Specify assembly names via `ExternalPlugins` configuration — the framework aut
     "Orchestration": {
       "Enabled": true,
       "PlannerType": "composite",
+      "PlannerReasoningEffort": "none",
       "AutoDetect": true,
       "MaxNodes": 10,
       "MaxParallelism": 4,
@@ -637,6 +638,7 @@ Notes:
 - **Sub-agent delegated confirmation**: orchestration sub-agents never prompt the user. Tool calls that would need manual confirmation are decided by the main code against the turn's allowed set — allowed when present, otherwise a sub-agent-specific denial (not a user denial).
 - **Turn allow-list**: `ToolConfirmationContext.AllowedThisTurn` is no longer public; hosts call `AllowThisTurn(toolName)` and the framework checks `IsAllowedThisTurn(toolName)`.
 - **Unbounded sub-agent waits**: `Orchestration.DefaultNodeTimeoutSeconds` and `ReflectionTimeoutSeconds` default to 0 (unbounded); set them above 0 to enforce limits, and `TimeoutSeconds` can still override per node.
+- **Planning no longer hangs**: `Orchestration.PlannerReasoningEffort` controls the reasoning effort of planning/reflection calls. Reasoning models (e.g. glm-5) emit large amounts of reasoning content during planning by default, which can take over a minute per call; set it to `"none"` to disable reasoning (`null`, the default, sends nothing and stays compatible with non-reasoning models that do not support `reasoning_effort`).
 
 ## Supported AI Providers
 

@@ -498,6 +498,7 @@ services.AddSingleton<IRule, MyRule>();
     "Orchestration": {
       "Enabled": true,
       "PlannerType": "composite",
+      "PlannerReasoningEffort": "none",
       "AutoDetect": true,
       "MaxNodes": 10,
       "MaxParallelism": 4,
@@ -636,6 +637,7 @@ options.Value.OnApiRetry = notice =>
 - **子代理代确认**：编排子代理不会向用户弹确认；其工具调用在需要人工确认时，由主代码按「本轮已允许集合」代判——命中放行，否则返回子代理专用拒绝结果（不代表用户拒绝）。
 - **本轮允许集合**：`ToolConfirmationContext.AllowedThisTurn` 不再公开；宿主使用 `AllowThisTurn(toolName)` 写入、框架使用 `IsAllowedThisTurn(toolName)` 读取。
 - **子代理等待无限期**：`Orchestration.DefaultNodeTimeoutSeconds` 与 `ReflectionTimeoutSeconds` 默认 0（无限期）；显式配置大于 0 时才限时，节点仍可用 `TimeoutSeconds` 单独覆盖。
+- **规划不再「长时间无响应」**：`Orchestration.PlannerReasoningEffort` 控制规划/反思调用的推理强度，推理模型（如 glm-5）默认开思考时会在规划阶段输出大量 reasoning 内容，单次规划耗时可达 1 分钟以上；建议设为 `"none"` 关闭（默认 `null` 表示不传递该参数，兼容不支持 `reasoning_effort` 的非推理模型）。
 
 ## 支持的 AI Provider
 

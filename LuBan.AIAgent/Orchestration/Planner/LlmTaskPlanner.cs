@@ -69,6 +69,36 @@ public class LlmTaskPlanner : ITaskPlanner
     }
 
     /// <summary>
+    /// 以流式方式请求模型并聚合完整文本。
+    /// 规划/反思响应通常耗时较长，非流式请求会把整段响应纳入单次网络超时（默认 60s）约束，
+    /// 流式请求下超时仅约束单次读取，可避免长响应被整体判超时。
+    /// 另：推理模型（如 glm-5）默认开启思考，会在规划阶段输出大量 reasoning 内容，
+    /// 使单次规划耗时数十秒；故按 <see cref="Configuration.OrchestrationOptions.PlannerReasoningEffort"/>
+    /// 传递推理强度（默认 <see langword="null"/> 表示不传该参数，推理模型建议显式设为 None 关闭思考）。
+    /// </summary>
+    /// <param name="prompt">系统提示词。</param>
+    /// <param name="ct">取消标记。</param>
+    /// <returns>模型返回的完整文本。</returns>
+    private async Task<string> GetCompletionAsync(string prompt, CancellationToken ct)
+    {
+        var effort = _options.Value.Orchestration?.PlannerReasoningEffort;
+        var options = effort is null
+            ? null
+            : new ChatOptions { Reasoning = new ReasoningOptions { Effort = effort } };
+
+        var sb = new StringBuilder();
+        await foreach (var update in _chatClient
+            .GetStreamingResponseAsync(new[] { new ChatMessage(ChatRole.System, prompt) }, options, ct)
+            .ConfigureAwait(false))
+        {
+            if (!string.IsNullOrEmpty(update.Text))
+                sb.Append(update.Text);
+        }
+
+        return sb.ToString();
+    }
+
+    /// <summary>
     /// 将自然语言任务转换为 TaskGraph
     /// </summary>
     /// <param name="task"></param>
@@ -91,12 +121,7 @@ public class LlmTaskPlanner : ITaskPlanner
                     ? BuildPlannerPrompt(task, GetAvailableToolGroups())
                     : BuildRetryPrompt(task, lastBadResponse!, lastError!);
 
-                var response = await _chatClient.GetResponseAsync(
-                    new[] { new ChatMessage(ChatRole.System, prompt) },
-                    null,
-                    ct);
-
-                var json = response.Messages.Last().Text ?? "";
+                var json = await GetCompletionAsync(prompt, ct);
                 if (string.IsNullOrWhiteSpace(json))
                     throw new TaskPlanningException("LLM 返回空内容");
 
@@ -145,12 +170,7 @@ public class LlmTaskPlanner : ITaskPlanner
     {
         var prompt = BuildReflectionPrompt(context);
 
-        var response = await _chatClient.GetResponseAsync(
-            new[] { new ChatMessage(ChatRole.System, prompt) },
-            null,
-            ct);
-
-        var json = response.Messages.Last().Text ?? "";
+        var json = await GetCompletionAsync(prompt, ct);
         if (string.IsNullOrWhiteSpace(json))
             throw new TaskPlanningException("LLM 反思返回空内容");
 
