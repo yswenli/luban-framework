@@ -292,8 +292,8 @@ Main Agent parses composite tasks → decomposes into DAG task graph → dispatc
 | `IOrchestrator` / `Orchestrator` | Orchestrator entry, chains planning, scheduling, and result aggregation |
 | `ITaskPlanner` | Task planner interface, converts natural language tasks to TaskGraph |
 | `LlmTaskPlanner` | LLM-based planner, generates DAG via prompt engineering |
-| `TemplateTaskPlanner` | Template-based planner, fast generation when matching predefined templates |
-| `CompositeTaskPlanner` | Composite planner, template-first with LLM fallback |
+| `GraphPlanStore` | Holds task graphs (created by `plan_task`, consumed by `run_orchestration`) with TTL and capacity eviction |
+| `IOrchestrationProgressSink` | Orchestration progress outlet, no-op by default; hosts may register an implementation (e.g. live TUI rendering) |
 | `DagScheduler` | DAG scheduler, layer-based parallel execution via topological sort |
 | `SubAgentFactory` | SubAgent factory, wraps LuBanAgentFactory for child agent creation |
 | `SubAgentRoleRegistry` | SubAgent role registry, manages built-in and custom roles |
@@ -495,29 +495,20 @@ Specify assembly names via `ExternalPlugins` configuration — the framework aut
   "LuBanAgent": {
     "Orchestration": {
       "Enabled": true,
-      "PlannerType": "composite",
       "PlannerReasoningEffort": "none",
-      "AutoDetect": true,
       "MaxNodes": 10,
-      "MaxParallelism": 4,
+      "MaxParallelism": 5,
       "DefaultNodeTimeoutSeconds": 0,
       "MaxReplanAttempts": 3,
       "ReflectionTimeoutSeconds": 0,
-      "ExposeAsTool": false,
-      "HeuristicFilter": {
-        "Enabled": true,
-        "MinLength": 8,
-        "MaxLength": 200,
-        "RequireKeyword": true,
-        "Keywords": [ "和", "同时", "然后", "并且", "另外", "还有", "分析并", "搜索并" ]
-      }
+      "DefaultToolGroups": []
     }
   }
 }
 ```
 
-- `AutoDetect`: When enabled, each user input is first evaluated by the planner to determine if it's a composite task (≥2 nodes). If so, it goes through orchestration automatically; otherwise, it goes through normal conversation.
-- `ExposeAsTool`: Set to `false` to stop exposing orchestration as an explicit tool, replaced by automatic detection.
+- `Enabled`: When enabled, two orchestration tools are exposed to the model — `plan_task` (the model itself decides a task is composite and produces a task graph) and `run_orchestration` (executes the graph by the `graphId` returned from `plan_task`). Whether to orchestrate is entirely the model's decision; the framework no longer applies heuristics or automatic detection.
+- Planning always uses the LLM planner. When `PlannerModel` is `null` it inherits the main model; set `PlannerReasoningEffort` to `none` to disable reasoning-model thinking output and significantly shorten planning time.
 
 **SubAgent Role System**: The planner can assign a role (`analyst`/`researcher`/`coder`/`writer`) to each node. Roles provide specialized system prompts and default tool groups. 4 built-in roles are included, with support for custom roles via workspace extensions.
 
@@ -525,16 +516,15 @@ Specify assembly names via `ExternalPlugins` configuration — the framework aut
 
 On entering an `/agi` workspace, the following directories are loaded automatically:
 
-- `.luban-agent/plans/*.json`: task templates. When a keyword matches, TemplateTaskPlanner generates the graph directly (no LLM call). Format: `{ "name": "...", "keywords": [...], "graph": { "nodes": [...] } }`.
 - `.luban-agent/roles/*.json`: custom SubAgent roles; same-name entries override built-in roles. Format: `{ "name": "...", "systemPromptTemplate": "... {prompt} ...", "defaultToolGroups": [...] }`.
 
 #### Multi-Model Routing
 
 When an `IProviderRouter` is registered, `TaskNode.ModelName` (format `provider:model`) and `OrchestrationOptions.PlannerModel` are routed to the corresponding provider. Routing failures fall back to the default model with a warning. Behavior is unchanged without a router.
 
-#### Heuristic Pre-Filter
+#### Orchestration Decision
 
-`Orchestration:HeuristicFilter` (Enabled / MinLength / MaxLength / RequireKeyword / Keywords): the planner is only invoked when the input length falls within `[MinLength, MaxLength]` and a keyword matches. Blank, too-short, too-long, or keyword-less inputs skip the planner and go straight to the main agent conversation (keeping memory recall), saving one LLM call and preventing ordinary long questions from being misclassified as composite tasks.
+Whether to orchestrate is entirely the model's decision: the framework exposes the `plan_task` and `run_orchestration` tools, and the model itself decides whether an input is a composite task and then builds/executes the graph. The framework no longer applies heuristic pre-filtering or automatic detection.
 
 **Dynamic Replanning**: When critical node failures cause overall status `failed`, the orchestrator automatically triggers reflection:
 1. **Reflect**: LLM analyzes failed nodes and their direct dependencies' outputs to determine if fixable
@@ -558,10 +548,12 @@ var result2 = await orchestrator.RunAsync(
     cancellationToken: default);
 ```
 
-When auto-orchestration is hit, `LuBanAgent.RunStreamingAsync` wraps progress into
-`OrchestrationProgressContent` (`EventType` / `NodeId` / `Message` / `NodeResult`) streamed as
-updates, followed by a final `TextContent` carrying `OrchestrationResult.FinalOutput`. Upper-layer
-UIs can therefore render progress line by line during planning and node execution.
+Orchestration is triggered by the model calling the `plan_task` / `run_orchestration` tools, and
+execution happens inside the tool call, so progress is no longer streamed with the conversation.
+The framework broadcasts `OrchestrationProgress` (`EventType` / `NodeId` / `Message` / `NodeResult` /
+`Activity` / `ElapsedMs`) through `IOrchestrationProgressSink` (a no-op implementation is registered by
+default); hosts may register a custom sink (e.g. the CLI's `TuiOrchestrationProgressSink`) to render
+progress line by line during planning and node execution.
 Progress event types include: `PlanningStarted`, `PlanningCompleted`, `NodeStarted`, `NodeCompleted`,
 `NodeFailed`, `NodeSkipped` (a node skipped because a critical predecessor failed, reported per node),
 `ReflectionStarted`, and `NodeActivity` (per-node thinking/tool-call details).
@@ -804,10 +796,9 @@ LuBan.AIAgent/
 │   │   └── ReflectionResult.cs        # Reflection result and replan context
 │   ├── Planner/                       # Task planners
 │   │   ├── ITaskPlanner.cs            # Planner interface
-│   │   ├── LlmTaskPlanner.cs          # LLM planner
-│   │   ├── TemplateTaskPlanner.cs     # Template planner
-│   │   ├── CompositeTaskPlanner.cs    # Composite planner
-│   │   └── TaskGraphTemplate.cs       # Graph template
+│   │   └── LlmTaskPlanner.cs          # LLM planner
+│   ├── GraphPlanStore.cs              # Task graph store
+│   ├── IOrchestrationProgressSink.cs  # Orchestration progress outlet
 │   └── Exceptions/                    # Exception definitions
 │       ├── TaskPlanningException.cs   # Planning exception
 │       └── NodeExecutionException.cs  # Node execution exception

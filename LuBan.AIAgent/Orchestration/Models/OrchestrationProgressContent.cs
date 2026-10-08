@@ -31,18 +31,21 @@ public class OrchestrationProgressContent : AIContent
     /// <param name="message">事件消息（可选）。</param>
     /// <param name="nodeResult">关联的节点结果（可选，节点完成/失败时提供耗时与错误）。</param>
     /// <param name="activity">节点内部活动明细（可选，节点执行期的思考/工具调用等）。</param>
+    /// <param name="elapsedMs">本事件耗时（毫秒，可选；规划阶段等无节点结果时提供）。</param>
     public OrchestrationProgressContent(
         ProgressEventType eventType,
         string? nodeId = null,
         string? message = null,
         NodeResult? nodeResult = null,
-        NodeActivityItem? activity = null)
+        NodeActivityItem? activity = null,
+        long? elapsedMs = null)
     {
         EventType = eventType;
         NodeId = nodeId;
         Message = message;
         NodeResult = nodeResult;
         Activity = activity;
+        ElapsedMs = elapsedMs;
     }
 
     /// <summary>
@@ -71,10 +74,15 @@ public class OrchestrationProgressContent : AIContent
     public NodeActivityItem? Activity { get; }
 
     /// <summary>
+    /// 获取本事件耗时（毫秒，规划阶段等无节点结果时提供）。
+    /// </summary>
+    public long? ElapsedMs { get; }
+
+    /// <summary>
     /// 由进度事件创建进度内容。
     /// </summary>
     /// <param name="progress">编排进度事件。</param>
     /// <returns>进度内容实例。</returns>
     public static OrchestrationProgressContent From(OrchestrationProgress progress)
-        => new(progress.EventType, progress.NodeId, progress.Message, progress.NodeResult, progress.Activity);
+        => new(progress.EventType, progress.NodeId, progress.Message, progress.NodeResult, progress.Activity, progress.ElapsedMs);
 }

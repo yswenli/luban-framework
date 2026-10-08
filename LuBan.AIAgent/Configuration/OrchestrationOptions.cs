@@ -27,11 +27,6 @@ public class OrchestrationOptions
     public bool Enabled { get; set; } = true;
 
     /// <summary>
-    /// 获取或设置规划器类型（llm / template / composite），默认为 composite。
-    /// </summary>
-    public string PlannerType { get; set; } = "composite";
-
-    /// <summary>
     /// 获取或设置规划器使用的模型。null 表示继承主模型。
     /// </summary>
     public string? PlannerModel { get; set; }
@@ -52,29 +47,17 @@ public class OrchestrationOptions
     public int DefaultNodeTimeoutSeconds { get; set; } = 0;
 
     /// <summary>
-    /// 获取或设置同层最大并行度。0 表示不限制。
+    /// 获取或设置调度并行度硬上限：任一时刻同时执行的节点数不得超过该值。
+    /// 实际并行度 = <see cref="Orchestration.Models.TaskGraph.Parallelism"/> ?? 本值，
+    /// 且不超过本值（LLM 给出的图级并行度会被 clamp 到此上限）。
+    /// 0 = 不限（仅在显式配置时生效，此时图级并行度只受 MaxNodes 约束）。
     /// </summary>
-    public int MaxParallelism { get; set; } = 4;
+    public int MaxParallelism { get; set; } = 5;
 
     /// <summary>
     /// 获取或设置单图谱最大节点数，防止 LLM 拆出过多节点。
     /// </summary>
     public int MaxNodes { get; set; } = 10;
-
-    /// <summary>
-    /// 获取或设置模板目录路径（相对工作目录）。
-    /// </summary>
-    public string TemplatesDirectory { get; set; } = "Templates";
-
-    /// <summary>
-    /// 获取或设置是否自动暴露为工具供主 Agent 自动调用。
-    /// </summary>
-    public bool ExposeAsTool { get; set; } = true;
-
-    /// <summary>
-    /// 获取或设置是否启用自动判定（每轮输入由 planner 判定是否为复合任务）。
-    /// </summary>
-    public bool AutoDetect { get; set; } = true;
 
     /// <summary>
     /// 获取或设置关键节点失败后的最大重规划尝试次数。0 表示禁用重规划。
@@ -86,11 +69,6 @@ public class OrchestrationOptions
     /// 显式配置大于 0 时作为单次反思调用的上限。
     /// </summary>
     public int ReflectionTimeoutSeconds { get; set; } = 0;
-
-    /// <summary>
-    /// 获取或设置启发式预过滤配置。
-    /// </summary>
-    public HeuristicFilterOptions HeuristicFilter { get; set; } = new();
 
     /// <summary>
     /// 获取或设置节点既未指定 Role、也未显式指定 ToolGroups 时使用的兜底工具组。

@@ -40,21 +40,26 @@ internal static class AIFunctionFactoryHelper
     /// 面向具体文件/目录的读写删改工具不得启用，否则模型漏传 path 会被静默替换成工作区根，
     /// 产生"路径被误识别为目录""返回工作区统计"等误导结果。
     /// </param>
+    /// <param name="name">
+    /// 显式工具名（对 LLM 暴露的名称）。null 表示沿用方法名。
+    /// 用于把 C# 方法名（PlanTaskAsync）映射为契约名（plan_task）。
+    /// </param>
     /// <returns>AIFunction 实例</returns>
     public static AIFunction Create<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)] T>(
-        T instance, string methodName, Func<string?>? workspaceRootProvider = null) where T : class
+        T instance, string methodName, Func<string?>? workspaceRootProvider = null, string? name = null) where T : class
     {
         var method = typeof(T).GetMethod(methodName, BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
             ?? throw new ArgumentException($"方法 {methodName} 在类型 {typeof(T).Name} 上不存在", nameof(methodName));
 
-        if (workspaceRootProvider == null)
+        if (workspaceRootProvider == null && name == null)
         {
             return AIFunctionFactory.Create(method, instance);
         }
 
-        var options = new AIFunctionFactoryOptions
+        var options = new AIFunctionFactoryOptions { Name = name };
+        if (workspaceRootProvider != null)
         {
-            ConfigureParameterBinding = parameter =>
+            options.ConfigureParameterBinding = parameter =>
             {
                 if (parameter.HasDefaultValue || !IsPathParameter(parameter.Name))
                 {
@@ -76,11 +81,13 @@ internal static class AIFunctionFactoryHelper
                         return string.IsNullOrWhiteSpace(root) ? Environment.CurrentDirectory : root;
                     }
                 };
-            }
-        };
+            };
+        }
+
+        var function = AIFunctionFactory.Create(method, instance, options);
 
         // 用标记类型包装，供 BuildTools 识别"已具备工作区根兜底、无需必填参数守卫"的工具
-        return new WorkspaceRootFallbackAIFunction(AIFunctionFactory.Create(method, instance, options));
+        return workspaceRootProvider == null ? function : new WorkspaceRootFallbackAIFunction(function);
     }
 
     /// <summary>

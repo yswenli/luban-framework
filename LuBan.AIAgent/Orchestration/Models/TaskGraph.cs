@@ -42,6 +42,13 @@ public class TaskGraph
     public string Source { get; set; } = "llm";
 
     /// <summary>
+    /// 获取或设置图级建议并行度（同时执行的节点数上限）。null 表示使用配置默认值
+    /// <see cref="Configuration.OrchestrationOptions.MaxParallelism"/>。由 LLM 规划产出，
+    /// 规划器会按配置硬上限 clamp（见 <see cref="Planner.LlmTaskPlanner.ClampParallelism"/>）。
+    /// </summary>
+    public int? Parallelism { get; set; }
+
+    /// <summary>
     /// 获取或设置跨节点共享上下文（如长期记忆召回、规则注入文本）。
     /// 由编排入口在规划完成后填充，调度时注入每个子代理的系统提示词，
     /// 使子代理具备与主对话一致的工作区记忆上下文。

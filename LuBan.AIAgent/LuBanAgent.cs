@@ -30,7 +30,6 @@ public class LuBanAgent
 {
     private readonly ChatClientAgent _innerAgent;
     private readonly Retrieval.IRetrievalService? _retrievalService;
-    private readonly Orchestration.AutoOrchestrationMiddleware? _autoOrchestration;
     private readonly string? _retrievalMode;
     private readonly Sessions.ISessionManager? _sessionManager;
     private readonly Sessions.SessionChatHistoryProvider? _historyProvider;
@@ -43,12 +42,10 @@ public class LuBanAgent
     /// <param name="innerAgent">内部 ChatClientAgent</param>
     /// <param name="retrievalService">语义检索服务（可选）</param>
     /// <param name="retrievalMode">检索模式："auto" 启用自动检索注入</param>
-    /// <param name="autoOrchestration">自动编排中间件（可选）</param>
     public LuBanAgent(
         ChatClientAgent innerAgent,
         Retrieval.IRetrievalService? retrievalService = null,
         string? retrievalMode = null,
-        Orchestration.AutoOrchestrationMiddleware? autoOrchestration = null,
         Sessions.ISessionManager? sessionManager = null,
         Sessions.SessionChatHistoryProvider? historyProvider = null)
     {
@@ -56,7 +53,6 @@ public class LuBanAgent
         _innerAgent = innerAgent;
         _retrievalService = retrievalService;
         _retrievalMode = retrievalMode;
-        _autoOrchestration = autoOrchestration;
         _sessionManager = sessionManager;
         _historyProvider = historyProvider;
     }
@@ -100,12 +96,6 @@ public class LuBanAgent
     /// <returns>Agent 响应结果。</returns>
     public async Task<AgentResponse> RunAsync(string input, CancellationToken cancellationToken = default)
     {
-        // 编排判定基于原始用户输入；命中编排则跳过检索注入，直接返回编排结果
-        if (await TryOrchestrateAsync(input, cancellationToken) is { } orchestratedResponse)
-        {
-            return orchestratedResponse;
-        }
-
         var session = await GetOrCreateSessionAsync(cancellationToken);
         input = await PreProcessInputAsync(input, cancellationToken);
         return await _innerAgent.RunAsync(input, session, cancellationToken: cancellationToken);
@@ -133,69 +123,6 @@ public class LuBanAgent
         string input,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        // 编排分支：规划与执行均为长耗时非流式过程，先用 Channel 桥接进度回调，
-        // 把"规划中/节点开始/节点完成"等事件实时产出，最后再产出编排结果文本。
-        // 未命中编排（TryRunOrchestrationAsync 返回 null）时回落到常规对话路径。
-        if (_autoOrchestration != null && _autoOrchestration.ShouldAttemptPlanning(input))
-        {
-            var autoOrchestration = _autoOrchestration;
-
-            yield return ProgressUpdate(ProgressEventType.PlanningStarted, null, "正在规划任务…");
-
-            var channel = Channel.CreateUnbounded<OrchestrationProgress>(
-                new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
-            var writer = channel.Writer;
-            OrchestrationResult? orchestratedResult = null;
-
-            var runTask = Task.Run(async () =>
-            {
-                try
-                {
-                    orchestratedResult = await autoOrchestration.TryRunOrchestrationAsync(
-                        input, p => writer.TryWrite(p), cancellationToken);
-                }
-                finally
-                {
-                    writer.TryComplete();
-                }
-            }, CancellationToken.None);
-
-            try
-            {
-                await foreach (var progress in channel.Reader.ReadAllAsync(cancellationToken))
-                {
-                    yield return new AgentResponseUpdate
-                    {
-                        Contents = [OrchestrationProgressContent.From(progress)]
-                    };
-                }
-            }
-            finally
-            {
-                // 消费方提前中断（如上层 Esc 取消）时，仍要观测后台任务异常，避免未观察异常
-                _ = runTask.ContinueWith(t => { _ = t.Exception; }, TaskScheduler.Default);
-            }
-
-            await runTask.ConfigureAwait(false);
-
-            if (orchestratedResult is not null)
-            {
-                // 编排器已保证失败时有可读摘要，此处仅作空白防御，避免空串静默结束
-                var orchestratedOutput = string.IsNullOrWhiteSpace(orchestratedResult.FinalOutput)
-                    ? "编排未产出结果，请重试或把任务拆得更小。"
-                    : orchestratedResult.FinalOutput;
-
-                // 编排分支显式写入 session，保证多轮上下文连续（用户消息 + 编排结果）
-                await PersistTurnAsync(input, orchestratedOutput, cancellationToken);
-
-                yield return new AgentResponseUpdate
-                {
-                    Contents = [new TextContent(orchestratedOutput)]
-                };
-                yield break;
-            }
-        }
-
         var session = await GetOrCreateSessionAsync(cancellationToken);
         input = await PreProcessInputAsync(input, cancellationToken);
         await foreach (var update in _innerAgent.RunStreamingAsync(input, session, cancellationToken: cancellationToken))
@@ -234,46 +161,7 @@ public class LuBanAgent
     }
 
     /// <summary>
-    /// 构造仅承载编排进度的流式更新。
-    /// </summary>
-    private static AgentResponseUpdate ProgressUpdate(ProgressEventType eventType, string? nodeId, string? message)
-        => new()
-        {
-            Contents = [new OrchestrationProgressContent(eventType, nodeId, message)]
-        };
-
-    /// <summary>
-    /// 自动编排前哨：基于原始用户输入判定是否为复合任务并执行编排。
-    /// 命中编排时返回编排结果；未命中或未启用编排时返回 null（调用方继续走 检索增强 + 主 Agent）。
-    /// </summary>
-    private async Task<AgentResponse?> TryOrchestrateAsync(string input, CancellationToken cancellationToken)
-    {
-        if (_autoOrchestration == null)
-            return null;
-
-        var shouldOrchestrate = await _autoOrchestration.ShouldOrchestrateAsync(input, cancellationToken);
-        if (!shouldOrchestrate)
-            return null;
-
-        var result = await _autoOrchestration.RunAsync(input, cancellationToken);
-        var output = string.IsNullOrWhiteSpace(result.FinalOutput)
-            ? "编排未产出结果，请重试或把任务拆得更小。"
-            : result.FinalOutput;
-
-        // 编排分支显式写入 session，保证多轮上下文连续（用户消息 + 编排结果）
-        await PersistTurnAsync(input, output, cancellationToken);
-
-        return new AgentResponse
-        {
-            Messages =
-            [
-                new ChatMessage(ChatRole.Assistant, new List<AIContent> { new TextContent(output) })
-            ]
-        };
-    }
-
-    /// <summary>
-    /// 将用户输入与助手输出持久化到当前会话（用于编排命中时 session 未走 innerAgent 持久化通道的场景）。
+    /// 将用户输入与助手输出持久化到当前会话（供会话未走 innerAgent 持久化通道的旁路场景使用）。
     /// </summary>
     private async Task PersistTurnAsync(string userInput, string assistantOutput, CancellationToken cancellationToken)
     {
@@ -291,7 +179,7 @@ public class LuBanAgent
         }
         catch (Exception ex)
         {
-            Logger.Warn($"编排分支持久化 session 失败: {ex.Message}", ex);
+            Logger.Warn($"旁路持久化 session 失败: {ex.Message}", ex);
         }
     }
 

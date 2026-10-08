@@ -292,8 +292,8 @@ category: custom
 | `IOrchestrator` / `Orchestrator` | 编排器入口，串联规划、调度与结果聚合 |
 | `ITaskPlanner` | 任务规划器接口，将自然语言任务转换为 TaskGraph |
 | `LlmTaskPlanner` | 基于 LLM 的规划器，通过提示词引导模型生成 DAG |
-| `TemplateTaskPlanner` | 基于模板匹配的规划器，命中预定义模板时快速生成图谱 |
-| `CompositeTaskPlanner` | 组合式规划器，模板优先匹配，未命中回退到 LLM |
+| `GraphPlanStore` | 任务图谱暂存（`plan_task` 生成、`run_orchestration` 取用），带 TTL 与容量淘汰 |
+| `IOrchestrationProgressSink` | 编排进度出口，默认 no-op，宿主可注册实现（如 TUI 实时渲染） |
 | `DagScheduler` | DAG 调度器，基于拓扑分层实现同层并行、跨层串行 |
 | `SubAgentFactory` | SubAgent 工厂，封装 LuBanAgentFactory 的子 Agent 创建 |
 | `SubAgentRoleRegistry` | SubAgent 角色注册表，管理内置角色与自定义角色 |
@@ -497,29 +497,20 @@ services.AddSingleton<IRule, MyRule>();
   "LuBanAgent": {
     "Orchestration": {
       "Enabled": true,
-      "PlannerType": "composite",
       "PlannerReasoningEffort": "none",
-      "AutoDetect": true,
       "MaxNodes": 10,
-      "MaxParallelism": 4,
+      "MaxParallelism": 5,
       "DefaultNodeTimeoutSeconds": 0,
       "MaxReplanAttempts": 3,
       "ReflectionTimeoutSeconds": 0,
-      "ExposeAsTool": false,
-      "HeuristicFilter": {
-        "Enabled": true,
-        "MinLength": 8,
-        "MaxLength": 200,
-        "RequireKeyword": true,
-        "Keywords": [ "和", "同时", "然后", "并且", "另外", "还有", "分析并", "搜索并" ]
-      }
+      "DefaultToolGroups": []
     }
   }
 }
 ```
 
-- `AutoDetect`：启用后，每轮用户输入先由 planner 判定是否为复合任务（≥2 节点），是则自动走编排，否则走普通对话。
-- `ExposeAsTool`：设为 `false` 时不再将编排暴露为显式工具，由自动判定取代。
+- `Enabled`：启用后向模型暴露两个编排工具——`plan_task`（由模型自行判定复合任务并生成任务图谱）与 `run_orchestration`（按 `plan_task` 返回的 `graphId` 执行）。是否编排完全交由模型决策，框架不再做启发式或自动判定。
+- 规划固定使用 LLM 规划器；`PlannerModel` 为 `null` 时继承主模型，`PlannerReasoningEffort` 建议设为 `none` 以关闭推理模型的思考输出、显著缩短规划耗时。
 
 **SubAgent 角色系统**：规划器可为每个节点指定角色（`analyst`/`researcher`/`coder`/`writer`），角色提供专业系统提示词和默认工具组。内置 4 个角色，支持通过工作区扩展自定义角色。
 
@@ -527,16 +518,15 @@ services.AddSingleton<IRule, MyRule>();
 
 进入 `/agi` 工作区时自动加载以下目录：
 
-- `.luban-agent/plans/*.json`：任务模板，命中关键词时由 TemplateTaskPlanner 直接生成图谱（不消耗 LLM 调用）。格式：`{ "name": "...", "keywords": [...], "graph": { "nodes": [...] } }`。
 - `.luban-agent/roles/*.json`：自定义 SubAgent 角色，同名覆盖内置角色。格式：`{ "name": "...", "systemPromptTemplate": "... {prompt} ...", "defaultToolGroups": [...] }`。
 
 #### 多模型路由
 
 注册 `IProviderRouter` 后，`TaskNode.ModelName`（格式 `provider:model`）与 `OrchestrationOptions.PlannerModel` 会路由到对应 Provider；路由失败自动回退默认模型并记录警告。未注册路由时行为不变。
 
-#### 启发式预过滤
+#### 编排判定
 
-`Orchestration:HeuristicFilter`（Enabled / MinLength / MaxLength / RequireKeyword / Keywords）：仅当输入长度落在 `[MinLength, MaxLength]` 且命中关键词时才进入 planner；空白、过短、超长或未命中关键词均跳过 planner，直接走主 Agent 对话（保留记忆召回），节省一次 LLM 调用并避免普通长问题被误判为复合任务。
+是否编排完全由模型决定：框架向模型暴露 `plan_task` 与 `run_orchestration` 两个工具，模型自行判断输入是否为复合任务并生成/执行图谱，框架不再做启发式预过滤或自动判定。
 
 **动态重规划**：当关键节点失败导致整体状态为 `failed` 时，编排器自动触发反思阶段：
 1. **反思**：LLM 分析失败节点及其直接依赖的输出，判断是否可修复
@@ -559,9 +549,10 @@ var result2 = await orchestrator.RunAsync(
     cancellationToken: default);
 ```
 
-`LuBanAgent.RunStreamingAsync` 命中自动编排时会把进度包装为 `OrchestrationProgressContent`
-（`EventType` / `NodeId` / `Message` / `NodeResult`）随流产出，最后再产出 `TextContent` 承载
-`OrchestrationResult.FinalOutput`，上层 UI 因此可在规划与节点执行期间逐条渲染进度。
+编排由模型调用 `plan_task` / `run_orchestration` 两个工具触发，执行发生在工具调用内部，
+进度不再随对话流产出。框架通过 `IOrchestrationProgressSink`（默认注册 no-op 实现）广播
+`OrchestrationProgress`（`EventType` / `NodeId` / `Message` / `NodeResult` / `Activity` / `ElapsedMs`），
+宿主可注册自定义 Sink（如 CLI 的 `TuiOrchestrationProgressSink`）在规划与节点执行期间逐条渲染进度。
 进度事件类型包含：`PlanningStarted`、`PlanningCompleted`、`NodeStarted`、`NodeCompleted`、
 `NodeFailed`、`NodeSkipped`（关键前驱失败导致后继被跳过，逐节点上报）、`ReflectionStarted`、
 `NodeActivity`（节点内部思考/工具调用明细）。
@@ -803,10 +794,9 @@ LuBan.AIAgent/
 │   │   └── ReflectionResult.cs        # 反思结果与重规划上下文
 │   ├── Planner/                       # 任务规划器
 │   │   ├── ITaskPlanner.cs            # 规划器接口
-│   │   ├── LlmTaskPlanner.cs          # LLM 规划器
-│   │   ├── TemplateTaskPlanner.cs     # 模板规划器
-│   │   ├── CompositeTaskPlanner.cs    # 组合式规划器
-│   │   └── TaskGraphTemplate.cs       # 图谱模板
+│   │   └── LlmTaskPlanner.cs          # LLM 规划器
+│   ├── GraphPlanStore.cs              # 任务图谱暂存
+│   ├── IOrchestrationProgressSink.cs  # 编排进度出口
 │   └── Exceptions/                    # 异常定义
 │       ├── TaskPlanningException.cs   # 规划异常
 │       └── NodeExecutionException.cs  # 节点执行异常

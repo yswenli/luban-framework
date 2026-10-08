@@ -96,13 +96,11 @@ public class LuBanAgentFactory : ILuBanAgentFactory, IScoped
             _serviceProvider);
 
         var retrievalService = _serviceProvider.GetService<Retrieval.IRetrievalService>();
-        var autoOrchestration = _serviceProvider.GetService<Orchestration.AutoOrchestrationMiddleware>();
         var sessionManager = _serviceProvider.GetService<Sessions.ISessionManager>();
         return Task.FromResult(new LuBanAgent(
             agent,
             retrievalService,
             retrievalMode,
-            autoOrchestration,
             sessionManager,
             historyProvider));
     }

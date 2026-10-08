@@ -28,7 +28,7 @@ public interface ITaskPlanner
     /// </summary>
     /// <param name="task">用户任务描述。</param>
     /// <param name="ct">取消令牌。</param>
-    /// <returns>TaskGraph 实例；模板未命中时返回 null（由 CompositeTaskPlanner 回退）。</returns>
+    /// <returns>TaskGraph 实例；无法规划或无需编排时返回 null（调用方转为常规对话）。</returns>
     Task<TaskGraph?> PlanAsync(string task, CancellationToken ct = default);
 
     /// <summary>

@@ -29,6 +29,12 @@ public class DagScheduler
     private readonly IOptions<LuBanAgentOptions> _options;
 
     /// <summary>
+    /// 测试接缝：非 null 时替代真实子代理执行（返回节点输出），用于在不创建 LLM 子代理的
+    /// 前提下驱动调度算法（并行度、状态传播、传递跳过）。仅测试使用。
+    /// </summary>
+    internal Func<TaskGraph, TaskNode, string, CancellationToken, Task<string>>? NodeRunnerOverride { get; set; }
+
+    /// <summary>
     /// 创建 DagScheduler 实例。
     /// </summary>
     /// <param name="subAgentFactory">SubAgent 工厂。</param>
@@ -45,6 +51,19 @@ public class DagScheduler
     }
 
     /// <summary>
+    /// 测试专用构造：不提供 <c>SubAgentFactory</c>，仅当设置了 <see cref="NodeRunnerOverride"/> 时可用。
+    /// 仅测试使用。
+    /// </summary>
+    /// <param name="contextStore">跨节点上下文存储。</param>
+    /// <param name="options">配置选项。</param>
+    internal DagScheduler(ContextStore contextStore, IOptions<LuBanAgentOptions> options)
+    {
+        _subAgentFactory = null!;
+        _contextStore = contextStore;
+        _options = options;
+    }
+
+    /// <summary>
     /// 执行任务图谱，返回编排结果。
     /// </summary>
     /// <param name="graph">任务图谱。</param>
@@ -55,7 +74,8 @@ public class DagScheduler
 
     /// <summary>
     /// 执行任务图谱，返回编排结果，并在执行过程中实时上报节点级进度事件。
-    /// 回调由同层并行节点共同触发，内部已串行化，调用方无需额外加锁。
+    /// 采用依赖驱动动态调度：节点在其全部前驱完成后即可启动，不再按拓扑层串行。
+    /// 回调由并行节点共同触发，内部已串行化，调用方无需额外加锁。
     /// </summary>
     /// <param name="graph">任务图谱。</param>
     /// <param name="ct">取消令牌。</param>
@@ -69,19 +89,54 @@ public class DagScheduler
         var result = new OrchestrationResult { GraphId = graph.GraphId, OriginalTask = graph.OriginalTask };
         var sw = Stopwatch.StartNew();
 
-        using var semaphore = CreateParallelismSemaphore();
+        var orchestrationOpts = _options.Value.Orchestration ?? new();
+        var limit = ResolveParallelismLimit(graph, orchestrationOpts);
+        using var semaphore = limit > 0 ? new SemaphoreSlim(limit) : null;
         var reportGate = new object();
-        var layers = graph.GetTopologicalLayers();
-        for (int layerIdx = 0; layerIdx < layers.Count; layerIdx++)
-        {
-            var layer = layers[layerIdx];
-            var tasks = layer.Select(n => ExecuteNodeAsync(graph, n, result, semaphore, ct, onProgress, reportGate)).ToList();
-            await Task.WhenAll(tasks);
 
-            if (layer.Any(n => n.Status == TaskNodeStatus.Failed && n.IsCritical))
+        var indegree = graph.Nodes.ToDictionary(n => n.Id, n => n.Dependencies.Count);
+        var dependents = graph.Nodes.ToDictionary(n => n.Id, _ => new List<TaskNode>());
+        foreach (var n in graph.Nodes)
+        {
+            foreach (var dep in n.Dependencies)
+                dependents[dep].Add(n);
+        }
+
+        var ready = new Queue<TaskNode>(graph.Nodes.Where(n => indegree[n.Id] == 0));
+        var running = new List<(TaskNode Node, Task Task)>();
+
+        while (ready.Count > 0 || running.Count > 0)
+        {
+            while (ready.Count > 0)
             {
-                MarkRemainingAsSkipped(layers, layerIdx, result, onProgress, reportGate);
+                var node = ready.Dequeue();
+                if (node.Status == TaskNodeStatus.Skipped)
+                    continue;
+                running.Add((node, ExecuteNodeAsync(graph, node, result, semaphore, ct, onProgress, reportGate)));
+            }
+
+            if (running.Count == 0)
                 break;
+
+            var finishedTask = await Task.WhenAny(running.Select(r => r.Task)).ConfigureAwait(false);
+            var idx = running.FindIndex(r => ReferenceEquals(r.Task, finishedTask));
+            var finishedNode = running[idx].Node;
+            running.RemoveAt(idx);
+            await finishedTask.ConfigureAwait(false);
+
+            foreach (var child in dependents[finishedNode.Id])
+            {
+                if (child.Status == TaskNodeStatus.Skipped)
+                    continue;
+
+                if (HasFailedCriticalDependency(graph, child))
+                {
+                    SkipTransitiveSuccessors(dependents, child, result, onProgress, reportGate);
+                }
+                else if (--indegree[child.Id] == 0)
+                {
+                    ready.Enqueue(child);
+                }
             }
         }
 
@@ -92,16 +147,33 @@ public class DagScheduler
     }
 
     /// <summary>
-    /// 根据配置创建并行度信号量。MaxParallelism 为 0 时返回 null，表示不限制。
+    /// 解析本次执行的并行度上限：优先取图级建议 <see cref="TaskGraph.Parallelism"/>（&gt;0 时有效），
+    /// 否则取配置 <see cref="OrchestrationOptions.MaxParallelism"/>；当配置 &gt; 0 时再取二者较小值。
+    /// 返回 0 表示不限制。
     /// </summary>
-    /// <returns>信号量实例或 null。</returns>
-    private SemaphoreSlim? CreateParallelismSemaphore()
+    /// <param name="graph">任务图谱。</param>
+    /// <param name="orchestrationOpts">编排配置。</param>
+    /// <returns>并行度上限，0 表示不限。</returns>
+    private static int ResolveParallelismLimit(TaskGraph graph, OrchestrationOptions orchestrationOpts)
     {
-        var orchestrationOpts = _options.Value.Orchestration ?? new();
-        return orchestrationOpts.MaxParallelism > 0
-            ? new SemaphoreSlim(orchestrationOpts.MaxParallelism)
-            : null;
+        var effective = graph.Parallelism is > 0 ? graph.Parallelism.Value : orchestrationOpts.MaxParallelism;
+        if (orchestrationOpts.MaxParallelism > 0)
+            effective = Math.Min(effective, orchestrationOpts.MaxParallelism);
+        return effective > 0 ? effective : 0;
     }
+
+    /// <summary>
+    /// 判断节点是否存在「已失败且关键」的直接前驱。
+    /// </summary>
+    /// <param name="graph">任务图谱。</param>
+    /// <param name="node">当前节点。</param>
+    /// <returns>存在返回 true。</returns>
+    private static bool HasFailedCriticalDependency(TaskGraph graph, TaskNode node)
+        => node.Dependencies.Any(dep =>
+        {
+            var depNode = graph.Nodes.FirstOrDefault(n => n.Id == dep);
+            return depNode is { Status: TaskNodeStatus.Failed, IsCritical: true };
+        });
 
     /// <summary>
     /// 执行单个节点。整方法体包裹 try-catch，任何异常都标记节点失败，不向上传播。
@@ -121,12 +193,6 @@ public class DagScheduler
         bool semaphoreAcquired = false;
         try
         {
-            if (ShouldSkip(graph, node))
-            {
-                node.Status = TaskNodeStatus.Skipped;
-                return;
-            }
-
             if (semaphore != null)
             {
                 await semaphore.WaitAsync(ct);
@@ -144,20 +210,6 @@ public class DagScheduler
                 Message = node.Description
             });
 
-            var spec = new SubAgentSpec
-            {
-                NodeId = node.Id,
-                Prompt = resolvedPrompt,
-                Role = node.Role,
-                ToolGroups = node.ToolGroups,
-                ModelName = node.ModelName,
-                ParentSessionId = graph.GraphId,
-                WorkspaceRoot = _options.Value.WorkspaceRoot,
-                SharedContext = graph.SharedContext
-            };
-
-            Logger.Debug($"[OrchDiag] node exec: id={node.Id} node.role={(node.Role ?? "null")} spec.role={(spec.Role ?? "null")} node.tools={(node.ToolGroups == null ? "null" : $"[{string.Join(",", node.ToolGroups)}]")} promptLen={resolvedPrompt.Length}");
-
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             var orchestrationOpts = _options.Value.Orchestration ?? new();
             if (node.TimeoutSeconds.HasValue)
@@ -171,54 +223,10 @@ public class DagScheduler
                 cts.CancelAfter(TimeSpan.FromSeconds(orchestrationOpts.DefaultNodeTimeoutSeconds));
             }
 
-            var swCreate = Stopwatch.StartNew();
-            var agent = await _subAgentFactory.CreateAsync(spec, ct);
-            swCreate.Stop();
+            var output = await RunSubAgentAsync(graph, node, resolvedPrompt, cts.Token, onProgress, reportGate);
 
-            var swRun = Stopwatch.StartNew();
-            // 改为流式执行：把子 Agent 的思考/正文/工具调用/工具结果按时间轴上报，
-            // 使上层 UI 能像主对话一样实时看到子代理在做什么。
-            // 子代理执行期进入确认作用域：工具确认不弹窗，由框架按本轮已允许集合代确认。
-            var reporter = new NodeActivityReporter(node.Id, onProgress, reportGate);
-            var output = new StringBuilder();
-            using (ToolConfirmationContext.EnterSubAgentScope())
-            {
-                await foreach (var update in agent.RunStreamingAsync(resolvedPrompt, cts.Token))
-                {
-                    if (update.Contents is null) continue;
-
-                    foreach (var content in update.Contents)
-                    {
-                        switch (content)
-                        {
-                            case TextReasoningContent reasoning when !string.IsNullOrEmpty(reasoning.Text):
-                                reporter.Thinking(reasoning.Text);
-                                break;
-
-                            case FunctionCallContent functionCall:
-                                reporter.ToolCall(functionCall.Name, SummarizeArguments(functionCall.Arguments), functionCall.CallId);
-                                break;
-
-                            case FunctionResultContent functionResult:
-                                reporter.ToolResult(functionResult, functionResult.CallId);
-                                break;
-
-                            case TextContent text when !string.IsNullOrEmpty(text.Text):
-                                output.Append(text.Text);
-                                reporter.Text(text.Text);
-                                break;
-                        }
-                    }
-                }
-            }
-            reporter.Flush();
-            swRun.Stop();
-
-            node.Output = output.ToString();
+            node.Output = output;
             node.Status = TaskNodeStatus.Succeeded;
-            node.SessionId = spec.SessionId;
-
-            Logger.Debug($"[OrchDiag] node timing: id={node.Id} create={swCreate.Elapsed.TotalSeconds:F1}s run={swRun.Elapsed.TotalSeconds:F1}s");
 
             _contextStore.SetOutput(graph.GraphId, node.Id, node.Output);
         }
@@ -245,7 +253,7 @@ public class DagScheduler
             node.FinishedAt = DateTime.UtcNow;
             var nodeResult = ToNodeResult(node);
 
-            Logger.Debug($"[OrchDiag] node done: id={node.Id} status={node.Status} elapsed={nodeResult.Elapsed.TotalSeconds:F1}s outLen={(node.Output ?? "").Length} error={node.Error ?? "-"}");
+            Logger.Info($"[OrchDiag] node done: id={node.Id} status={node.Status} elapsed={nodeResult.Elapsed.TotalSeconds:F1}s outLen={(node.Output ?? "").Length} error={node.Error ?? "-"}");
 
             result.Nodes.Add(nodeResult);
 
@@ -261,9 +269,92 @@ public class DagScheduler
                 },
                 NodeId = node.Id,
                 Message = node.Description,
-                NodeResult = nodeResult
+                NodeResult = nodeResult,
+                ElapsedMs = (long)nodeResult.Elapsed.TotalMilliseconds
             });
         }
+    }
+
+    /// <summary>
+    /// 执行单个节点：优先走测试接缝 <see cref="NodeRunnerOverride"/>，否则创建真实子代理并流式执行。
+    /// 流式执行把子 Agent 的思考/正文/工具调用/工具结果按时间轴上报，使上层 UI 能实时看到子代理在做什么。
+    /// </summary>
+    /// <param name="graph">任务图谱。</param>
+    /// <param name="node">当前节点。</param>
+    /// <param name="resolvedPrompt">已解析占位符的节点 prompt。</param>
+    /// <param name="ct">节点级取消令牌（已含超时）。</param>
+    /// <param name="onProgress">进度回调，可为 null。</param>
+    /// <param name="reportGate">进度上报串行化锁对象。</param>
+    /// <returns>节点输出文本。</returns>
+    private async Task<string> RunSubAgentAsync(
+        TaskGraph graph, TaskNode node, string resolvedPrompt, CancellationToken ct,
+        Action<OrchestrationProgress>? onProgress, object? reportGate)
+    {
+        if (NodeRunnerOverride is { } runner)
+        {
+            return await runner(graph, node, resolvedPrompt, ct) ?? string.Empty;
+        }
+
+        var spec = new SubAgentSpec
+        {
+            NodeId = node.Id,
+            Prompt = resolvedPrompt,
+            Role = node.Role,
+            ToolGroups = node.ToolGroups,
+            ModelName = node.ModelName,
+            ParentSessionId = graph.GraphId,
+            WorkspaceRoot = _options.Value.WorkspaceRoot,
+            SharedContext = graph.SharedContext
+        };
+
+        Logger.Info($"[OrchDiag] node exec: id={node.Id} node.role={(node.Role ?? "null")} spec.role={(spec.Role ?? "null")} node.tools={(node.ToolGroups == null ? "null" : $"[{string.Join(",", node.ToolGroups)}]")} promptLen={resolvedPrompt.Length}");
+
+        var swCreate = Stopwatch.StartNew();
+        var agent = await _subAgentFactory.CreateAsync(spec, ct);
+        swCreate.Stop();
+
+        var swRun = Stopwatch.StartNew();
+        // 子代理执行期进入确认作用域：工具确认不弹窗，由框架按本轮已允许集合代确认。
+        var reporter = new NodeActivityReporter(node.Id, onProgress, reportGate);
+        var output = new StringBuilder();
+        using (ToolConfirmationContext.EnterSubAgentScope())
+        {
+            await foreach (var update in agent.RunStreamingAsync(resolvedPrompt, ct))
+            {
+                if (update.Contents is null) continue;
+
+                foreach (var content in update.Contents)
+                {
+                    switch (content)
+                    {
+                        case TextReasoningContent reasoning when !string.IsNullOrEmpty(reasoning.Text):
+                            reporter.Thinking(reasoning.Text);
+                            break;
+
+                        case FunctionCallContent functionCall:
+                            reporter.ToolCall(functionCall.Name, SummarizeArguments(functionCall.Arguments), functionCall.CallId);
+                            break;
+
+                        case FunctionResultContent functionResult:
+                            reporter.ToolResult(functionResult, functionResult.CallId);
+                            break;
+
+                        case TextContent text when !string.IsNullOrEmpty(text.Text):
+                            output.Append(text.Text);
+                            reporter.Text(text.Text);
+                            break;
+                    }
+                }
+            }
+        }
+        reporter.Flush();
+        swRun.Stop();
+
+        node.SessionId = spec.SessionId;
+
+        Logger.Info($"[OrchDiag] node timing: id={node.Id} create={swCreate.Elapsed.TotalSeconds:F1}s run={swRun.Elapsed.TotalSeconds:F1}s");
+
+        return output.ToString();
     }
 
     /// <summary>
@@ -460,44 +551,45 @@ public class DagScheduler
     }
 
     /// <summary>
-    /// 检查任一关键前驱节点是否失败，若是则跳过当前节点。
+    /// 关键前驱失败时，沿依赖图把该节点及其全部（传递）后继中仍处于
+    /// <see cref="TaskNodeStatus.Pending"/> 的节点标记为 <see cref="TaskNodeStatus.Skipped"/>，
+    /// 并逐节点上报 <see cref="ProgressEventType.NodeSkipped"/>，避免界面上这些节点凭空消失。
+    /// 已在运行/已完成的节点不会被改动。
     /// </summary>
-    /// <param name="graph">任务图谱。</param>
-    /// <param name="node">当前节点。</param>
-    /// <returns>是否应跳过。</returns>
-    private bool ShouldSkip(TaskGraph graph, TaskNode node)
-        => node.Dependencies.Any(dep =>
-            graph.Nodes.First(n => n.Id == dep).Status == TaskNodeStatus.Failed
-            && graph.Nodes.First(n => n.Id == dep).IsCritical);
-
-    /// <summary>
-    /// 标记后续层的所有节点为 <see cref="TaskNodeStatus.Skipped"/>，并逐节点上报
-    /// <see cref="ProgressEventType.NodeSkipped"/>，避免界面上这些节点凭空消失。
-    /// </summary>
-    /// <param name="layers">拓扑分层列表。</param>
-    /// <param name="currentIndex">当前层索引。</param>
+    /// <param name="dependents">节点 id → 其直接后继列表。</param>
+    /// <param name="root">起始节点（关键前驱失败的直接后继）。</param>
     /// <param name="result">编排结果。</param>
     /// <param name="onProgress">进度回调，可为 null。</param>
     /// <param name="reportGate">进度上报串行化锁对象。</param>
-    private static void MarkRemainingAsSkipped(
-        List<List<TaskNode>> layers, int currentIndex, OrchestrationResult result,
+    private static void SkipTransitiveSuccessors(
+        Dictionary<string, List<TaskNode>> dependents, TaskNode root, OrchestrationResult result,
         Action<OrchestrationProgress>? onProgress = null, object? reportGate = null)
     {
-        for (int i = currentIndex + 1; i < layers.Count; i++)
-        {
-            foreach (var node in layers[i])
-            {
-                node.Status = TaskNodeStatus.Skipped;
-                var nodeResult = ToNodeResult(node);
-                result.Nodes.Add(nodeResult);
+        var stack = new Stack<TaskNode>();
+        stack.Push(root);
 
-                Report(onProgress, reportGate, new OrchestrationProgress
-                {
-                    EventType = ProgressEventType.NodeSkipped,
-                    NodeId = node.Id,
-                    Message = node.Description,
-                    NodeResult = nodeResult
-                });
+        while (stack.Count > 0)
+        {
+            var node = stack.Pop();
+            if (node.Status != TaskNodeStatus.Pending)
+                continue;
+
+            node.Status = TaskNodeStatus.Skipped;
+            var nodeResult = ToNodeResult(node);
+            result.Nodes.Add(nodeResult);
+
+            Report(onProgress, reportGate, new OrchestrationProgress
+            {
+                EventType = ProgressEventType.NodeSkipped,
+                NodeId = node.Id,
+                Message = node.Description,
+                NodeResult = nodeResult
+            });
+
+            if (dependents.TryGetValue(node.Id, out var children))
+            {
+                foreach (var child in children)
+                    stack.Push(child);
             }
         }
     }

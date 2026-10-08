@@ -21,6 +21,8 @@
 *描述：LuBan Agent 服务集合扩展
 *
 *****************************************************************************/
+using Microsoft.Extensions.DependencyInjection.Extensions;
+
 namespace LuBan.AIAgent;
 
 
@@ -103,6 +105,12 @@ public static class LuBanAgentExtensions
         // ContextStore 纯内存线程安全字典，可 Singleton
         services.AddSingleton<Orchestration.ContextStore>();
 
+        // 已规划图谱暂存（plan_task 登记 → run_orchestration 取用）
+        services.AddSingleton<Orchestration.GraphPlanStore>();
+
+        // 编排进度出口：宿主可在调用 AddLuBanAgent 前覆盖注册 UI 实现，否则保持 no-op
+        services.TryAddSingleton<Orchestration.IOrchestrationProgressSink, Orchestration.NullOrchestrationProgressSink>();
+
         // SubAgent 角色注册表
         services.AddSingleton<Orchestration.SubAgentRoleRegistry>();
 
@@ -113,33 +121,16 @@ public static class LuBanAgentExtensions
         services.AddScoped<Orchestration.SubAgentFactory>();
         services.AddScoped<Orchestration.DagScheduler>();
 
-        // 规划器：LlmTaskPlanner 依赖 IChatClient（通常 Scoped）+ 可选 IProviderRouter（PlannerModel 路由），必须 Scoped；TemplateTaskPlanner 无状态可 Singleton
+        // 规划器：LlmTaskPlanner 依赖 IChatClient（通常 Scoped）+ 可选 IProviderRouter（PlannerModel 路由），必须 Scoped
         services.AddScoped<Orchestration.Planner.LlmTaskPlanner>();
-        services.AddSingleton<Orchestration.Planner.TemplateTaskPlanner>();
-        services.AddScoped<Orchestration.Planner.ITaskPlanner>(sp =>
-        {
-            var opts = sp.GetRequiredService<IOptions<LuBanAgentOptions>>().Value;
-            return opts.Orchestration?.PlannerType switch
-            {
-                "llm" => sp.GetRequiredService<Orchestration.Planner.LlmTaskPlanner>(),
-                "template" => sp.GetRequiredService<Orchestration.Planner.TemplateTaskPlanner>(),
-                _ => new Orchestration.Planner.CompositeTaskPlanner(
-                                sp.GetRequiredService<Orchestration.Planner.TemplateTaskPlanner>(),
-                                sp.GetRequiredService<Orchestration.Planner.LlmTaskPlanner>())
-            };
-        });
+        services.AddScoped<Orchestration.Planner.ITaskPlanner>(sp => sp.GetRequiredService<Orchestration.Planner.LlmTaskPlanner>());
 
         services.AddScoped<Orchestration.IOrchestrator, Orchestration.Orchestrator>();
 
-        // 自动编排前哨管道（按配置 AutoDetect 判定每轮输入是否为复合任务）
-        services.AddScoped<Orchestration.AutoOrchestrationMiddleware>();
-
-        // 暴露为工具（按配置开关）
+        // 编排工具暴露（按配置 Enabled 开关；由 LLM 经 plan_task/run_orchestration 自行判定）
         var orchestrationEnabled = configuration
             .GetSection("LuBanAgent:Orchestration:Enabled").Get<bool>();
-        var exposeAsTool = configuration
-            .GetSection("LuBanAgent:Orchestration:ExposeAsTool").Get<bool>();
-        if (orchestrationEnabled && exposeAsTool)
+        if (orchestrationEnabled)
         {
             services.AddSingleton<ILuBanToolPlugin, Tools.Orchestration.OrchestrationToolPlugin>();
         }

@@ -45,4 +45,11 @@ public class OrchestrationProgress
     /// 获取或设置节点内部活动明细（<see cref="ProgressEventType.NodeActivity"/> 时提供）。
     /// </summary>
     public NodeActivityItem? Activity { get; set; }
+
+    /// <summary>
+    /// 获取或设置本事件的耗时（毫秒）。
+    /// 用于承载无 <see cref="NodeResult"/> 的阶段耗时（如规划阶段），
+    /// 节点事件仍以 <see cref="NodeResult.Elapsed"/> 为准。
+    /// </summary>
+    public long? ElapsedMs { get; set; }
 }

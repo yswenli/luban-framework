@@ -41,7 +41,8 @@ public class OrchestrationToolPlugin : ILuBanToolPlugin
         var toolGroup = new OrchestrationToolGroup(sp);
         return new List<AIFunction>
         {
-            AIFunctionFactoryHelper.Create(toolGroup, nameof(OrchestrationToolGroup.OrchestrateAsync))
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(OrchestrationToolGroup.PlanTaskAsync), name: OrchestrationToolGroup.PlanTaskToolName),
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(OrchestrationToolGroup.RunOrchestrationAsync), name: OrchestrationToolGroup.RunOrchestrationToolName)
         };
     }
 }

@@ -41,9 +41,11 @@ public class LlmTaskPlanner : ITaskPlanner
     {
         _serviceProvider = serviceProvider;
         _options = options;
-        _chatClient = ChatClientResilience.Wrap(
-            ResolvePlannerClient(chatClient, providerRouter, options.Value.Orchestration?.PlannerModel),
-            options.Value);
+        _chatClient = new TimingChatClient(
+            ChatClientResilience.Wrap(
+                ResolvePlannerClient(chatClient, providerRouter, options.Value.Orchestration?.PlannerModel),
+                options.Value),
+            "planner");
     }
 
     /// <summary>
@@ -78,24 +80,38 @@ public class LlmTaskPlanner : ITaskPlanner
     /// </summary>
     /// <param name="prompt">系统提示词。</param>
     /// <param name="ct">取消标记。</param>
-    /// <returns>模型返回的完整文本。</returns>
-    private async Task<string> GetCompletionAsync(string prompt, CancellationToken ct)
+    /// <returns>模型返回的完整文本，以及单次往返的分段计时（TTFT / 总耗时）。</returns>
+    private async Task<(string Text, CompletionTiming Timing)> GetCompletionAsync(string prompt, CancellationToken ct)
     {
         var effort = _options.Value.Orchestration?.PlannerReasoningEffort;
         var options = effort is null
             ? null
             : new ChatOptions { Reasoning = new ReasoningOptions { Effort = effort } };
+        var effortLabel = effort?.ToString() ?? "unset";
+        var sendLabel = options is null ? "not-sent" : "sent";
+        Logger.Info($"[OrchDiag] planner reasoning effort={effortLabel} option={sendLabel}");
 
         var sb = new StringBuilder();
+        var sw = Stopwatch.StartNew();
+        long ttftMs = 0;
+        var firstText = true;
         await foreach (var update in _chatClient
             .GetStreamingResponseAsync(new[] { new ChatMessage(ChatRole.System, prompt) }, options, ct)
             .ConfigureAwait(false))
         {
             if (!string.IsNullOrEmpty(update.Text))
+            {
+                if (firstText)
+                {
+                    ttftMs = sw.ElapsedMilliseconds;
+                    firstText = false;
+                }
                 sb.Append(update.Text);
+            }
         }
+        sw.Stop();
 
-        return sb.ToString();
+        return (sb.ToString(), new CompletionTiming(ttftMs, sw.ElapsedMilliseconds));
     }
 
     /// <summary>
@@ -115,19 +131,29 @@ public class LlmTaskPlanner : ITaskPlanner
 
         for (int attempt = 0; attempt <= MaxRetries; attempt++)
         {
+            var promptSw = Stopwatch.StartNew();
+            var prompt = attempt == 0
+                ? BuildPlannerPrompt(task, GetAvailableToolGroups())
+                : BuildRetryPrompt(task, lastBadResponse!, lastError!);
+            promptSw.Stop();
+
+            long ttftMs = 0;
+            long totalMs = 0;
+            string? raw = null;
+            var parseSw = Stopwatch.StartNew();
             try
             {
-                var prompt = attempt == 0
-                    ? BuildPlannerPrompt(task, GetAvailableToolGroups())
-                    : BuildRetryPrompt(task, lastBadResponse!, lastError!);
+                var (json, timing) = await GetCompletionAsync(prompt, ct);
+                ttftMs = timing.TtftMs;
+                totalMs = timing.TotalMs;
+                raw = json;
 
-                var json = await GetCompletionAsync(prompt, ct);
                 if (string.IsNullOrWhiteSpace(json))
                     throw new TaskPlanningException("LLM 返回空内容");
 
-                Logger.Debug($"[OrchDiag] planner raw json (attempt={attempt + 1}): {json}");
+                Logger.Info($"[OrchDiag] planner raw json (attempt={attempt + 1}): {Truncate(json, 2000)}");
 
-                var graph = json.ToObject<TaskGraph>();
+                var graph = JsonSerializer.Deserialize<TaskGraph>(ExtractJson(json), PlannerJsonOptions);
 
                 if (graph == null || graph.Nodes.Count == 0)
                     throw new TaskPlanningException("LLM 返回空图谱");
@@ -140,23 +166,32 @@ public class LlmTaskPlanner : ITaskPlanner
 
                 graph.OriginalTask = task;
                 graph.Source = "llm";
+                graph.Parallelism = ClampParallelism(graph.Parallelism, orchestrationOpts);
 
                 if (!graph.Validate(out var errors))
                     throw new TaskPlanningException("DAG 校验失败", errors);
 
+                parseSw.Stop();
+                Logger.Info($"[OrchDiag] planner attempt={attempt + 1} promptMs={promptSw.ElapsedMilliseconds} ttftMs={ttftMs} totalMs={totalMs} parseMs={parseSw.ElapsedMilliseconds} nodeCount={graph.Nodes.Count} ok=true");
                 return graph;
             }
             catch (JsonException ex)
             {
+                parseSw.Stop();
                 lastError = ex;
-                lastBadResponse = "JSON 解析失败";
+                lastBadResponse = Truncate(raw, 1500);
                 Logger.Warn($"LLM 规划第 {attempt + 1} 次尝试 JSON 解析失败: {ex.Message}");
+                Logger.Info($"[OrchDiag] planner attempt={attempt + 1} promptMs={promptSw.ElapsedMilliseconds} ttftMs={ttftMs} totalMs={totalMs} parseMs={parseSw.ElapsedMilliseconds} ok=false reason=json");
             }
             catch (TaskPlanningException ex)
             {
+                parseSw.Stop();
                 lastError = ex;
-                lastBadResponse = string.Join("; ", ex.ValidationErrors);
+                lastBadResponse = ex.ValidationErrors.Count > 0
+                    ? string.Join("; ", ex.ValidationErrors)
+                    : Truncate(raw, 1500);
                 Logger.Warn($"LLM 规划第 {attempt + 1} 次尝试 DAG 校验失败: {lastBadResponse}");
+                Logger.Info($"[OrchDiag] planner attempt={attempt + 1} promptMs={promptSw.ElapsedMilliseconds} ttftMs={ttftMs} totalMs={totalMs} parseMs={parseSw.ElapsedMilliseconds} ok=false reason={ex.Message}");
             }
         }
 
@@ -170,11 +205,12 @@ public class LlmTaskPlanner : ITaskPlanner
     {
         var prompt = BuildReflectionPrompt(context);
 
-        var json = await GetCompletionAsync(prompt, ct);
+        var (json, timing) = await GetCompletionAsync(prompt, ct);
         if (string.IsNullOrWhiteSpace(json))
             throw new TaskPlanningException("LLM 反思返回空内容");
 
-        return ParseReflectionResponse(json, context);
+        Logger.Info($"[OrchDiag] reflector ttftMs={timing.TtftMs} totalMs={timing.TotalMs}");
+        return ParseReflectionResponse(ExtractJson(json), context);
     }
 
     /// <summary>
@@ -311,6 +347,23 @@ public class LlmTaskPlanner : ITaskPlanner
     }
 
     /// <summary>
+    /// 将 LLM 产出的图级并行度 clamp 到合法区间。null 原样返回（表示沿用配置默认）。
+    /// 硬上限 = <see cref="OrchestrationOptions.MaxParallelism"/>；若其为 0（不限），
+    /// 则只 clamp 到 <c>[1, MaxNodes]</c>，避免 LLM 给出荒谬值。
+    /// </summary>
+    /// <param name="parallelism">LLM 解析出的并行度，可为 null。</param>
+    /// <param name="options">编排配置。</param>
+    /// <returns>clamp 后的并行度，或 null。</returns>
+    internal static int? ClampParallelism(int? parallelism, OrchestrationOptions options)
+    {
+        if (parallelism is null)
+            return null;
+
+        var hardLimit = options.MaxParallelism > 0 ? options.MaxParallelism : options.MaxNodes;
+        return Math.Clamp(parallelism.Value, 1, Math.Max(1, hardLimit));
+    }
+
+    /// <summary>
     /// 构建规划提示词。
     /// </summary>
     /// <param name="task">用户任务。</param>
@@ -319,17 +372,21 @@ public class LlmTaskPlanner : ITaskPlanner
     private string BuildPlannerPrompt(string task, List<string> tools)
     {
         var availableTools = tools.Where(t => !string.Equals(t, "orchestration", StringComparison.OrdinalIgnoreCase)).ToList();
-        var maxNodes = _options.Value.Orchestration?.MaxNodes ?? 10;
+        var orchestration = _options.Value.Orchestration ?? new();
+        var maxNodes = orchestration.MaxNodes;
+        var maxParallelismHint = orchestration.MaxParallelism > 0 ? orchestration.MaxParallelism : maxNodes;
+        var roleTable = BuildRoleTable();
         return $@"你是任务规划专家。将用户的复合任务拆解为 DAG 任务图谱。
 
 ## 输出格式（严格 JSON）
 {{
+  ""parallelism"": 1,
   ""nodes"": [
     {{
       ""id"": ""唯一标识（如 research/analyze/execute）"",
       ""description"": ""节点用途描述"",
       ""prompt"": ""执行 prompt，可使用 {{dep:节点id}} 引用前驱输出"",
-      ""role"": ""analyst|researcher|coder|writer|null"",
+      ""role"": ""角色名或 null"",
       ""dependencies"": [""依赖的节点id""],
       ""toolGroups"": [""web"" | ""filesystem"" | ""script"" | ""retrieval"" | ""localmemory"" | ""browser"" | null],
       ""isCritical"": true | false
@@ -338,10 +395,7 @@ public class LlmTaskPlanner : ITaskPlanner
 }}
 
 ## 可用角色
-- analyst: 问题分析专家，默认工具组 [""filesystem""]
-- researcher: 信息检索专家，默认工具组 [""web"", ""filesystem""]
-- coder: 代码实现专家，默认工具组 [""filesystem"", ""script""]
-- writer: 文案撰写专家，默认工具组 [""filesystem""]
+{roleTable}
 
 ## 可用工具组
 {string.Join(", ", availableTools)}
@@ -354,9 +408,32 @@ public class LlmTaskPlanner : ITaskPlanner
 5. 使用 {{dep:id}} 占位符让后继节点引用前驱输出
 6. 为每个节点选择合适的角色（role），若不确定可设为 null
 7. toolGroups 可省略（使用角色默认工具组）或显式指定（覆盖角色默认值）；若未指定 role，则 toolGroups 必须显式指定
+8. parallelism 为图级字段，表示同时执行的节点数上限，取值 1-{maxParallelismHint}；不确定时设为 1
 
 ## 用户任务
 {task}";
+    }
+
+    /// <summary>
+    /// 从 <see cref="SubAgentRoleRegistry"/> 动态生成可用角色表，保证提示词与运行时角色注册保持一致。
+    /// 注册表不可用时返回空说明，避免规划直接失败。
+    /// </summary>
+    /// <returns>角色表文本（每行一个角色）。</returns>
+    private string BuildRoleTable()
+    {
+        var roles = _serviceProvider.GetService<SubAgentRoleRegistry>()?.GetAllRoles();
+        if (roles is null || roles.Count == 0)
+            return "(无预置角色，请将 role 设为 null 并显式指定 toolGroups)";
+
+        var sb = new StringBuilder();
+        foreach (var role in roles)
+        {
+            var groups = role.DefaultToolGroups is { Count: > 0 }
+                ? string.Join(", ", role.DefaultToolGroups)
+                : "";
+            sb.AppendLine($"- {role.Name}: 默认工具组 [{groups}]");
+        }
+        return sb.ToString().TrimEnd();
     }
 
     /// <summary>
@@ -366,8 +443,20 @@ public class LlmTaskPlanner : ITaskPlanner
     /// <param name="lastBadResponse">上次失败的响应。</param>
     /// <param name="lastError">上次错误异常。</param>
     /// <returns>重试提示词字符串。</returns>
-    private static string BuildRetryPrompt(string task, string lastBadResponse, Exception lastError)
-        => $"上次规划失败：{lastBadResponse}\n错误：{lastError.Message}\n\n请严格按 JSON schema 重新输出：\n{task}";
+    private string BuildRetryPrompt(string task, string lastBadResponse, Exception lastError)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("## 上次规划失败");
+        sb.AppendLine($"错误：{lastError.Message}");
+        sb.AppendLine();
+        sb.AppendLine("## 上次的原始输出（可能已截断）");
+        sb.AppendLine(string.IsNullOrWhiteSpace(lastBadResponse) ? "(无)" : lastBadResponse);
+        sb.AppendLine();
+        sb.AppendLine("请严格修正为符合下列 schema 的 JSON，只输出 JSON 本体，不要输出解释文字或 Markdown 代码围栏。");
+        sb.AppendLine();
+        sb.AppendLine(BuildPlannerPrompt(task, GetAvailableToolGroups()));
+        return sb.ToString();
+    }
 
     /// <summary>
     /// 获取所有已启用的工具组名称。
@@ -377,5 +466,77 @@ public class LlmTaskPlanner : ITaskPlanner
         => _serviceProvider.GetRequiredService<ToolPluginRegistry>()
             .GetPlugins(null).Select(p => p.GroupName).ToList();
 
+    /// <summary>
+    /// 解析规划/反思响应时的 JSON 选项：属性名大小写不敏感。
+    /// </summary>
+    private static readonly JsonSerializerOptions PlannerJsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
 
+    /// <summary>
+    /// 从 LLM 原始输出中提取 JSON 主体：优先取 Markdown 代码围栏内的内容，
+    /// 否则截取首个括号配平的 <c>{...}</c> 块，容忍前后散文与围栏包裹。
+    /// </summary>
+    /// <param name="text">LLM 原始输出。</param>
+    /// <returns>用于反序列化的 JSON 子串；无法识别时原样返回。</returns>
+    private static string ExtractJson(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return text;
+
+        var t = text.Trim();
+
+        var fence = Regex.Match(t, @"```[ \t]*(?:json)?[ \t]*(?<body>[\s\S]*?)```", RegexOptions.IgnoreCase);
+        if (fence.Success)
+            t = fence.Groups["body"].Value.Trim();
+
+        if (t.StartsWith('{') && t.EndsWith('}'))
+            return t;
+
+        var start = t.IndexOf('{');
+        if (start < 0)
+            return t;
+
+        var depth = 0;
+        var inString = false;
+        var escaped = false;
+        for (var i = start; i < t.Length; i++)
+        {
+            var c = t[i];
+            if (inString)
+            {
+                if (escaped) escaped = false;
+                else if (c == '\\') escaped = true;
+                else if (c == '"') inString = false;
+                continue;
+            }
+
+            if (c == '"') inString = true;
+            else if (c == '{') depth++;
+            else if (c == '}' && --depth == 0) return t.Substring(start, i - start + 1);
+        }
+
+        return t;
+    }
+
+    /// <summary>
+    /// 截断长文本，用于日志与重试提示词，避免整段响应污染诊断信息。
+    /// </summary>
+    /// <param name="text">原始文本。</param>
+    /// <param name="max">保留的最大字符数。</param>
+    /// <returns>截断后的文本。</returns>
+    private static string Truncate(string? text, int max)
+    {
+        if (string.IsNullOrEmpty(text) || text.Length <= max)
+            return text ?? "";
+        return $"{text[..max]}...(已截断，总长 {text.Length})";
+    }
 }
+
+/// <summary>
+/// 规划/反思单次 LLM 往返的分段计时（毫秒）：TTFT 与总耗时。
+/// </summary>
+/// <param name="TtftMs">首字延迟（首个非空文本增量到达耗时）。</param>
+/// <param name="TotalMs">整段响应总耗时。</param>
+internal readonly record struct CompletionTiming(long TtftMs, long TotalMs);

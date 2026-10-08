@@ -151,7 +151,7 @@ public class Orchestrator : IOrchestrator
             result.Reflection = reflection;
             lastResult = result;
 
-            Logger.Debug($"[OrchDiag] attempt={attempt} overallStatus={result.OverallStatus} nodes=[{string.Join(", ", result.Nodes.Select(n => $"{n.NodeId}:{n.Status}{(n.Error == null ? "" : $"({n.Error})")}"))}] finalOutputLen={result.FinalOutput.Length}");
+            Logger.Info($"[OrchDiag] attempt={attempt} overallStatus={result.OverallStatus} nodes=[{string.Join(", ", result.Nodes.Select(n => $"{n.NodeId}:{n.Status}{(n.Error == null ? "" : $"({n.Error})")}"))}] finalOutputLen={result.FinalOutput.Length}");
 
             if (result.OverallStatus != "failed")
                 return result;

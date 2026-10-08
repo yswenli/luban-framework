@@ -69,20 +69,24 @@ public class TimingChatClient : IChatClient
                 .SelectMany(m => m.Contents)
                 .OfType<TextContent>()
                 .Sum(t => t.Text?.Length ?? 0);
+            var reasonLen = response.Messages
+                .SelectMany(m => m.Contents)
+                .OfType<TextReasoningContent>()
+                .Sum(t => t.Text?.Length ?? 0);
 
-            Logger.Debug($"[OrchDiag] {_tag} llm#{round} elapsed={sw.Elapsed.TotalSeconds:F1}s inputLen={inputLen} tools={toolNames.Count}[{string.Join(",", toolNames)}] textLen={textLen}");
+            Logger.Info($"[OrchDiag] {_tag} llm#{round} elapsed={sw.Elapsed.TotalSeconds:F1}s inputLen={inputLen} tools={toolNames.Count}[{string.Join(",", toolNames)}] textLen={textLen} reasonLen={reasonLen}");
             return response;
         }
         catch (OperationCanceledException)
         {
             sw.Stop();
-            Logger.Debug($"[OrchDiag] {_tag} llm#{round} cancelled elapsed={sw.Elapsed.TotalSeconds:F1}s inputLen={inputLen}");
+            Logger.Info($"[OrchDiag] {_tag} llm#{round} cancelled elapsed={sw.Elapsed.TotalSeconds:F1}s inputLen={inputLen}");
             throw;
         }
         catch (Exception ex)
         {
             sw.Stop();
-            Logger.Debug($"[OrchDiag] {_tag} llm#{round} failed elapsed={sw.Elapsed.TotalSeconds:F1}s inputLen={inputLen}: {ex.Message}");
+            Logger.Info($"[OrchDiag] {_tag} llm#{round} failed elapsed={sw.Elapsed.TotalSeconds:F1}s inputLen={inputLen}: {ex.Message}");
             throw;
         }
     }
@@ -97,19 +101,21 @@ public class TimingChatClient : IChatClient
         var sw = Stopwatch.StartNew();
         var toolCalls = 0;
         var textLen = 0;
+        var reasonLen = 0;
         try
         {
             await foreach (var update in _inner.GetStreamingResponseAsync(messages, options, cancellationToken))
             {
                 toolCalls += update.Contents.OfType<FunctionCallContent>().Count();
                 textLen += update.Contents.OfType<TextContent>().Sum(t => t.Text?.Length ?? 0);
+                reasonLen += update.Contents.OfType<TextReasoningContent>().Sum(t => t.Text?.Length ?? 0);
                 yield return update;
             }
         }
         finally
         {
             sw.Stop();
-            Logger.Debug($"[OrchDiag] {_tag} llm#{round} (stream) elapsed={sw.Elapsed.TotalSeconds:F1}s tools={toolCalls} textLen={textLen}");
+            Logger.Info($"[OrchDiag] {_tag} llm#{round} (stream) elapsed={sw.Elapsed.TotalSeconds:F1}s tools={toolCalls} textLen={textLen} reasonLen={reasonLen}");
         }
     }
 
