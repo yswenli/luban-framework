@@ -49,9 +49,9 @@
          而 2.13.0 的流式工具调用表示有破坏性变更（工具调用 chunk 解析为空 update、轮次静默结束），
          下游 LubanAgentCli 因此钉住 OpenAI [2.12.0, 2.13.0)。升级前必须先适配并实测流式工具调用。 -->
     <PackageReference Include="Microsoft.Extensions.AI" Version="10.10.0" />
-    <PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="10.10.0" />
+    <PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="10.10.1" />
     <PackageReference Include="SixLabors.ImageSharp" Version="4.1.2" />
-    <PackageReference Include="Microsoft.Playwright" Version="1.62.0" />
+    <PackageReference Include="Microsoft.Playwright" Version="1.63.0" />
     <PackageReference Include="MiniExcel" Version="1.46.0" />
   </ItemGroup>
 
