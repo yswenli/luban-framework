@@ -70,6 +70,11 @@ public class ToolGroupOptions
     public WikiToolOptions Wiki { get; set; } = new();
 
     /// <summary>
+    /// Git 工具组配置（非 opt-in，默认启用）。
+    /// </summary>
+    public GitToolOptions Git { get; set; } = new();
+
+    /// <summary>
     /// 大日志分析工具配置（非 opt-in，默认启用）。引擎读取以注入的 IOptions&lt;LogToolOptions&gt; 为准。
     /// </summary>
     public LogToolOptions Log { get; set; } = new();
