@@ -26,6 +26,7 @@ global using LuBan.AIAgent.Configuration;
 global using LuBan.AIAgent.Errors;
 global using LuBan.AIAgent.Infrastructure;
 global using LuBan.AIAgent.LocalMemory;
+global using LuBan.AIAgent.LogAnalysis;
 global using LuBan.AIAgent.MCP;
 global using LuBan.AIAgent.MCP.BuiltIn;
 global using LuBan.AIAgent.Orchestration.Models;
