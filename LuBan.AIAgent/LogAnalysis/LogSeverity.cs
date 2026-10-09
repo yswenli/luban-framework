@@ -1,7 +1,7 @@
 namespace LuBan.AIAgent.LogAnalysis;
 
-/// <summary>日志级别（枚举顺序即严重度由低到高）。</summary>
-public enum LogLevel
+/// <summary>日志严重级别（Trace..Fatal 顺序由低到高；Unknown 表示未识别，不参与排序）。</summary>
+public enum LogSeverity
 {
     /// <summary>跟踪。</summary>
     Trace,

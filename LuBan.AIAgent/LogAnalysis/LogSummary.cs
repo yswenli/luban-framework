@@ -19,6 +19,6 @@ public sealed record LogSummary(
     string? TruncationReason,
     DateTimeOffset? FirstTimestamp,
     DateTimeOffset? LastTimestamp,
-    IReadOnlyDictionary<LogLevel, long> LevelCounts,
+    IReadOnlyDictionary<LogSeverity, long> LevelCounts,
     IReadOnlyList<ErrorSignature> TopErrors,
     long OtherErrorCount);
