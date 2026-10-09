@@ -48,8 +48,12 @@ internal sealed class LogLineReader
         var lineNumber = 0L;
         var isFirstBlock = true;
 
-        int read;
-        while ((read = await stream.ReadAsync(readBuffer.AsMemory(0, readBuffer.Length), ct).ConfigureAwait(false)) > 0)
+        var read = await stream.ReadAtLeastAsync(
+            readBuffer.AsMemory(0, readBuffer.Length),
+            minimumBytes: 3,
+            throwOnEndOfStream: false,
+            cancellationToken: ct).ConfigureAwait(false);
+        while (read > 0)
         {
             var start = 0;
             if (isFirstBlock)
@@ -77,6 +81,8 @@ internal sealed class LogLineReader
                     truncated = true;
                 }
             }
+
+            read = await stream.ReadAsync(readBuffer.AsMemory(0, readBuffer.Length), ct).ConfigureAwait(false);
         }
 
         if (lineLength > 0 || truncated)
