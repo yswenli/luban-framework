@@ -412,6 +412,79 @@ public sealed class HttpClientProxy
     }
 
     /// <summary>
+    /// GET 请求，返回响应字节与响应 Content-Type（MediaType）。
+    /// 复用 gzip 手动解压与 ApiCallLog 记录；不改动 <see cref="GetBytesAsync"/> 行为。
+    /// </summary>
+    /// <param name="resource">相对资源路径。</param>
+    /// <param name="headers">请求头。</param>
+    /// <param name="timeout">超时秒数。</param>
+    /// <returns>响应字节与 MediaType（可能为 null）。</returns>
+    public async Task<(byte[] Bytes, string? ContentType)> GetResponseAsync(
+        string resource, Dictionary<string, string>? headers = null, int timeout = 180)
+    {
+        Stopwatch stopwatch = Stopwatch.StartNew();
+
+        Exception? exception = null;
+
+        byte[] bytes = [];
+        string? contentType = null;
+
+        try
+        {
+            var reqMsg = new HttpRequestMessage(new HttpMethod("GET"), resource);
+
+            FillHeaders(reqMsg, headers);
+
+            using var resMsg = await SendAsync(reqMsg, timeout);
+
+            bytes = await resMsg.Content.ReadAsByteArrayAsync();
+
+            contentType = resMsg.Content.Headers.ContentType?.MediaType;
+
+            if (resMsg.Content.Headers.ContentEncoding != null &&
+                resMsg.Content.Headers.ContentEncoding.Count > 0 &&
+                resMsg.Content.Headers.ContentEncoding.First() == "gzip")
+            {
+                bytes = ZipUtil.Decompress(bytes) ?? [];
+            }
+        }
+        catch (Exception ex)
+        {
+            exception = ex;
+        }
+        stopwatch.Stop();
+
+        var apiLog = new ApiLogInfo()
+        {
+            CallIp = "",
+            Url = _httpClient.BaseAddress?.ToString().RemoveLast() ?? "" + resource,
+            RequestMethod = "GET",
+            Header = (headers == null ? "" : headers.ToJson()),
+            Input = string.Empty,
+            Cost = stopwatch.ElapsedMilliseconds,
+            Created = DateTimeUtil.Now
+        };
+
+        if (exception != null)
+        {
+            apiLog.Exception = exception;
+            apiLog.StatusCode = 500;
+        }
+        else
+        {
+            apiLog.StatusCode = 200;
+        }
+
+        apiLog.Output = bytes?.ToNoTitleString() ?? "";
+
+        if (_useLog) Logger.ApiCallLog(apiLog);
+
+        if (exception != null) throw exception;
+
+        return (bytes ?? [], contentType);
+    }
+
+    /// <summary>
     /// get请求
     /// </summary>
     /// <param name="resource"></param>
