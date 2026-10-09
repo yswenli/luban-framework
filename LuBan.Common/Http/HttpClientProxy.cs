@@ -457,7 +457,7 @@ public sealed class HttpClientProxy
         var apiLog = new ApiLogInfo()
         {
             CallIp = "",
-            Url = _httpClient.BaseAddress?.ToString().RemoveLast() ?? "" + resource,
+            Url = (_httpClient.BaseAddress?.ToString().RemoveLast() ?? "") + resource,
             RequestMethod = "GET",
             Header = (headers == null ? "" : headers.ToJson()),
             Input = string.Empty,

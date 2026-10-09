@@ -11,7 +11,7 @@ using ReverseMarkdown;
 namespace LuBan.Common;
 
 /// <summary>
-/// HTML 与 Markdown 互转工具。
+/// HTML 转 Markdown 工具。
 /// </summary>
 public static class MarkdownUtil
 {
