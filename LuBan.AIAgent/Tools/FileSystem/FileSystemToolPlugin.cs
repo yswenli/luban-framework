@@ -1266,6 +1266,74 @@ public class FileSystemToolGroup
     }
 
     /// <summary>
+    /// 对文件执行精确字符串替换。old_string 必须唯一（或设置 replace_all）。
+    /// </summary>
+    /// <param name="path">目标文件路径。</param>
+    /// <param name="old_string">待替换的原文。</param>
+    /// <param name="new_string">替换后的新文本。</param>
+    /// <param name="replace_all">是否替换全部匹配。</param>
+    /// <returns>替换结果。</returns>
+    [Description("对文件执行精确字符串替换（old_string → new_string）。默认要求 old_string 唯一，多点替换请用 MultiEdit 或 replace_all=true。创建/覆盖整个文件请用 WriteFile。")]
+    public async Task<ToolResult<string>> EditFileAsync(string path, string old_string, string new_string, bool replace_all = false)
+    {
+        if (await ConfirmOrBlockAsync(nameof(EditFileAsync), path,
+            new Dictionary<string, object?> { ["path"] = path, ["old_string"] = old_string, ["new_string"] = new_string, ["replace_all"] = replace_all }) is { } blocked)
+        {
+            return blocked;
+        }
+
+        if (string.IsNullOrEmpty(old_string))
+            return ToolResult.Fail<string>("old_string 不能为空；如需创建/覆盖整个文件请用 WriteFile。");
+
+        if (Directory.Exists(path))
+            return ToolResult.Fail<string>(DirectoryPathMessage(path, "编辑文件需要包含文件名的文件路径"));
+        if (!File.Exists(path))
+            return ToolResult.Fail<string>($"未找到文件: {path}。请先用 ReadFile 核对路径。");
+
+        try
+        {
+            var original = await File.ReadAllTextAsync(path);
+            var count = CountOccurrences(original, old_string);
+
+            if (count == 0)
+                return ToolResult.Fail<string>("未找到匹配内容，请用 ReadFile 核对原文（注意空白/换行/缩进）。");
+            if (count > 1 && !replace_all)
+                return ToolResult.Fail<string>($"匹配到 {count} 处，请扩大 old_string 上下文以唯一定位，或设置 replace_all=true。");
+
+            var updated = replace_all
+                ? original.Replace(old_string, new_string)
+                : ReplaceFirst(original, old_string, new_string);
+
+            await File.WriteAllTextAsync(path, updated);
+            return ToolResult.Ok<string>($"已替换 {count} 处。", $"path={path}; replaced={count}");
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("编辑文件异常", ex, path);
+            return ToolResult.Fail<string>($"操作失败: {ex.Message}");
+        }
+    }
+
+    private static int CountOccurrences(string text, string token)
+    {
+        if (token.Length == 0) return 0;
+        var count = 0;
+        var idx = 0;
+        while ((idx = text.IndexOf(token, idx, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            idx += token.Length;
+        }
+        return count;
+    }
+
+    private static string ReplaceFirst(string text, string oldValue, string newValue)
+    {
+        var idx = text.IndexOf(oldValue, StringComparison.Ordinal);
+        return idx < 0 ? text : text[..idx] + newValue + text[(idx + oldValue.Length)..];
+    }
+
+    /// <summary>
     /// 获取文件或目录信息
     /// </summary>
     /// <param name="path">文件或目录路径</param>
