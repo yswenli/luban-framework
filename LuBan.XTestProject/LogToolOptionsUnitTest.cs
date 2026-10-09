@@ -59,6 +59,40 @@ public class LogToolOptionsUnitTest
     }
 
     [TestMethod]
+    public void ApplyHardCaps_Clamps_LineBytes_And_RegexTimeout_To_Hard_Limits()
+    {
+        var o = new LogToolOptions
+        {
+            MaxLineBytes = int.MaxValue,
+            RegexMatchTimeoutMs = int.MaxValue
+        };
+        o.ApplyHardCaps();
+        Assert.AreEqual(LogToolOptions.HardMaxLineBytes, o.MaxLineBytes);
+        Assert.AreEqual(LogToolOptions.HardMaxRegexMatchTimeoutMs, o.RegexMatchTimeoutMs);
+    }
+
+    [TestMethod]
+    public void ApplyHardCaps_Preserves_InRange_Values()
+    {
+        var o = new LogToolOptions
+        {
+            MaxFileSizeBytes = 1024,
+            TopN = 5,
+            MaxDistinctSignatures = 10,
+            MaxSliceLines = 50,
+            MaxLineBytes = 2048,
+            RegexMatchTimeoutMs = 1000
+        };
+        o.ApplyHardCaps();
+        Assert.AreEqual(1024L, o.MaxFileSizeBytes);
+        Assert.AreEqual(5, o.TopN);
+        Assert.AreEqual(10, o.MaxDistinctSignatures);
+        Assert.AreEqual(50, o.MaxSliceLines);
+        Assert.AreEqual(2048, o.MaxLineBytes);
+        Assert.AreEqual(1000, o.RegexMatchTimeoutMs);
+    }
+
+    [TestMethod]
     public void IsAggregateExtension_Dot_Optional_And_Case_Insensitive()
     {
         var o = new LogToolOptions();
@@ -70,5 +104,20 @@ public class LogToolOptionsUnitTest
         Assert.IsTrue(custom.IsAggregateExtension("x.trace"));
         Assert.IsTrue(custom.IsAggregateExtension("x.out"));
         Assert.IsFalse(custom.IsAggregateExtension("x.log"));
+    }
+
+    [TestMethod]
+    public void IsAggregateExtension_Null_Or_Padded_Candidates_Safe()
+    {
+        var nullExt = new LogToolOptions { AggregateExtensions = null! };
+        Assert.IsFalse(nullExt.IsAggregateExtension("app.log"));
+
+        var padded = new LogToolOptions { AggregateExtensions = new[] { " .trace ", "out" } };
+        Assert.IsTrue(padded.IsAggregateExtension("x.trace"));
+        Assert.IsTrue(padded.IsAggregateExtension("x.out"));
+        Assert.IsFalse(padded.IsAggregateExtension("x.log"));
+
+        var noExt = new LogToolOptions();
+        Assert.IsFalse(noExt.IsAggregateExtension("app"));
     }
 }
