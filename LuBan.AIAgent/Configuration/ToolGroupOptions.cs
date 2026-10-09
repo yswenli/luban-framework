@@ -68,4 +68,9 @@ public class ToolGroupOptions
     /// Wiki 工具组选项（opt-in）。
     /// </summary>
     public WikiToolOptions Wiki { get; set; } = new();
+
+    /// <summary>
+    /// 大日志分析工具配置（非 opt-in，默认启用）。引擎读取以注入的 IOptions&lt;LogToolOptions&gt; 为准。
+    /// </summary>
+    public LogToolOptions Log { get; set; } = new();
 }
