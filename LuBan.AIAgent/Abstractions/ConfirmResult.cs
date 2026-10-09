@@ -36,5 +36,8 @@ public enum ConfirmResult
     Deny,
 
     /// <summary>本轮（当前 agent 交互回合内）后续同类工具调用全部允许，免确认。</summary>
-    AllowAll
+    AllowAll,
+
+    /// <summary>本会话（进程存活期内）后续同类工具调用全部允许，免确认。</summary>
+    AllowSession
 }

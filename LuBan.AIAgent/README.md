@@ -112,12 +112,14 @@ Skills、MCPs、Rules 采用统一的三级优先级注册表模式：
 | 工具组 | 分组名 | 核心能力 |
 |--------|--------|----------|
 | **浏览器工具** | `browser` | 导航、点击、输入、截图、获取内容、等待元素、获取 URL（基于 Playwright） |
-| **文件系统工具** | `filesystem` | 读取文件、写入文件、列出目录、删除文件、删除目录、搜索文件（glob）、内容搜索（regex）、创建目录、复制文件、移动文件、获取文件信息，支持 AllowedRoots 安全限制 |
+| **文件系统工具** | `filesystem` | 读取文件、写入文件、列出目录、删除文件、删除目录、搜索文件（glob）、内容搜索（regex）、创建目录、复制文件、移动文件、获取文件信息；工作区内直接放行，工作区外路径经用户确认后放行 |
 | **脚本执行工具** | `script` | 执行 Shell（运行环境自适应）、Lua（内嵌沙箱，无外部解释器依赖）、Python 脚本 |
 | **Web 工具** | `web` | 发送 HTTP 请求获取网页内容 |
 | **语义检索工具** | `retrieval` | 索引本地代码/文档，按语义搜索相关片段 |
 | **上下文压缩工具** | `context` | 压缩当前会话的对话历史，释放 token 预算（LLM 可见、可主动调用） |
 | **本地记忆工具** | `localmemory` | 长期记忆的存储、查询和管理 |
+| **MCP 外部工具** | `mcp` | 将已连接 MCP 客户端（内置文件系统客户端 + 外部服务器热加载）的工具并入 Agent 工具注册表 |
+| **编排工具** | `orchestration` | 向模型暴露 `plan_task` / `run_orchestration`，由模型自行判定复合任务并调度 SubAgent 执行 DAG（opt-in，需 `Orchestration.Enabled=true`） |
 | **Wiki 知识库工具** | `wiki` | 读取/写入/删除 wiki 页面、向量搜索、健康检查（opt-in，需在 `ToolGroups` 中显式点名） |
 
 > **脚本执行说明**：Shell 工具会自动探测运行环境（Windows 优先 `pwsh` > `powershell` > `cmd`，类 Unix 优先 `bash` > `sh`），并按解释器自动适配参数风格与引用方式，执行结果中回传实际使用的 `shell`/`shellPath`/`platform`。Lua 工具基于内嵌 MoonSharp 软沙箱执行，无需外部 `lua` 解释器，沙箱不具备文件系统与系统命令能力，结果通过 `print` 输出。
@@ -279,8 +281,10 @@ category: custom
 
 | 组件 | 说明 |
 |------|------|
-| `ToolConfirmationService` | 工具执行确认服务，危险操作前要求用户确认 |
-| `PathGuard` | 路径安全守卫，防止越权访问 |
+| `ToolConfirmationService` | 工具执行确认服务：工作区内直接放行，工作区外路径经用户确认后放行，危险操作前要求用户确认 |
+| `ToolConfirmationContext` | 确认上下文：承载本轮/本会话三档授权（按路径所在根记忆），`AllowThisTurn`/`IsAllowedThisTurn`、`AllowThisSession`/`IsAllowedThisSession` |
+| `ConfirmResult` | 用户确认结果：`Allow`（本次）/ `AllowAll`（本轮全部）/ `AllowSession`（本会话全部）/ `Deny`（拒绝） |
+| `PathGuard` | 路径安全守卫，工作区根快捷放行（不再作为工作区外访问的硬门） |
 | `RuleEngine` | 规则引擎，工具执行前进行权限检查和参数修改 |
 
 ### 多 Agent 编排系统
@@ -625,8 +629,13 @@ options.Value.OnApiRetry = notice =>
 
 - **拒绝即终止**：用户在工具确认中选择「拒绝」时，宿主立即终止当前对话回合（保留已输出内容）。CLI 与 Codex 均显示「已拒绝，本轮终止」；CLI 被拒工具块显示「已被用户拒绝」，Codex 确认卡显示「已拒绝」、工具卡显示框架中性结果「工具调用被拒绝或已取消」。
 - **等待无限期**：工具确认与工作区授权均无限期等待用户响应，无超时兜底；Esc 可随时取消本轮（CLI 显示「任务已取消」，Codex 显示「已取消」）。
-- **子代理代确认**：编排子代理不会向用户弹确认；其工具调用在需要人工确认时，由主代码按「本轮已允许集合」代判——命中放行，否则返回子代理专用拒绝结果（不代表用户拒绝）。
-- **本轮允许集合**：`ToolConfirmationContext.AllowedThisTurn` 不再公开；宿主使用 `AllowThisTurn(toolName)` 写入、框架使用 `IsAllowedThisTurn(toolName)` 读取。
+- **工作区内免确认**：文件系统工具目标路径落在工作区根（或本轮/本会话已授权的根）内时直接放行，不再要求确认。
+- **工作区外经确认放行**：工作区外路径不再被硬性拦截，改为弹出确认；用户可选「允许（本次）/ 本轮全部允许 / 本会话全部允许 / 拒绝」。授权按路径所在根记忆（文件取父目录、目录取自身）；授权根落到盘符根（如 `D:\`）时不记忆，避免一次放行整盘。
+- **授权档位记忆**：`Allow` 仅放行本次；`AllowAll` 记入本轮；`AllowSession` 记入本会话（进程存活期）。每轮开始 `Reset()` 清空本轮集合，本会话集合跨轮保留；`ResetSession()` 可显式清空本会话集合。
+- **只读免确认（仅 Plan）**：Plan 模式下只读工具（`ReadFileAsync`/`ListDirectoryAsync`/`GetWorkspaceOverviewAsync`/`SearchFilesAsync`/`GrepAsync`/`GetFileInfoAsync`）在已授权范围内直接放行，便于读取上下文产出计划；越界只读记录为计划项而非放行。
+- **删除类硬确认**：`AlwaysConfirmTools`（默认 `DeleteFileAsync`/`DeleteDirectoryAsync`/`DeletePageAsync`）无论路径是否在工作区内都必须确认，且「本轮/本会话全部允许」对删除类不记忆，每次必确认。
+- **子代理代确认**：编排子代理不会向用户弹确认；其工具调用在需要人工确认时，由主代码按「本轮/本会话已允许集合」代判——命中放行，否则返回子代理专用拒绝结果（不代表用户拒绝）。
+- **本轮/本会话允许集合**：`ToolConfirmationContext.AllowedThisTurn` 不再公开；宿主使用 `AllowThisTurn(toolName)`/`AllowThisSession(toolName)` 写入、框架使用 `IsAllowedThisTurn(toolName)`/`IsAllowedThisSession(toolName)` 读取。
 - **子代理等待无限期**：`Orchestration.DefaultNodeTimeoutSeconds` 与 `ReflectionTimeoutSeconds` 默认 0（无限期）；显式配置大于 0 时才限时，节点仍可用 `TimeoutSeconds` 单独覆盖。
 - **规划不再「长时间无响应」**：`Orchestration.PlannerReasoningEffort` 控制规划/反思调用的推理强度，推理模型（如 glm-5）默认开思考时会在规划阶段输出大量 reasoning 内容，单次规划耗时可达 1 分钟以上；建议设为 `"none"` 关闭（默认 `null` 表示不传递该参数，兼容不支持 `reasoning_effort` 的非推理模型）。
 
@@ -812,8 +821,9 @@ LuBan.AIAgent/
 
 - 模型路由使用 `provider:model` 格式，新增 Provider 只需通过 `IAppConfigReader` / 宿主实现添加
 - **10 大内置工具组**覆盖浏览器自动化、文件操作、脚本执行、Web 请求、语义检索、上下文压缩、本地记忆、MCP、多 Agent 编排、LLM Wiki 知识库（opt-in）
-- `ToolConfirmationService` 对写入、删除、执行等危险操作自动要求用户确认
-- `FileSystemToolOptions.AllowedRoots` 限制文件访问范围，防止 Agent 越权操作
+- `ToolConfirmationService` 对工作区外路径访问、写入、删除、执行等敏感操作要求用户确认；工作区内直接放行
+- 授权三档记忆（本次 / 本轮 / 本会话），按路径所在根粒度生效；删除类工具（`AlwaysConfirmTools`）不记忆、每次必确认
+- `FileSystemToolOptions.AllowedRoots` 与工作区根共同构成可信范围，范围内的操作免确认
 - **会话历史自动持久化**，支持长对话压缩（SummarizingChatReducer），上下文永不丢失；启动对话时显示最近历史，快速了解上下文
 - **自定义 Skill/Rule/MCP 持久化**，配置保存到本地文件，重启后自动加载
 - **文件化 Skill**：支持通过 SKILL.md 文件定义 Skill，兼容 OpenCode 格式，项目级/用户级目录自动加载

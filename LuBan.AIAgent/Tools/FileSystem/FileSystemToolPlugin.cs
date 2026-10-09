@@ -29,17 +29,14 @@ namespace LuBan.AIAgent.Tools.FileSystem;
 public class FileSystemToolPlugin : ILuBanToolPlugin
 {
     private readonly FileSystemToolOptions _options;
-    private readonly PathGuard _pathGuard;
 
     /// <summary>
     /// 创建 FileSystemToolPlugin 实例
     /// </summary>
     /// <param name="options">配置选项</param>
-    /// <param name="pathGuard">路径守卫</param>
-    public FileSystemToolPlugin(IOptions<LuBanAgentOptions> options, PathGuard pathGuard)
+    public FileSystemToolPlugin(IOptions<LuBanAgentOptions> options)
     {
         _options = options.Value.Tools.FileSystem;
-        _pathGuard = pathGuard;
     }
 
     /// <summary>
@@ -60,7 +57,7 @@ public class FileSystemToolPlugin : ILuBanToolPlugin
     public IReadOnlyList<AIFunction> GetTools(IServiceProvider sp, ToolGroupOptions? toolsOptions = null)
     {
         var confirmationService = sp.GetRequiredService<IToolConfirmationService>();
-        var toolGroup = new FileSystemToolGroup(_pathGuard, confirmationService);
+        var toolGroup = new FileSystemToolGroup(confirmationService);
         var options = sp.GetService<IOptions<LuBanAgentOptions>>();
         Func<string?> workspaceRootProvider = () => options?.Value.WorkspaceRoot;
         // 工作区根兜底仅用于"只读发现类"工具：模型漏传路径时用工作区根做默认扫描范围才有意义。
@@ -96,17 +93,14 @@ public class FileSystemToolPlugin : ILuBanToolPlugin
 /// </summary>
 public class FileSystemToolGroup
 {
-    private readonly PathGuard _pathGuard;
     private readonly IToolConfirmationService _confirmationService;
 
     /// <summary>
     /// 创建 FileSystemToolGroup 实例
     /// </summary>
-    /// <param name="pathGuard">路径守卫</param>
     /// <param name="confirmationService">工具调用确认服务</param>
-    public FileSystemToolGroup(PathGuard pathGuard, IToolConfirmationService confirmationService)
+    public FileSystemToolGroup(IToolConfirmationService confirmationService)
     {
-        _pathGuard = pathGuard;
         _confirmationService = confirmationService;
     }
 
@@ -331,8 +325,6 @@ public class FileSystemToolGroup
     [Description("读取文件内容")]
     public async Task<ToolResult<string>> ReadFileAsync(string path)
     {
-        if (!_pathGuard.IsAllowed(path))
-            return ToolResult.Fail<string>($"错误：路径 {path} 不在允许访问的范围内");
 
         // 工作区外读取需确认
         if (await ConfirmOrBlockAsync(nameof(ReadFileAsync), path,
@@ -437,8 +429,6 @@ public class FileSystemToolGroup
 [Description("写入文件内容到指定路径。")]
     public async Task<ToolResult<string>> WriteFileAsync(string path, string content)
     {
-        if (!_pathGuard.IsAllowed(path))
-            return ToolResult.Fail<string>($"错误：路径 {path} 不在允许访问的范围内");
 
         // 工作区内写入免确认，工作区外需确认
         if (await ConfirmOrBlockAsync(nameof(WriteFileAsync), path,
@@ -495,8 +485,6 @@ public class FileSystemToolGroup
     [Description("列出目录内容")]
     public async Task<ToolResult<string>> ListDirectoryAsync(string path)
     {
-        if (!_pathGuard.IsAllowed(path))
-            return ToolResult.Fail<string>($"错误：路径 {path} 不在允许访问的范围内");
 
         // 工作区外列目录需确认
         if (await ConfirmOrBlockAsync(nameof(ListDirectoryAsync), path,
@@ -560,9 +548,6 @@ public class FileSystemToolGroup
         {
             return blocked;
         }
-
-        if (!_pathGuard.IsAllowed(resolvedPath))
-            return ToolResult.Fail<string>($"错误：路径 {resolvedPath} 不在允许访问的范围内");
 
         try
         {
@@ -753,8 +738,6 @@ public class FileSystemToolGroup
     [Description("删除文件（无论是否在工作区内，都必须确认）")]
     public async Task<ToolResult<string>> DeleteFileAsync(string path)
     {
-        if (!_pathGuard.IsAllowed(path))
-            return ToolResult.Fail<string>($"错误：路径 {path} 不在允许访问的范围内");
 
         // 删除操作：始终需要确认
         if (await ConfirmOrBlockAsync(nameof(DeleteFileAsync), path,
@@ -814,8 +797,6 @@ public class FileSystemToolGroup
     [Description("删除目录及其所有内容（无论是否在工作区内，都必须确认）")]
     public async Task<ToolResult<string>> DeleteDirectoryAsync(string path)
     {
-        if (!_pathGuard.IsAllowed(path))
-            return ToolResult.Fail<string>($"错误：路径 {path} 不在允许访问的范围内");
 
         // 删除操作：始终需要确认
         if (await ConfirmOrBlockAsync(nameof(DeleteDirectoryAsync), path,
@@ -872,10 +853,14 @@ public class FileSystemToolGroup
     /// <param name="maxResults">最大返回数量</param>
     /// <returns>匹配的文件列表</returns>
     [Description("按文件名模式搜索文件，支持 glob 通配符（如 *.cs、**/*.cs）")]
-    public Task<ToolResult<string>> SearchFilesAsync(string rootPath, string pattern, int maxResults = 100)
+    public async Task<ToolResult<string>> SearchFilesAsync(string rootPath, string pattern, int maxResults = 100)
     {
-        if (!_pathGuard.IsAllowed(rootPath))
-            return Task.FromResult(ToolResult.Fail<string>($"错误：路径 {rootPath} 不在允许访问的范围内"));
+        // 工作区外搜索需确认
+        if (await ConfirmOrBlockAsync(nameof(SearchFilesAsync), rootPath,
+            new Dictionary<string, object?> { ["rootPath"] = rootPath, ["pattern"] = pattern }) is { } blocked)
+        {
+            return blocked;
+        }
 
         try
         {
@@ -897,44 +882,44 @@ public class FileSystemToolGroup
             }
 
             if (results.Count == 0)
-                return Task.FromResult(ToolResult.Ok<string>("未找到匹配的文件"));
+                return ToolResult.Ok<string>("未找到匹配的文件");
 
             var output = new StringBuilder();
             output.AppendLine($"找到 {results.Count} 个匹配文件：");
             foreach (var file in results)
                 output.AppendLine(file);
 
-            return Task.FromResult(ToolResult.Ok<string>(output.ToString().TrimEnd()));
+            return ToolResult.Ok<string>(output.ToString().TrimEnd());
         }
         catch (DirectoryNotFoundException ex)
         {
             Logger.Error("搜索文件异常：目录不存在", ex, rootPath);
-            return Task.FromResult(ToolResult.Fail<string>($"未找到目录: {rootPath}。请检查路径是否正确。"));
+            return ToolResult.Fail<string>($"未找到目录: {rootPath}。请检查路径是否正确。");
         }
         catch (UnauthorizedAccessException ex)
         {
             Logger.Error("搜索文件异常：权限不足", ex, rootPath);
-            return Task.FromResult(ToolResult.Fail<string>($"无法访问目录: {rootPath}，权限不足。请检查权限。"));
+            return ToolResult.Fail<string>($"无法访问目录: {rootPath}，权限不足。请检查权限。");
         }
         catch (PathTooLongException ex)
         {
             Logger.Error("搜索文件异常：路径过长", ex, rootPath);
-            return Task.FromResult(ToolResult.Fail<string>($"路径过长: {rootPath}。请缩短路径或尝试其他路径。"));
+            return ToolResult.Fail<string>($"路径过长: {rootPath}。请缩短路径或尝试其他路径。");
         }
         catch (ArgumentException ex)
         {
             Logger.Error("搜索文件异常：路径无效", ex, rootPath);
-            return Task.FromResult(ToolResult.Fail<string>($"路径无效: {rootPath}。{ex.Message}"));
+            return ToolResult.Fail<string>($"路径无效: {rootPath}。{ex.Message}");
         }
         catch (IOException ex)
         {
             Logger.Error("搜索文件异常：IO 错误", ex, rootPath);
-            return Task.FromResult(ToolResult.Fail<string>($"IO 错误: {rootPath}。{ex.Message}"));
+            return ToolResult.Fail<string>($"IO 错误: {rootPath}。{ex.Message}");
         }
         catch (Exception ex)
         {
             Logger.Error("搜索文件异常", ex, rootPath);
-            return Task.FromResult(ToolResult.Fail<string>($"操作失败: {ex.Message}"));
+            return ToolResult.Fail<string>($"操作失败: {ex.Message}");
         }
     }
 
@@ -949,8 +934,12 @@ public class FileSystemToolGroup
     [Description("按正则表达式搜索文件内容，返回匹配的文件路径、行号和行内容")]
     public async Task<ToolResult<string>> GrepAsync(string rootPath, string pattern, string? filePattern = null, int maxResults = 100)
     {
-        if (!_pathGuard.IsAllowed(rootPath))
-            return ToolResult.Fail<string>($"错误：路径 {rootPath} 不在允许访问的范围内");
+        // 工作区外搜索需确认
+        if (await ConfirmOrBlockAsync(nameof(GrepAsync), rootPath,
+            new Dictionary<string, object?> { ["rootPath"] = rootPath, ["pattern"] = pattern }) is { } blocked)
+        {
+            return blocked;
+        }
 
         try
         {
@@ -1061,8 +1050,6 @@ public class FileSystemToolGroup
     [Description("创建目录，支持递归创建父目录")]
     public async Task<ToolResult<string>> CreateDirectoryAsync(string path)
     {
-        if (!_pathGuard.IsAllowed(path))
-            return ToolResult.Fail<string>($"错误：路径 {path} 不在允许访问的范围内");
 
         if (await ConfirmOrBlockAsync(nameof(CreateDirectoryAsync), path,
             new Dictionary<string, object?> { ["path"] = path }) is { } blocked)
@@ -1120,12 +1107,6 @@ public class FileSystemToolGroup
     [Description("复制文件到目标路径")]
     public async Task<ToolResult<string>> CopyFileAsync(string sourcePath, string destPath, bool overwrite = false)
     {
-        if (!_pathGuard.IsAllowed(sourcePath))
-            return ToolResult.Fail<string>($"错误：源路径 {sourcePath} 不在允许访问的范围内");
-
-        if (!_pathGuard.IsAllowed(destPath))
-            return ToolResult.Fail<string>($"错误：目标路径 {destPath} 不在允许访问的范围内");
-
         var confirmArgs = new Dictionary<string, object?>
         {
             ["sourcePath"] = sourcePath,
@@ -1213,12 +1194,6 @@ public class FileSystemToolGroup
     [Description("移动或重命名文件")]
     public async Task<ToolResult<string>> MoveFileAsync(string sourcePath, string destPath)
     {
-        if (!_pathGuard.IsAllowed(sourcePath))
-            return ToolResult.Fail<string>($"错误：源路径 {sourcePath} 不在允许访问的范围内");
-
-        if (!_pathGuard.IsAllowed(destPath))
-            return ToolResult.Fail<string>($"错误：目标路径 {destPath} 不在允许访问的范围内");
-
         var confirmArgs = new Dictionary<string, object?>
         {
             ["sourcePath"] = sourcePath,
@@ -1296,10 +1271,14 @@ public class FileSystemToolGroup
     /// <param name="path">文件或目录路径</param>
     /// <returns>详细信息</returns>
     [Description("获取文件或目录的详细信息，包括大小、修改时间等")]
-    public Task<ToolResult<string>> GetFileInfoAsync(string path)
+    public async Task<ToolResult<string>> GetFileInfoAsync(string path)
     {
-        if (!_pathGuard.IsAllowed(path))
-            return Task.FromResult(ToolResult.Fail<string>($"错误：路径 {path} 不在允许访问的范围内"));
+        // 工作区外读取信息需确认
+        if (await ConfirmOrBlockAsync(nameof(GetFileInfoAsync), path,
+            new Dictionary<string, object?> { ["path"] = path }) is { } blocked)
+        {
+            return blocked;
+        }
 
         try
         {
@@ -1313,7 +1292,7 @@ public class FileSystemToolGroup
                 output.AppendLine($"修改时间: {fileInfo.LastWriteTime:yyyy-MM-dd HH:mm:ss}");
                 output.AppendLine($"扩展名: {fileInfo.Extension}");
                 output.AppendLine($"属性: {fileInfo.Attributes}");
-                return Task.FromResult(ToolResult.Ok<string>(output.ToString().TrimEnd()));
+                return ToolResult.Ok<string>(output.ToString().TrimEnd());
             }
             else if (Directory.Exists(path))
             {
@@ -1347,42 +1326,42 @@ public class FileSystemToolGroup
                 output.AppendLine($"子目录数: {(dirCount >= 10000 ? "10000+" : dirCount.ToString())}");
                 output.AppendLine($"创建时间: {dirInfo.CreationTime:yyyy-MM-dd HH:mm:ss}");
                 output.AppendLine($"修改时间: {dirInfo.LastWriteTime:yyyy-MM-dd HH:mm:ss}");
-                return Task.FromResult(ToolResult.Ok<string>(output.ToString().TrimEnd()));
+                return ToolResult.Ok<string>(output.ToString().TrimEnd());
             }
             else
             {
-                return Task.FromResult(ToolResult.Fail<string>($"错误：路径不存在 ({path})"));
+                return ToolResult.Fail<string>($"错误：路径不存在 ({path})");
             }
         }
         catch (DirectoryNotFoundException ex)
         {
             Logger.Error("获取信息异常：目录不存在", ex, path);
-            return Task.FromResult(ToolResult.Fail<string>($"未找到目录: {path}。请检查路径是否正确。"));
+            return ToolResult.Fail<string>($"未找到目录: {path}。请检查路径是否正确。");
         }
         catch (UnauthorizedAccessException ex)
         {
             Logger.Error("获取信息异常：权限不足", ex, path);
-            return Task.FromResult(ToolResult.Fail<string>($"无法访问路径: {path}，权限不足。请检查权限。"));
+            return ToolResult.Fail<string>($"无法访问路径: {path}，权限不足。请检查权限。");
         }
         catch (PathTooLongException ex)
         {
             Logger.Error("获取信息异常：路径过长", ex, path);
-            return Task.FromResult(ToolResult.Fail<string>($"路径过长: {path}。请缩短路径或尝试其他路径。"));
+            return ToolResult.Fail<string>($"路径过长: {path}。请缩短路径或尝试其他路径。");
         }
         catch (ArgumentException ex)
         {
             Logger.Error("获取信息异常：路径无效", ex, path);
-            return Task.FromResult(ToolResult.Fail<string>($"路径无效: {path}。{ex.Message}"));
+            return ToolResult.Fail<string>($"路径无效: {path}。{ex.Message}");
         }
         catch (IOException ex)
         {
             Logger.Error("获取信息异常：IO 错误", ex, path);
-            return Task.FromResult(ToolResult.Fail<string>($"IO 错误: {path}。{ex.Message}"));
+            return ToolResult.Fail<string>($"IO 错误: {path}。{ex.Message}");
         }
         catch (Exception ex)
         {
             Logger.Error("获取信息异常", ex, path);
-            return Task.FromResult(ToolResult.Fail<string>($"操作失败: {ex.Message}"));
+            return ToolResult.Fail<string>($"操作失败: {ex.Message}");
         }
     }
 }

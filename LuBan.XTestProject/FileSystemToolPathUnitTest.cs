@@ -47,12 +47,11 @@ public class FileSystemToolPathUnitTest
 
             var confirmationContext = new ToolConfirmationContext
             {
-                Callback = (_, _) => Task.FromResult(true),
+                Callback = (_, _) => Task.FromResult(ConfirmResult.Allow),
                 WorkspacePathChecker = _ => true
             };
 
             _group = new FileSystemToolGroup(
-                new PathGuard(options),
                 new ToolConfirmationService(confirmationContext, options));
         }
         catch

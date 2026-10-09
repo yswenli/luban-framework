@@ -54,8 +54,7 @@ public class RequiredArgumentGuardUnitTest
                 }
             };
 
-            _plugin = new FileSystemToolPlugin(
-                Options.Create(_options), new PathGuard(Options.Create(_options)));
+            _plugin = new FileSystemToolPlugin(Options.Create(_options));
         }
         catch
         {
@@ -82,7 +81,7 @@ public class RequiredArgumentGuardUnitTest
         var options = Options.Create(_options);
         var confirmationContext = new ToolConfirmationContext
         {
-            Callback = (_, _) => Task.FromResult(true),
+            Callback = (_, _) => Task.FromResult(ConfirmResult.Allow),
             WorkspacePathChecker = _ => true
         };
         var provider = new StubServiceProvider(new Dictionary<Type, object>

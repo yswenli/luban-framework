@@ -56,11 +56,11 @@ public enum EnumConfirmationOutcome
 public class ToolConfirmationContext
 {
     /// <summary>
-    /// 工具调用确认回调函数。回调接收工具名称和参数，返回是否允许执行的 Task。
+    /// 工具调用确认回调函数。回调接收工具名称和参数，返回用户的选择结果。
     /// 异步签名允许宿主（CLI TUI）在回调内 await 用户确认（TaskCompletionSource），
     /// 避免占用 agent 线程同步阻塞。
     /// </summary>
-    public Func<string, IReadOnlyDictionary<string, object?>, Task<bool>>? Callback { get; set; }
+    public Func<string, IReadOnlyDictionary<string, object?>, Task<ConfirmResult>>? Callback { get; set; }
 
     /// <summary>
     /// 工作区路径检查回调函数。回调接收路径，返回该路径是否在当前工作区内。
@@ -82,7 +82,19 @@ public class ToolConfirmationContext
     private HashSet<string> AllowedThisTurn { get; } = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
-    /// 判断本轮是否已允许指定工具（用户选择过"本轮全部允许"）。
+    /// 本会话已允许的工具名集合（用户选择"本会话全部允许"且工具无路径语义时记忆）。
+    /// 与 <see cref="AllowedThisTurn"/> 不同，此集合跨轮存活，由 <see cref="ResetSession"/> 清除。
+    /// </summary>
+    private HashSet<string> AllowedThisSession { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// 本轮已授权的路径根集合（用户选择"本轮全部允许"时按路径所在根记忆）。
+    /// 命中根及其子路径在本轮内免确认。
+    /// </summary>
+    private List<string> AllowedRootsThisTurn { get; } = new();
+
+    /// <summary>
+    /// 判断本轮是否已允许指定工具（用户选择过"本轮全部允许"，无路径语义的工具按工具名记忆）。
     /// 线程安全：主代理写入与并行子代理读取可能并发。
     /// </summary>
     /// <param name="toolName">工具名称。</param>
@@ -96,7 +108,7 @@ public class ToolConfirmationContext
     }
 
     /// <summary>
-    /// 将工具加入本轮已允许集合（用户选择"本轮全部允许"时由宿主调用）。
+    /// 将工具加入本轮已允许集合（用户选择"本轮全部允许"且工具无路径语义时由服务调用）。
     /// </summary>
     /// <param name="toolName">工具名称。</param>
     public void AllowThisTurn(string toolName)
@@ -104,6 +116,167 @@ public class ToolConfirmationContext
         lock (_allowedLock)
         {
             AllowedThisTurn.Add(toolName);
+        }
+    }
+
+    /// <summary>
+    /// 判断路径是否落在本轮已授权的某个根之下（含相等）。
+    /// </summary>
+    /// <param name="path">要检查的路径。</param>
+    /// <returns>命中返回 true。</returns>
+    public bool IsRootAllowedThisTurn(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return false;
+
+        string normalized;
+        try
+        {
+            normalized = Path.GetFullPath(path)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        }
+        catch
+        {
+            return false;
+        }
+
+        lock (_allowedLock)
+        {
+            foreach (var root in AllowedRootsThisTurn)
+            {
+                if (normalized.Equals(root, StringComparison.OrdinalIgnoreCase) ||
+                    normalized.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// 记录本轮已授权的路径根（用户选择"本轮全部允许"且工具带路径时由服务调用）。
+    /// </summary>
+    /// <param name="root">要授权的根路径。</param>
+    public void AllowRootThisTurn(string root)
+    {
+        if (string.IsNullOrWhiteSpace(root))
+            return;
+
+        string normalized;
+        try
+        {
+            normalized = Path.GetFullPath(root)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        }
+        catch
+        {
+            return;
+        }
+
+        lock (_allowedLock)
+        {
+            if (!AllowedRootsThisTurn.Contains(normalized, StringComparer.OrdinalIgnoreCase))
+                AllowedRootsThisTurn.Add(normalized);
+        }
+    }
+
+    private List<string> AllowedRootsThisSession { get; } = new();
+
+    /// <summary>
+    /// 判断本会话是否已允许指定工具（用户选择过"本会话全部允许"，无路径语义的工具按工具名记忆）。
+    /// 与"本轮"不同，本会话授权跨轮存活，直到 <see cref="ResetSession"/> 被调用。
+    /// </summary>
+    /// <param name="toolName">工具名称。</param>
+    /// <returns>本会话已允许返回 true。</returns>
+    public bool IsAllowedThisSession(string toolName)
+    {
+        lock (_allowedLock)
+        {
+            return AllowedThisSession.Contains(toolName);
+        }
+    }
+
+    /// <summary>
+    /// 将工具加入本会话已允许集合（用户选择"本会话全部允许"且工具无路径语义时由服务调用）。
+    /// </summary>
+    /// <param name="toolName">工具名称。</param>
+    public void AllowThisSession(string toolName)
+    {
+        lock (_allowedLock)
+        {
+            AllowedThisSession.Add(toolName);
+        }
+    }
+
+    /// <summary>
+    /// 判断路径是否落在本会话已授权的某个根之下（含相等）。
+    /// </summary>
+    /// <param name="path">要检查的路径。</param>
+    /// <returns>命中返回 true。</returns>
+    public bool IsRootAllowedThisSession(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return false;
+
+        string normalized;
+        try
+        {
+            normalized = Path.GetFullPath(path)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        }
+        catch
+        {
+            return false;
+        }
+
+        lock (_allowedLock)
+        {
+            foreach (var root in AllowedRootsThisSession)
+            {
+                if (normalized.Equals(root, StringComparison.OrdinalIgnoreCase) ||
+                    normalized.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// 记录本会话已授权的路径根（用户选择"本会话全部允许"且工具带路径时由服务调用）。
+    /// </summary>
+    /// <param name="root">要授权的根路径。</param>
+    public void AllowRootThisSession(string root)
+    {
+        if (string.IsNullOrWhiteSpace(root))
+            return;
+
+        string normalized;
+        try
+        {
+            normalized = Path.GetFullPath(root)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        }
+        catch
+        {
+            return;
+        }
+
+        lock (_allowedLock)
+        {
+            if (!AllowedRootsThisSession.Contains(normalized, StringComparer.OrdinalIgnoreCase))
+                AllowedRootsThisSession.Add(normalized);
+        }
+    }
+
+    /// <summary>
+    /// 清空本会话授权集合（工具名与路径根）。供宿主要在会话内主动撤销时调用；
+    /// <see cref="Reset"/> 不清除此处状态，以保证本会话授权跨轮存活。
+    /// </summary>
+    public void ResetSession()
+    {
+        lock (_allowedLock)
+        {
+            AllowedThisSession.Clear();
+            AllowedRootsThisSession.Clear();
         }
     }
 
@@ -132,6 +305,7 @@ public class ToolConfirmationContext
         lock (_allowedLock)
         {
             AllowedThisTurn.Clear();
+            AllowedRootsThisTurn.Clear();
         }
         OnPlannedAction = null;
         OnUserDenied = null;
@@ -262,6 +436,7 @@ public interface IToolConfirmationService
 public class ToolConfirmationService : IToolConfirmationService
 {
     private readonly ToolConfirmationContext _context;
+    private readonly PathGuard? _pathGuard;
 
     /// <summary>
     /// 内置默认：删除类工具名，任何放行策略下都必须确认。
@@ -273,13 +448,15 @@ public class ToolConfirmationService : IToolConfirmationService
     ];
 
     /// <summary>
-    /// 内置默认：只读工具名。Plan 模式下直接放行以便 Agent 读取上下文产出计划；
-    /// Default / AcceptEdits 路径同样据此免确认（仅限无副作用的读取类工具）。
+    /// 内置默认：只读工具名。Plan 模式下，仅当目标路径落在已授权范围（工作区/本轮或本会话已授权根）内时直接放行，
+    /// 以便 Agent 读取上下文产出计划；越界只读仍记录为计划项，避免 Plan 模式下无授权读取区外内容。
+    /// 该名单仅在 Plan 分支生效，Default / AcceptEdits 不再据此免确认（越界仍走确认）。
     /// 注意：任何会写库或有其它副作用的工具都不应加入此名单（例如 CompactContextAsync）。
     /// </summary>
     private static readonly string[] DefaultReadOnlyTools =
     [
         "ReadFileAsync", "ListDirectoryAsync", "GetWorkspaceOverviewAsync",
+        "SearchFilesAsync", "GrepAsync", "GetFileInfoAsync",
     ];
 
     /// <summary>
@@ -287,9 +464,14 @@ public class ToolConfirmationService : IToolConfirmationService
     /// </summary>
     /// <param name="context">确认上下文（由 DI 容器注入的单例）</param>
     /// <param name="options">Agent 配置（可选）。缺省或对应数组留空时使用内置默认工具名集合</param>
-    public ToolConfirmationService(ToolConfirmationContext context, IOptions<LuBanAgentOptions>? options = null)
+    /// <param name="pathGuard">路径守卫（可选）。用于承接"本会话"级授权：命中即免确认，并在用户选择本会话授权时写入。</param>
+    public ToolConfirmationService(
+        ToolConfirmationContext context,
+        IOptions<LuBanAgentOptions>? options = null,
+        PathGuard? pathGuard = null)
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
+        _pathGuard = pathGuard;
 
         // 配置非空即整体替换内置默认（宿主可据此筛选），留空则回退默认；
         // 运行期仍可通过下方读写属性继续调整
@@ -330,13 +512,11 @@ public class ToolConfirmationService : IToolConfirmationService
         }
 
         // 子代理"全放行但守硬约束"作用域（A2A 进程内执行器 opt-in，默认关）：
-        // 视为本轮全部已允许；只读无副作用直接放行，删除类与写类越界路径为硬约束，直接拒绝（子代理无 UI 可确认）。
+        // 视为本轮全部已允许；工作区外路径为硬约束，直接拒绝（子代理无 UI 可确认），工作区内一律放行。
         if (ToolConfirmationContext.IsSubAgentAllowAll)
         {
             if (AlwaysConfirmTools.Contains(toolName))
                 return EnumConfirmationOutcome.Denied;
-            if (ReadOnlyTools.Contains(toolName))
-                return EnumConfirmationOutcome.Allowed;
             if (!string.IsNullOrEmpty(path) && !IsWithinWorkspace(path))
                 return EnumConfirmationOutcome.Denied;
             return EnumConfirmationOutcome.Allowed;
@@ -349,8 +529,10 @@ public class ToolConfirmationService : IToolConfirmationService
                 return EnumConfirmationOutcome.Allowed;
 
             case ToolPermissionMode.Plan:
-                // 只读操作无副作用，放行以便 Agent 读取上下文产出计划
-                if (ReadOnlyTools.Contains(toolName))
+                // 只读操作无副作用，但仅限已授权范围内（工作区/本轮或本会话已授权根）直接放行，
+                // 以便 Agent 读取上下文产出计划；越界只读仍记录为计划项，避免无授权读取区外内容。
+                if (ReadOnlyTools.Contains(toolName) &&
+                    (string.IsNullOrEmpty(path) || IsAuthorizedPath(path)))
                 {
                     return EnumConfirmationOutcome.Allowed;
                 }
@@ -360,14 +542,14 @@ public class ToolConfirmationService : IToolConfirmationService
                 return EnumConfirmationOutcome.Planned;
 
             case ToolPermissionMode.AcceptEdits:
-                // 编辑类操作（有目标路径且非删除类）直接放行；
+                // 编辑类操作（工作区授权范围内的有路径且非删除类）直接放行；
                 // 空串等同无路径语义，不能当作编辑类放行
-                if (!string.IsNullOrEmpty(path) && !AlwaysConfirmTools.Contains(toolName))
+                if (!string.IsNullOrEmpty(path) && !AlwaysConfirmTools.Contains(toolName) && IsAuthorizedPath(path))
                 {
                     return EnumConfirmationOutcome.Allowed;
                 }
 
-                // 非编辑类（脚本）与删除类走 Default 路径确认
+                // 非编辑类（脚本）、删除类与越界路径走 Default 路径确认
                 break;
 
             default: // ToolPermissionMode.Default
@@ -376,44 +558,132 @@ public class ToolConfirmationService : IToolConfirmationService
 
         // ── Default 路径 ──
 
-        // 本轮已允许的工具跳过确认
-        if (_context.IsAllowedThisTurn(toolName))
+        // 本轮/本会话已允许的工具跳过确认（无路径语义的工具按工具名记忆）
+        if (_context.IsAllowedThisTurn(toolName) || _context.IsAllowedThisSession(toolName))
         {
             return EnumConfirmationOutcome.Allowed;
         }
 
-        // 只读工具（读取/概览/查询）无副作用，直接放行，不打断用户；
-        // 实际文件/数据访问仍受 PathGuard 工作区授权约束，不会越权。
-        // 对应“读取不需要授权”的预期（Default 模式即如此，不再仅 Plan 模式放行）。
-        if (ReadOnlyTools.Contains(toolName))
-        {
-            return EnumConfirmationOutcome.Allowed;
-        }
-
-        // 删除类工具：无论路径是否在工作区内都必须确认
+        // 删除类工具：无论路径是否在工作区内都必须确认，且"本轮/本会话全部允许"对删除类不记忆
         if (AlwaysConfirmTools.Contains(toolName))
         {
-            return await AskUserAsync(toolName, arguments).ConfigureAwait(false);
+            return await AskUserAsync(toolName, path, arguments, suppressGrant: true).ConfigureAwait(false);
         }
 
-        // 有路径的非删除类工具：工作区内免确认
-        if (!string.IsNullOrEmpty(path) && IsWithinWorkspace(path))
+        // 工作区授权范围内（工作区根 / 本轮或本会话已授权的根）：免确认
+        if (IsAuthorizedPath(path))
         {
             return EnumConfirmationOutcome.Allowed;
         }
 
-        // 工作区外，或无路径语义的工具（脚本）：需要确认
-        return await AskUserAsync(toolName, arguments).ConfigureAwait(false);
+        // 越界或无路径语义的工具（脚本）：需要确认
+        return await AskUserAsync(toolName, path, arguments).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// 判断路径是否落在当前已授权范围内：本轮/本会话已授权的根、PathGuard 工作区根，或工作区检查器认定的工作区内。
+    /// </summary>
+    /// <param name="path">要检查的路径。</param>
+    /// <returns>已授权返回 true。</returns>
+    private bool IsAuthorizedPath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return false;
+
+        if (_context.IsRootAllowedThisTurn(path) || _context.IsRootAllowedThisSession(path))
+            return true;
+
+        if (_pathGuard != null && _pathGuard.IsAllowed(path))
+            return true;
+
+        return IsWithinWorkspace(path);
+    }
+
+    /// <summary>
+    /// 依据用户的授权结果记忆放行范围。无路径语义的工具按工具名记忆，其余按路径所在根记忆。
+    /// 对文件路径取父目录为根，对目录路径取自身为根。
+    /// 删除类工具的"本轮/本会话全部允许"不记忆（<paramref name="suppressGrant"/>），避免后续删除免确认。
+    /// </summary>
+    /// <param name="toolName">工具名称。</param>
+    /// <param name="path">操作目标路径（可为 null）。</param>
+    /// <param name="session">true 记入本会话，false 记入本轮。</param>
+    /// <param name="suppressGrant">true 时不写入任何记忆（删除类每次都必须确认）。</param>
+    private void RecordGrant(string toolName, string? path, bool session, bool suppressGrant = false)
+    {
+        if (suppressGrant)
+            return;
+
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            if (session)
+                _context.AllowThisSession(toolName);
+            else
+                _context.AllowThisTurn(toolName);
+            return;
+        }
+
+        var root = ResolveGrantRoot(path!);
+
+        // 授权根落到盘符根（如 D:\）：范围过大，不记忆，避免一次授权放行整盘
+        if (IsDriveRoot(root))
+            return;
+
+        if (session)
+            _context.AllowRootThisSession(root);
+        else
+            _context.AllowRootThisTurn(root);
+    }
+
+    /// <summary>
+    /// 判断路径是否为盘符根（无父目录，如 <c>D:\</c>）。
+    /// </summary>
+    /// <param name="path">要检查的路径。</param>
+    /// <returns>是盘符根返回 true。</returns>
+    private static bool IsDriveRoot(string path)
+    {
+        try
+        {
+            var full = Path.GetFullPath(path);
+            return string.IsNullOrEmpty(Path.GetDirectoryName(full));
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 计算授权记忆所用的根：目录路径取自身，文件路径取父目录；解析失败时回退原路径。
+    /// </summary>
+    /// <param name="path">操作目标路径。</param>
+    /// <returns>用于记忆的根路径。</returns>
+    private static string ResolveGrantRoot(string path)
+    {
+        try
+        {
+            var full = Path.GetFullPath(path);
+            if (Directory.Exists(full))
+                return full;
+
+            var parent = Path.GetDirectoryName(full);
+            return string.IsNullOrEmpty(parent) ? full : parent;
+        }
+        catch
+        {
+            return path;
+        }
     }
 
     /// <summary>
     /// 调用宿主确认回调。未设置回调时默认拒绝。
     /// </summary>
     /// <param name="toolName">工具名称。</param>
+    /// <param name="path">操作目标路径（可为 null）。</param>
     /// <param name="arguments">工具参数。</param>
+    /// <param name="suppressGrant">true 时"本轮/本会话全部允许"不写入记忆（删除类每次都必须确认）。</param>
     /// <returns>允许或拒绝。</returns>
     private async Task<EnumConfirmationOutcome> AskUserAsync(
-        string toolName, IReadOnlyDictionary<string, object?> arguments)
+        string toolName, string? path, IReadOnlyDictionary<string, object?> arguments, bool suppressGrant = false)
     {
         // 免确认名单：命中则直接放行，不打断用户
         if (AutoConfirmTools.Contains(toolName))
@@ -421,10 +691,10 @@ public class ToolConfirmationService : IToolConfirmationService
             return EnumConfirmationOutcome.Allowed;
         }
 
-        // 子代理作用域：不向用户弹确认，改由主代码按本轮已允许集合代确认
+        // 子代理作用域：不向用户弹确认，改由主代码按已允许集合代确认
         if (ToolConfirmationContext.IsInSubAgentScope)
         {
-            return _context.IsAllowedThisTurn(toolName)
+            return (_context.IsAllowedThisTurn(toolName) || _context.IsAllowedThisSession(toolName))
                 ? EnumConfirmationOutcome.Allowed
                 : EnumConfirmationOutcome.Denied;
         }
@@ -435,9 +705,21 @@ public class ToolConfirmationService : IToolConfirmationService
             return EnumConfirmationOutcome.Denied;
         }
 
-        var allowed = await callback(toolName, arguments).ConfigureAwait(false);
-        if (allowed)
+        var result = await callback(toolName, arguments).ConfigureAwait(false);
+        if (result is ConfirmResult.Allow)
         {
+            return EnumConfirmationOutcome.Allowed;
+        }
+
+        if (result is ConfirmResult.AllowAll)
+        {
+            RecordGrant(toolName, path, session: false, suppressGrant);
+            return EnumConfirmationOutcome.Allowed;
+        }
+
+        if (result is ConfirmResult.AllowSession)
+        {
+            RecordGrant(toolName, path, session: true, suppressGrant);
             return EnumConfirmationOutcome.Allowed;
         }
 

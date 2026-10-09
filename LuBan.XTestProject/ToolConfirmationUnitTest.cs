@@ -27,7 +27,7 @@ public class ToolConfirmationUnitTest
     private static void Configure(
         ToolConfirmationContext context,
         ToolPermissionMode mode = ToolPermissionMode.Default,
-        Func<string, IReadOnlyDictionary<string, object?>, Task<bool>>? callback = null,
+        Func<string, IReadOnlyDictionary<string, object?>, Task<ConfirmResult>>? callback = null,
         Action<string, IReadOnlyDictionary<string, object?>>? onUserDenied = null,
         string? allowedTool = null)
     {
@@ -44,7 +44,7 @@ public class ToolConfirmationUnitTest
     {
         var service = CreateService(out var context);
         var callbackInvoked = false;
-        Configure(context, callback: (_, _) => { callbackInvoked = true; return Task.FromResult(true); });
+        Configure(context, callback: (_, _) => { callbackInvoked = true; return Task.FromResult(ConfirmResult.Allow); });
 
         var outcome = await service.EvaluateAsync("WriteFileAsync", @"C:\work\a.txt", new Dictionary<string, object?>());
 
@@ -56,7 +56,7 @@ public class ToolConfirmationUnitTest
     public async Task Default_WorkspaceExternalPath_CallbackTrue_IsAllowed()
     {
         var service = CreateService(out var context);
-        Configure(context, callback: (_, _) => Task.FromResult(true));
+        Configure(context, callback: (_, _) => Task.FromResult(ConfirmResult.Allow));
 
         var outcome = await service.EvaluateAsync("WriteFileAsync", @"D:\other\a.txt", new Dictionary<string, object?>());
 
@@ -69,7 +69,7 @@ public class ToolConfirmationUnitTest
         var service = CreateService(out var context);
         string? deniedTool = null;
         Configure(context,
-            callback: (_, _) => Task.FromResult(false),
+            callback: (_, _) => Task.FromResult(ConfirmResult.Deny),
             onUserDenied: (tool, _) => deniedTool = tool);
 
         var outcome = await service.EvaluateAsync("WriteFileAsync", @"D:\other\a.txt", new Dictionary<string, object?>());
@@ -100,7 +100,7 @@ public class ToolConfirmationUnitTest
         using var cts = new CancellationTokenSource();
         cts.Cancel();
         Configure(context,
-            callback: (_, _) => { callbackInvoked = true; return Task.FromResult(true); },
+            callback: (_, _) => { callbackInvoked = true; return Task.FromResult(ConfirmResult.Allow); },
             onUserDenied: (_, _) => hookFired = true);
         context.CancellationToken = cts.Token;
 
@@ -118,7 +118,7 @@ public class ToolConfirmationUnitTest
         var hookFired = false;
         using var cts = new CancellationTokenSource();
         Configure(context,
-            callback: async (_, _) => { await cts.CancelAsync(); return false; },
+            callback: async (_, _) => { await cts.CancelAsync(); return ConfirmResult.Deny; },
             onUserDenied: (_, _) => hookFired = true);
         context.CancellationToken = cts.Token;
 
@@ -157,7 +157,7 @@ public class ToolConfirmationUnitTest
     public async Task AlwaysConfirmTool_CallbackFalse_IsDenied_EvenInsideWorkspace()
     {
         var service = CreateService(out var context);
-        Configure(context, callback: (_, _) => Task.FromResult(false));
+        Configure(context, callback: (_, _) => Task.FromResult(ConfirmResult.Deny));
 
         var outcome = await service.EvaluateAsync("DeleteFileAsync", @"C:\work\a.txt", new Dictionary<string, object?>());
 
@@ -165,14 +165,38 @@ public class ToolConfirmationUnitTest
     }
 
     [TestMethod]
-    public async Task ReadOnlyTool_IsAllowed()
+    public async Task Default_ReadOnlyWorkspacePath_IsAllowedWithoutCallback()
     {
         var service = CreateService(out var context);
-        Configure(context, callback: (_, _) => Task.FromResult(false));
+        var callbackInvoked = false;
+        Configure(context, callback: (_, _) => { callbackInvoked = true; return Task.FromResult(ConfirmResult.Deny); });
+
+        var outcome = await service.EvaluateAsync("ReadFileAsync", @"C:\work\a.txt", new Dictionary<string, object?>());
+
+        Assert.AreEqual(EnumConfirmationOutcome.Allowed, outcome, "工作区内只读免确认");
+        Assert.IsFalse(callbackInvoked);
+    }
+
+    [TestMethod]
+    public async Task Default_ReadOnlyExternalPath_CallbackFalse_IsDenied()
+    {
+        var service = CreateService(out var context);
+        Configure(context, callback: (_, _) => Task.FromResult(ConfirmResult.Deny));
 
         var outcome = await service.EvaluateAsync("ReadFileAsync", @"D:\other\a.txt", new Dictionary<string, object?>());
 
-        Assert.AreEqual(EnumConfirmationOutcome.Allowed, outcome);
+        Assert.AreEqual(EnumConfirmationOutcome.Denied, outcome, "工作区外只读需确认，用户拒绝则拒绝");
+    }
+
+    [TestMethod]
+    public async Task Default_ReadOnlyExternalPath_CallbackAllow_IsAllowed()
+    {
+        var service = CreateService(out var context);
+        Configure(context, callback: (_, _) => Task.FromResult(ConfirmResult.Allow));
+
+        var outcome = await service.EvaluateAsync("ReadFileAsync", @"D:\other\a.txt", new Dictionary<string, object?>());
+
+        Assert.AreEqual(EnumConfirmationOutcome.Allowed, outcome, "工作区外只读经用户允许后放行");
     }
 
     [TestMethod]
@@ -182,7 +206,7 @@ public class ToolConfirmationUnitTest
         var callbackInvoked = false;
         var hookFired = false;
         Configure(context,
-            callback: (_, _) => { callbackInvoked = true; return Task.FromResult(true); },
+            callback: (_, _) => { callbackInvoked = true; return Task.FromResult(ConfirmResult.Allow); },
             onUserDenied: (_, _) => hookFired = true);
 
         EnumConfirmationOutcome outcome;
@@ -202,7 +226,7 @@ public class ToolConfirmationUnitTest
         var service = CreateService(out var context);
         var callbackInvoked = false;
         Configure(context,
-            callback: (_, _) => { callbackInvoked = true; return Task.FromResult(true); },
+            callback: (_, _) => { callbackInvoked = true; return Task.FromResult(ConfirmResult.Allow); },
             allowedTool: "WriteFileAsync");
 
         EnumConfirmationOutcome outcome;
@@ -301,7 +325,7 @@ public class ToolConfirmationUnitTest
     {
         var service = CreateService(out var context);
         var callbackInvoked = false;
-        Configure(context, callback: (_, _) => { callbackInvoked = true; return Task.FromResult(true); });
+        Configure(context, callback: (_, _) => { callbackInvoked = true; return Task.FromResult(ConfirmResult.Allow); });
 
         EnumConfirmationOutcome outcome;
         using (ToolConfirmationContext.EnterSubAgentScope(allowAll: true))
@@ -317,7 +341,7 @@ public class ToolConfirmationUnitTest
     public async Task SubAgentAllowAll_ScriptWithoutPath_IsAllowed()
     {
         var service = CreateService(out var context);
-        Configure(context, callback: (_, _) => Task.FromResult(false));
+        Configure(context, callback: (_, _) => Task.FromResult(ConfirmResult.Deny));
 
         EnumConfirmationOutcome outcome;
         using (ToolConfirmationContext.EnterSubAgentScope(allowAll: true))
@@ -329,10 +353,10 @@ public class ToolConfirmationUnitTest
     }
 
     [TestMethod]
-    public async Task SubAgentAllowAll_ReadOnlyExternalPath_IsAllowed()
+    public async Task SubAgentAllowAll_ReadOnlyExternalPath_IsDenied()
     {
         var service = CreateService(out var context);
-        Configure(context, callback: (_, _) => Task.FromResult(false));
+        Configure(context, callback: (_, _) => Task.FromResult(ConfirmResult.Deny));
 
         EnumConfirmationOutcome outcome;
         using (ToolConfirmationContext.EnterSubAgentScope(allowAll: true))
@@ -340,7 +364,7 @@ public class ToolConfirmationUnitTest
             outcome = await service.EvaluateAsync("ReadFileAsync", @"D:\other\a.txt", new Dictionary<string, object?>());
         }
 
-        Assert.AreEqual(EnumConfirmationOutcome.Allowed, outcome, "只读无副作用，即使越界也放行");
+        Assert.AreEqual(EnumConfirmationOutcome.Denied, outcome, "子代理全放行下越界路径为硬约束，只读也拒绝");
     }
 
     [TestMethod]
@@ -348,7 +372,7 @@ public class ToolConfirmationUnitTest
     {
         var service = CreateService(out var context);
         var callbackInvoked = false;
-        Configure(context, callback: (_, _) => { callbackInvoked = true; return Task.FromResult(true); });
+        Configure(context, callback: (_, _) => { callbackInvoked = true; return Task.FromResult(ConfirmResult.Allow); });
 
         EnumConfirmationOutcome outcome;
         using (ToolConfirmationContext.EnterSubAgentScope(allowAll: true))
@@ -364,7 +388,7 @@ public class ToolConfirmationUnitTest
     public async Task SubAgentAllowAll_DeleteTool_IsDenied_EvenInsideWorkspace()
     {
         var service = CreateService(out var context);
-        Configure(context, callback: (_, _) => Task.FromResult(true));
+        Configure(context, callback: (_, _) => Task.FromResult(ConfirmResult.Allow));
 
         EnumConfirmationOutcome outcome;
         using (ToolConfirmationContext.EnterSubAgentScope(allowAll: true))
@@ -373,5 +397,160 @@ public class ToolConfirmationUnitTest
         }
 
         Assert.AreEqual(EnumConfirmationOutcome.Denied, outcome, "删除类为硬约束，必须拒绝");
+    }
+
+    [TestMethod]
+    public async Task Default_AllowAll_RemembersRoot_ForSiblingFileInSameTurn()
+    {
+        var service = CreateService(out var context);
+        var callbackCount = 0;
+        Configure(context, callback: (_, _) => { callbackCount++; return Task.FromResult(ConfirmResult.AllowAll); });
+
+        var first = await service.EvaluateAsync("WriteFileAsync", @"D:\other\a.txt", new Dictionary<string, object?>());
+        var second = await service.EvaluateAsync("WriteFileAsync", @"D:\other\b.txt", new Dictionary<string, object?>());
+
+        Assert.AreEqual(EnumConfirmationOutcome.Allowed, first);
+        Assert.AreEqual(EnumConfirmationOutcome.Allowed, second, "同目录下的兄弟文件应命中本轮授权根");
+        Assert.AreEqual(1, callbackCount, "第二次不应再弹确认");
+    }
+
+    [TestMethod]
+    public async Task Default_AllowSession_SurvivesReset_ForSameRoot()
+    {
+        var service = CreateService(out var context);
+        var callbackCount = 0;
+        Configure(context, callback: (_, _) => { callbackCount++; return Task.FromResult(ConfirmResult.AllowSession); });
+
+        var first = await service.EvaluateAsync("WriteFileAsync", @"D:\other\a.txt", new Dictionary<string, object?>());
+
+        // 模拟新一轮：Reset 清空本轮集合，但本会话授权须存活
+        context.Reset();
+        Configure(context, callback: (_, _) => { callbackCount++; return Task.FromResult(ConfirmResult.Deny); });
+
+        var second = await service.EvaluateAsync("WriteFileAsync", @"D:\other\b.txt", new Dictionary<string, object?>());
+
+        Assert.AreEqual(EnumConfirmationOutcome.Allowed, first);
+        Assert.AreEqual(EnumConfirmationOutcome.Allowed, second, "本会话授权应跨轮存活");
+        Assert.AreEqual(1, callbackCount);
+    }
+
+    [TestMethod]
+    public async Task Default_AllowAll_DoesNotSurviveReset()
+    {
+        var service = CreateService(out var context);
+        Configure(context, callback: (_, _) => Task.FromResult(ConfirmResult.AllowAll));
+
+        await service.EvaluateAsync("WriteFileAsync", @"D:\other\a.txt", new Dictionary<string, object?>());
+
+        context.Reset();
+        Configure(context, callback: (_, _) => Task.FromResult(ConfirmResult.Deny));
+
+        var outcome = await service.EvaluateAsync("WriteFileAsync", @"D:\other\b.txt", new Dictionary<string, object?>());
+
+        Assert.AreEqual(EnumConfirmationOutcome.Denied, outcome, "本轮授权在 Reset 后应失效");
+    }
+
+    [TestMethod]
+    public async Task Default_AllowAll_DeleteTool_DoesNotRemember_StillConfirmsAgain()
+    {
+        var service = CreateService(out var context);
+        var callbackCount = 0;
+        Configure(context, callback: (_, _) => { callbackCount++; return Task.FromResult(ConfirmResult.AllowAll); });
+
+        var first = await service.EvaluateAsync("DeleteFileAsync", @"C:\work\a.txt", new Dictionary<string, object?>());
+        var second = await service.EvaluateAsync("DeleteFileAsync", @"C:\work\b.txt", new Dictionary<string, object?>());
+
+        Assert.AreEqual(EnumConfirmationOutcome.Allowed, first);
+        Assert.AreEqual(EnumConfirmationOutcome.Allowed, second);
+        Assert.AreEqual(2, callbackCount, "删除类不记忆授权，每次都必须确认");
+    }
+
+    [TestMethod]
+    public async Task Default_AllowSession_DeleteTool_DoesNotRemember_StillConfirmsAgain()
+    {
+        var service = CreateService(out var context);
+        var callbackCount = 0;
+        Configure(context, callback: (_, _) => { callbackCount++; return Task.FromResult(ConfirmResult.AllowSession); });
+
+        var first = await service.EvaluateAsync("DeleteFileAsync", @"C:\work\a.txt", new Dictionary<string, object?>());
+
+        context.Reset();
+        Configure(context, callback: (_, _) => { callbackCount++; return Task.FromResult(ConfirmResult.AllowSession); });
+
+        var second = await service.EvaluateAsync("DeleteFileAsync", @"C:\work\b.txt", new Dictionary<string, object?>());
+
+        Assert.AreEqual(EnumConfirmationOutcome.Allowed, first);
+        Assert.AreEqual(EnumConfirmationOutcome.Allowed, second);
+        Assert.AreEqual(2, callbackCount, "删除类本会话授权也不记忆，每次都必须确认");
+    }
+
+    [TestMethod]
+    public async Task Default_AllowAll_DriveRootPath_DoesNotRemember_StillConfirmsAgain()
+    {
+        var service = CreateService(out var context);
+        var callbackCount = 0;
+        Configure(context, callback: (_, _) => { callbackCount++; return Task.FromResult(ConfirmResult.AllowAll); });
+
+        var first = await service.EvaluateAsync("WriteFileAsync", @"D:\a.txt", new Dictionary<string, object?>());
+        var second = await service.EvaluateAsync("WriteFileAsync", @"D:\b.txt", new Dictionary<string, object?>());
+
+        Assert.AreEqual(EnumConfirmationOutcome.Allowed, first);
+        Assert.AreEqual(EnumConfirmationOutcome.Allowed, second);
+        Assert.AreEqual(2, callbackCount, "授权根落到盘符根时不记忆，避免放行整盘");
+    }
+
+    [TestMethod]
+    public async Task Plan_ReadOnlyExternalPath_IsPlanned_NotAllowed()
+    {
+        var service = CreateService(out var context);
+        var callbackInvoked = false;
+        Configure(context, mode: ToolPermissionMode.Plan,
+            callback: (_, _) => { callbackInvoked = true; return Task.FromResult(ConfirmResult.Allow); });
+        string? planned = null;
+        context.OnPlannedAction = (tool, _) => planned = tool;
+
+        var outcome = await service.EvaluateAsync("ReadFileAsync", @"D:\other\a.txt", new Dictionary<string, object?>());
+
+        Assert.AreEqual(EnumConfirmationOutcome.Planned, outcome, "Plan 模式越界只读应记为计划项");
+        Assert.AreEqual("ReadFileAsync", planned);
+        Assert.IsFalse(callbackInvoked);
+    }
+
+    [TestMethod]
+    public async Task Plan_ReadOnlyWorkspacePath_IsAllowed()
+    {
+        var service = CreateService(out var context);
+        Configure(context, mode: ToolPermissionMode.Plan);
+
+        var outcome = await service.EvaluateAsync("ReadFileAsync", @"C:\work\a.txt", new Dictionary<string, object?>());
+
+        Assert.AreEqual(EnumConfirmationOutcome.Allowed, outcome, "Plan 模式工作区内只读照常放行");
+    }
+
+    [TestMethod]
+    public async Task Plan_SearchFilesWorkspacePath_IsAllowed()
+    {
+        var service = CreateService(out var context);
+        Configure(context, mode: ToolPermissionMode.Plan);
+
+        var outcome = await service.EvaluateAsync("SearchFilesAsync", @"C:\work", new Dictionary<string, object?>());
+
+        Assert.AreEqual(EnumConfirmationOutcome.Allowed, outcome, "Plan 模式工作区内搜索只读照常放行");
+    }
+
+    [TestMethod]
+    public async Task Default_AllowSession_CanBeClearedByResetSession()
+    {
+        var service = CreateService(out var context);
+        Configure(context, callback: (_, _) => Task.FromResult(ConfirmResult.AllowSession));
+
+        await service.EvaluateAsync("WriteFileAsync", @"D:\other\a.txt", new Dictionary<string, object?>());
+
+        context.ResetSession();
+        Configure(context, callback: (_, _) => Task.FromResult(ConfirmResult.Deny));
+
+        var outcome = await service.EvaluateAsync("WriteFileAsync", @"D:\other\b.txt", new Dictionary<string, object?>());
+
+        Assert.AreEqual(EnumConfirmationOutcome.Denied, outcome, "ResetSession 后本会话授权应失效");
     }
 }

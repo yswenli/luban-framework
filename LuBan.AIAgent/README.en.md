@@ -112,12 +112,14 @@ Skills, MCPs, and Rules use a unified three-tier priority registry pattern:
 | Tool Group | Group Name | Core Capabilities |
 |------------|------------|-------------------|
 | **Browser Tools** | `browser` | Navigate, click, type, screenshot, get content, wait for selector, get URL (Playwright-based) |
-| **File System Tools** | `filesystem` | Read files, write files, list directories, delete files, delete directories, search files (glob), content search (regex), create directories, copy files, move files, get file info, with AllowedRoots security restrictions |
+| **File System Tools** | `filesystem` | Read files, write files, list directories, delete files, delete directories, search files (glob), content search (regex), create directories, copy files, move files, get file info; allowed directly inside the workspace, paths outside the workspace are allowed after user confirmation |
 | **Script Tools** | `script` | Execute Shell (adaptive runtime), Lua (embedded sandbox, no external interpreter), Python scripts |
 | **Web Tools** | `web` | Send HTTP requests to fetch web content |
 | **Retrieval Tools** | `retrieval` | Index local code/documents, semantic search |
 | **Context Compaction** | `context` | Compact conversation history to free token budget (LLM-accessible, callable on demand) |
 | **Local Memory Tools** | `localmemory` | Long-term memory storage, query, and management |
+| **MCP External Tools** | `mcp` | Merge tools from connected MCP clients (built-in file-system client + hot-loaded external servers) into the Agent tool registry |
+| **Orchestration Tools** | `orchestration` | Expose `plan_task` / `run_orchestration` so the model itself detects composite tasks and dispatches SubAgents to run a DAG (opt-in, requires `Orchestration.Enabled=true`) |
 | **Wiki Knowledge Base Tools** | `wiki` | Read/write/delete wiki pages, vector search, health check (opt-in, must be named in `ToolGroups`) |
 
 > **Script execution notes**: The Shell tool auto-detects the runtime (on Windows `pwsh` > `powershell` > `cmd`; on Unix-like `bash` > `sh`), adapts argument style and quoting to the interpreter, and returns the actual `shell`/`shellPath`/`platform` in the result. The Lua tool runs on an embedded MoonSharp soft sandbox with no external `lua` interpreter required; the sandbox has no file-system or system-command access, and results are emitted via `print`.
@@ -279,8 +281,10 @@ Prompt template content here...
 
 | Component | Description |
 |-----------|-------------|
-| `ToolConfirmationService` | Tool execution confirmation service, requires user confirmation for dangerous operations |
-| `PathGuard` | Path security guard, prevents unauthorized access |
+| `ToolConfirmationService` | Tool execution confirmation service: allows operations directly inside the workspace, allows paths outside the workspace after user confirmation, and requires confirmation before dangerous operations |
+| `ToolConfirmationContext` | Confirmation context: holds the three-tier authorization (this time / this turn / this session) keyed by grant root; `AllowThisTurn`/`IsAllowedThisTurn`, `AllowThisSession`/`IsAllowedThisSession` |
+| `ConfirmResult` | User confirmation result: `Allow` (this time) / `AllowAll` (all this turn) / `AllowSession` (all this session) / `Deny` |
+| `PathGuard` | Path security guard, provides a fast path for workspace roots (no longer a hard gate for out-of-workspace access) |
 | `RuleEngine` | Rule engine, performs permission checks and parameter modification before tool execution |
 
 ### Multi-Agent Orchestration
@@ -627,8 +631,13 @@ Notes:
 
 - **Deny aborts the turn**: when the user chooses "Deny" in a tool confirmation, the host immediately aborts the current turn (partial output is kept). Both CLI and Codex show "已拒绝，本轮终止"; CLI marks the denied tool block "已被用户拒绝", while Codex marks the confirmation card "已拒绝" and the tool card with the framework-neutral result "工具调用被拒绝或已取消".
 - **Unbounded waits**: tool confirmations and workspace authorization wait indefinitely for user input; there is no timeout. Esc cancels the turn at any time ("任务已取消" in CLI, "已取消" in Codex).
-- **Sub-agent delegated confirmation**: orchestration sub-agents never prompt the user. Tool calls that would need manual confirmation are decided by the main code against the turn's allowed set — allowed when present, otherwise a sub-agent-specific denial (not a user denial).
-- **Turn allow-list**: `ToolConfirmationContext.AllowedThisTurn` is no longer public; hosts call `AllowThisTurn(toolName)` and the framework checks `IsAllowedThisTurn(toolName)`.
+- **In-workspace operations are confirmed-free**: file-system tools whose target path falls inside a workspace root (or a root authorized this turn/session) are allowed directly without confirmation.
+- **Out-of-workspace paths are confirmed, not blocked**: paths outside the workspace are no longer hard-blocked; instead a confirmation is shown with "Allow (this time) / Allow All This Turn / Allow All This Session / Deny". Authorization is remembered per grant root (parent directory for files, the directory itself for directories); when the grant root resolves to a drive root (e.g. `D:\`), it is not remembered, to avoid granting a whole drive in one step.
+- **Grant tiers**: `Allow` grants this call only; `AllowAll` records the grant for this turn; `AllowSession` records it for this session (process lifetime). `Reset()` clears the turn set at the start of each turn, while the session set survives across turns; `ResetSession()` explicitly clears the session set.
+- **Read-only fast path (Plan only)**: in Plan mode, read-only tools (`ReadFileAsync`/`ListDirectoryAsync`/`GetWorkspaceOverviewAsync`/`SearchFilesAsync`/`GrepAsync`/`GetFileInfoAsync`) are allowed directly within authorized scope so the Agent can read context to produce a plan; out-of-scope read-only calls are recorded as planned actions instead of being allowed.
+- **Deletion tools always confirm**: `AlwaysConfirmTools` (default `DeleteFileAsync`/`DeleteDirectoryAsync`/`DeletePageAsync`) must confirm regardless of whether the path is inside the workspace, and "Allow All This Turn/Session" is not remembered for them — every deletion confirms again.
+- **Sub-agent delegated confirmation**: orchestration sub-agents never prompt the user. Tool calls that would need manual confirmation are decided by the main code against the turn/session allowed set — allowed when present, otherwise a sub-agent-specific denial (not a user denial).
+- **Turn/session allow-lists**: `ToolConfirmationContext.AllowedThisTurn` is no longer public; hosts call `AllowThisTurn(toolName)`/`AllowThisSession(toolName)` and the framework checks `IsAllowedThisTurn(toolName)`/`IsAllowedThisSession(toolName)`.
 - **Unbounded sub-agent waits**: `Orchestration.DefaultNodeTimeoutSeconds` and `ReflectionTimeoutSeconds` default to 0 (unbounded); set them above 0 to enforce limits, and `TimeoutSeconds` can still override per node.
 - **Planning no longer hangs**: `Orchestration.PlannerReasoningEffort` controls the reasoning effort of planning/reflection calls. Reasoning models (e.g. glm-5) emit large amounts of reasoning content during planning by default, which can take over a minute per call; set it to `"none"` to disable reasoning (`null`, the default, sends nothing and stays compatible with non-reasoning models that do not support `reasoning_effort`).
 
@@ -814,8 +823,9 @@ LuBan.AIAgent/
 
 - Model routing uses `provider:model` format; configure providers via `IAppConfigReader` / host implementation
 - **10 built-in tool groups** cover browser automation, file operations, script execution, web requests, semantic retrieval, context compaction, local memory, MCP, multi-agent orchestration, and the LLM Wiki knowledge base (opt-in)
-- `ToolConfirmationService` automatically requires user confirmation for dangerous operations (write, delete, execute)
-- `FileSystemToolOptions.AllowedRoots` restricts file access scope to prevent Agent overreach
+- `ToolConfirmationService` requires user confirmation for out-of-workspace path access and for sensitive operations (write, delete, execute); in-workspace operations are allowed directly
+- Three-tier grant memory (this time / this turn / this session) keyed by grant root; deletion tools (`AlwaysConfirmTools`) are never remembered and always confirm
+- `FileSystemToolOptions.AllowedRoots` together with workspace roots forms the trusted scope; operations inside it need no confirmation
 - **Session history auto-persistence** with compression (SummarizingChatReducer), context never lost
 - **Custom Skill/Rule/MCP persistence**, configs saved locally and auto-loaded on restart
 - **File-based Skills**: define custom Skills via SKILL.md files, compatible with OpenCode format, automatically loaded from project-level/user-level directories
