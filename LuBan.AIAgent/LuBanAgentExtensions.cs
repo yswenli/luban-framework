@@ -90,6 +90,11 @@ public static class LuBanAgentExtensions
         services.AddSingleton<LuaScriptRunner>();
         services.AddSingleton<ShellEnvironmentDetector>();
         services.AddSingleton<PathGuard>();
+
+        // 大日志分析：绑定配置 + 注册流式聚合器（工具组插件在 Task 10 追加注册）
+        services.Configure<LogToolOptions>(configuration.GetSection("LuBanAgent:Tools:Log"));
+        services.AddSingleton<ILogAggregator, LogAggregator>();
+
         services.AddSingleton<LuBan.AIAgent.Attachments.IAttachmentProcessor, LuBan.AIAgent.Attachments.DefaultAttachmentProcessor>();
 
         // 注册工具确认服务（上下文为单例，由宿主层每轮对话设置/重置）
