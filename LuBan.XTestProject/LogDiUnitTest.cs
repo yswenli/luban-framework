@@ -24,4 +24,35 @@ public class LogDiUnitTest
         Assert.IsNotNull(sp.GetService<IOptions<LogToolOptions>>());
         Assert.IsTrue(sp.GetRequiredService<IOptions<LogToolOptions>>().Value.Enabled);
     }
+
+    [TestMethod]
+    public void AddLuBanAgent_Binds_Log_Section_Values()
+    {
+        var services = new ServiceCollection();
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["LuBanAgent:Tools:Log:TopN"] = "5",
+                ["LuBanAgent:Tools:Log:Enabled"] = "true"
+            })
+            .Build();
+
+        services.AddLuBanAgent(configuration);
+        using var sp = services.BuildServiceProvider();
+
+        var value = sp.GetRequiredService<IOptions<LogToolOptions>>().Value;
+        Assert.AreEqual(5, value.TopN);
+    }
+
+    [TestMethod]
+    public void LogAggregator_Is_Registered_As_Singleton()
+    {
+        var services = new ServiceCollection();
+        var configuration = new ConfigurationBuilder().Build();
+
+        services.AddLuBanAgent(configuration);
+        using var sp = services.BuildServiceProvider();
+
+        Assert.AreSame(sp.GetRequiredService<ILogAggregator>(), sp.GetRequiredService<ILogAggregator>());
+    }
 }
