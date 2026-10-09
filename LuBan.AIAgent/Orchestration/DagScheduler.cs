@@ -24,7 +24,7 @@ namespace LuBan.AIAgent.Orchestration;
 /// </summary>
 public class DagScheduler
 {
-    private readonly SubAgentFactory _subAgentFactory;
+    private readonly ISubAgentExecutor _subAgentExecutor;
     private readonly ContextStore _contextStore;
     private readonly IOptions<LuBanAgentOptions> _options;
 
@@ -37,28 +37,28 @@ public class DagScheduler
     /// <summary>
     /// 创建 DagScheduler 实例。
     /// </summary>
-    /// <param name="subAgentFactory">SubAgent 工厂。</param>
+    /// <param name="subAgentExecutor">子代理执行器（默认 <see cref="SubAgentFactory"/>；启用 A2A 后为进程内传输实现）。</param>
     /// <param name="contextStore">跨节点上下文存储。</param>
     /// <param name="options">配置选项。</param>
     public DagScheduler(
-        SubAgentFactory subAgentFactory,
+        ISubAgentExecutor subAgentExecutor,
         ContextStore contextStore,
         IOptions<LuBanAgentOptions> options)
     {
-        _subAgentFactory = subAgentFactory;
+        _subAgentExecutor = subAgentExecutor;
         _contextStore = contextStore;
         _options = options;
     }
 
     /// <summary>
-    /// 测试专用构造：不提供 <c>SubAgentFactory</c>，仅当设置了 <see cref="NodeRunnerOverride"/> 时可用。
+    /// 测试专用构造：不提供 <c>ISubAgentExecutor</c>，仅当设置了 <see cref="NodeRunnerOverride"/> 时可用。
     /// 仅测试使用。
     /// </summary>
     /// <param name="contextStore">跨节点上下文存储。</param>
     /// <param name="options">配置选项。</param>
     internal DagScheduler(ContextStore contextStore, IOptions<LuBanAgentOptions> options)
     {
-        _subAgentFactory = null!;
+        _subAgentExecutor = null!;
         _contextStore = contextStore;
         _options = options;
     }
@@ -309,52 +309,62 @@ public class DagScheduler
 
         Logger.Info($"[OrchDiag] node exec: id={node.Id} node.role={(node.Role ?? "null")} spec.role={(spec.Role ?? "null")} node.tools={(node.ToolGroups == null ? "null" : $"[{string.Join(",", node.ToolGroups)}]")} promptLen={resolvedPrompt.Length}");
 
-        var swCreate = Stopwatch.StartNew();
-        var agent = await _subAgentFactory.CreateAsync(spec, ct);
-        swCreate.Stop();
-
-        var swRun = Stopwatch.StartNew();
-        // 子代理执行期进入确认作用域：工具确认不弹窗，由框架按本轮已允许集合代确认。
         var reporter = new NodeActivityReporter(node.Id, onProgress, reportGate);
-        var output = new StringBuilder();
-        using (ToolConfirmationContext.EnterSubAgentScope())
+        var swRun = Stopwatch.StartNew();
+        var output = string.Empty;
+        var failed = false;
+        string? failureMessage = null;
+
+        // 子代理执行（含创建）委托给 ISubAgentExecutor；确认作用域由执行器内部管理。
+        await foreach (var evt in _subAgentExecutor.ExecuteAsync(spec, ct).WithCancellation(ct).ConfigureAwait(false))
         {
-            await foreach (var update in agent.RunStreamingAsync(resolvedPrompt, ct))
+            switch (evt.Kind)
             {
-                if (update.Contents is null) continue;
+                case SubAgentEventKind.Started:
+                    if (!string.IsNullOrEmpty(evt.SessionId))
+                        node.SessionId = evt.SessionId;
+                    break;
 
-                foreach (var content in update.Contents)
-                {
-                    switch (content)
-                    {
-                        case TextReasoningContent reasoning when !string.IsNullOrEmpty(reasoning.Text):
-                            reporter.Thinking(reasoning.Text);
-                            break;
+                case SubAgentEventKind.Thinking:
+                    if (!string.IsNullOrEmpty(evt.Text))
+                        reporter.Thinking(evt.Text);
+                    break;
 
-                        case FunctionCallContent functionCall:
-                            reporter.ToolCall(functionCall.Name, SummarizeArguments(functionCall.Arguments), functionCall.CallId);
-                            break;
+                case SubAgentEventKind.Text:
+                    if (!string.IsNullOrEmpty(evt.Text))
+                        reporter.Text(evt.Text);
+                    break;
 
-                        case FunctionResultContent functionResult:
-                            reporter.ToolResult(functionResult, functionResult.CallId);
-                            break;
+                case SubAgentEventKind.ToolCall:
+                    reporter.ToolCall(evt.Text ?? string.Empty, evt.Detail);
+                    break;
 
-                        case TextContent text when !string.IsNullOrEmpty(text.Text):
-                            output.Append(text.Text);
-                            reporter.Text(text.Text);
-                            break;
-                    }
-                }
+                case SubAgentEventKind.ToolResult:
+                    reporter.ToolResult(evt.Text);
+                    break;
+
+                case SubAgentEventKind.Completed:
+                    output = evt.Text ?? string.Empty;
+                    break;
+
+                case SubAgentEventKind.Failed:
+                    failed = true;
+                    failureMessage = evt.Text;
+                    break;
             }
         }
+
         reporter.Flush();
         swRun.Stop();
 
-        node.SessionId = spec.SessionId;
+        node.SessionId ??= spec.SessionId;
 
-        Logger.Info($"[OrchDiag] node timing: id={node.Id} create={swCreate.Elapsed.TotalSeconds:F1}s run={swRun.Elapsed.TotalSeconds:F1}s");
+        Logger.Info($"[OrchDiag] node timing: id={node.Id} run={swRun.Elapsed.TotalSeconds:F1}s");
 
-        return output.ToString();
+        if (failed)
+            throw new InvalidOperationException(failureMessage ?? $"节点 '{node.Id}' 子代理执行失败");
+
+        return output;
     }
 
     /// <summary>
@@ -380,40 +390,6 @@ public class DagScheduler
             Logger.Warn($"编排进度上报失败: {ex.Message}", ex);
         }
     }
-
-    /// <summary>
-    /// 把工具调用参数压成单行摘要（过长截断），避免参数 JSON 撑爆 UI 行宽。
-    /// </summary>
-    /// <param name="arguments">工具参数集合。</param>
-    /// <returns>参数摘要文本；无参数时返回 null。</returns>
-    private static string? SummarizeArguments(IDictionary<string, object?>? arguments)
-    {
-        if (arguments is null || arguments.Count == 0) return null;
-
-        var sb = new StringBuilder();
-        foreach (var kv in arguments)
-        {
-            if (sb.Length > 0) sb.Append(", ");
-            sb.Append(kv.Key).Append('=').Append(FormatArgumentValue(kv.Value));
-            if (sb.Length > 200)
-            {
-                sb.Length = 200;
-                sb.Append('…');
-                break;
-            }
-        }
-        return sb.ToString();
-    }
-
-    /// <summary>
-    /// 格式化单个参数值：字符串去换行，复杂对象转 JSON。
-    /// </summary>
-    private static string FormatArgumentValue(object? value) => value switch
-    {
-        null => "null",
-        string s => s.Replace("\r", " ").Replace("\n", " "),
-        _ => value.ToString() ?? "null"
-    };
 
     /// <summary>
     /// 节点内部活动上报器：把子 Agent 的流式内容转成 <see cref="ProgressEventType.NodeActivity"/> 事件。
@@ -475,24 +451,18 @@ public class DagScheduler
         /// <summary>即时上报工具调用（先冲刷累积文本，保持时序）。</summary>
         /// <param name="toolName">工具名。</param>
         /// <param name="arguments">参数摘要。</param>
-        /// <param name="callId">调用标识。</param>
-        public void ToolCall(string toolName, string? arguments, string? callId)
+        public void ToolCall(string toolName, string? arguments)
         {
             Flush();
-            Emit(NodeActivityItem.ToolCall(toolName, arguments, callId));
+            Emit(NodeActivityItem.ToolCall(toolName, arguments, null));
         }
 
         /// <summary>即时上报工具结果（先冲刷累积文本，保持时序）。</summary>
-        /// <param name="result">工具结果内容。</param>
-        /// <param name="callId">调用标识。</param>
-        public void ToolResult(FunctionResultContent result, string? callId)
+        /// <param name="text">结果摘要（失败时为错误信息）。</param>
+        public void ToolResult(string? text)
         {
             Flush();
-
-            var text = result.Exception is not null
-                ? $"❌ {result.Exception.Message}"
-                : SummarizeResult(result.Result);
-            Emit(NodeActivityItem.ToolResult(text, callId));
+            Emit(NodeActivityItem.ToolResult(text, null));
         }
 
         /// <summary>冲刷所有累积文本（节点结束时必须调用，否则尾部内容丢失）。</summary>
@@ -529,24 +499,6 @@ public class DagScheduler
                 Activity = activity
             });
             _sinceLastReport.Restart();
-        }
-
-        /// <summary>
-        /// 把工具返回内容压成单行摘要（过长截断），避免大段文件内容灌进 UI。
-        /// </summary>
-        private static string? SummarizeResult(object? result)
-        {
-            if (result is null) return null;
-
-            var text = result switch
-            {
-                string s => s,
-                _ => result.ToString()
-            };
-            if (string.IsNullOrWhiteSpace(text)) return null;
-
-            text = text.Replace("\r", " ").Replace("\n", " ").Trim();
-            return text.Length > 200 ? text[..200] + "…" : text;
         }
     }
 

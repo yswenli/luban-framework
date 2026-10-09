@@ -350,6 +350,45 @@ public partial class FileHandler : IScoped
         return path;
     }
 
+    /// <summary>
+    /// 将上传目录规范化为不含盘符/前导斜杠的相对路径，并剔除 "."、".." 段防止路径遍历。
+    /// 注意：不能使用 Path.GetFullPath —— 它会产生平台相关的绝对路径（Linux 下以 "/" 开头），
+    /// 该值同时作为本地目录与对象存储 ObjectKey，以 "/" 开头在阿里云等对象存储上会抛
+    /// Invalid Object Key（前缀/长度非法）。
+    /// </summary>
+    /// <param name="savePath"></param>
+    /// <returns></returns>
+    internal static string NormalizeSavePath(string savePath)
+    {
+        var segments = savePath.Replace("\\", "/")
+            .Split('/', StringSplitOptions.RemoveEmptyEntries)
+            .Select(s => s.Trim())
+            .Where(s => s.Length > 0 && s != "." && s != "..")
+            .ToList();
+        // 剔除 Windows 盘符段（如 "C:"），确保返回值始终是相对路径
+        if (segments.Count > 0 && segments[0].Length == 2 && segments[0][1] == ':' && char.IsLetter(segments[0][0]))
+            segments.RemoveAt(0);
+        return string.Join("/", segments);
+    }
+
+    /// <summary>
+    /// 解析上传目录：非空则规范化为相对路径（剔除 "."、".." 段防遍历，且不含前导斜杠），
+    /// 否则回退到配置的日期模板。保证返回值恒为非空且不以 "/" 开头。
+    /// </summary>
+    /// <param name="savePath"></param>
+    /// <param name="defaultPath">回退用的目录模板（如 upload/{yyyy}/{MM}/{dd}）</param>
+    /// <returns></returns>
+    internal static string ResolveSavePath(string? savePath, string defaultPath)
+    {
+        if (!string.IsNullOrWhiteSpace(savePath))
+        {
+            var normalized = NormalizeSavePath(savePath);
+            if (normalized.IsNotNullOrEmpty())
+                return normalized;
+        }
+        return ResolvePathTemplate(defaultPath);
+    }
+
     static DbFile CreateDbFile(UploadOptions uploadOptions, string fileName, string suffix, long sizeKb, string savePath, string fileMd5, bool isPrivate)
     {
         return new DbFile
@@ -382,15 +421,7 @@ public partial class FileHandler : IScoped
     {
         var (sizeKb, suffix) = ValidateFile(fileName, length);
 
-        if (savePath.IsNotNullOrEmpty())
-        {
-            // 使用 Path.GetFullPath 规范化路径，防止路径遍历攻击（Replace("..","") 可被 "....//" 绕过）
-            savePath = Path.GetFullPath(savePath).Replace("\\", "/");
-        }
-        else
-        {
-            savePath = ResolvePathTemplate(_uploadOptions.Path);
-        }
+        savePath = ResolveSavePath(savePath, _uploadOptions.Path);
 
         using var md5Stream = new MemoryStream(bytes, 0, bytes.Length, writable: false, publiclyVisible: true);
         var fileMd5 = await ComputeMd5StreamAsync(md5Stream);
@@ -434,15 +465,7 @@ public partial class FileHandler : IScoped
     {
         var (sizeKb, suffix) = ValidateFile(fileName, length);
 
-        if (savePath.IsNotNullOrEmpty())
-        {
-            // 使用 Path.GetFullPath 规范化路径，防止路径遍历攻击（Replace("..","") 可被 "....//" 绕过）
-            savePath = Path.GetFullPath(savePath).Replace("\\", "/");
-        }
-        else
-        {
-            savePath = ResolvePathTemplate(_uploadOptions.Path);
-        }
+        savePath = ResolveSavePath(savePath, _uploadOptions.Path);
 
         // 流式计算MD5，避免将整个流加载到内存
         using (stream)
@@ -498,15 +521,7 @@ public partial class FileHandler : IScoped
     {
         var (sizeKb, suffix) = ValidateFile(fileName, length);
 
-        if (savePath.IsNotNullOrEmpty())
-        {
-            // 使用 Path.GetFullPath 规范化路径，防止路径遍历攻击（Replace("..","") 可被 "....//" 绕过）
-            savePath = Path.GetFullPath(savePath).Replace("\\", "/");
-        }
-        else
-        {
-            savePath = ResolvePathTemplate(_uploadOptions.Path);
-        }
+        savePath = ResolveSavePath(savePath, _uploadOptions.Path);
 
         var fileMd5 = await ComputeMd5StreamAsync(videoContentStream);
         if (videoContentStream.CanSeek)

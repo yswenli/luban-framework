@@ -33,7 +33,7 @@ namespace LuBan.AIAgent.Orchestration;
 /// ISessionManager 仅用于 SessionChatHistoryProvider 的持久化，
 /// SubAgent 不启用 SessionHistory，因此无需 ISessionManager。
 /// </summary>
-public class SubAgentFactory
+public class SubAgentFactory : ISubAgentExecutor
 {
     private readonly LuBanAgentFactory _innerFactory;
     private readonly SubAgentRoleRegistry _roleRegistry;
@@ -155,4 +155,157 @@ public class SubAgentFactory
         => string.IsNullOrWhiteSpace(spec.SharedContext)
             ? string.Empty
             : "\n\n以下是当前工作区的长期记忆与规则上下文，回答时请优先参考：\n" + spec.SharedContext;
+
+    /// <summary>
+    /// 默认执行实现：直接创建子代理并在子代理确认作用域内流式执行，产出框架原生事件流。
+    /// 确认作用域沿用默认语义（按本轮已允许集合代确认，未启用"全放行"），
+    /// 未启用 A2A 时行为与改造前严格一致。
+    /// </summary>
+    /// <param name="spec">子代理规格。</param>
+    /// <param name="ct">取消令牌。</param>
+    /// <returns>执行事件流。</returns>
+    public async IAsyncEnumerable<SubAgentExecutionEvent> ExecuteAsync(
+        SubAgentSpec spec, [EnumeratorCancellation] CancellationToken ct = default)
+    {
+        LuBanAgent? agent = null;
+        Exception? createError = null;
+        try
+        {
+            agent = await CreateAsync(spec, ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            createError = ex;
+        }
+
+        if (createError is not null)
+        {
+            yield return new SubAgentExecutionEvent(SubAgentEventKind.Failed, spec.SessionId, createError.Message, null);
+            yield break;
+        }
+
+        yield return new SubAgentExecutionEvent(SubAgentEventKind.Started, spec.SessionId, null, null);
+
+        var output = new StringBuilder();
+        // 子代理执行期进入确认作用域：工具确认不弹窗，由框架按本轮已允许集合代确认。
+        using (ToolConfirmationContext.EnterSubAgentScope(allowAll: false))
+        {
+            await using var enumerator = agent!.RunStreamingAsync(spec.Prompt, ct).GetAsyncEnumerator(ct);
+            while (true)
+            {
+                AgentResponseUpdate? update = null;
+                Exception? streamError = null;
+                try
+                {
+                    if (!await enumerator.MoveNextAsync().ConfigureAwait(false))
+                    {
+                        break;
+                    }
+                    update = enumerator.Current;
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    streamError = ex;
+                }
+
+                if (streamError is not null)
+                {
+                    yield return new SubAgentExecutionEvent(SubAgentEventKind.Failed, spec.SessionId, streamError.Message, null);
+                    yield break;
+                }
+
+                if (update!.Contents is null) continue;
+
+                foreach (var content in update.Contents)
+                {
+                    switch (content)
+                    {
+                        case TextReasoningContent reasoning when !string.IsNullOrEmpty(reasoning.Text):
+                            yield return new SubAgentExecutionEvent(SubAgentEventKind.Thinking, spec.SessionId, reasoning.Text, null);
+                            break;
+
+                        case FunctionCallContent functionCall:
+                            yield return new SubAgentExecutionEvent(SubAgentEventKind.ToolCall, spec.SessionId, functionCall.Name, SummarizeArguments(functionCall.Arguments));
+                            break;
+
+                        case FunctionResultContent functionResult:
+                            var resultText = functionResult.Exception is not null
+                                ? $"❌ {functionResult.Exception.Message}"
+                                : SummarizeResult(functionResult.Result);
+                            yield return new SubAgentExecutionEvent(SubAgentEventKind.ToolResult, spec.SessionId, resultText, null);
+                            break;
+
+                        case TextContent text when !string.IsNullOrEmpty(text.Text):
+                            output.Append(text.Text);
+                            yield return new SubAgentExecutionEvent(SubAgentEventKind.Text, spec.SessionId, text.Text, null);
+                            break;
+                    }
+                }
+            }
+        }
+
+        yield return new SubAgentExecutionEvent(SubAgentEventKind.Completed, spec.SessionId, output.ToString(), null);
+    }
+
+    /// <summary>
+    /// 把工具调用参数压成单行摘要（过长截断），避免参数 JSON 撑爆 UI 行宽。
+    /// </summary>
+    /// <param name="arguments">工具参数集合。</param>
+    /// <returns>参数摘要文本；无参数时返回 null。</returns>
+    private static string? SummarizeArguments(IDictionary<string, object?>? arguments)
+    {
+        if (arguments is null || arguments.Count == 0) return null;
+
+        var sb = new StringBuilder();
+        foreach (var kv in arguments)
+        {
+            if (sb.Length > 0) sb.Append(", ");
+            sb.Append(kv.Key).Append('=').Append(FormatArgumentValue(kv.Value));
+            if (sb.Length > 200)
+            {
+                sb.Length = 200;
+                sb.Append('…');
+                break;
+            }
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// 格式化单个参数值：字符串去换行，复杂对象转字符串。
+    /// </summary>
+    private static string FormatArgumentValue(object? value) => value switch
+    {
+        null => "null",
+        string s => s.Replace("\r", " ").Replace("\n", " "),
+        _ => value.ToString() ?? "null"
+    };
+
+    /// <summary>
+    /// 把工具返回内容压成单行摘要（过长截断），避免大段文件内容灌进 UI。
+    /// </summary>
+    /// <param name="result">工具返回内容。</param>
+    /// <returns>结果摘要文本；无内容时返回 null。</returns>
+    private static string? SummarizeResult(object? result)
+    {
+        if (result is null) return null;
+
+        var text = result switch
+        {
+            string s => s,
+            _ => result.ToString()
+        };
+        if (string.IsNullOrWhiteSpace(text)) return null;
+
+        text = text.Replace("\r", " ").Replace("\n", " ").Trim();
+        return text.Length > 200 ? text[..200] + "…" : text;
+    }
 }

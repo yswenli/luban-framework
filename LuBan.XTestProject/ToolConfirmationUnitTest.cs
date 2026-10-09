@@ -275,4 +275,103 @@ public class ToolConfirmationUnitTest
         var notCancelled = JsonSerializer.Deserialize<JsonElement>("{\"isSuccess\":false,\"userCancelled\":false}");
         Assert.IsFalse(ToolResult.IsUserCancelled(notCancelled));
     }
+
+    [TestMethod]
+    public void SubAgentAllowAll_ScopeFlag_IsOptInOnly()
+    {
+        Assert.IsFalse(ToolConfirmationContext.IsSubAgentAllowAll, "默认不在子代理作用域");
+
+        using (ToolConfirmationContext.EnterSubAgentScope())
+        {
+            Assert.IsTrue(ToolConfirmationContext.IsInSubAgentScope);
+            Assert.IsFalse(ToolConfirmationContext.IsSubAgentAllowAll, "默认 EnterSubAgentScope 不启用全放行");
+        }
+
+        using (ToolConfirmationContext.EnterSubAgentScope(allowAll: true))
+        {
+            Assert.IsTrue(ToolConfirmationContext.IsSubAgentAllowAll);
+        }
+
+        Assert.IsFalse(ToolConfirmationContext.IsInSubAgentScope);
+        Assert.IsFalse(ToolConfirmationContext.IsSubAgentAllowAll);
+    }
+
+    [TestMethod]
+    public async Task SubAgentAllowAll_WorkspaceInternalWrite_IsAllowed_WithoutCallback()
+    {
+        var service = CreateService(out var context);
+        var callbackInvoked = false;
+        Configure(context, callback: (_, _) => { callbackInvoked = true; return Task.FromResult(true); });
+
+        EnumConfirmationOutcome outcome;
+        using (ToolConfirmationContext.EnterSubAgentScope(allowAll: true))
+        {
+            outcome = await service.EvaluateAsync("WriteFileAsync", @"C:\work\a.txt", new Dictionary<string, object?>());
+        }
+
+        Assert.AreEqual(EnumConfirmationOutcome.Allowed, outcome);
+        Assert.IsFalse(callbackInvoked, "全放行子代理不应弹用户确认");
+    }
+
+    [TestMethod]
+    public async Task SubAgentAllowAll_ScriptWithoutPath_IsAllowed()
+    {
+        var service = CreateService(out var context);
+        Configure(context, callback: (_, _) => Task.FromResult(false));
+
+        EnumConfirmationOutcome outcome;
+        using (ToolConfirmationContext.EnterSubAgentScope(allowAll: true))
+        {
+            outcome = await service.EvaluateAsync("RunShellAsync", null, new Dictionary<string, object?>());
+        }
+
+        Assert.AreEqual(EnumConfirmationOutcome.Allowed, outcome);
+    }
+
+    [TestMethod]
+    public async Task SubAgentAllowAll_ReadOnlyExternalPath_IsAllowed()
+    {
+        var service = CreateService(out var context);
+        Configure(context, callback: (_, _) => Task.FromResult(false));
+
+        EnumConfirmationOutcome outcome;
+        using (ToolConfirmationContext.EnterSubAgentScope(allowAll: true))
+        {
+            outcome = await service.EvaluateAsync("ReadFileAsync", @"D:\other\a.txt", new Dictionary<string, object?>());
+        }
+
+        Assert.AreEqual(EnumConfirmationOutcome.Allowed, outcome, "只读无副作用，即使越界也放行");
+    }
+
+    [TestMethod]
+    public async Task SubAgentAllowAll_WorkspaceExternalWrite_IsDenied()
+    {
+        var service = CreateService(out var context);
+        var callbackInvoked = false;
+        Configure(context, callback: (_, _) => { callbackInvoked = true; return Task.FromResult(true); });
+
+        EnumConfirmationOutcome outcome;
+        using (ToolConfirmationContext.EnterSubAgentScope(allowAll: true))
+        {
+            outcome = await service.EvaluateAsync("WriteFileAsync", @"D:\other\a.txt", new Dictionary<string, object?>());
+        }
+
+        Assert.AreEqual(EnumConfirmationOutcome.Denied, outcome, "写类越界为硬约束，必须拒绝");
+        Assert.IsFalse(callbackInvoked);
+    }
+
+    [TestMethod]
+    public async Task SubAgentAllowAll_DeleteTool_IsDenied_EvenInsideWorkspace()
+    {
+        var service = CreateService(out var context);
+        Configure(context, callback: (_, _) => Task.FromResult(true));
+
+        EnumConfirmationOutcome outcome;
+        using (ToolConfirmationContext.EnterSubAgentScope(allowAll: true))
+        {
+            outcome = await service.EvaluateAsync("DeleteFileAsync", @"C:\work\a.txt", new Dictionary<string, object?>());
+        }
+
+        Assert.AreEqual(EnumConfirmationOutcome.Denied, outcome, "删除类为硬约束，必须拒绝");
+    }
 }

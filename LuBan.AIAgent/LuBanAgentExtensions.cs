@@ -119,6 +119,8 @@ public static class LuBanAgentExtensions
 
         // SubAgentFactory / DagScheduler / Orchestrator 依赖 Scoped 的 LuBanAgentFactory，必须 Scoped
         services.AddScoped<Orchestration.SubAgentFactory>();
+        // 子代理执行器接缝：默认实现为 SubAgentFactory（直接创建子代理）；启用 A2A 后由入口替换
+        services.AddScoped<Orchestration.ISubAgentExecutor>(sp => sp.GetRequiredService<Orchestration.SubAgentFactory>());
         services.AddScoped<Orchestration.DagScheduler>();
 
         // 规划器：LlmTaskPlanner 依赖 IChatClient（通常 Scoped）+ 可选 IProviderRouter（PlannerModel 路由），必须 Scoped

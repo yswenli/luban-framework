@@ -140,10 +140,23 @@ public class ToolConfirmationContext
     private static readonly AsyncLocal<int> SubAgentScopeDepth = new();
 
     /// <summary>
+    /// 当前调用链子代理作用域是否启用"全放行但守硬约束"策略（A2A 进程内执行器开启）。
+    /// 为 true 时子代理不弹窗、按本轮已允许集合代确认；为 false 时沿用默认代确认语义。
+    /// 与 <see cref="SubAgentScopeDepth"/> 同为 AsyncLocal，嵌套作用域取最内层值。
+    /// </summary>
+    private static readonly AsyncLocal<bool> SubAgentAllowAllInScope = new();
+
+    /// <summary>
     /// 当前调用链是否处于编排子代理执行作用域。
     /// 子代理不向用户弹确认，由主代码按本轮已允许集合代确认。
     /// </summary>
     public static bool IsInSubAgentScope => SubAgentScopeDepth.Value > 0;
+
+    /// <summary>
+    /// 当前子代理作用域是否启用"全放行但守硬约束"策略。默认 false（行为不变）；
+    /// 仅 A2A 进程内执行器通过 <see cref="EnterSubAgentScope(bool)"/> 显式开启。
+    /// </summary>
+    public static bool IsSubAgentAllowAll => SubAgentScopeDepth.Value > 0 && SubAgentAllowAllInScope.Value;
 
     /// <summary>
     /// 进入子代理执行作用域（DagScheduler 在节点执行期调用）；Dispose 退出。
@@ -151,17 +164,27 @@ public class ToolConfirmationContext
     /// 返回的令牌必须按 LIFO 顺序释放（重复释放会被忽略）。
     /// </summary>
     /// <returns>作用域令牌。</returns>
-    public static IDisposable EnterSubAgentScope()
+    public static IDisposable EnterSubAgentScope() => EnterSubAgentScope(allowAll: false);
+
+    /// <summary>
+    /// 进入子代理执行作用域，并指定是否启用"全放行但守硬约束"策略。
+    /// 默认 <c>false</c> 保持既有语义；A2A 进程内执行器传 <c>true</c> 以启用 A3 语义。
+    /// </summary>
+    /// <param name="allowAll">是否启用"全放行但守硬约束"（删除类/工作区外仍硬拒）。</param>
+    /// <returns>作用域令牌。</returns>
+    public static IDisposable EnterSubAgentScope(bool allowAll)
     {
-        var previous = SubAgentScopeDepth.Value;
-        SubAgentScopeDepth.Value = previous + 1;
-        return new SubAgentScopeToken(previous);
+        var previousDepth = SubAgentScopeDepth.Value;
+        var previousAllowAll = SubAgentAllowAllInScope.Value;
+        SubAgentScopeDepth.Value = previousDepth + 1;
+        SubAgentAllowAllInScope.Value = allowAll;
+        return new SubAgentScopeToken(previousDepth, previousAllowAll);
     }
 
     /// <summary>
     /// 子代理作用域令牌。必须按 LIFO 顺序释放；重复 Dispose 不再改写深度，避免作用域泄漏。
     /// </summary>
-    private sealed class SubAgentScopeToken(int previous) : IDisposable
+    private sealed class SubAgentScopeToken(int previousDepth, bool previousAllowAll) : IDisposable
     {
         private int _disposed;
 
@@ -169,7 +192,8 @@ public class ToolConfirmationContext
         {
             if (Interlocked.Exchange(ref _disposed, 1) == 1)
                 return;
-            SubAgentScopeDepth.Value = previous;
+            SubAgentScopeDepth.Value = previousDepth;
+            SubAgentAllowAllInScope.Value = previousAllowAll;
         }
     }
 }
@@ -303,6 +327,19 @@ public class ToolConfirmationService : IToolConfirmationService
         if (_context.CancellationToken.IsCancellationRequested)
         {
             return EnumConfirmationOutcome.Denied;
+        }
+
+        // 子代理"全放行但守硬约束"作用域（A2A 进程内执行器 opt-in，默认关）：
+        // 视为本轮全部已允许；只读无副作用直接放行，删除类与写类越界路径为硬约束，直接拒绝（子代理无 UI 可确认）。
+        if (ToolConfirmationContext.IsSubAgentAllowAll)
+        {
+            if (AlwaysConfirmTools.Contains(toolName))
+                return EnumConfirmationOutcome.Denied;
+            if (ReadOnlyTools.Contains(toolName))
+                return EnumConfirmationOutcome.Allowed;
+            if (!string.IsNullOrEmpty(path) && !IsWithinWorkspace(path))
+                return EnumConfirmationOutcome.Denied;
+            return EnumConfirmationOutcome.Allowed;
         }
 
         // ── 模式分发（所有工具统一经此，避免脚本类工具绕过权限模式）──
