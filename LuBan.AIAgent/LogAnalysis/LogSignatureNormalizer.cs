@@ -21,6 +21,7 @@ internal static partial class LogSignatureNormalizer
     public static string Normalize(string line, int maxChars = DefaultMaxChars)
     {
         if (string.IsNullOrEmpty(line)) return string.Empty;
+        if (maxChars <= 0) maxChars = DefaultMaxChars;
 
         var s = line.Length > maxChars ? line[..maxChars] : line;
 
