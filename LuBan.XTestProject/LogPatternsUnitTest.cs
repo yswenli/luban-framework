@@ -8,7 +8,7 @@ public class LogPatternsUnitTest
 {
     private static LogPatterns New() => new(null, null, 5000);
 
-    [DataTestMethod]
+    [TestMethod]
     [DataRow("2026-01-02 03:04:05 INFO hello", LogSeverity.Info)]
     [DataRow("12:00:00 DEBUG x", LogSeverity.Debug)]
     [DataRow("WARN something", LogSeverity.Warn)]
@@ -47,14 +47,17 @@ public class LogPatternsUnitTest
         var p = New();
 
         Assert.IsTrue(p.TryParseTimestamp("2026-01-02 03:04:05.123 INFO x", out var withSpace));
+        Assert.AreEqual(TimeSpan.Zero, withSpace.Offset);
         Assert.AreEqual(
             new DateTimeOffset(2026, 1, 2, 3, 4, 5, TimeSpan.Zero).AddMilliseconds(123),
             withSpace);
 
         Assert.IsTrue(p.TryParseTimestamp("2026-01-02T03:04:05Z ERROR x", out var withZ));
+        Assert.AreEqual(TimeSpan.Zero, withZ.Offset);
         Assert.AreEqual(new DateTimeOffset(2026, 1, 2, 3, 4, 5, TimeSpan.Zero), withZ);
 
         Assert.IsTrue(p.TryParseTimestamp("2026-01-02T03:04:05,500+08:00 x", out var withOffset));
+        Assert.AreEqual(TimeSpan.Zero, withOffset.Offset);
         Assert.AreEqual(
             new DateTimeOffset(2026, 1, 2, 3, 4, 5, TimeSpan.FromHours(8)).AddMilliseconds(500),
             withOffset);
