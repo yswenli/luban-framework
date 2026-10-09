@@ -1294,20 +1294,25 @@ public class FileSystemToolGroup
 
         try
         {
-            var original = await File.ReadAllTextAsync(path);
+            var (original, hasBom) = await ReadAllTextWithBomAsync(path);
             var count = CountOccurrences(original, old_string);
 
             if (count == 0)
                 return ToolResult.Fail<string>("未找到匹配内容，请用 ReadFile 核对原文（注意空白/换行/缩进）。");
+            if (old_string == new_string)
+                return ToolResult.Fail<string>("old_string 与 new_string 相同，未做任何修改。");
             if (count > 1 && !replace_all)
                 return ToolResult.Fail<string>($"匹配到 {count} 处，请扩大 old_string 上下文以唯一定位，或设置 replace_all=true。");
 
+            var changeIndex = original.IndexOf(old_string, StringComparison.Ordinal);
             var updated = replace_all
                 ? original.Replace(old_string, new_string)
                 : ReplaceFirst(original, old_string, new_string);
 
-            await File.WriteAllTextAsync(path, updated);
-            return ToolResult.Ok<string>($"已替换 {count} 处。", $"path={path}; replaced={count}");
+            await WriteAllTextWithBomAsync(path, updated, hasBom);
+            return ToolResult.Ok<string>(
+                $"已替换 {count} 处。\n{BuildEditContext(updated, changeIndex)}",
+                $"path={path}; replaced={count}");
         }
         catch (Exception ex)
         {
@@ -1341,7 +1346,11 @@ public class FileSystemToolGroup
 
         try
         {
-            var current = await File.ReadAllTextAsync(path);
+            var (current, hasBom) = await ReadAllTextWithBomAsync(path);
+
+            var editAnchorIndex = edits[0].OldString.Length > 0
+                ? current.IndexOf(edits[0].OldString, StringComparison.Ordinal)
+                : -1;
 
             for (var i = 0; i < edits.Count; i++)
             {
@@ -1364,14 +1373,75 @@ public class FileSystemToolGroup
                     : ReplaceFirst(current, op.OldString, op.NewString);
             }
 
-            await File.WriteAllTextAsync(path, current);
-            return ToolResult.Ok<string>($"已应用 {edits.Count} 条替换。", $"path={path}; edits={edits.Count}");
+            await WriteAllTextWithBomAsync(path, current, hasBom);
+            return ToolResult.Ok<string>(
+                $"已应用 {edits.Count} 条替换。\n{BuildEditContext(current, editAnchorIndex)}",
+                $"path={path}; edits={edits.Count}");
         }
         catch (Exception ex)
         {
             Logger.Error("批量编辑文件异常", ex, path);
             return ToolResult.Fail<string>($"操作失败: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// 读取文本并检测是否存在 UTF-8 BOM。
+    /// </summary>
+    private static async Task<(string Text, bool HasBom)> ReadAllTextWithBomAsync(string path)
+    {
+        var bytes = await File.ReadAllBytesAsync(path);
+        var hasBom = bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF;
+        var text = hasBom
+            ? Encoding.UTF8.GetString(bytes, 3, bytes.Length - 3)
+            : Encoding.UTF8.GetString(bytes);
+        return (text, hasBom);
+    }
+
+    /// <summary>
+    /// 按原样写回文本，保留原有的 UTF-8 BOM。
+    /// </summary>
+    private static async Task WriteAllTextWithBomAsync(string path, string text, bool hasBom)
+    {
+        if (!hasBom)
+        {
+            await File.WriteAllTextAsync(path, text);
+            return;
+        }
+
+        var content = Encoding.UTF8.GetBytes(text);
+        var bytes = new byte[content.Length + 3];
+        bytes[0] = 0xEF;
+        bytes[1] = 0xBB;
+        bytes[2] = 0xBF;
+        Buffer.BlockCopy(content, 0, bytes, 3, content.Length);
+        await File.WriteAllBytesAsync(path, bytes);
+    }
+
+    /// <summary>
+    /// 生成变更位置前后若干行的上下文片段，供模型就地核对。
+    /// </summary>
+    private static string BuildEditContext(string text, int changeIndex, int radius = 2)
+    {
+        if (changeIndex < 0 || changeIndex > text.Length) return string.Empty;
+
+        var lineNo = 0;
+        for (var i = 0; i < changeIndex; i++)
+        {
+            if (text[i] == '\n') lineNo++;
+        }
+
+        var lines = text.Replace("\r\n", "\n").Split('\n');
+        var start = Math.Max(0, lineNo - radius);
+        var end = Math.Min(lines.Length - 1, lineNo + radius);
+
+        var sb = new StringBuilder();
+        for (var i = start; i <= end; i++)
+        {
+            sb.Append(i == lineNo ? "> " : "  ");
+            sb.Append(i + 1).Append(" | ").Append(lines[i]).Append('\n');
+        }
+        return sb.ToString().TrimEnd('\n');
     }
 
     private static int CountOccurrences(string text, string token)

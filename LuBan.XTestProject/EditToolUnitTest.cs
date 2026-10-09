@@ -134,4 +134,41 @@ public class EditToolUnitTest
         StringAssert.Contains(result.Message!, "第 2 条");
         Assert.AreEqual("aaa bbb", File.ReadAllText(p));
     }
+
+    [TestMethod]
+    public async Task EditFileAsync_Success_ReturnsContext()
+    {
+        var p = Write("ctx.txt", "line1\nline2\nTARGET\nline4\nline5");
+
+        var result = await _group.EditFileAsync(p, "TARGET", "REPLACED");
+
+        Assert.IsTrue(result.IsSuccess);
+        StringAssert.Contains(result.Data!, "> 3 | REPLACED");
+        StringAssert.Contains(result.Data!, "line2");
+        StringAssert.Contains(result.Data!, "line4");
+    }
+
+    [TestMethod]
+    public async Task EditFileAsync_OldEqualsNew_ReturnsFail()
+    {
+        var p = Write("same.txt", "abc");
+        var result = await _group.EditFileAsync(p, "abc", "abc");
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual("abc", File.ReadAllText(p));
+    }
+
+    [TestMethod]
+    public async Task EditFileAsync_PreservesUtf8Bom()
+    {
+        var p = Path.Combine(_root, "bom.txt");
+        await File.WriteAllBytesAsync(p, new byte[] { 0xEF, 0xBB, 0xBF }
+            .Concat(System.Text.Encoding.UTF8.GetBytes("hello world")).ToArray());
+
+        var result = await _group.EditFileAsync(p, "world", "luban");
+
+        Assert.IsTrue(result.IsSuccess);
+        var bytes = await File.ReadAllBytesAsync(p);
+        CollectionAssert.AreEqual(new byte[] { 0xEF, 0xBB, 0xBF }, bytes[..3]);
+        Assert.AreEqual("hello luban", File.ReadAllText(p));
+    }
 }
