@@ -34,6 +34,9 @@ public class LogToolOptions
     /// <summary>单行正则匹配超时硬上限（60 秒）：防止 ReDoS。</summary>
     public const int HardMaxRegexMatchTimeoutMs = 60_000;
 
+    /// <summary>每签名样本行数硬上限。</summary>
+    public const int HardMaxSampleLinesPerSignature = 100;
+
     /// <summary>是否启用 log 工具组与附件自动聚合。</summary>
     public bool Enabled { get; set; } = true;
 
@@ -91,7 +94,7 @@ public class LogToolOptions
         MaxMatches = MaxMatches <= 0 ? 200 : MaxMatches;
         MaxResultChars = MaxResultChars <= 0 ? 8000 : MaxResultChars;
         RegexMatchTimeoutMs = RegexMatchTimeoutMs <= 0 ? 5000 : Math.Min(RegexMatchTimeoutMs, HardMaxRegexMatchTimeoutMs);
-        SampleLinesPerSignature = SampleLinesPerSignature <= 0 ? 3 : SampleLinesPerSignature;
+        SampleLinesPerSignature = SampleLinesPerSignature <= 0 ? 3 : Math.Min(SampleLinesPerSignature, HardMaxSampleLinesPerSignature);
     }
 
     /// <summary>按扩展名判断是否应自动聚合。</summary>

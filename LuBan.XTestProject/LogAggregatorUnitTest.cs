@@ -137,4 +137,38 @@ public class LogAggregatorUnitTest
         }
         finally { File.Delete(path); }
     }
+
+    [TestMethod]
+    public async Task External_Cancellation_Throws()
+    {
+        var path = await WriteTempAsync("ERROR boom\n");
+        try
+        {
+            var agg = New();
+            await Assert.ThrowsAsync<OperationCanceledException>(
+                () => agg.AggregateAsync(path, new CancellationToken(canceled: true)));
+        }
+        finally { File.Delete(path); }
+    }
+
+    [TestMethod]
+    public async Task Internal_Timeout_Returns_Truncated()
+    {
+        var path = Path.GetTempFileName();
+        try
+        {
+            await using (var writer = new StreamWriter(path, false, new UTF8Encoding(false)))
+            {
+                for (var i = 0; i < 100_000; i++)
+                    await writer.WriteLineAsync($"2026-01-01 00:00:{i % 60:D2} INFO 处理第 {i} 条记录 value={i}");
+            }
+
+            var summary = await New(new LogToolOptions { MaxDurationMs = 1 }).AggregateAsync(path);
+
+            Assert.IsTrue(summary.Truncated);
+            Assert.AreEqual("timeout", summary.TruncationReason);
+            Assert.IsTrue(summary.TotalLines < 100_000L);
+        }
+        finally { File.Delete(path); }
+    }
 }

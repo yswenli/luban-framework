@@ -93,6 +93,18 @@ public class LogToolOptionsUnitTest
     }
 
     [TestMethod]
+    public void ApplyHardCaps_Clamps_SampleLinesPerSignature()
+    {
+        var capped = new LogToolOptions { SampleLinesPerSignature = int.MaxValue };
+        capped.ApplyHardCaps();
+        Assert.AreEqual(LogToolOptions.HardMaxSampleLinesPerSignature, capped.SampleLinesPerSignature);
+
+        var inRange = new LogToolOptions { SampleLinesPerSignature = 5 };
+        inRange.ApplyHardCaps();
+        Assert.AreEqual(5, inRange.SampleLinesPerSignature);
+    }
+
+    [TestMethod]
     public void IsAggregateExtension_Dot_Optional_And_Case_Insensitive()
     {
         var o = new LogToolOptions();
