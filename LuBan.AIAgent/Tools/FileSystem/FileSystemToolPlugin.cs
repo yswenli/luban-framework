@@ -68,6 +68,7 @@ public class FileSystemToolPlugin : ILuBanToolPlugin
             AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.ReadFileAsync)),
             AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.WriteFileAsync)),
             AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.EditFileAsync)),
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.MultiEditFileAsync)),
             AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.ListDirectoryAsync), workspaceRootProvider),
             AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.GetWorkspaceOverviewAsync), workspaceRootProvider),
             AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.DeleteFileAsync)),
@@ -1311,6 +1312,64 @@ public class FileSystemToolGroup
         catch (Exception ex)
         {
             Logger.Error("编辑文件异常", ex, path);
+            return ToolResult.Fail<string>($"操作失败: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// 对同一文件按顺序批量应用多条精确替换（原子：任一条失败则整体不写入）。
+    /// </summary>
+    /// <param name="path">目标文件路径。</param>
+    /// <param name="edits">替换操作列表。</param>
+    /// <returns>批量替换结果。</returns>
+    [Description("对同一文件原子批量执行多条精确字符串替换；任一条失败则整体不写入。")]
+    public async Task<ToolResult<string>> MultiEditFileAsync(string path, IReadOnlyList<EditOperation> edits)
+    {
+        if (await ConfirmOrBlockAsync(nameof(MultiEditFileAsync), path,
+            new Dictionary<string, object?> { ["path"] = path, ["edits"] = edits }) is { } blocked)
+        {
+            return blocked;
+        }
+
+        if (edits == null || edits.Count == 0)
+            return ToolResult.Fail<string>("edits 不能为空。");
+
+        if (Directory.Exists(path))
+            return ToolResult.Fail<string>(DirectoryPathMessage(path, "编辑文件需要包含文件名的文件路径"));
+        if (!File.Exists(path))
+            return ToolResult.Fail<string>($"未找到文件: {path}。请先用 ReadFile 核对路径。");
+
+        try
+        {
+            var current = await File.ReadAllTextAsync(path);
+
+            for (var i = 0; i < edits.Count; i++)
+            {
+                var op = edits[i];
+                var ordinal = i + 1;
+
+                if (string.IsNullOrEmpty(op.OldString))
+                    return ToolResult.Fail<string>($"第 {ordinal} 条失败：old_string 不能为空。");
+                if (op.OldString == op.NewString)
+                    return ToolResult.Fail<string>($"第 {ordinal} 条失败：old_string 与 new_string 相同。");
+
+                var count = CountOccurrences(current, op.OldString);
+                if (count == 0)
+                    return ToolResult.Fail<string>($"第 {ordinal} 条失败：未找到匹配内容，请用 ReadFile 核对原文。");
+                if (count > 1 && !op.ReplaceAll)
+                    return ToolResult.Fail<string>($"第 {ordinal} 条失败：匹配到 {count} 处，请扩大上下文或设置 replaceAll=true。");
+
+                current = op.ReplaceAll
+                    ? current.Replace(op.OldString, op.NewString)
+                    : ReplaceFirst(current, op.OldString, op.NewString);
+            }
+
+            await File.WriteAllTextAsync(path, current);
+            return ToolResult.Ok<string>($"已应用 {edits.Count} 条替换。", $"path={path}; edits={edits.Count}");
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("批量编辑文件异常", ex, path);
             return ToolResult.Fail<string>($"操作失败: {ex.Message}");
         }
     }

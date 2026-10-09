@@ -101,4 +101,37 @@ public class EditToolUnitTest
         Assert.IsFalse(result.IsSuccess);
         StringAssert.Contains(result.Message!, "old_string 不能为空");
     }
+
+    [TestMethod]
+    public async Task MultiEditFileAsync_AllValid_AppliesAtomically()
+    {
+        var p = Write("m1.txt", "aaa bbb");
+        var edits = new List<EditOperation>
+        {
+            new() { OldString = "aaa", NewString = "111" },
+            new() { OldString = "bbb", NewString = "222" }
+        };
+
+        var result = await _group.MultiEditFileAsync(p, edits);
+
+        Assert.IsTrue(result.IsSuccess);
+        Assert.AreEqual("111 222", File.ReadAllText(p));
+    }
+
+    [TestMethod]
+    public async Task MultiEditFileAsync_AnyInvalid_WritesNothing()
+    {
+        var p = Write("m2.txt", "aaa bbb");
+        var edits = new List<EditOperation>
+        {
+            new() { OldString = "aaa", NewString = "111" },
+            new() { OldString = "zzz", NewString = "999" }
+        };
+
+        var result = await _group.MultiEditFileAsync(p, edits);
+
+        Assert.IsFalse(result.IsSuccess);
+        StringAssert.Contains(result.Message!, "第 2 条");
+        Assert.AreEqual("aaa bbb", File.ReadAllText(p));
+    }
 }
