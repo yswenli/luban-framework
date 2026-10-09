@@ -74,4 +74,14 @@ public class GitToolUnitTest
         Assert.IsNotNull(result);
         Assert.IsNotNull(result.Message);
     }
+
+    [TestMethod]
+    public void DefaultReadOnlyTools_ContainsGitReadOnlyTools()
+    {
+        var ctx = new ToolConfirmationContext();
+        var svc = new ToolConfirmationService(ctx);
+        Assert.IsTrue(svc.ReadOnlyTools.Contains("GitStatusAsync"));
+        Assert.IsTrue(svc.ReadOnlyTools.Contains("GitDiffAsync"));
+        Assert.IsFalse(svc.AlwaysConfirmTools.Contains("GitCommitAsync"), "Git 工具不得进入 AlwaysConfirmTools");
+    }
 }

@@ -49,6 +49,7 @@ public static class LuBanAgentExtensions
         services.AddSingleton<ILuBanToolPlugin, Tools.FileSystem.FileSystemToolPlugin>();
         services.AddSingleton<ILuBanToolPlugin, Tools.Script.ScriptToolPlugin>();
         services.AddSingleton<ILuBanToolPlugin, Tools.Web.WebToolPlugin>();
+        services.AddSingleton<ILuBanToolPlugin, Tools.Git.GitToolPlugin>();
         services.AddSingleton<ILuBanToolPlugin, Tools.Retrieval.RetrievalToolPlugin>();
         services.AddSingleton<ILuBanToolPlugin, Tools.LocalMemory.LocalMemoryToolPlugin>();
         services.AddSingleton<ILuBanToolPlugin, MCP.MCPToolPlugin>();
