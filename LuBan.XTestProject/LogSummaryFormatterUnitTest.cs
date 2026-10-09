@@ -1,3 +1,4 @@
+using System.Globalization;
 using LuBan.AIAgent.LogAnalysis;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -53,7 +54,35 @@ public class LogSummaryFormatterUnitTest
 
         var text = LogSummaryFormatter.Format(Summary(errors), 500);
 
-        Assert.IsTrue(text.Length <= 500 + 64);
+        Assert.IsTrue(text.Length <= 500);
         StringAssert.Contains(text, "已截断");
+    }
+
+    [TestMethod]
+    public void Renders_NoError_Placeholder_When_No_Errors()
+    {
+        var text = LogSummaryFormatter.Format(Summary(), 8000);
+        StringAssert.Contains(text, "（无 ERROR/FATAL 行）");
+    }
+
+    [TestMethod]
+    public void Renders_Unknown_Time_When_Timestamps_Missing()
+    {
+        var summary = Summary() with { FirstTimestamp = null, LastTimestamp = null };
+        var text = LogSummaryFormatter.Format(summary, 8000);
+        StringAssert.Contains(text, "(未识别)");
+    }
+
+    [TestMethod]
+    public void Uses_Invariant_Culture_For_Size()
+    {
+        var original = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = new CultureInfo("de-DE");
+            var text = LogSummaryFormatter.Format(Summary(), 8000);
+            StringAssert.Contains(text, "5.00 MB");
+        }
+        finally { CultureInfo.CurrentCulture = original; }
     }
 }

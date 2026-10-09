@@ -24,12 +24,12 @@ internal static class LogSummaryFormatter
     public static string Format(LogSummary summary, int maxResultChars)
     {
         var sb = new StringBuilder();
-        var sizeMb = summary.FileSizeBytes / 1024d / 1024d;
+        var sizeMb = (summary.FileSizeBytes / 1024d / 1024d).ToString("F2", CultureInfo.InvariantCulture);
 
         sb.AppendLine("# 日志概览");
         sb.AppendLine();
         sb.AppendLine($"- 文件：`{summary.FilePath}`");
-        sb.AppendLine($"- 大小：{sizeMb:F2} MB（{summary.FileSizeBytes} 字节）");
+        sb.AppendLine($"- 大小：{sizeMb} MB（{summary.FileSizeBytes} 字节）");
         sb.AppendLine($"- 已处理行数：{summary.TotalLines}");
         sb.AppendLine($"- 时间范围：{Fmt(summary.FirstTimestamp)} ~ {Fmt(summary.LastTimestamp)}");
         if (summary.Truncated)
@@ -69,7 +69,11 @@ internal static class LogSummaryFormatter
 
         var text = sb.ToString();
         if (maxResultChars > 0 && text.Length > maxResultChars)
-            text = text[..maxResultChars] + "\n…（已截断）";
+        {
+            const string suffix = "\n…（已截断）";
+            var take = Math.Max(0, maxResultChars - suffix.Length);
+            text = text[..take] + suffix;
+        }
         return text;
     }
 
