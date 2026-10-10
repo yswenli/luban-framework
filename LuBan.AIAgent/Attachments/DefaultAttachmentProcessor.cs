@@ -91,6 +91,27 @@ public sealed class DefaultAttachmentProcessor : IAttachmentProcessor
     private const long LargeTextThreshold = 50 * 1024;    // 50KB
     private const long MaxTextFileBytes = 10 * 1024 * 1024; // 10MB
 
+    private readonly LogToolOptions _logOptions;
+    private readonly ILogAggregator _aggregator;
+
+    /// <summary>创建处理器（无参：使用默认日志配置，供仅需 MIME 解析等轻量场景）。</summary>
+    public DefaultAttachmentProcessor()
+        : this(Options.Create(new LogToolOptions()), new LogAggregator(Options.Create(new LogToolOptions())))
+    {
+    }
+
+    /// <summary>创建处理器。</summary>
+    /// <param name="logOptions">大日志分析配置（绑定 <c>LuBanAgent:Tools:Log</c>）。</param>
+    /// <param name="aggregator">日志聚合器。</param>
+    public DefaultAttachmentProcessor(
+        IOptions<LogToolOptions> logOptions,
+        ILogAggregator aggregator)
+    {
+        _logOptions = logOptions?.Value ?? new LogToolOptions();
+        _logOptions.ApplyHardCaps();
+        _aggregator = aggregator ?? throw new ArgumentNullException(nameof(aggregator));
+    }
+
     /// <inheritdoc />
     public async Task<ProcessedAttachment> ProcessAsync(string filePath, bool generateThumbnail = false, CancellationToken ct = default)
     {
@@ -210,10 +231,15 @@ public sealed class DefaultAttachmentProcessor : IAttachmentProcessor
     private async Task<ProcessedAttachment> ProcessTextAsync(
         string filePath, FileInfo info, string mediaType, CancellationToken ct)
     {
+        var fullPath = Path.GetFullPath(filePath);
+
+        // .log 分流必须先于 10MB 拒绝，否则大日志永远到不了聚合分支
+        if (_logOptions.IsAggregateExtension(filePath))
+            return await ProcessLogAsync(filePath, info, mediaType, fullPath, ct).ConfigureAwait(false);
+
         if (info.Length > MaxTextFileBytes)
             throw new InvalidOperationException($"文本文件过大（{info.Length / 1024 / 1024}MB，上限 10MB），请使用 LLM Wiki 知识库");
 
-        var fullPath = Path.GetFullPath(filePath);
         if (info.Length <= LargeTextThreshold)
         {
             var content = await File.ReadAllTextAsync(filePath, Encoding.UTF8, ct).ConfigureAwait(false);
@@ -236,4 +262,63 @@ public sealed class DefaultAttachmentProcessor : IAttachmentProcessor
             IsLargeText = true
         };
     }
+
+    private async Task<ProcessedAttachment> ProcessLogAsync(
+        string filePath, FileInfo info, string mediaType, string fullPath, CancellationToken ct)
+    {
+        // 超过单次聚合上限：仅指引
+        if (info.Length > _logOptions.MaxFileSizeBytes)
+        {
+            var limitMb = _logOptions.MaxFileSizeBytes / 1024d / 1024d;
+            var sizeMb = info.Length / 1024d / 1024d;
+            return Guide(fullPath, info, mediaType,
+                $"用户附加了日志文件 {info.Name}（{sizeMb:F1}MB），超过单次聚合上限（{limitMb:F0}MB），未自动生成概览。");
+        }
+
+        // ≤ 50KB：按普通文本内联
+        if (info.Length <= LargeTextThreshold)
+        {
+            var content = await File.ReadAllTextAsync(filePath, Encoding.UTF8, ct).ConfigureAwait(false);
+            return new ProcessedAttachment
+            {
+                Info = new AttachmentInfo(info.Name, mediaType, info.Length, AttachmentKind.TextFile, fullPath),
+                Content = new TextContent(content)
+            };
+        }
+
+        // 50KB–上限：流式聚合出概览（恒定内存），失败/超时回退指引，不阻断发送
+        try
+        {
+            var summary = await Task.Run(
+                () => _aggregator.AggregateAsync(fullPath, ct), ct).ConfigureAwait(false);
+            var overview = LogSummaryFormatter.Format(summary, _logOptions.MaxResultChars);
+            var text = overview + Environment.NewLine + Environment.NewLine + LogDrillGuide(fullPath);
+            return new ProcessedAttachment
+            {
+                Info = new AttachmentInfo(info.Name, mediaType, info.Length, AttachmentKind.TextFile, fullPath),
+                Content = new TextContent(text),
+                IsLargeText = true
+            };
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch
+        {
+            return Guide(fullPath, info, mediaType,
+                $"用户附加了日志文件 {info.Name} 自动聚合失败，已跳过概览。");
+        }
+    }
+
+    private static ProcessedAttachment Guide(string fullPath, FileInfo info, string mediaType, string reason)
+        => new()
+        {
+            Info = new AttachmentInfo(info.Name, mediaType, info.Length, AttachmentKind.TextFile, fullPath),
+            Content = new TextContent(reason + LogDrillGuide(fullPath)),
+            IsLargeText = true
+        };
+
+    private static string LogDrillGuide(string fullPath)
+        => $"可用 log 工具钻取：LogStatsAsync（概览）、LogGrepAsync（按关键字/级别/时间/行区间检索）、LogSliceAsync（按行号切片）。文件路径: {fullPath}";
 }
