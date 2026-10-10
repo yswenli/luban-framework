@@ -121,6 +121,7 @@ Skills、MCPs、Rules 采用统一的三级优先级注册表模式：
 | **MCP 外部工具** | `mcp` | 将已连接 MCP 客户端（内置文件系统客户端 + 外部服务器热加载）的工具并入 Agent 工具注册表 |
 | **编排工具** | `orchestration` | 向模型暴露 `plan_task` / `run_orchestration`，由模型自行判定复合任务并调度 SubAgent 执行 DAG（opt-in，需 `Orchestration.Enabled=true`） |
 | **Wiki 知识库工具** | `wiki` | 读取/写入/删除 wiki 页面、向量搜索、健康检查（opt-in，需在 `ToolGroups` 中显式点名） |
+| **大日志分析工具** | `log` | 大日志文件聚合概览、正则检索（级别/时间/行区间过滤）、按行切片，恒定内存（默认启用，非 opt-in） |
 
 > **脚本执行说明**：Shell 工具会自动探测运行环境（Windows 优先 `pwsh` > `powershell` > `cmd`，类 Unix 优先 `bash` > `sh`），并按解释器自动适配参数风格与引用方式，执行结果中回传实际使用的 `shell`/`shellPath`/`platform`。Lua 工具基于内嵌 MoonSharp 软沙箱执行，无需外部 `lua` 解释器，沙箱不具备文件系统与系统命令能力，结果通过 `print` 输出。
 
@@ -820,7 +821,7 @@ LuBan.AIAgent/
 ## 小贴士
 
 - 模型路由使用 `provider:model` 格式，新增 Provider 只需通过 `IAppConfigReader` / 宿主实现添加
-- **10 大内置工具组**覆盖浏览器自动化、文件操作、脚本执行、Web 请求、语义检索、上下文压缩、本地记忆、MCP、多 Agent 编排、LLM Wiki 知识库（opt-in）
+- **11 大内置工具组**覆盖浏览器自动化、文件操作、脚本执行、Web 请求、语义检索、上下文压缩、本地记忆、MCP、多 Agent 编排、LLM Wiki 知识库（opt-in）、大日志分析
 - `ToolConfirmationService` 对工作区外路径访问、写入、删除、执行等敏感操作要求用户确认；工作区内直接放行
 - 授权三档记忆（本次 / 本轮 / 本会话），按路径所在根粒度生效；删除类工具（`AlwaysConfirmTools`）不记忆、每次必确认
 - `FileSystemToolOptions.AllowedRoots` 与工作区根共同构成可信范围，范围内的操作免确认

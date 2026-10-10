@@ -121,6 +121,7 @@ Skills, MCPs, and Rules use a unified three-tier priority registry pattern:
 | **MCP External Tools** | `mcp` | Merge tools from connected MCP clients (built-in file-system client + hot-loaded external servers) into the Agent tool registry |
 | **Orchestration Tools** | `orchestration` | Expose `plan_task` / `run_orchestration` so the model itself detects composite tasks and dispatches SubAgents to run a DAG (opt-in, requires `Orchestration.Enabled=true`) |
 | **Wiki Knowledge Base Tools** | `wiki` | Read/write/delete wiki pages, vector search, health check (opt-in, must be named in `ToolGroups`) |
+| **Log Analysis Tools** | `log` | Aggregate overview, regex search (filter by level/time/line range), and line slicing for large log files with constant memory (enabled by default, non-opt-in) |
 
 > **Script execution notes**: The Shell tool auto-detects the runtime (on Windows `pwsh` > `powershell` > `cmd`; on Unix-like `bash` > `sh`), adapts argument style and quoting to the interpreter, and returns the actual `shell`/`shellPath`/`platform` in the result. The Lua tool runs on an embedded MoonSharp soft sandbox with no external `lua` interpreter required; the sandbox has no file-system or system-command access, and results are emitted via `print`.
 
@@ -822,7 +823,7 @@ LuBan.AIAgent/
 ## Tips
 
 - Model routing uses `provider:model` format; configure providers via `IAppConfigReader` / host implementation
-- **10 built-in tool groups** cover browser automation, file operations, script execution, web requests, semantic retrieval, context compaction, local memory, MCP, multi-agent orchestration, and the LLM Wiki knowledge base (opt-in)
+- **11 built-in tool groups** cover browser automation, file operations, script execution, web requests, semantic retrieval, context compaction, local memory, MCP, multi-agent orchestration, the LLM Wiki knowledge base (opt-in), and large log analysis
 - `ToolConfirmationService` requires user confirmation for out-of-workspace path access and for sensitive operations (write, delete, execute); in-workspace operations are allowed directly
 - Three-tier grant memory (this time / this turn / this session) keyed by grant root; deletion tools (`AlwaysConfirmTools`) are never remembered and always confirm
 - `FileSystemToolOptions.AllowedRoots` together with workspace roots forms the trusted scope; operations inside it need no confirmation
