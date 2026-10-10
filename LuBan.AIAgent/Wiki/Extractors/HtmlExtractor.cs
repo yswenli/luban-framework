@@ -35,14 +35,14 @@ public class HtmlExtractor : ISourceExtractor
     /// <inheritdoc />
     public async Task<ExtractedSource> ExtractAsync(string filePath, CancellationToken cancellationToken = default)
     {
-        var html = await File.ReadAllTextAsync(filePath, cancellationToken);
+        var (html, truncatedRaw) = await BoundedTextReader.ReadAsync(filePath, TextExtractor.MaxChars, cancellationToken).ConfigureAwait(false);
         var text = ScriptStyle.Replace(html, " ");
         text = Tag.Replace(text, "\n");
         text = System.Net.WebUtility.HtmlDecode(text);
         text = Blank.Replace(text, "\n\n").Trim();
 
-        var truncated = text.Length > TextExtractor.MaxChars;
-        if (truncated) text = text[..TextExtractor.MaxChars];
+        var truncated = truncatedRaw || text.Length > TextExtractor.MaxChars;
+        if (text.Length > TextExtractor.MaxChars) text = text[..TextExtractor.MaxChars];
         return new ExtractedSource { FilePath = filePath, Text = text, Markdown = text, Truncated = truncated };
     }
 }

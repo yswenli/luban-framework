@@ -29,9 +29,7 @@ public class TextExtractor : ISourceExtractor
     /// <inheritdoc />
     public async Task<ExtractedSource> ExtractAsync(string filePath, CancellationToken cancellationToken = default)
     {
-        var text = await File.ReadAllTextAsync(filePath, cancellationToken);
-        var truncated = text.Length > MaxChars;
-        if (truncated) text = text[..MaxChars];
+        var (text, truncated) = await BoundedTextReader.ReadAsync(filePath, MaxChars, cancellationToken).ConfigureAwait(false);
         return new ExtractedSource { FilePath = filePath, Text = text, Markdown = text, Truncated = truncated };
     }
 }

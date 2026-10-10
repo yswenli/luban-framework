@@ -29,7 +29,7 @@ public class JsonExtractor : ISourceExtractor
     /// <inheritdoc />
     public async Task<ExtractedSource> ExtractAsync(string filePath, CancellationToken cancellationToken = default)
     {
-        var raw = await File.ReadAllTextAsync(filePath, cancellationToken);
+        var (raw, truncatedRaw) = await BoundedTextReader.ReadAsync(filePath, TextExtractor.MaxChars, cancellationToken).ConfigureAwait(false);
         var ext = Path.GetExtension(filePath);
         var isLines = ext.Equals(".jsonl", StringComparison.OrdinalIgnoreCase)
                       || ext.Equals(".ndjson", StringComparison.OrdinalIgnoreCase);
@@ -50,8 +50,8 @@ public class JsonExtractor : ISourceExtractor
         }
 
         var text = sb.ToString();
-        var truncated = text.Length > TextExtractor.MaxChars;
-        if (truncated) text = text[..TextExtractor.MaxChars];
+        var truncated = truncatedRaw || text.Length > TextExtractor.MaxChars;
+        if (text.Length > TextExtractor.MaxChars) text = text[..TextExtractor.MaxChars];
         return new ExtractedSource { FilePath = filePath, Text = raw, Markdown = text, Truncated = truncated };
     }
 

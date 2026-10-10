@@ -127,8 +127,11 @@ public class RetrievalService : IRetrievalService
                 }
                 if (truncated)
                 {
-                    Logger.Warn($"{fullPath}: 表格内容超出单文件上限（{ExcelExtractor.IndexingMaxChars} 字符），已截断");
-                    report.Warnings.Add($"{fullPath}: 内容超出 {ExcelExtractor.IndexingMaxChars} 字符已截断");
+                    var limit = string.Equals(Path.GetExtension(fullPath), ".xlsx", StringComparison.OrdinalIgnoreCase)
+                        ? ExcelExtractor.IndexingMaxChars
+                        : TextExtractor.MaxChars;
+                    Logger.Warn($"{fullPath}: 内容超出单文件上限（{limit} 字符），已截断");
+                    report.Warnings.Add($"{fullPath}: 内容超出 {limit} 字符已截断");
                 }
                 seenPaths.Add(fullPath);
                 var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(content)));
@@ -169,9 +172,9 @@ public class RetrievalService : IRetrievalService
 
     /// <summary>
     /// 读取待索引文件内容：`.xlsx` 走 Excel 提取（MiniExcel，与 <c>LuBan.Common.ExcelUtil</c> 同库），
-    /// 其余白名单文本按 UTF-8 直读。内容含 NUL 字节或全空白视为无可索引内容，返回 <c>null</c>，
+    /// 其余白名单文本按 UTF-8 有界流式读取。内容含 NUL 字节或全空白视为无可索引内容，返回 <c>null</c>，
     /// 由调用方计入跳过（二进制判断从扫描阶段移到读取阶段，避免预读全部文件）。
-    /// 返回的 <c>Truncated</c> 表示表格提取超出 <see cref="ExcelExtractor.IndexingMaxChars"/> 被截断。
+    /// 返回的 <c>Truncated</c> 表示内容超出单文件上限（表格为 <see cref="ExcelExtractor.IndexingMaxChars"/>，文本为 <see cref="TextExtractor.MaxChars"/>）被截断。
     /// </summary>
     private static async Task<(string? Content, bool Truncated)> ReadIndexableContentAsync(string fullPath, CancellationToken cancellationToken)
     {
@@ -186,9 +189,9 @@ public class RetrievalService : IRetrievalService
             return string.IsNullOrWhiteSpace(text) ? (null, false) : (text, source.Truncated);
         }
 
-        var content = await File.ReadAllTextAsync(fullPath, cancellationToken);
+        var (content, truncated) = await BoundedTextReader.ReadAsync(fullPath, TextExtractor.MaxChars, cancellationToken).ConfigureAwait(false);
         if (string.IsNullOrWhiteSpace(content)) return (null, false);
-        return content.AsSpan().IndexOf('\0') >= 0 ? (null, false) : (content, false);
+        return content.AsSpan().IndexOf('\0') >= 0 ? (null, false) : (content, truncated);
     }
 
     /// <inheritdoc />
@@ -227,8 +230,11 @@ public class RetrievalService : IRetrievalService
         var report = await IndexSingleContentAsync(content, _chunkers.GetLanguage(fullPath), fullPath, hash, cancellationToken, workspaceId);
         if (truncated)
         {
-            Logger.Warn($"{fullPath}: 表格内容超出单文件上限（{ExcelExtractor.IndexingMaxChars} 字符），已截断");
-            report.Warnings.Add($"{fullPath}: 内容超出 {ExcelExtractor.IndexingMaxChars} 字符已截断");
+            var limit = string.Equals(Path.GetExtension(fullPath), ".xlsx", StringComparison.OrdinalIgnoreCase)
+                ? ExcelExtractor.IndexingMaxChars
+                : TextExtractor.MaxChars;
+            Logger.Warn($"{fullPath}: 内容超出单文件上限（{limit} 字符），已截断");
+            report.Warnings.Add($"{fullPath}: 内容超出 {limit} 字符已截断");
         }
         return report;
     }

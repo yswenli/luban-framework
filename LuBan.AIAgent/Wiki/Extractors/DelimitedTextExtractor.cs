@@ -27,7 +27,7 @@ public class DelimitedTextExtractor : ISourceExtractor
     /// <inheritdoc />
     public async Task<ExtractedSource> ExtractAsync(string filePath, CancellationToken cancellationToken = default)
     {
-        var raw = await File.ReadAllTextAsync(filePath, cancellationToken);
+        var (raw, truncated) = await BoundedTextReader.ReadAsync(filePath, TextExtractor.MaxChars, cancellationToken).ConfigureAwait(false);
         var delimiter = Path.GetExtension(filePath).Equals(".tsv", StringComparison.OrdinalIgnoreCase) ? '\t' : ',';
         var lines = raw.Replace("\r\n", "\n").Split('\n', StringSplitOptions.RemoveEmptyEntries);
 
@@ -43,6 +43,6 @@ public class DelimitedTextExtractor : ISourceExtractor
         }
 
         var markdown = sb.ToString();
-        return new ExtractedSource { FilePath = filePath, Text = raw, Markdown = markdown };
+        return new ExtractedSource { FilePath = filePath, Text = raw, Markdown = markdown, Truncated = truncated };
     }
 }
