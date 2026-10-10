@@ -39,6 +39,7 @@ public class LuBanAgent
     private readonly string? _retrievalMode;
     private readonly Sessions.ISessionManager? _sessionManager;
     private readonly Sessions.SessionChatHistoryProvider? _historyProvider;
+    private readonly Abstractions.ISessionContext? _sessionContext;
     private AgentSession? _session;
     private readonly SemaphoreSlim _sessionLock = new(1, 1);
 
@@ -53,7 +54,8 @@ public class LuBanAgent
         Retrieval.IRetrievalService? retrievalService = null,
         string? retrievalMode = null,
         Sessions.ISessionManager? sessionManager = null,
-        Sessions.SessionChatHistoryProvider? historyProvider = null)
+        Sessions.SessionChatHistoryProvider? historyProvider = null,
+        Abstractions.ISessionContext? sessionContext = null)
     {
         ArgumentNullException.ThrowIfNull(innerAgent);
         _innerAgent = innerAgent;
@@ -61,6 +63,7 @@ public class LuBanAgent
         _retrievalMode = retrievalMode;
         _sessionManager = sessionManager;
         _historyProvider = historyProvider;
+        _sessionContext = sessionContext;
     }
 
     /// <summary>
@@ -173,10 +176,10 @@ public class LuBanAgent
     /// </summary>
     private async Task PersistTurnAsync(string userInput, string assistantOutput, CancellationToken cancellationToken)
     {
-        if (_sessionManager?.CurrentSession is not { } session)
+        var sessionId = _sessionContext?.SessionId;
+        if (string.IsNullOrEmpty(sessionId) || _sessionManager is null)
             return;
 
-        var sessionId = session.SessionId;
         try
         {
             await _sessionManager.AddMessageAsync(sessionId, "user", userInput, Math.Max(1, userInput.Length / 4));

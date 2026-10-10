@@ -25,6 +25,7 @@ namespace LuBan.AIAgent.Sessions;
 /// </summary>
 public class SessionChatHistoryProvider : ChatHistoryProvider
 {
+    private readonly ISessionContext _sessionContext;
     private readonly ISessionManager _sessionManager;
     private readonly IChatClient _chatClient;
     private readonly int _targetCount;
@@ -42,12 +43,14 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
     /// <summary>
     /// 创建会话历史提供者
     /// </summary>
+    /// <param name="sessionContext">会话上下文（提供当前会话标识，按会话隔离）</param>
     /// <param name="sessionManager">会话管理器</param>
     /// <param name="chatClient">聊天客户端，用于摘要压缩</param>
     /// <param name="targetCount">摘要压缩的目标消息条数</param>
     /// <param name="threshold">触发摘要压缩的冗余阈值</param>
     /// <param name="ruleEngine">规则引擎，用于 context-build 规则注入（可为 null）</param>
     public SessionChatHistoryProvider(
+        ISessionContext sessionContext,
         ISessionManager sessionManager,
         IChatClient chatClient,
         int targetCount = 20,
@@ -55,6 +58,7 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
         RuleEngine? ruleEngine = null)
         : base(null, null, null)
     {
+        _sessionContext = sessionContext;
         _sessionManager = sessionManager;
         _chatClient = chatClient;
         _targetCount = targetCount;
@@ -71,7 +75,7 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
     protected override async ValueTask<IEnumerable<ChatMessage>> ProvideChatHistoryAsync(
         InvokingContext context, CancellationToken cancellationToken = default)
     {
-        var sessionId = _sessionManager.CurrentSession?.SessionId;
+        var sessionId = _sessionContext.SessionId;
         if (string.IsNullOrEmpty(sessionId))
             return Array.Empty<ChatMessage>();
 
@@ -154,7 +158,7 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
         var pendingRawInput = _pendingRawUserInput;
         _pendingRawUserInput = null;
 
-        var sessionId = _sessionManager.CurrentSession?.SessionId;
+        var sessionId = _sessionContext.SessionId;
         if (string.IsNullOrEmpty(sessionId))
             return;
 

@@ -97,12 +97,14 @@ public class LuBanAgentFactory : ILuBanAgentFactory, IScoped
 
         var retrievalService = _serviceProvider.GetService<Retrieval.IRetrievalService>();
         var sessionManager = _serviceProvider.GetService<Sessions.ISessionManager>();
+        var sessionContext = _serviceProvider.GetService<Abstractions.ISessionContext>();
         return Task.FromResult(new LuBanAgent(
             agent,
             retrievalService,
             retrievalMode,
             sessionManager,
-            historyProvider));
+            historyProvider,
+            sessionContext));
     }
 
     /// <summary>
@@ -230,7 +232,9 @@ public class LuBanAgentFactory : ILuBanAgentFactory, IScoped
             return null;
 
         var ruleEngine = _serviceProvider.GetService<RuleEngine>();
+        var sessionContext = _serviceProvider.GetRequiredService<ISessionContext>();
         return new SessionChatHistoryProvider(
+            sessionContext,
             sessionManager,
             _chatClient,
             opts.Session.CompactTargetMessages,

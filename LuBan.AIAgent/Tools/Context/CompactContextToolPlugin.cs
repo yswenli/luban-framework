@@ -68,7 +68,8 @@ public class CompactContextToolPlugin : ILuBanToolPlugin
         if (sessionManager is null) return Array.Empty<AIFunction>();
 
         var confirmationService = sp.GetRequiredService<IToolConfirmationService>();
-        var group = new CompactContextToolGroup(_scopeFactory, sessionManager, _options.Value, confirmationService);
+        var sessionContext = sp.GetService<ISessionContext>();
+        var group = new CompactContextToolGroup(_scopeFactory, sessionManager, _options.Value, confirmationService, sessionContext);
         return new List<AIFunction>
         {
             AIFunctionFactoryHelper.Create(group, nameof(CompactContextToolGroup.CompactContextAsync))
@@ -88,6 +89,7 @@ public class CompactContextToolGroup
     private readonly ISessionManager _sessionManager;
     private readonly LuBanAgentOptions _options;
     private readonly IToolConfirmationService _confirmationService;
+    private readonly ISessionContext? _sessionContext;
 
     /// <summary>
     /// 创建工具组实例
@@ -96,12 +98,14 @@ public class CompactContextToolGroup
         IServiceScopeFactory scopeFactory,
         ISessionManager sessionManager,
         LuBanAgentOptions options,
-        IToolConfirmationService confirmationService)
+        IToolConfirmationService confirmationService,
+        ISessionContext? sessionContext = null)
     {
         _scopeFactory = scopeFactory;
         _sessionManager = sessionManager;
         _options = options;
         _confirmationService = confirmationService;
+        _sessionContext = sessionContext;
     }
 
     /// <summary>
@@ -124,7 +128,7 @@ public class CompactContextToolGroup
         if (outcome != EnumConfirmationOutcome.Allowed)
             return ToolResult.Denied<string>();
 
-        var sessionId = _sessionManager.CurrentSession?.SessionId;
+        var sessionId = _sessionContext?.SessionId;
         if (string.IsNullOrEmpty(sessionId))
             return ToolResult.Fail<string>("无当前会话，无需压缩");
 
