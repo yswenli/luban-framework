@@ -28,6 +28,12 @@ namespace LuBan.AIAgent;
 /// </summary>
 public class LuBanAgent
 {
+    /// <summary>
+    /// <see cref="AgentResponseUpdate.AdditionalProperties"/> 中承载 LLM 轮次号的键。
+    /// 轮次号按“一次 LLM 请求/回复”计，由工具结果边界递增，供上层 UI 归并同一轮的思考块。
+    /// </summary>
+    public const string LlmRoundKey = "LlmRound";
+
     private readonly ChatClientAgent _innerAgent;
     private readonly Retrieval.IRetrievalService? _retrievalService;
     private readonly string? _retrievalMode;
@@ -125,7 +131,8 @@ public class LuBanAgent
     {
         var session = await GetOrCreateSessionAsync(cancellationToken);
         input = await PreProcessInputAsync(input, cancellationToken);
-        await foreach (var update in _innerAgent.RunStreamingAsync(input, session, cancellationToken: cancellationToken))
+        await foreach (var update in StampLlmRoundAsync(
+            _innerAgent.RunStreamingAsync(input, session, cancellationToken: cancellationToken), cancellationToken))
         {
             yield return update;
         }
@@ -154,7 +161,8 @@ public class LuBanAgent
 
         var messages = new[] { Attachments.AttachmentMessageBuilder.Build(input, attachments) };
 
-        await foreach (var update in _innerAgent.RunStreamingAsync(messages, session, cancellationToken: cancellationToken))
+        await foreach (var update in StampLlmRoundAsync(
+            _innerAgent.RunStreamingAsync(messages, session, cancellationToken: cancellationToken), cancellationToken))
         {
             yield return update;
         }
@@ -194,7 +202,8 @@ public class LuBanAgent
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var session = await GetOrCreateSessionAsync(cancellationToken);
-        await foreach (var update in _innerAgent.RunStreamingAsync(messages, session, cancellationToken: cancellationToken))
+        await foreach (var update in StampLlmRoundAsync(
+            _innerAgent.RunStreamingAsync(messages, session, cancellationToken: cancellationToken), cancellationToken))
         {
             yield return update;
         }
@@ -207,6 +216,52 @@ public class LuBanAgent
     /// <returns>新创建的会话。</returns>
     public async ValueTask<AgentSession> CreateSessionAsync(CancellationToken cancellationToken = default)
         => await _innerAgent.CreateSessionAsync(cancellationToken);
+
+    /// <summary>
+    /// 为上游流式更新标注 LLM 轮次号：每经过一次工具结果（框架随即发起下一轮 LLM 请求）轮次 +1。
+    /// 轮次号写入 <see cref="AgentResponseUpdate.AdditionalProperties"/>（键见 <see cref="LlmRoundKey"/>），
+    /// 使上层 UI 能按“同一轮 LLM 回复”归并思考块 —— 正文夹在思考中间时不再被误切成多块。
+    /// </summary>
+    /// <param name="source">上游流式更新序列。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>已标注轮次号的流式更新序列。</returns>
+    private static async IAsyncEnumerable<AgentResponseUpdate> StampLlmRoundAsync(
+        IAsyncEnumerable<AgentResponseUpdate> source,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        var round = 1;
+        var sawToolResult = false;
+
+        await foreach (var update in source.WithCancellation(cancellationToken))
+        {
+            if (update.Contents is { } contents)
+            {
+                var hasToolResult = false;
+                var hasNonResultContent = false;
+                foreach (var content in contents)
+                {
+                    if (content is FunctionResultContent)
+                        hasToolResult = true;
+                    else
+                        hasNonResultContent = true;
+                }
+
+                if (hasToolResult)
+                    sawToolResult = true;
+
+                // 上一批工具结果之后、首次出现新一轮 LLM 内容 → 轮次 +1（每次 LLM 请求只计一次）。
+                // 先记录本更新是否含工具结果再判断，避免“结果与下一轮内容混在同一更新”时被重复计数。
+                if (sawToolResult && hasNonResultContent)
+                {
+                    round++;
+                    sawToolResult = false;
+                }
+            }
+
+            (update.AdditionalProperties ??= new AdditionalPropertiesDictionary())[LlmRoundKey] = round;
+            yield return update;
+        }
+    }
 
     /// <summary>
     /// 输入预处理：按 retrievalMode 执行语义检索并注入检索上下文。
