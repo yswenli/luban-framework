@@ -114,6 +114,7 @@ Skills, MCPs, and Rules use a unified three-tier priority registry pattern:
 | **Browser Tools** | `browser` | Navigate, click, type, screenshot, get content, wait for selector, get URL (Playwright-based) |
 | **File System Tools** | `filesystem` | Read files, write files, list directories, delete files, delete directories, search files (glob), content search (regex), create directories, copy files, move files, get file info; allowed directly inside the workspace, paths outside the workspace are allowed after user confirmation |
 | **Script Tools** | `script` | Execute Shell (adaptive runtime), Lua (embedded sandbox, no external interpreter), Python scripts |
+| **Git Tools** | `git` | 26 fine-grained tools covering status/diff/log/branch/stash/commit/merge/rebase/push, etc.; confirmed-free inside the workspace, per-call confirmation when crossing the boundary; on conflict it returns a file list for the agent to resolve manually |
 | **Web Tools** | `web` | Send HTTP requests to fetch web content |
 | **Retrieval Tools** | `retrieval` | Index local code/documents, semantic search |
 | **Context Compaction** | `context` | Compact conversation history to free token budget (LLM-accessible, callable on demand) |
@@ -689,6 +690,7 @@ LuBan.AIAgent/
 │   ├── FileSystemToolOptions.cs       # File system tool options
 │   ├── ScriptToolOptions.cs           # Script tool options
 │   ├── WebToolOptions.cs              # Web tool options
+│   ├── GitToolOptions.cs              # Git tool options
 │   ├── RetrievalToolOptions.cs        # Retrieval tool options
 │   ├── LocalMemoryOptions.cs          # Local memory options
 │   ├── ModelEndpointOptions.cs        # Model endpoint options
@@ -704,7 +706,10 @@ LuBan.AIAgent/
 ├── Tools/
 │   ├── Browser/BrowserToolPlugin.cs   # Browser tools
 │   ├── FileSystem/FileSystemToolPlugin.cs  # File system tools
+│   ├── FileSystem/EditOperation.cs    # File edit operation model
 │   ├── Script/ScriptToolPlugin.cs     # Script execution tools
+│   ├── Git/                           # Git version control tools
+│   │   └── GitToolPlugin.cs           # Git tool plugin and tool group
 │   ├── Web/WebToolPlugin.cs           # Web tools
 │   ├── Context/
 │   │   └── CompactContextToolPlugin.cs # Context compaction tools
@@ -823,7 +828,7 @@ LuBan.AIAgent/
 ## Tips
 
 - Model routing uses `provider:model` format; configure providers via `IAppConfigReader` / host implementation
-- **11 built-in tool groups** cover browser automation, file operations, script execution, web requests, semantic retrieval, context compaction, local memory, MCP, multi-agent orchestration, the LLM Wiki knowledge base (opt-in), and large log analysis
+- **12 built-in tool groups** cover browser automation, file operations, script execution, Git version control, web requests, semantic retrieval, context compaction, local memory, MCP, multi-agent orchestration, the LLM Wiki knowledge base (opt-in), and large log analysis
 - `ToolConfirmationService` requires user confirmation for out-of-workspace path access and for sensitive operations (write, delete, execute); in-workspace operations are allowed directly
 - Three-tier grant memory (this time / this turn / this session) keyed by grant root; deletion tools (`AlwaysConfirmTools`) are never remembered and always confirm
 - `FileSystemToolOptions.AllowedRoots` together with workspace roots forms the trusted scope; operations inside it need no confirmation

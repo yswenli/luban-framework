@@ -121,7 +121,7 @@ dotnet add package LuBan.Common
 
 `HttpClientProxy`、`Http.HttpExtension`、`Http.FormUpload`、`Http.FileParameter`
 
-> 支持 GET / POST / 上传 / 自定义 Header，字符串还能直接 `.HttpGetAsync()`、`.HttpPostAsync()`。
+> 支持 GET / POST / 上传 / 自定义 Header，字符串还能直接 `.HttpGetAsync()`、`.HttpPostAsync()`；`HttpClientProxy.GetResponseAsync` 直接返回响应字节数组与 `ContentType`，适合下载二进制或按内容类型分派处理。
 
 ### 文件 IO
 
@@ -247,9 +247,9 @@ if (OptUtil.ValidateTotp(userInput, secret))
 
 ### 其他宝藏
 
-`SerializeUtil`、`StreamUtil`、`ZipUtil`、`Tracer`、`TryUtil`、`TokenUtil`、`EmailUtil`、`ConsoleUtil`、`NPinyin.Pinyin`
+`SerializeUtil`、`StreamUtil`、`ZipUtil`、`Tracer`、`TryUtil`、`TokenUtil`、`EmailUtil`、`ConsoleUtil`、`NPinyin.Pinyin`、`MarkdownUtil.HtmlToMarkdown`
 
-> 序列化、流、压缩、追踪、Token、邮件、控制台、拼音转换……这里藏了不少小惊喜。
+> 序列化、流、压缩、追踪、Token、邮件、控制台、拼音转换、HTML→Markdown 转换……这里藏了不少小惊喜。
 
 ---
 

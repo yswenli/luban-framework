@@ -458,6 +458,11 @@ public class ToolConfirmationService : IToolConfirmationService
         "ReadFileAsync", "ListDirectoryAsync", "GetWorkspaceOverviewAsync",
         "SearchFilesAsync", "GrepAsync", "GetFileInfoAsync",
         "LogStatsAsync", "LogGrepAsync", "LogSliceAsync",
+        // Git 只读工具（Plan 模式放行）
+        "GitStatusAsync", "GitDiffAsync", "GitLogAsync", "GitShowAsync",
+        "GitBranchListAsync", "GitRemoteListAsync", "GitBlameAsync", "GitStashListAsync",
+        // MCP 资源只读工具
+        "mcp_list_resources", "mcp_read_resource",
     ];
 
     /// <summary>

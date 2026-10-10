@@ -67,6 +67,8 @@ public class FileSystemToolPlugin : ILuBanToolPlugin
         {
             AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.ReadFileAsync)),
             AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.WriteFileAsync)),
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.EditFileAsync)),
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.MultiEditFileAsync)),
             AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.ListDirectoryAsync), workspaceRootProvider),
             AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.GetWorkspaceOverviewAsync), workspaceRootProvider),
             AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.DeleteFileAsync)),
@@ -1263,6 +1265,202 @@ public class FileSystemToolGroup
             Logger.Error("移动文件异常", ex, destPath);
             return ToolResult.Fail<string>($"操作失败: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// 对文件执行精确字符串替换。old_string 必须唯一（或设置 replace_all）。
+    /// </summary>
+    /// <param name="path">目标文件路径。</param>
+    /// <param name="old_string">待替换的原文。</param>
+    /// <param name="new_string">替换后的新文本。</param>
+    /// <param name="replace_all">是否替换全部匹配。</param>
+    /// <returns>替换结果。</returns>
+    [Description("对文件执行精确字符串替换（old_string → new_string）。默认要求 old_string 唯一，多点替换请用 MultiEdit 或 replace_all=true。创建/覆盖整个文件请用 WriteFile。")]
+    public async Task<ToolResult<string>> EditFileAsync(string path, string old_string, string new_string, bool replace_all = false)
+    {
+        if (await ConfirmOrBlockAsync(nameof(EditFileAsync), path,
+            new Dictionary<string, object?> { ["path"] = path, ["old_string"] = old_string, ["new_string"] = new_string, ["replace_all"] = replace_all }) is { } blocked)
+        {
+            return blocked;
+        }
+
+        if (string.IsNullOrEmpty(old_string))
+            return ToolResult.Fail<string>("old_string 不能为空；如需创建/覆盖整个文件请用 WriteFile。");
+
+        if (Directory.Exists(path))
+            return ToolResult.Fail<string>(DirectoryPathMessage(path, "编辑文件需要包含文件名的文件路径"));
+        if (!File.Exists(path))
+            return ToolResult.Fail<string>($"未找到文件: {path}。请先用 ReadFile 核对路径。");
+
+        try
+        {
+            var (original, hasBom) = await ReadAllTextWithBomAsync(path);
+            var count = CountOccurrences(original, old_string);
+
+            if (count == 0)
+                return ToolResult.Fail<string>("未找到匹配内容，请用 ReadFile 核对原文（注意空白/换行/缩进）。");
+            if (old_string == new_string)
+                return ToolResult.Fail<string>("old_string 与 new_string 相同，未做任何修改。");
+            if (count > 1 && !replace_all)
+                return ToolResult.Fail<string>($"匹配到 {count} 处，请扩大 old_string 上下文以唯一定位，或设置 replace_all=true。");
+
+            var changeIndex = original.IndexOf(old_string, StringComparison.Ordinal);
+            var updated = replace_all
+                ? original.Replace(old_string, new_string)
+                : ReplaceFirst(original, old_string, new_string);
+
+            await WriteAllTextWithBomAsync(path, updated, hasBom);
+            return ToolResult.Ok<string>(
+                $"已替换 {count} 处。\n{BuildEditContext(updated, changeIndex)}",
+                $"path={path}; replaced={count}");
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("编辑文件异常", ex, path);
+            return ToolResult.Fail<string>($"操作失败: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// 对同一文件按顺序批量应用多条精确替换（原子：任一条失败则整体不写入）。
+    /// </summary>
+    /// <param name="path">目标文件路径。</param>
+    /// <param name="edits">替换操作列表。</param>
+    /// <returns>批量替换结果。</returns>
+    [Description("对同一文件原子批量执行多条精确字符串替换；任一条失败则整体不写入。")]
+    public async Task<ToolResult<string>> MultiEditFileAsync(string path, IReadOnlyList<EditOperation> edits)
+    {
+        if (await ConfirmOrBlockAsync(nameof(MultiEditFileAsync), path,
+            new Dictionary<string, object?> { ["path"] = path, ["edits"] = edits }) is { } blocked)
+        {
+            return blocked;
+        }
+
+        if (edits == null || edits.Count == 0)
+            return ToolResult.Fail<string>("edits 不能为空。");
+
+        if (Directory.Exists(path))
+            return ToolResult.Fail<string>(DirectoryPathMessage(path, "编辑文件需要包含文件名的文件路径"));
+        if (!File.Exists(path))
+            return ToolResult.Fail<string>($"未找到文件: {path}。请先用 ReadFile 核对路径。");
+
+        try
+        {
+            var (current, hasBom) = await ReadAllTextWithBomAsync(path);
+
+            var editAnchorIndex = edits[0].OldString.Length > 0
+                ? current.IndexOf(edits[0].OldString, StringComparison.Ordinal)
+                : -1;
+
+            for (var i = 0; i < edits.Count; i++)
+            {
+                var op = edits[i];
+                var ordinal = i + 1;
+
+                if (string.IsNullOrEmpty(op.OldString))
+                    return ToolResult.Fail<string>($"第 {ordinal} 条失败：old_string 不能为空。");
+                if (op.OldString == op.NewString)
+                    return ToolResult.Fail<string>($"第 {ordinal} 条失败：old_string 与 new_string 相同。");
+
+                var count = CountOccurrences(current, op.OldString);
+                if (count == 0)
+                    return ToolResult.Fail<string>($"第 {ordinal} 条失败：未找到匹配内容，请用 ReadFile 核对原文。");
+                if (count > 1 && !op.ReplaceAll)
+                    return ToolResult.Fail<string>($"第 {ordinal} 条失败：匹配到 {count} 处，请扩大上下文或设置 replaceAll=true。");
+
+                current = op.ReplaceAll
+                    ? current.Replace(op.OldString, op.NewString)
+                    : ReplaceFirst(current, op.OldString, op.NewString);
+            }
+
+            await WriteAllTextWithBomAsync(path, current, hasBom);
+            return ToolResult.Ok<string>(
+                $"已应用 {edits.Count} 条替换。\n{BuildEditContext(current, editAnchorIndex)}",
+                $"path={path}; edits={edits.Count}");
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("批量编辑文件异常", ex, path);
+            return ToolResult.Fail<string>($"操作失败: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// 读取文本并检测是否存在 UTF-8 BOM。
+    /// </summary>
+    private static async Task<(string Text, bool HasBom)> ReadAllTextWithBomAsync(string path)
+    {
+        var bytes = await File.ReadAllBytesAsync(path);
+        var hasBom = bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF;
+        var text = hasBom
+            ? Encoding.UTF8.GetString(bytes, 3, bytes.Length - 3)
+            : Encoding.UTF8.GetString(bytes);
+        return (text, hasBom);
+    }
+
+    /// <summary>
+    /// 按原样写回文本，保留原有的 UTF-8 BOM。
+    /// </summary>
+    private static async Task WriteAllTextWithBomAsync(string path, string text, bool hasBom)
+    {
+        if (!hasBom)
+        {
+            await File.WriteAllTextAsync(path, text);
+            return;
+        }
+
+        var content = Encoding.UTF8.GetBytes(text);
+        var bytes = new byte[content.Length + 3];
+        bytes[0] = 0xEF;
+        bytes[1] = 0xBB;
+        bytes[2] = 0xBF;
+        Buffer.BlockCopy(content, 0, bytes, 3, content.Length);
+        await File.WriteAllBytesAsync(path, bytes);
+    }
+
+    /// <summary>
+    /// 生成变更位置前后若干行的上下文片段，供模型就地核对。
+    /// </summary>
+    private static string BuildEditContext(string text, int changeIndex, int radius = 2)
+    {
+        if (changeIndex < 0 || changeIndex > text.Length) return string.Empty;
+
+        var lineNo = 0;
+        for (var i = 0; i < changeIndex; i++)
+        {
+            if (text[i] == '\n') lineNo++;
+        }
+
+        var lines = text.Replace("\r\n", "\n").Split('\n');
+        var start = Math.Max(0, lineNo - radius);
+        var end = Math.Min(lines.Length - 1, lineNo + radius);
+
+        var sb = new StringBuilder();
+        for (var i = start; i <= end; i++)
+        {
+            sb.Append(i == lineNo ? "> " : "  ");
+            sb.Append(i + 1).Append(" | ").Append(lines[i]).Append('\n');
+        }
+        return sb.ToString().TrimEnd('\n');
+    }
+
+    private static int CountOccurrences(string text, string token)
+    {
+        if (token.Length == 0) return 0;
+        var count = 0;
+        var idx = 0;
+        while ((idx = text.IndexOf(token, idx, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            idx += token.Length;
+        }
+        return count;
+    }
+
+    private static string ReplaceFirst(string text, string oldValue, string newValue)
+    {
+        var idx = text.IndexOf(oldValue, StringComparison.Ordinal);
+        return idx < 0 ? text : text[..idx] + newValue + text[(idx + oldValue.Length)..];
     }
 
     /// <summary>

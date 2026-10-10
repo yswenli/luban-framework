@@ -92,12 +92,15 @@ public class WebToolGroup
     /// 获取 URL 内容
     /// </summary>
     /// <param name="url">目标 URL</param>
+    /// <param name="format">输出格式：raw / text / markdown；缺省取配置 DefaultFormat</param>
     /// <returns>页面内容</returns>
-    [Description("获取 URL 内容")]
-    public async Task<ToolResult<string>> FetchUrlAsync(string url)
+    [Description("获取 URL 内容。format 可选 raw/text/markdown，缺省 markdown；仅对 HTML 内容做转换。")]
+    public async Task<ToolResult<string>> FetchUrlAsync(string url, string? format = null)
     {
         if (!IsValidHttpUrl(url))
             return ToolResult.Fail<string>($"无效的 URL: {url}。仅支持 http:// 和 https:// 协议，且不允许访问内网地址。");
+
+        var target = NormalizeFormat(format ?? _options.DefaultFormat);
 
         try
         {
@@ -107,15 +110,26 @@ public class WebToolGroup
             var resource = uri.PathAndQuery.TrimStart('/');
 
             var proxy = HttpClientProxy.Create(baseUri, timeout: 30, useLog: true);
-            var bytes = await proxy.GetBytesAsync(resource, timeout: 30);
-            var content = Encoding.UTF8.GetString(bytes);
+            var (bytes, contentType) = await proxy.GetResponseAsync(resource, timeout: 30);
+            var raw = Encoding.UTF8.GetString(bytes);
+
+            // Content-Type 明确为 HTML 时按 HTML 处理；Content-Type 缺失时，非 raw 格式且内容疑似 HTML 也按 HTML 处理
+            var hasContentType = !string.IsNullOrWhiteSpace(contentType);
+            var isHtml = hasContentType
+                ? (contentType!.Contains("text/html", StringComparison.OrdinalIgnoreCase) ||
+                   contentType.Contains("application/xhtml+xml", StringComparison.OrdinalIgnoreCase))
+                : target != "raw" && LooksLikeHtml(raw);
+
+            var content = isHtml
+                ? ConvertHtml(raw, target, url)
+                : raw;
 
             if (content.Length > _options.MaxCharacters)
             {
                 content = content.Substring(0, _options.MaxCharacters) + "\n\n[内容已截断]";
             }
 
-            return ToolResult.Ok(content, $"statusCode=200; url={url}");
+            return ToolResult.Ok(content, $"statusCode=200; contentType={contentType}; format={target}; url={url}");
         }
         catch (OperationCanceledException ex)
         {
@@ -136,6 +150,76 @@ public class WebToolGroup
         {
             Logger.Error("获取 URL 异常", ex, url);
             return ToolResult.Fail<string>($"获取 URL 失败: {url}\n错误: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// 归一化输出格式，非法值回退 markdown。
+    /// </summary>
+    /// <param name="format">待归一化的格式</param>
+    /// <returns>raw / text / markdown 之一</returns>
+    internal static string NormalizeFormat(string? format)
+    {
+        var value = format?.Trim().ToLowerInvariant();
+        return value is "raw" or "text" or "markdown" ? value : "markdown";
+    }
+
+    /// <summary>
+    /// 判断原始内容是否疑似 HTML（用于 Content-Type 缺失时的嗅探）。
+    /// </summary>
+    /// <param name="content">原始内容</param>
+    /// <returns>是否疑似 HTML</returns>
+    internal static bool LooksLikeHtml(string content)
+    {
+        if (string.IsNullOrEmpty(content)) return false;
+        return content.Contains("<html", StringComparison.OrdinalIgnoreCase) ||
+               content.Contains("<!doctype", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// 按目标格式转换 HTML，markdown 失败时降级 markdown→text→raw。
+    /// </summary>
+    /// <param name="html">原始 HTML</param>
+    /// <param name="format">目标格式</param>
+    /// <param name="baseUrl">页面基础 URL</param>
+    /// <returns>转换后的内容</returns>
+    internal static string ConvertHtml(string html, string format, string baseUrl)
+    {
+        switch (format)
+        {
+            case "raw":
+                return html;
+            case "text":
+                try
+                {
+                    var t = html.GetTextFromHtml();
+                    return string.IsNullOrEmpty(t) ? html : t;
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warn($"HTML 转换失败（format={format}）: {ex.Message}", ex);
+                    return html;
+                }
+            default: // markdown（含降级链 markdown→text→raw）
+                try
+                {
+                    var md = html.HtmlToMarkdown(baseUrl);
+                    if (!string.IsNullOrWhiteSpace(md)) return md;
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warn($"HTML 转换失败（format={format}）: {ex.Message}", ex);
+                }
+                try
+                {
+                    var t = html.GetTextFromHtml();
+                    return string.IsNullOrEmpty(t) ? html : t;
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warn($"HTML 转换失败（format={format}）: {ex.Message}", ex);
+                    return html;
+                }
         }
     }
 

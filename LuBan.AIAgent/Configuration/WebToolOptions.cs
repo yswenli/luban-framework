@@ -37,4 +37,9 @@ public class WebToolOptions
     /// 最大响应字符数
     /// </summary>
     public int MaxCharacters { get; set; } = 12000;
+
+    /// <summary>
+    /// 默认输出格式：raw / text / markdown。默认 markdown，失败时降级 markdown→text→raw。
+    /// </summary>
+    public string DefaultFormat { get; set; } = "markdown";
 }

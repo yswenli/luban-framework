@@ -114,6 +114,7 @@ Skills、MCPs、Rules 采用统一的三级优先级注册表模式：
 | **浏览器工具** | `browser` | 导航、点击、输入、截图、获取内容、等待元素、获取 URL（基于 Playwright） |
 | **文件系统工具** | `filesystem` | 读取文件、写入文件、列出目录、删除文件、删除目录、搜索文件（glob）、内容搜索（regex）、创建目录、复制文件、移动文件、获取文件信息；工作区内直接放行，工作区外路径经用户确认后放行 |
 | **脚本执行工具** | `script` | 执行 Shell（运行环境自适应）、Lua（内嵌沙箱，无外部解释器依赖）、Python 脚本 |
+| **Git 工具** | `git` | 状态/差异/日志/分支/暂存/提交/合并/变基/推送等 26 个细粒度工具；工作区内免确认，越界逐次确认；冲突时返回文件清单交回 agent 处理 |
 | **Web 工具** | `web` | 发送 HTTP 请求获取网页内容 |
 | **语义检索工具** | `retrieval` | 索引本地代码/文档，按语义搜索相关片段 |
 | **上下文压缩工具** | `context` | 压缩当前会话的对话历史，释放 token 预算（LLM 可见、可主动调用） |
@@ -687,6 +688,7 @@ LuBan.AIAgent/
 │   ├── FileSystemToolOptions.cs       # 文件系统工具选项
 │   ├── ScriptToolOptions.cs           # 脚本工具选项
 │   ├── WebToolOptions.cs              # Web 工具选项
+│   ├── GitToolOptions.cs              # Git 工具选项
 │   ├── RetrievalToolOptions.cs        # 检索工具选项
 │   ├── LocalMemoryOptions.cs          # 本地记忆选项
 │   ├── ModelEndpointOptions.cs        # 模型端点选项
@@ -702,7 +704,10 @@ LuBan.AIAgent/
 ├── Tools/
 │   ├── Browser/BrowserToolPlugin.cs   # 浏览器工具
 │   ├── FileSystem/FileSystemToolPlugin.cs  # 文件系统工具
+│   ├── FileSystem/EditOperation.cs    # 文件编辑操作模型
 │   ├── Script/ScriptToolPlugin.cs     # 脚本执行工具
+│   ├── Git/                           # Git 版本控制工具
+│   │   └── GitToolPlugin.cs           # Git 工具插件与工具组
 │   ├── Web/WebToolPlugin.cs           # Web 工具
 │   ├── Context/
 │   │   └── CompactContextToolPlugin.cs # 上下文压缩工具
@@ -821,7 +826,7 @@ LuBan.AIAgent/
 ## 小贴士
 
 - 模型路由使用 `provider:model` 格式，新增 Provider 只需通过 `IAppConfigReader` / 宿主实现添加
-- **11 大内置工具组**覆盖浏览器自动化、文件操作、脚本执行、Web 请求、语义检索、上下文压缩、本地记忆、MCP、多 Agent 编排、LLM Wiki 知识库（opt-in）、大日志分析
+- **12 大内置工具组**覆盖浏览器自动化、文件操作、脚本执行、Git 版本控制、Web 请求、语义检索、上下文压缩、本地记忆、MCP、多 Agent 编排、LLM Wiki 知识库（opt-in）、大日志分析
 - `ToolConfirmationService` 对工作区外路径访问、写入、删除、执行等敏感操作要求用户确认；工作区内直接放行
 - 授权三档记忆（本次 / 本轮 / 本会话），按路径所在根粒度生效；删除类工具（`AlwaysConfirmTools`）不记忆、每次必确认
 - `FileSystemToolOptions.AllowedRoots` 与工作区根共同构成可信范围，范围内的操作免确认
