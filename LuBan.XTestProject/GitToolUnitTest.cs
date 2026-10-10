@@ -84,4 +84,102 @@ public class GitToolUnitTest
         Assert.IsTrue(svc.ReadOnlyTools.Contains("GitDiffAsync"));
         Assert.IsFalse(svc.AlwaysConfirmTools.Contains("GitCommitAsync"), "Git 工具不得进入 AlwaysConfirmTools");
     }
+
+    [TestMethod]
+    public async Task GitClean_DefaultDryRun_DoesNotDelete_And_RequiresForce()
+    {
+        await _group.GitInitAsync(workingDirectory: _repo);
+        var junk = Path.Combine(_repo, "junk_" + Guid.NewGuid().ToString("N") + ".tmp");
+        File.WriteAllText(junk, "x");
+
+        var dry = await _group.GitCleanAsync(workingDirectory: _repo);
+        Assert.IsTrue(dry.IsSuccess);
+        Assert.IsTrue(File.Exists(junk), "默认预演不应删除文件");
+
+        var guard = await _group.GitCleanAsync(dryRun: false, force: false, workingDirectory: _repo);
+        Assert.IsFalse(guard.IsSuccess);
+        Assert.IsTrue(File.Exists(junk));
+
+        var real = await _group.GitCleanAsync(dryRun: false, force: true, workingDirectory: _repo);
+        Assert.IsTrue(real.IsSuccess);
+        Assert.IsFalse(File.Exists(junk));
+    }
+
+    [TestMethod]
+    public async Task GitShow_RejectsOptionLikeReference()
+    {
+        await _group.GitInitAsync(workingDirectory: _repo);
+        var result = await _group.GitShowAsync("-s", workingDirectory: _repo);
+        Assert.IsFalse(result.IsSuccess);
+    }
+
+    [TestMethod]
+    public async Task GitMerge_Conflict_ReturnsConflictList()
+    {
+        var repo = Path.Combine(Path.GetTempPath(), "luban-git-merge-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(repo);
+        try
+        {
+            var group = CreateGroup(repo);
+            await group.GitInitAsync(defaultBranch: "main", workingDirectory: repo);
+            var f = Path.Combine(repo, "conflict.txt");
+            File.WriteAllText(f, "base");
+            await group.GitAddAsync(paths: new[] { "conflict.txt" }, workingDirectory: repo);
+            await CommitRaw(repo, "init");
+
+            await group.GitCheckoutAsync("side", createBranch: true, workingDirectory: repo);
+            File.WriteAllText(f, "side-change");
+            await group.GitAddAsync(paths: new[] { "conflict.txt" }, workingDirectory: repo);
+            await CommitRaw(repo, "side");
+
+            await group.GitCheckoutAsync("main", workingDirectory: repo);
+            File.WriteAllText(f, "main-change");
+            await group.GitAddAsync(paths: new[] { "conflict.txt" }, workingDirectory: repo);
+            await CommitRaw(repo, "main");
+
+            var merge = await group.GitMergeAsync("side", workingDirectory: repo);
+            Assert.IsFalse(merge.IsSuccess);
+            StringAssert.Contains(merge.Message!, "冲突");
+            StringAssert.Contains(merge.Message!, "conflict.txt");
+        }
+        finally
+        {
+            try { if (Directory.Exists(repo)) Directory.Delete(repo, true); } catch { }
+        }
+    }
+
+    private static GitToolGroup CreateGroup(string repo)
+    {
+        var opts = Options.Create(new LuBanAgentOptions
+        {
+            WorkspaceRoot = repo,
+            Tools = new ToolGroupOptions { Git = new GitToolOptions { Enabled = true, DefaultTimeout = 60000 } }
+        });
+        var ctx = new ToolConfirmationContext
+        {
+            Callback = (_, _) => Task.FromResult(ConfirmResult.Allow),
+            WorkspacePathChecker = _ => true
+        };
+        return new GitToolGroup(
+            opts.Value.Tools.Git,
+            new ProcessRunner(),
+            new ToolConfirmationService(ctx, opts),
+            () => repo);
+    }
+
+    private static async Task CommitRaw(string repo, string message)
+    {
+        var psi = new System.Diagnostics.ProcessStartInfo("git", $"commit -m \"{message}\"")
+        {
+            WorkingDirectory = repo,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true
+        };
+        psi.Environment["GIT_AUTHOR_NAME"] = "t";
+        psi.Environment["GIT_AUTHOR_EMAIL"] = "t@t";
+        psi.Environment["GIT_COMMITTER_NAME"] = "t";
+        psi.Environment["GIT_COMMITTER_EMAIL"] = "t@t";
+        using var p = System.Diagnostics.Process.Start(psi)!;
+        await p.WaitForExitAsync();
+    }
 }

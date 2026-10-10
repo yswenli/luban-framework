@@ -114,15 +114,31 @@ public class GitToolGroup
 
     private string? ResolveWorkingDirectory(string? workingDirectory)
     {
-        if (!string.IsNullOrWhiteSpace(workingDirectory)) return workingDirectory;
         var root = _workspaceRootProvider();
-        return string.IsNullOrWhiteSpace(root) ? null : root;
+        if (string.IsNullOrWhiteSpace(workingDirectory))
+            return string.IsNullOrWhiteSpace(root) ? null : Path.GetFullPath(root!);
+
+        var baseDir = string.IsNullOrWhiteSpace(root) ? Directory.GetCurrentDirectory() : root!;
+        try
+        {
+            return Path.GetFullPath(workingDirectory, baseDir);
+        }
+        catch
+        {
+            return workingDirectory;
+        }
+    }
+
+    private static ToolResult<string>? RejectOptionLike(string paramName, string? value)
+    {
+        if (!string.IsNullOrEmpty(value) && value[0] == '-')
+            return ToolResult.Fail<string>($"{paramName} 不能以 '-' 开头（疑似 git 选项注入）：{value}");
+        return null;
     }
 
     private async Task<ToolResult<string>?> ConfirmOrBlockAsync(
-        string toolName, string? workingDirectory, Dictionary<string, object?> arguments)
+        string toolName, string? path, Dictionary<string, object?> arguments)
     {
-        var path = ResolveWorkingDirectory(workingDirectory);
         var outcome = await _confirmationService.EvaluateAsync(toolName, path, arguments).ConfigureAwait(false);
         return outcome switch
         {
@@ -138,82 +154,102 @@ public class GitToolGroup
         string? workingDirectory,
         int? timeoutMs,
         bool detectConflict,
-        Dictionary<string, object?> arguments)
+        Dictionary<string, object?> arguments,
+        string? confirmPath = null)
     {
-        if (await ConfirmOrBlockAsync(toolName, workingDirectory, arguments) is { } blocked)
+        var dir = ResolveWorkingDirectory(workingDirectory);
+        var pathForConfirm = confirmPath ?? dir;
+        if (await ConfirmOrBlockAsync(toolName, pathForConfirm, arguments) is { } blocked)
             return blocked;
 
-        var dir = ResolveWorkingDirectory(workingDirectory);
-        var timeout = timeoutMs ?? _options.DefaultTimeout;
-        var commandLine = "git " + string.Join(" ", args);
-
-        var result = await _processRunner.RunAsync(
-            "git", string.Empty, dir,
-            stdin: null, timeoutMs: timeout,
-            argumentList: args, outputEncoding: Encoding.UTF8);
-
-        if (result.ExitCode == -1 &&
-            (result.StandardError.Contains("可执行文件不存在") || result.StandardError.Contains("无法启动")))
+        try
         {
-            return ToolResult.Fail<string>(
-                "Git 工具不可用：未找到 git 可执行文件。请先安装 Git 并确保其在 PATH 中。",
-                new { exitCode = -1, stdout = "", stderr = result.StandardError, commandLine, workingDirectory = dir }.ToJson());
-        }
+            var timeout = timeoutMs ?? _options.DefaultTimeout;
+            var commandLine = "git " + string.Join(" ", args);
 
-        if (detectConflict && result.ExitCode != 0)
-        {
-            var conflicts = await DetectConflictsAsync(dir, timeout);
-            if (conflicts.Count > 0)
+            var result = await _processRunner.RunAsync(
+                "git", string.Empty, dir,
+                stdin: null, timeoutMs: timeout,
+                argumentList: args, outputEncoding: Encoding.UTF8);
+
+            if (result.ExitCode == -1 &&
+                (result.StandardError.Contains("可执行文件不存在") || result.StandardError.Contains("无法启动")))
             {
                 return ToolResult.Fail<string>(
-                    "检测到合并冲突，请手动解决以下文件后告知我继续：\n" + string.Join("\n", conflicts),
-                    new
-                    {
-                        exitCode = result.ExitCode,
-                        stdout = result.StandardOutput,
-                        stderr = result.StandardError,
-                        commandLine,
-                        workingDirectory = dir,
-                        conflicts
-                    }.ToJson());
+                    "Git 工具不可用：未找到 git 可执行文件。请先安装 Git 并确保其在 PATH 中。",
+                    new { exitCode = -1, stdout = "", stderr = result.StandardError, commandLine, workingDirectory = dir }.ToJson());
             }
+
+            if (detectConflict && result.ExitCode != 0)
+            {
+                var conflicts = await DetectConflictsAsync(dir, timeout);
+                if (conflicts.Count > 0)
+                {
+                    return ToolResult.Fail<string>(
+                        "检测到合并冲突，请手动解决以下文件后告知我继续：\n" + string.Join("\n", conflicts),
+                        new
+                        {
+                            exitCode = result.ExitCode,
+                            stdout = result.StandardOutput,
+                            stderr = result.StandardError,
+                            commandLine,
+                            workingDirectory = dir,
+                            conflicts
+                        }.ToJson());
+                }
+            }
+
+            var payload = new
+            {
+                exitCode = result.ExitCode,
+                stdout = result.StandardOutput,
+                stderr = result.StandardError,
+                durationMs = result.DurationMs,
+                timedOut = result.TimedOut,
+                commandLine,
+                workingDirectory = dir
+            }.ToJson();
+
+            return result.ExitCode == 0
+                ? ToolResult.Ok<string>(payload, "exitCode=0")
+                : ToolResult.Fail<string>($"git 命令执行失败（exitCode={result.ExitCode}）：{result.StandardError}", payload);
         }
-
-        var payload = new
+        catch (Exception ex)
         {
-            exitCode = result.ExitCode,
-            stdout = result.StandardOutput,
-            stderr = result.StandardError,
-            durationMs = result.DurationMs,
-            timedOut = result.TimedOut,
-            commandLine,
-            workingDirectory = dir
-        }.ToJson();
-
-        return result.ExitCode == 0
-            ? ToolResult.Ok<string>(payload, "exitCode=0")
-            : ToolResult.Fail<string>($"git 命令执行失败（exitCode={result.ExitCode}）：{result.StandardError}", payload);
+            return ToolResult.Fail<string>($"执行失败: {ex.Message}");
+        }
     }
 
     private async Task<List<string>> DetectConflictsAsync(string? dir, int timeout)
     {
-        var conflicts = new List<string>();
-
-        var ls = await _processRunner.RunAsync("git", string.Empty, dir, null, timeout,
-            argumentList: new[] { "ls-files", "-u" }, outputEncoding: Encoding.UTF8);
-        if (!string.IsNullOrWhiteSpace(ls.StandardOutput))
-            conflicts.AddRange(ls.StandardOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries));
-
-        var status = await _processRunner.RunAsync("git", string.Empty, dir, null, timeout,
-            argumentList: new[] { "status", "--porcelain" }, outputEncoding: Encoding.UTF8);
-        var markers = new[] { "UU", "AA", "DD", "AU", "UA", "DU", "UD" };
-        foreach (var line in status.StandardOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        try
         {
-            if (line.Length >= 2 && markers.Contains(line[..2]))
-                conflicts.Add(line);
-        }
+            var conflicts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        return conflicts.Distinct().ToList();
+            var ls = await _processRunner.RunAsync("git", string.Empty, dir, null, timeout,
+                argumentList: new[] { "ls-files", "-u" }, outputEncoding: Encoding.UTF8);
+            foreach (var line in ls.StandardOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var tab = line.IndexOf('\t');
+                if (tab >= 0 && tab + 1 < line.Length)
+                    conflicts.Add(line[(tab + 1)..].Trim());
+            }
+
+            var status = await _processRunner.RunAsync("git", string.Empty, dir, null, timeout,
+                argumentList: new[] { "status", "--porcelain" }, outputEncoding: Encoding.UTF8);
+            var markers = new[] { "UU", "AA", "DD", "AU", "UA", "DU", "UD" };
+            foreach (var line in status.StandardOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (line.Length >= 4 && markers.Contains(line[..2]))
+                    conflicts.Add(line[3..].Trim());
+            }
+
+            return conflicts.ToList();
+        }
+        catch
+        {
+            return new List<string>();
+        }
     }
 
     // ─────────────── 只读工具 ───────────────
@@ -221,7 +257,7 @@ public class GitToolGroup
     /// <summary>显示工作区 git 状态。</summary>
     /// <param name="workingDirectory">仓库工作目录（缺省工作区根）。</param>
     /// <param name="timeoutMs">超时毫秒。</param>
-    [Description("显示 git 工作区状态（git status --porcelain -b）。")]
+    [Description("显示 git 工作区状态（git status --porcelain=v1 -b）。")]
     public Task<ToolResult<string>> GitStatusAsync(string? workingDirectory = null, int? timeoutMs = null)
         => RunGitAsync(nameof(GitStatusAsync), new[] { "status", "--porcelain=v1", "-b" }, workingDirectory, timeoutMs, false,
             new Dictionary<string, object?> { ["workingDirectory"] = workingDirectory });
@@ -261,8 +297,11 @@ public class GitToolGroup
     /// <param name="timeoutMs">超时毫秒。</param>
     [Description("显示 git 对象内容（git show <reference>）。")]
     public Task<ToolResult<string>> GitShowAsync(string reference, string? workingDirectory = null, int? timeoutMs = null)
-        => RunGitAsync(nameof(GitShowAsync), new[] { "show", reference }, workingDirectory, timeoutMs, false,
+    {
+        if (RejectOptionLike(nameof(reference), reference) is { } reject) return Task.FromResult(reject);
+        return RunGitAsync(nameof(GitShowAsync), new[] { "show", reference }, workingDirectory, timeoutMs, false,
             new Dictionary<string, object?> { ["reference"] = reference, ["workingDirectory"] = workingDirectory });
+    }
 
     /// <summary>列出分支。</summary>
     /// <param name="includeRemote">是否包含远端分支。</param>
@@ -314,7 +353,7 @@ public class GitToolGroup
         var args = new List<string> { "add", "--" };
         args.AddRange(paths);
         return RunGitAsync(nameof(GitAddAsync), args, workingDirectory, timeoutMs, false,
-            new Dictionary<string, object?> { ["paths"] = paths, ["workingDirectory"] = workingDirectory });
+            new Dictionary<string, object?> { ["paths"] = string.Join(", ", paths), ["workingDirectory"] = workingDirectory });
     }
 
     /// <summary>提交。</summary>
@@ -339,6 +378,7 @@ public class GitToolGroup
     [Description("git checkout 检出目标。createBranch=true 时创建并切换（-b）。")]
     public Task<ToolResult<string>> GitCheckoutAsync(string target, bool? createBranch = null, string? workingDirectory = null, int? timeoutMs = null)
     {
+        if (RejectOptionLike(nameof(target), target) is { } reject) return Task.FromResult(reject);
         var args = new List<string> { "checkout" };
         if (createBranch == true) args.Add("-b");
         args.Add(target);
@@ -354,6 +394,7 @@ public class GitToolGroup
     [Description("git switch 切换分支。createBranch=true 时创建并切换（-c）。")]
     public Task<ToolResult<string>> GitSwitchAsync(string target, bool? createBranch = null, string? workingDirectory = null, int? timeoutMs = null)
     {
+        if (RejectOptionLike(nameof(target), target) is { } reject) return Task.FromResult(reject);
         var args = new List<string> { "switch" };
         if (createBranch == true) args.Add("-c");
         args.Add(target);
@@ -367,8 +408,11 @@ public class GitToolGroup
     /// <param name="timeoutMs">超时毫秒。</param>
     [Description("git branch 创建分支（不切换）。")]
     public Task<ToolResult<string>> GitBranchCreateAsync(string name, string? workingDirectory = null, int? timeoutMs = null)
-        => RunGitAsync(nameof(GitBranchCreateAsync), new[] { "branch", name }, workingDirectory, timeoutMs, false,
+    {
+        if (RejectOptionLike(nameof(name), name) is { } reject) return Task.FromResult(reject);
+        return RunGitAsync(nameof(GitBranchCreateAsync), new[] { "branch", name }, workingDirectory, timeoutMs, false,
             new Dictionary<string, object?> { ["name"] = name, ["workingDirectory"] = workingDirectory });
+    }
 
     /// <summary>拣选提交。</summary>
     /// <param name="commits">提交引用列表。</param>
@@ -377,10 +421,12 @@ public class GitToolGroup
     [Description("git cherry-pick 拣选提交。commits 为提交引用数组。")]
     public Task<ToolResult<string>> GitCherryPickAsync(string[] commits, string? workingDirectory = null, int? timeoutMs = null)
     {
+        foreach (var commit in commits)
+            if (RejectOptionLike("commits", commit) is { } reject) return Task.FromResult(reject);
         var args = new List<string> { "cherry-pick" };
         args.AddRange(commits);
         return RunGitAsync(nameof(GitCherryPickAsync), args, workingDirectory, timeoutMs, true,
-            new Dictionary<string, object?> { ["commits"] = commits, ["workingDirectory"] = workingDirectory });
+            new Dictionary<string, object?> { ["commits"] = string.Join(", ", commits), ["workingDirectory"] = workingDirectory });
     }
 
     /// <summary>回滚提交。</summary>
@@ -391,11 +437,13 @@ public class GitToolGroup
     [Description("git revert 回滚提交。commits 为提交引用数组。")]
     public Task<ToolResult<string>> GitRevertAsync(string[] commits, bool? noCommit = null, string? workingDirectory = null, int? timeoutMs = null)
     {
+        foreach (var commit in commits)
+            if (RejectOptionLike("commits", commit) is { } reject) return Task.FromResult(reject);
         var args = new List<string> { "revert" };
         if (noCommit == true) args.Add("--no-commit");
         args.AddRange(commits);
         return RunGitAsync(nameof(GitRevertAsync), args, workingDirectory, timeoutMs, true,
-            new Dictionary<string, object?> { ["commits"] = commits, ["workingDirectory"] = workingDirectory });
+            new Dictionary<string, object?> { ["commits"] = string.Join(", ", commits), ["workingDirectory"] = workingDirectory });
     }
 
     /// <summary>恢复文件。</summary>
@@ -411,7 +459,7 @@ public class GitToolGroup
         args.Add("--");
         args.AddRange(paths);
         return RunGitAsync(nameof(GitRestoreAsync), args, workingDirectory, timeoutMs, false,
-            new Dictionary<string, object?> { ["paths"] = paths, ["workingDirectory"] = workingDirectory });
+            new Dictionary<string, object?> { ["paths"] = string.Join(", ", paths), ["workingDirectory"] = workingDirectory });
     }
 
     /// <summary>合并。</summary>
@@ -422,6 +470,7 @@ public class GitToolGroup
     [Description("git merge 合并引用。冲突时返回需人工解决的文件清单。")]
     public Task<ToolResult<string>> GitMergeAsync(string reference, bool? noCommit = null, string? workingDirectory = null, int? timeoutMs = null)
     {
+        if (RejectOptionLike(nameof(reference), reference) is { } reject) return Task.FromResult(reject);
         var args = new List<string> { "merge" };
         if (noCommit == true) args.Add("--no-commit");
         args.Add(reference);
@@ -438,6 +487,8 @@ public class GitToolGroup
     public Task<ToolResult<string>> GitStashAsync(string? action = null, string? message = null, string? workingDirectory = null, int? timeoutMs = null)
     {
         var verb = string.IsNullOrWhiteSpace(action) ? "push" : action!.Trim().ToLowerInvariant();
+        if (verb is not ("push" or "pop" or "apply" or "list" or "drop"))
+            return Task.FromResult(ToolResult.Fail<string>($"不支持的 stash action：{action}（可用 push/pop/apply/list/drop）"));
         var args = new List<string> { "stash", verb };
         if (verb == "push" && !string.IsNullOrWhiteSpace(message)) { args.Add("-m"); args.Add(message!); }
         var detect = verb is "pop" or "apply";
@@ -466,10 +517,15 @@ public class GitToolGroup
     [Description("git clone 克隆远端仓库。")]
     public Task<ToolResult<string>> GitCloneAsync(string url, string? directory = null, string? workingDirectory = null, int? timeoutMs = null)
     {
+        if (RejectOptionLike(nameof(url), url) is { } reject) return Task.FromResult(reject);
+        var baseDir = ResolveWorkingDirectory(workingDirectory) ?? Directory.GetCurrentDirectory();
+        var target = string.IsNullOrWhiteSpace(directory) ? baseDir : Path.GetFullPath(directory!, baseDir);
+
         var args = new List<string> { "clone", url };
         if (!string.IsNullOrWhiteSpace(directory)) args.Add(directory!);
         return RunGitAsync(nameof(GitCloneAsync), args, workingDirectory, timeoutMs, false,
-            new Dictionary<string, object?> { ["url"] = url, ["workingDirectory"] = workingDirectory });
+            new Dictionary<string, object?> { ["url"] = url, ["directory"] = target, ["workingDirectory"] = workingDirectory },
+            confirmPath: target);
     }
 
     /// <summary>抓取远端。</summary>
@@ -480,6 +536,7 @@ public class GitToolGroup
     [Description("git fetch 抓取远端更新。")]
     public Task<ToolResult<string>> GitFetchAsync(string? remote = null, bool? prune = null, string? workingDirectory = null, int? timeoutMs = null)
     {
+        if (RejectOptionLike(nameof(remote), remote) is { } reject) return Task.FromResult(reject);
         var args = new List<string> { "fetch" };
         if (!string.IsNullOrWhiteSpace(remote)) args.Add(remote!);
         if (prune == true) args.Add("--prune");
@@ -496,6 +553,8 @@ public class GitToolGroup
     [Description("git pull 拉取远端更新。冲突时返回需人工解决的文件清单。")]
     public Task<ToolResult<string>> GitPullAsync(string? remote = null, string? branch = null, bool? rebase = null, string? workingDirectory = null, int? timeoutMs = null)
     {
+        if (RejectOptionLike(nameof(remote), remote) is { } reject) return Task.FromResult(reject);
+        if (RejectOptionLike(nameof(branch), branch) is { } rejectBranch) return Task.FromResult(rejectBranch);
         var args = new List<string> { "pull" };
         if (rebase == true) args.Add("--rebase");
         if (!string.IsNullOrWhiteSpace(remote)) args.Add(remote!);
@@ -513,6 +572,8 @@ public class GitToolGroup
     [Description("git push 推送。setUpstream=true 时设置上游（-u）。")]
     public Task<ToolResult<string>> GitPushAsync(string? remote = null, string? branch = null, bool? setUpstream = null, string? workingDirectory = null, int? timeoutMs = null)
     {
+        if (RejectOptionLike(nameof(remote), remote) is { } reject) return Task.FromResult(reject);
+        if (RejectOptionLike(nameof(branch), branch) is { } rejectBranch) return Task.FromResult(rejectBranch);
         var args = new List<string> { "push" };
         if (setUpstream == true) args.Add("-u");
         if (!string.IsNullOrWhiteSpace(remote)) args.Add(remote!);
@@ -529,11 +590,12 @@ public class GitToolGroup
     [Description("git reset 重置。mode 取 soft/mixed/hard，缺省 mixed。")]
     public Task<ToolResult<string>> GitResetAsync(string? mode = null, string? target = null, string? workingDirectory = null, int? timeoutMs = null)
     {
+        if (RejectOptionLike(nameof(target), target) is { } reject) return Task.FromResult(reject);
         var args = new List<string> { "reset" };
         if (!string.IsNullOrWhiteSpace(mode)) args.Add("--" + mode!.Trim().ToLowerInvariant());
         if (!string.IsNullOrWhiteSpace(target)) args.Add(target!);
         return RunGitAsync(nameof(GitResetAsync), args, workingDirectory, timeoutMs, false,
-            new Dictionary<string, object?> { ["mode"] = mode, ["workingDirectory"] = workingDirectory });
+            new Dictionary<string, object?> { ["mode"] = mode, ["target"] = target, ["workingDirectory"] = workingDirectory });
     }
 
     /// <summary>变基。</summary>
@@ -544,6 +606,7 @@ public class GitToolGroup
     [Description("git rebase 变基到 upstream。冲突时返回需人工解决的文件清单。注意 -i 交互式在非交互进程下不可用。")]
     public Task<ToolResult<string>> GitRebaseAsync(string upstream, bool? interactive = null, string? workingDirectory = null, int? timeoutMs = null)
     {
+        if (RejectOptionLike(nameof(upstream), upstream) is { } reject) return Task.FromResult(reject);
         var args = new List<string> { "rebase" };
         if (interactive == true) args.Add("-i");
         args.Add(upstream);
@@ -560,12 +623,14 @@ public class GitToolGroup
     [Description("git clean 清理未跟踪文件。dryRun 缺省 true（仅预演）；真正删除需 dryRun=false 且 force=true。")]
     public Task<ToolResult<string>> GitCleanAsync(bool? dryRun = null, bool? directories = null, bool? force = null, string? workingDirectory = null, int? timeoutMs = null)
     {
-        var args = new List<string> { "clean" };
         var isDryRun = dryRun ?? true;
+        if (!isDryRun && force != true)
+            return Task.FromResult(ToolResult.Fail<string>("真正删除未跟踪文件需 dryRun=false 且 force=true；已默认预演，未执行删除。"));
+
+        var args = new List<string> { "clean" };
         args.Add(isDryRun ? "-n" : "-f");
         if (directories == true) args.Add("-d");
-        if (force == true && isDryRun) args.Add("-f");
         return RunGitAsync(nameof(GitCleanAsync), args, workingDirectory, timeoutMs, false,
-            new Dictionary<string, object?> { ["dryRun"] = dryRun, ["workingDirectory"] = workingDirectory });
+            new Dictionary<string, object?> { ["dryRun"] = isDryRun, ["directories"] = directories, ["force"] = force, ["workingDirectory"] = workingDirectory });
     }
 }
