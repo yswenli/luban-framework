@@ -518,6 +518,7 @@ public class GitToolGroup
     public Task<ToolResult<string>> GitCloneAsync(string url, string? directory = null, string? workingDirectory = null, int? timeoutMs = null)
     {
         if (RejectOptionLike(nameof(url), url) is { } reject) return Task.FromResult(reject);
+        if (RejectOptionLike(nameof(directory), directory) is { } rejectDirectory) return Task.FromResult(rejectDirectory);
         var baseDir = ResolveWorkingDirectory(workingDirectory) ?? Directory.GetCurrentDirectory();
         var target = string.IsNullOrWhiteSpace(directory) ? baseDir : Path.GetFullPath(directory!, baseDir);
 
@@ -587,12 +588,18 @@ public class GitToolGroup
     /// <param name="target">目标引用。</param>
     /// <param name="workingDirectory">仓库工作目录。</param>
     /// <param name="timeoutMs">超时毫秒。</param>
-    [Description("git reset 重置。mode 取 soft/mixed/hard，缺省 mixed。")]
+    [Description("git reset 重置。mode 取 soft/mixed/hard/keep/merge，缺省 mixed。")]
     public Task<ToolResult<string>> GitResetAsync(string? mode = null, string? target = null, string? workingDirectory = null, int? timeoutMs = null)
     {
         if (RejectOptionLike(nameof(target), target) is { } reject) return Task.FromResult(reject);
         var args = new List<string> { "reset" };
-        if (!string.IsNullOrWhiteSpace(mode)) args.Add("--" + mode!.Trim().ToLowerInvariant());
+        if (!string.IsNullOrWhiteSpace(mode))
+        {
+            var normalizedMode = mode!.Trim().ToLowerInvariant();
+            if (normalizedMode is not ("soft" or "mixed" or "hard" or "keep" or "merge"))
+                return Task.FromResult(ToolResult.Fail<string>($"不支持的 reset mode：{mode}（可用 soft/mixed/hard/keep/merge）。"));
+            args.Add("--" + normalizedMode);
+        }
         if (!string.IsNullOrWhiteSpace(target)) args.Add(target!);
         return RunGitAsync(nameof(GitResetAsync), args, workingDirectory, timeoutMs, false,
             new Dictionary<string, object?> { ["mode"] = mode, ["target"] = target, ["workingDirectory"] = workingDirectory });
@@ -607,8 +614,10 @@ public class GitToolGroup
     public Task<ToolResult<string>> GitRebaseAsync(string upstream, bool? interactive = null, string? workingDirectory = null, int? timeoutMs = null)
     {
         if (RejectOptionLike(nameof(upstream), upstream) is { } reject) return Task.FromResult(reject);
+        if (interactive == true)
+            return Task.FromResult(ToolResult.Fail<string>(
+                "交互式变基（-i）在非交互进程下会挂起，已拒绝执行；如需交互式改写历史请在终端手动运行 git rebase -i。"));
         var args = new List<string> { "rebase" };
-        if (interactive == true) args.Add("-i");
         args.Add(upstream);
         return RunGitAsync(nameof(GitRebaseAsync), args, workingDirectory, timeoutMs, true,
             new Dictionary<string, object?> { ["upstream"] = upstream, ["workingDirectory"] = workingDirectory });

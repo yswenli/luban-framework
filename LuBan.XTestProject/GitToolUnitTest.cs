@@ -4,7 +4,7 @@
 *命名空间：LuBan.XTestProject
 *文件名： GitToolUnitTest
 *创建时间：2026/10/9
-*描述：验证 Git 工具组执行底座、只读工具与冲突检测
+*描述：验证 Git 工具组执行底座、只读工具、冲突检测与参数防护（每个用例独立仓库）
 *****************************************************************************/
 using LuBan.AIAgent.Abstractions;
 using LuBan.AIAgent.Configuration;
@@ -17,34 +17,19 @@ namespace LuBan.XTestProject;
 [TestClass]
 public class GitToolUnitTest
 {
-    private static string _repo = null!;
-    private static GitToolGroup _group = null!;
+    private string _repo = null!;
+    private GitToolGroup _group = null!;
 
-    [ClassInitialize]
-    public static void Setup(TestContext context)
+    [TestInitialize]
+    public void Setup()
     {
         _repo = Path.Combine(Path.GetTempPath(), "luban-git-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_repo);
-
-        var opts = Options.Create(new LuBanAgentOptions
-        {
-            WorkspaceRoot = _repo,
-            Tools = new ToolGroupOptions { Git = new GitToolOptions { Enabled = true, DefaultTimeout = 60000 } }
-        });
-        var ctx = new ToolConfirmationContext
-        {
-            Callback = (_, _) => Task.FromResult(ConfirmResult.Allow),
-            WorkspacePathChecker = _ => true
-        };
-        _group = new GitToolGroup(
-            opts.Value.Tools.Git,
-            new ProcessRunner(),
-            new ToolConfirmationService(ctx, opts),
-            () => _repo);
+        _group = CreateGroup(_repo);
     }
 
-    [ClassCleanup]
-    public static void Cleanup()
+    [TestCleanup]
+    public void Cleanup()
     {
         try { if (Directory.Exists(_repo)) Directory.Delete(_repo, true); } catch { }
     }
@@ -114,38 +99,57 @@ public class GitToolUnitTest
     }
 
     [TestMethod]
+    public async Task GitClone_RejectsOptionLikeDirectory()
+    {
+        var result = await _group.GitCloneAsync(
+            "https://example.com/repo.git", directory: "--upload-pack=xxx", workingDirectory: _repo);
+
+        Assert.IsFalse(result.IsSuccess, "以 '-' 开头的 directory 应被拒绝");
+        StringAssert.Contains(result.Message!, "directory");
+        Assert.IsNull(result.Data, "守卫应在调用 git 之前返回，不带命令执行载荷");
+    }
+
+    [TestMethod]
+    public async Task GitReset_InvalidMode_ReturnsFail()
+    {
+        var result = await _group.GitResetAsync(mode: "frobnicate", workingDirectory: _repo);
+
+        Assert.IsFalse(result.IsSuccess);
+        StringAssert.Contains(result.Message!, "不支持的 reset mode");
+    }
+
+    [TestMethod]
+    public async Task GitRebase_Interactive_ReturnsFail()
+    {
+        var result = await _group.GitRebaseAsync("main", interactive: true, workingDirectory: _repo);
+
+        Assert.IsFalse(result.IsSuccess);
+        StringAssert.Contains(result.Message!, "交互式");
+    }
+
+    [TestMethod]
     public async Task GitMerge_Conflict_ReturnsConflictList()
     {
-        var repo = Path.Combine(Path.GetTempPath(), "luban-git-merge-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(repo);
-        try
-        {
-            var group = CreateGroup(repo);
-            await group.GitInitAsync(defaultBranch: "main", workingDirectory: repo);
-            var f = Path.Combine(repo, "conflict.txt");
-            File.WriteAllText(f, "base");
-            await group.GitAddAsync(paths: new[] { "conflict.txt" }, workingDirectory: repo);
-            await CommitRaw(repo, "init");
+        await _group.GitInitAsync(defaultBranch: "main", workingDirectory: _repo);
+        var f = Path.Combine(_repo, "conflict.txt");
+        File.WriteAllText(f, "base");
+        await _group.GitAddAsync(paths: new[] { "conflict.txt" }, workingDirectory: _repo);
+        await CommitRaw(_repo, "init");
 
-            await group.GitCheckoutAsync("side", createBranch: true, workingDirectory: repo);
-            File.WriteAllText(f, "side-change");
-            await group.GitAddAsync(paths: new[] { "conflict.txt" }, workingDirectory: repo);
-            await CommitRaw(repo, "side");
+        await _group.GitCheckoutAsync("side", createBranch: true, workingDirectory: _repo);
+        File.WriteAllText(f, "side-change");
+        await _group.GitAddAsync(paths: new[] { "conflict.txt" }, workingDirectory: _repo);
+        await CommitRaw(_repo, "side");
 
-            await group.GitCheckoutAsync("main", workingDirectory: repo);
-            File.WriteAllText(f, "main-change");
-            await group.GitAddAsync(paths: new[] { "conflict.txt" }, workingDirectory: repo);
-            await CommitRaw(repo, "main");
+        await _group.GitCheckoutAsync("main", workingDirectory: _repo);
+        File.WriteAllText(f, "main-change");
+        await _group.GitAddAsync(paths: new[] { "conflict.txt" }, workingDirectory: _repo);
+        await CommitRaw(_repo, "main");
 
-            var merge = await group.GitMergeAsync("side", workingDirectory: repo);
-            Assert.IsFalse(merge.IsSuccess);
-            StringAssert.Contains(merge.Message!, "冲突");
-            StringAssert.Contains(merge.Message!, "conflict.txt");
-        }
-        finally
-        {
-            try { if (Directory.Exists(repo)) Directory.Delete(repo, true); } catch { }
-        }
+        var merge = await _group.GitMergeAsync("side", workingDirectory: _repo);
+        Assert.IsFalse(merge.IsSuccess);
+        StringAssert.Contains(merge.Message!, "冲突");
+        StringAssert.Contains(merge.Message!, "conflict.txt");
     }
 
     private static GitToolGroup CreateGroup(string repo)
