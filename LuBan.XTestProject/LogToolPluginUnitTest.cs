@@ -81,4 +81,30 @@ public class LogToolPluginUnitTest
         Assert.IsTrue(service.ReadOnlyTools.Contains("LogGrepAsync"));
         Assert.IsTrue(service.ReadOnlyTools.Contains("LogSliceAsync"));
     }
+
+    [TestMethod]
+    public void GetTools_Returns_Empty_When_Disabled()
+    {
+        var options = new LogToolOptions { Enabled = false };
+        using var sp = BuildSp(options);
+        var plugin = new LogToolPlugin(Options.Create(options));
+
+        var tools = plugin.GetTools(sp);
+
+        Assert.AreEqual(0, tools.Count);
+    }
+
+    [TestMethod]
+    public void GetTools_Returns_Empty_When_Aggregator_Missing()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton<IOptions<LogToolOptions>>(Options.Create(new LogToolOptions()));
+        services.AddSingleton<IToolConfirmationService>(new LogTestConfirmation());
+        using var sp = services.BuildServiceProvider();
+        var plugin = new LogToolPlugin(Options.Create(new LogToolOptions()));
+
+        var tools = plugin.GetTools(sp);
+
+        Assert.AreEqual(0, tools.Count);
+    }
 }

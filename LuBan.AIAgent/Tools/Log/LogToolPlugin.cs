@@ -55,7 +55,7 @@ public class LogToolPlugin : ILuBanToolPlugin
     /// <remarks>
     /// 不传显式 <c>name</c>：<see cref="AIFunctionFactory"/> 会按框架惯例剥离方法名的 <c>Async</c> 后缀，
     /// 故对 LLM 暴露为 <c>LogStats</c>/<c>LogGrep</c>/<c>LogSlice</c>（与其它工具组一致）。
-    /// 注意：工具内部确认走 <c>nameof(LogStatsAsync)</c>，故 <see cref="ToolConfirmationService.DefaultReadOnlyTools"/> 仍用带 <c>Async</c> 的名称。
+    /// 注意：工具内部确认走 <c>nameof(LogStatsAsync)</c>，故 <c>ToolConfirmationService.DefaultReadOnlyTools</c> 仍用带 <c>Async</c> 的名称。
     /// </remarks>
     public IReadOnlyList<AIFunction> GetTools(IServiceProvider sp, ToolGroupOptions? toolsOptions = null)
     {
