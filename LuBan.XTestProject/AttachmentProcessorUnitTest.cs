@@ -115,7 +115,7 @@ public class AttachmentProcessorUnitTest
             var r = await p.ProcessAsync(path);
             Assert.IsTrue(r.IsLargeText);
             var text = ((Microsoft.Extensions.AI.TextContent)r.Content).Text;
-            StringAssert.Contains(text, "ReadFileAsync");
+            StringAssert.Contains(text, "ReadFile");
             StringAssert.Contains(text, path);
         }
         finally { File.Delete(path); }
@@ -169,7 +169,7 @@ public class AttachmentProcessorUnitTest
             var text = ((Microsoft.Extensions.AI.TextContent)r.Content).Text;
             StringAssert.Contains(text, "# 日志概览");
             StringAssert.Contains(text, "database connection failed");
-            StringAssert.Contains(text, "LogGrepAsync");
+            StringAssert.Contains(text, "LogGrep");
         }
         finally { File.Delete(path); }
     }
@@ -186,9 +186,51 @@ public class AttachmentProcessorUnitTest
             var r = await p.ProcessAsync(path);
             Assert.IsTrue(r.IsLargeText);
             var text = ((Microsoft.Extensions.AI.TextContent)r.Content).Text;
-            StringAssert.Contains(text, "LogSliceAsync");
+            StringAssert.Contains(text, "LogSlice");
             Assert.IsFalse(text.Contains("# 日志概览"));
         }
         finally { File.Delete(path); }
+    }
+
+    [TestMethod]
+    public async Task ProcessAsync_LargeLog_AggregatorFails_FallsBackToGuide()
+    {
+        var options = new LogToolOptions();
+        var p = new DefaultAttachmentProcessor(Options.Create(options), new ThrowingAggregator());
+        var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".log");
+        await File.WriteAllTextAsync(path, new string('x', 60 * 1024));
+        try
+        {
+            var r = await p.ProcessAsync(path);
+            Assert.IsTrue(r.IsLargeText);
+            var text = ((Microsoft.Extensions.AI.TextContent)r.Content).Text;
+            StringAssert.Contains(text, "自动聚合失败");
+            Assert.IsFalse(text.Contains("# 日志概览"));
+        }
+        finally { File.Delete(path); }
+    }
+
+    [TestMethod]
+    public async Task ProcessAsync_DisabledLog_DoesNotAggregate()
+    {
+        var options = new LogToolOptions { Enabled = false };
+        var p = NewProcessor(options);
+        var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".log");
+        await File.WriteAllTextAsync(path, new string('x', 60 * 1024));
+        try
+        {
+            var r = await p.ProcessAsync(path);
+            Assert.IsTrue(r.IsLargeText);
+            var text = ((Microsoft.Extensions.AI.TextContent)r.Content).Text;
+            StringAssert.Contains(text, "ReadFile");
+            Assert.IsFalse(text.Contains("# 日志概览"));
+        }
+        finally { File.Delete(path); }
+    }
+
+    private sealed class ThrowingAggregator : ILogAggregator
+    {
+        public Task<LogSummary> AggregateAsync(string filePath, CancellationToken ct = default)
+            => throw new IOException("boom");
     }
 }

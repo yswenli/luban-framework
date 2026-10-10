@@ -94,9 +94,11 @@ public sealed class DefaultAttachmentProcessor : IAttachmentProcessor
     private readonly LogToolOptions _logOptions;
     private readonly ILogAggregator _aggregator;
 
+    private static readonly LogToolOptions DefaultLogOptions = new();
+
     /// <summary>创建处理器（无参：使用默认日志配置，供仅需 MIME 解析等轻量场景）。</summary>
     public DefaultAttachmentProcessor()
-        : this(Options.Create(new LogToolOptions()), new LogAggregator(Options.Create(new LogToolOptions())))
+        : this(Options.Create(DefaultLogOptions), new LogAggregator(Options.Create(DefaultLogOptions)))
     {
     }
 
@@ -234,7 +236,7 @@ public sealed class DefaultAttachmentProcessor : IAttachmentProcessor
         var fullPath = Path.GetFullPath(filePath);
 
         // .log 分流必须先于 10MB 拒绝，否则大日志永远到不了聚合分支
-        if (_logOptions.IsAggregateExtension(filePath))
+        if (_logOptions.Enabled && _logOptions.IsAggregateExtension(filePath))
             return await ProcessLogAsync(filePath, info, mediaType, fullPath, ct).ConfigureAwait(false);
 
         if (info.Length > MaxTextFileBytes)
@@ -253,8 +255,8 @@ public sealed class DefaultAttachmentProcessor : IAttachmentProcessor
         var sizeText = $"{info.Length / 1024.0:F1}KB";
         var guidance =
             $"用户附加了文件 {info.Name}（{sizeText}），内容过长未直接注入。" +
-            $"请使用 filesystem 的 ReadFileAsync 工具读取（单次返回前 2000 行/256KB），" +
-            $"如需定位特定内容用 GrepAsync 工具按关键字检索。文件路径: {fullPath}";
+            $"请使用 filesystem 的 ReadFile 工具读取（单次返回前 2000 行/256KB），" +
+            $"如需定位特定内容用 Grep 工具按关键字检索。文件路径: {fullPath}";
         return new ProcessedAttachment
         {
             Info = new AttachmentInfo(info.Name, mediaType, info.Length, AttachmentKind.TextFile, fullPath),
@@ -289,8 +291,7 @@ public sealed class DefaultAttachmentProcessor : IAttachmentProcessor
         // 50KB–上限：流式聚合出概览（恒定内存），失败/超时回退指引，不阻断发送
         try
         {
-            var summary = await Task.Run(
-                () => _aggregator.AggregateAsync(fullPath, ct), ct).ConfigureAwait(false);
+            var summary = await _aggregator.AggregateAsync(fullPath, ct).ConfigureAwait(false);
             var overview = LogSummaryFormatter.Format(summary, _logOptions.MaxResultChars);
             var text = overview + Environment.NewLine + Environment.NewLine + LogDrillGuide(fullPath);
             return new ProcessedAttachment
@@ -304,7 +305,7 @@ public sealed class DefaultAttachmentProcessor : IAttachmentProcessor
         {
             throw;
         }
-        catch
+        catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             return Guide(fullPath, info, mediaType,
                 $"用户附加了日志文件 {info.Name} 自动聚合失败，已跳过概览。");
@@ -320,5 +321,5 @@ public sealed class DefaultAttachmentProcessor : IAttachmentProcessor
         };
 
     private static string LogDrillGuide(string fullPath)
-        => $"可用 log 工具钻取：LogStatsAsync（概览）、LogGrepAsync（按关键字/级别/时间/行区间检索）、LogSliceAsync（按行号切片）。文件路径: {fullPath}";
+        => $"可用 log 工具钻取：LogStats（概览）、LogGrep（按关键字/级别/时间/行区间检索）、LogSlice（按行号切片）。文件路径: {fullPath}";
 }

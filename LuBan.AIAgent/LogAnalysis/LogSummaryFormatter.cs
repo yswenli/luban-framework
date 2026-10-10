@@ -65,7 +65,7 @@ internal static class LogSummaryFormatter
         if (summary.OtherErrorCount > 0)
             sb.AppendLine($"- 另有 {summary.OtherErrorCount} 条错误未归类（超出签名上限）");
         sb.AppendLine();
-        sb.AppendLine("> 可用 `LogGrepAsync` / `LogSliceAsync` 按行号/关键字/级别/时间钻取细节。");
+        sb.AppendLine("> 可用 `LogGrep` / `LogSlice` 按行号/关键字/级别/时间钻取细节。");
 
         var text = sb.ToString();
         if (maxResultChars > 0 && text.Length > maxResultChars)
