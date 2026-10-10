@@ -112,7 +112,7 @@ Skills, MCPs, and Rules use a unified three-tier priority registry pattern:
 | Tool Group | Group Name | Core Capabilities |
 |------------|------------|-------------------|
 | **Browser Tools** | `browser` | Navigate, click, type, screenshot, get content, wait for selector, get URL (Playwright-based) |
-| **File System Tools** | `filesystem` | Read files, write files, list directories, delete files, delete directories, search files (glob), content search (regex), create directories, copy files, move files, get file info; allowed directly inside the workspace, paths outside the workspace are allowed after user confirmation |
+| **File System Tools** | `filesystem` | Read files, write files, edit files (exact string replacement, single/multi/replace-all), list directories, delete files, delete directories, search files (glob), content search (regex), create directories, copy files, move files, get file info; allowed directly inside the workspace, paths outside the workspace are allowed after user confirmation |
 | **Script Tools** | `script` | Execute Shell (adaptive runtime), Lua (embedded sandbox, no external interpreter), Python scripts |
 | **Git Tools** | `git` | 26 fine-grained tools covering status/diff/log/branch/stash/commit/merge/rebase/push, etc.; confirmed-free inside the workspace, per-call confirmation when crossing the boundary; on conflict it returns a file list for the agent to resolve manually |
 | **Web Tools** | `web` | Send HTTP requests to fetch web content |
