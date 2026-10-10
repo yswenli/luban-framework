@@ -46,13 +46,17 @@ public class MCPToolPlugin : ILuBanToolPlugin
         if (registry == null) return Array.Empty<AIFunction>();
 
         var confirmationService = sp.GetRequiredService<IToolConfirmationService>();
-        var tools = new List<AIFunction>
-        {
-            new McpListResourcesAIFunction(registry, confirmationService),
-            new McpReadResourceAIFunction(registry, confirmationService),
-        };
+        var clients = registry.GetAll();
+        var tools = new List<AIFunction>();
 
-        foreach (var client in registry.GetAll().Where(c => c.IsConnected))
+        // 仅当存在 MCP 客户端时才暴露资源类工具，避免无服务器时空注册两个无效工具。
+        if (clients.Count > 0)
+        {
+            tools.Add(new McpListResourcesAIFunction(registry, confirmationService));
+            tools.Add(new McpReadResourceAIFunction(registry, confirmationService));
+        }
+
+        foreach (var client in clients.Where(c => c.IsConnected))
         {
             IEnumerable<MCPTool> mcpTools;
             try

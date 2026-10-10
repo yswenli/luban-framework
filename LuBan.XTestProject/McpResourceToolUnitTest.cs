@@ -152,6 +152,27 @@ public class McpResourceToolUnitTest
         Assert.IsTrue(tr.UserCancelled);
     }
 
+    [TestMethod]
+    public void GetTools_EmptyRegistry_ReturnsNoTools()
+    {
+        var plugin = new MCPToolPlugin();
+        var provider = new StubServiceProvider(new Dictionary<Type, object>
+        {
+            [typeof(MCPRegistry)] = new MCPRegistry(Array.Empty<IMCPClient>()),
+            [typeof(IToolConfirmationService)] = Confirm(ConfirmResult.Allow)
+        });
+
+        var tools = plugin.GetTools(provider);
+
+        Assert.AreEqual(0, tools.Count, "无 MCP 服务器时不应注册资源类工具");
+    }
+
+    private sealed class StubServiceProvider(Dictionary<Type, object> map) : IServiceProvider
+    {
+        public object? GetService(Type serviceType)
+            => map.TryGetValue(serviceType, out var value) ? value : null;
+    }
+
     private static MCPToolPlugin.McpListResourcesAIFunction ListTool(MCPRegistry registry, ConfirmResult? confirm = null)
         => new(registry, Confirm(confirm ?? ConfirmResult.Allow));
 
