@@ -7,6 +7,7 @@
 *描述：Git 版本控制工具插件与工具组
 *****************************************************************************/
 using LuBan.AIAgent.Abstractions;
+using LuBan.AIAgent.Abstractions.Models;
 
 namespace LuBan.AIAgent.Tools.Git;
 
@@ -17,16 +18,22 @@ public class GitToolPlugin : ILuBanToolPlugin
 {
     private readonly GitToolOptions _options;
     private readonly ISessionContext? _sessionContext;
+    private readonly IWorktreeCoordinator? _worktrees;
 
     /// <summary>
     /// 创建 GitToolPlugin 实例。
     /// </summary>
     /// <param name="options">Agent 配置。</param>
     /// <param name="sessionContext">会话上下文（提供有效根，按会话隔离；可为 null）。</param>
-    public GitToolPlugin(IOptions<LuBanAgentOptions> options, ISessionContext? sessionContext = null)
+    /// <param name="worktrees">worktree 协调器（宿主提供，可选）。</param>
+    public GitToolPlugin(
+        IOptions<LuBanAgentOptions> options,
+        ISessionContext? sessionContext = null,
+        IWorktreeCoordinator? worktrees = null)
     {
         _options = options.Value.Tools.Git;
         _sessionContext = sessionContext;
+        _worktrees = worktrees;
     }
 
     /// <inheritdoc />
@@ -44,9 +51,9 @@ public class GitToolPlugin : ILuBanToolPlugin
         var agentOptions = sp.GetService<IOptions<LuBanAgentOptions>>();
         Func<string?> workspaceRootProvider = () => _sessionContext?.EffectiveRoot ?? agentOptions?.Value.WorkspaceRoot;
 
-        var group = new GitToolGroup(opts, runner, confirmationService, workspaceRootProvider);
+        var group = new GitToolGroup(opts, runner, confirmationService, workspaceRootProvider, _worktrees, _sessionContext);
 
-        return new List<AIFunction>
+        var tools = new List<AIFunction>
         {
             // 只读
             AIFunctionFactoryHelper.Create(group, nameof(GitToolGroup.GitStatusAsync)),
@@ -77,6 +84,17 @@ public class GitToolPlugin : ILuBanToolPlugin
             AIFunctionFactoryHelper.Create(group, nameof(GitToolGroup.GitRebaseAsync)),
             AIFunctionFactoryHelper.Create(group, nameof(GitToolGroup.GitCleanAsync)),
         };
+
+        // worktree 工具仅在宿主提供协调器时注册
+        if (_worktrees is not null)
+        {
+            tools.Add(AIFunctionFactoryHelper.Create(group, nameof(GitToolGroup.EnterWorktreeAsync)));
+            tools.Add(AIFunctionFactoryHelper.Create(group, nameof(GitToolGroup.FinishWorktreeAsync)));
+            tools.Add(AIFunctionFactoryHelper.Create(group, nameof(GitToolGroup.AbandonWorktreeAsync)));
+            tools.Add(AIFunctionFactoryHelper.Create(group, nameof(GitToolGroup.WorktreeStatus)));
+        }
+
+        return tools;
     }
 
     /// <inheritdoc />
@@ -93,6 +111,8 @@ public class GitToolGroup
     private readonly ProcessRunner _processRunner;
     private readonly IToolConfirmationService _confirmationService;
     private readonly Func<string?> _workspaceRootProvider;
+    private readonly IWorktreeCoordinator? _worktrees;
+    private readonly ISessionContext? _sessionContext;
 
     /// <summary>
     /// 创建 GitToolGroup 实例。
@@ -101,17 +121,64 @@ public class GitToolGroup
     /// <param name="processRunner">进程执行器。</param>
     /// <param name="confirmationService">工具调用确认服务。</param>
     /// <param name="workspaceRootProvider">工作区根目录提供者（缺省工作目录）。</param>
+    /// <param name="worktrees">worktree 协调器（宿主提供，可选）。</param>
+    /// <param name="sessionContext">会话上下文（可选，用于 worktree 状态查询）。</param>
     public GitToolGroup(
         GitToolOptions options,
         ProcessRunner processRunner,
         IToolConfirmationService confirmationService,
-        Func<string?> workspaceRootProvider)
+        Func<string?> workspaceRootProvider,
+        IWorktreeCoordinator? worktrees = null,
+        ISessionContext? sessionContext = null)
     {
         _options = options;
         _processRunner = processRunner;
         _confirmationService = confirmationService;
         _workspaceRootProvider = workspaceRootProvider;
+        _worktrees = worktrees;
+        _sessionContext = sessionContext;
     }
+
+    /// <summary>
+    /// 仅用于 worktree 工具的最小构造（无 git 执行依赖）。
+    /// </summary>
+    /// <param name="worktrees">worktree 协调器。</param>
+    public GitToolGroup(IWorktreeCoordinator worktrees)
+    {
+        _worktrees = worktrees;
+        _options = new GitToolOptions();
+        _processRunner = null!;
+        _confirmationService = null!;
+        _workspaceRootProvider = static () => null;
+    }
+
+    // ─────────────── worktree 工具 ───────────────
+
+    /// <summary>进入 worktree 隔离：创建 worktree 与临时分支。</summary>
+    /// <param name="reason">进入原因（用于分支/登记说明）。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    [Description("进入 git worktree 隔离环境：在独立目录与临时分支上工作，完成后合并回主分支")]
+    public Task<WorktreeSession> EnterWorktreeAsync(
+        [Description("进入 worktree 的原因说明")] string reason,
+        CancellationToken cancellationToken = default)
+        => (_worktrees ?? throw new InvalidOperationException("未配置 worktree 协调器")).BeginAsync(reason, cancellationToken);
+
+    /// <summary>结束当前 worktree：合并回主分支；冲突时返回 Conflict 结果且不清理。</summary>
+    /// <param name="cancellationToken">取消令牌。</param>
+    [Description("结束当前 worktree 隔离：把临时分支改动合并回主分支；若冲突则返回冲突文件且不清理")]
+    public Task<WorktreeMergeResult> FinishWorktreeAsync(CancellationToken cancellationToken = default)
+        => (_worktrees ?? throw new InvalidOperationException("未配置 worktree 协调器")).EndAsync(cancellationToken);
+
+    /// <summary>放弃当前 worktree：强制移除并丢弃改动。</summary>
+    /// <param name="cancellationToken">取消令牌。</param>
+    [Description("放弃当前 worktree 隔离：强制移除 worktree 目录并丢弃其改动")]
+    public Task AbandonWorktreeAsync(CancellationToken cancellationToken = default)
+        => (_worktrees ?? throw new InvalidOperationException("未配置 worktree 协调器")).AbandonAsync(cancellationToken);
+
+    /// <summary>查询当前会话的活动 worktree 状态。</summary>
+    [Description("查询当前会话的活动 worktree 状态（无则返回 null）")]
+    public WorktreeSession? WorktreeStatus()
+        => _worktrees?.GetActive(_sessionContext?.SessionId ?? "");
 
     // ─────────────── 执行底座 ───────────────
 
