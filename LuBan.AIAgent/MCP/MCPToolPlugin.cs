@@ -46,7 +46,12 @@ public class MCPToolPlugin : ILuBanToolPlugin
         if (registry == null) return Array.Empty<AIFunction>();
 
         var confirmationService = sp.GetRequiredService<IToolConfirmationService>();
-        var tools = new List<AIFunction>();
+        var tools = new List<AIFunction>
+        {
+            new McpListResourcesAIFunction(registry, confirmationService),
+            new McpReadResourceAIFunction(registry, confirmationService),
+        };
+
         foreach (var client in registry.GetAll().Where(c => c.IsConnected))
         {
             IEnumerable<MCPTool> mcpTools;
@@ -123,5 +128,105 @@ public class MCPToolPlugin : ILuBanToolPlugin
 
         private static string Sanitize(string name)
             => new(name.Select(c => char.IsLetterOrDigit(c) || c is '_' or '-' ? c : '_').ToArray());
+    }
+
+    /// <summary>
+    /// 列出 MCP 资源（可选按 client 过滤）。
+    /// </summary>
+    private sealed class McpListResourcesAIFunction : AIFunction
+    {
+        private readonly MCPRegistry _registry;
+        private readonly IToolConfirmationService _confirmationService;
+
+        public McpListResourcesAIFunction(MCPRegistry registry, IToolConfirmationService confirmationService)
+        {
+            _registry = registry;
+            _confirmationService = confirmationService;
+        }
+
+        public override string Name => "mcp_list_resources";
+
+        public override string Description => "列出已连接 MCP 服务器可用的资源（client 可选，缺省遍历全部）。";
+
+        public override JsonElement JsonSchema => JsonDocument.Parse(
+            """{"type":"object","properties":{"client":{"type":"string","description":"MCP 服务器名称，缺省全部"}}}""").RootElement.Clone();
+
+        protected override async ValueTask<object?> InvokeCoreAsync(
+            AIFunctionArguments arguments, CancellationToken cancellationToken)
+        {
+            var args = new Dictionary<string, object?>(arguments);
+            var outcome = await _confirmationService.EvaluateAsync(Name, null, args);
+            if (outcome == EnumConfirmationOutcome.Planned) return ToolResult.Plan<string>();
+            if (outcome != EnumConfirmationOutcome.Allowed) return ToolResult.Denied<string>();
+
+            var clientFilter = arguments.TryGetValue("client", out var c) ? c?.ToString() : null;
+            var clients = _registry.GetAll().Where(x => x.IsConnected);
+            if (!string.IsNullOrWhiteSpace(clientFilter))
+                clients = clients.Where(x => x.Name.Equals(clientFilter, StringComparison.OrdinalIgnoreCase));
+
+            var list = new List<object>();
+            foreach (var client in clients)
+            {
+                IEnumerable<MCPResource> resources;
+                try { resources = await client.ListResourcesAsync(cancellationToken); }
+                catch { continue; }
+                foreach (var r in resources)
+                    list.Add(new { client = client.Name, uri = r.Uri, name = r.Name, description = r.Description, mimeType = r.MimeType });
+            }
+
+            return list.Count == 0
+                ? "当前没有可用的 MCP 资源。"
+                : JsonSerializer.Serialize(list, new JsonSerializerOptions { WriteIndented = true });
+        }
+    }
+
+    /// <summary>
+    /// 读取指定 MCP 资源。
+    /// </summary>
+    private sealed class McpReadResourceAIFunction : AIFunction
+    {
+        private readonly MCPRegistry _registry;
+        private readonly IToolConfirmationService _confirmationService;
+
+        public McpReadResourceAIFunction(MCPRegistry registry, IToolConfirmationService confirmationService)
+        {
+            _registry = registry;
+            _confirmationService = confirmationService;
+        }
+
+        public override string Name => "mcp_read_resource";
+
+        public override string Description => "读取指定 MCP 资源的完整内容（需 client 与 uri）。";
+
+        public override JsonElement JsonSchema => JsonDocument.Parse(
+            """{"type":"object","required":["client","uri"],"properties":{"client":{"type":"string"},"uri":{"type":"string"}}}""").RootElement.Clone();
+
+        protected override async ValueTask<object?> InvokeCoreAsync(
+            AIFunctionArguments arguments, CancellationToken cancellationToken)
+        {
+            var args = new Dictionary<string, object?>(arguments);
+            var outcome = await _confirmationService.EvaluateAsync(Name, null, args);
+            if (outcome == EnumConfirmationOutcome.Planned) return ToolResult.Plan<string>();
+            if (outcome != EnumConfirmationOutcome.Allowed) return ToolResult.Denied<string>();
+
+            var clientName = arguments.TryGetValue("client", out var c) ? c?.ToString() : null;
+            var uri = arguments.TryGetValue("uri", out var u) ? u?.ToString() : null;
+            if (string.IsNullOrWhiteSpace(clientName) || string.IsNullOrWhiteSpace(uri))
+                return "参数缺失：需要 client 与 uri。";
+
+            var client = _registry.Get(clientName!);
+            if (client == null) return $"未找到 MCP 服务器: {clientName}。";
+            if (!client.IsConnected) return $"MCP 服务器 {clientName} 未连接。";
+
+            try
+            {
+                var content = await client.ReadResourceAsync(uri!, cancellationToken);
+                return content?.Content ?? "（资源内容为空）";
+            }
+            catch (Exception ex)
+            {
+                return $"读取 MCP 资源失败: {ex.Message}";
+            }
+        }
     }
 }
