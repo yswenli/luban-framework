@@ -1,4 +1,3 @@
-using System.Text;
 using LuBan.AIAgent.Wiki.Extractors;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
