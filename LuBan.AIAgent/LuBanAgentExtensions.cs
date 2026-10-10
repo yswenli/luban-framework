@@ -44,23 +44,23 @@ public static class LuBanAgentExtensions
     {
         services.Configure<LuBanAgentOptions>(configuration.GetSection("LuBanAgent"));
 
-        // 注册工具插件
-        services.AddSingleton<ILuBanToolPlugin, Tools.Browser.BrowserToolPlugin>();
-        services.AddSingleton<ILuBanToolPlugin, Tools.FileSystem.FileSystemToolPlugin>();
-        services.AddSingleton<ILuBanToolPlugin, Tools.Script.ScriptToolPlugin>();
-        services.AddSingleton<ILuBanToolPlugin, Tools.Web.WebToolPlugin>();
-        services.AddSingleton<ILuBanToolPlugin, Tools.Git.GitToolPlugin>();
-        services.AddSingleton<ILuBanToolPlugin, Tools.Retrieval.RetrievalToolPlugin>();
-        services.AddSingleton<ILuBanToolPlugin, Tools.LocalMemory.LocalMemoryToolPlugin>();
-        services.AddSingleton<ILuBanToolPlugin, MCP.MCPToolPlugin>();
+        // 注册工具插件（scoped：每会话一份，避免跨会话共享可变确认/根解析状态）
+        services.AddScoped<ILuBanToolPlugin, Tools.Browser.BrowserToolPlugin>();
+        services.AddScoped<ILuBanToolPlugin, Tools.FileSystem.FileSystemToolPlugin>();
+        services.AddScoped<ILuBanToolPlugin, Tools.Script.ScriptToolPlugin>();
+        services.AddScoped<ILuBanToolPlugin, Tools.Web.WebToolPlugin>();
+        services.AddScoped<ILuBanToolPlugin, Tools.Git.GitToolPlugin>();
+        services.AddScoped<ILuBanToolPlugin, Tools.Retrieval.RetrievalToolPlugin>();
+        services.AddScoped<ILuBanToolPlugin, Tools.LocalMemory.LocalMemoryToolPlugin>();
+        services.AddScoped<ILuBanToolPlugin, MCP.MCPToolPlugin>();
 
-        services.AddSingleton<ILuBanToolPlugin, Tools.Context.CompactContextToolPlugin>();
-        services.AddSingleton<ILuBanToolPlugin, Tools.Wiki.WikiToolPlugin>();
-        services.AddSingleton<ILuBanToolPlugin, Tools.Log.LogToolPlugin>();
+        services.AddScoped<ILuBanToolPlugin, Tools.Context.CompactContextToolPlugin>();
+        services.AddScoped<ILuBanToolPlugin, Tools.Wiki.WikiToolPlugin>();
+        services.AddScoped<ILuBanToolPlugin, Tools.Log.LogToolPlugin>();
 
         LoadExternalPlugins(services, configuration);
 
-        services.AddSingleton<ToolPluginRegistry>();
+        services.AddScoped<ToolPluginRegistry>();
 
         // 注册 Rules
         services.AddSingleton<IRule, PathAccessRule>();
@@ -99,9 +99,9 @@ public static class LuBanAgentExtensions
 
         services.AddSingleton<LuBan.AIAgent.Attachments.IAttachmentProcessor, LuBan.AIAgent.Attachments.DefaultAttachmentProcessor>();
 
-        // 注册工具确认服务（上下文为单例，由宿主层每轮对话设置/重置）
-        services.AddSingleton<ToolConfirmationContext>();
-        services.AddSingleton<IToolConfirmationService, ToolConfirmationService>();
+        // 注册工具确认服务（scoped：每会话一份，宿主层每轮对话在会话作用域内设置/重置）
+        services.AddScoped<ToolConfirmationContext>();
+        services.AddScoped<IToolConfirmationService, ToolConfirmationService>();
 
         // 注册本地长期记忆（可选依赖 IEmbeddingGenerator）
         // 注意：ILocalMemoryStore 由宿主注册，框架不再默认注册 SqliteLocalMemoryStore
@@ -141,7 +141,7 @@ public static class LuBanAgentExtensions
             .GetSection("LuBanAgent:Orchestration:Enabled").Get<bool>();
         if (orchestrationEnabled)
         {
-            services.AddSingleton<ILuBanToolPlugin, Tools.Orchestration.OrchestrationToolPlugin>();
+            services.AddScoped<ILuBanToolPlugin, Tools.Orchestration.OrchestrationToolPlugin>();
         }
 
         return services;
@@ -190,7 +190,7 @@ public static class LuBanAgentExtensions
 
                 foreach (var type in pluginTypes)
                 {
-                    services.AddSingleton(typeof(ILuBanToolPlugin), type);
+                    services.AddScoped(typeof(ILuBanToolPlugin), type);
                 }
             }
             catch (Exception ex)
