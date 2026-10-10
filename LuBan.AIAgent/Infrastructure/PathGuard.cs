@@ -28,15 +28,18 @@ namespace LuBan.AIAgent.Infrastructure;
 /// </summary>
 public sealed class PathGuard
 {
-    private readonly FileSystemToolOptions _options;
+    private readonly ISessionContext _session;
+    private readonly FileSystemToolOptions? _options;
 
     /// <summary>
     /// 创建 PathGuard 实例
     /// </summary>
-    /// <param name="options">LuBan Agent 配置选项</param>
-    public PathGuard(IOptions<LuBanAgentOptions> options)
+    /// <param name="session">会话级上下文（提供允许根，按会话隔离）</param>
+    /// <param name="options">LuBan Agent 配置选项（可选，仅非会话场景回退）</param>
+    public PathGuard(ISessionContext session, IOptions<LuBanAgentOptions>? options = null)
     {
-        _options = options.Value.Tools.FileSystem;
+        _session = session ?? throw new ArgumentNullException(nameof(session));
+        _options = options?.Value.Tools.FileSystem;
     }
 
     /// <summary>
@@ -44,10 +47,17 @@ public sealed class PathGuard
     /// </summary>
     /// <param name="path">要检查的路径</param>
     /// <returns>是否允许</returns>
-    public bool IsAllowed(string path)
+    public bool IsAllowed(string? path)
     {
-        // 默认拒绝：未配置 AllowedRoots 时禁止任何文件访问，防止越权
-        if (_options.AllowedRoots == null || _options.AllowedRoots.Count == 0)
+        if (string.IsNullOrWhiteSpace(path))
+            return false;
+
+        // 优先使用会话允许根；无会话根时回退全局配置（仅非会话场景）
+        IReadOnlyList<string>? roots = _session.AllowedRoots;
+        if (roots is not { Count: > 0 })
+            roots = _options?.AllowedRoots;
+        // 默认拒绝：未配置允许根时禁止任何文件访问，防止越权
+        if (roots is not { Count: > 0 })
             return false;
 
         try
@@ -55,7 +65,7 @@ public sealed class PathGuard
             var fullPath = Path.GetFullPath(path);
             var normalizedPath = fullPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
-            return _options.AllowedRoots.Any(root =>
+            return roots.Any(root =>
             {
                 var normalizedRoot = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
                 return normalizedPath.StartsWith(normalizedRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) ||

@@ -91,7 +91,7 @@ public static class LuBanAgentExtensions
         services.AddSingleton<ProcessRunner>();
         services.AddSingleton<LuaScriptRunner>();
         services.AddSingleton<ShellEnvironmentDetector>();
-        services.AddSingleton<PathGuard>();
+        services.AddScoped<PathGuard>();
 
         // 大日志分析：绑定配置 + 注册流式聚合器（工具组插件在 Task 10 追加注册）
         services.Configure<LogToolOptions>(configuration.GetSection("LuBanAgent:Tools:Log"));
