@@ -52,9 +52,9 @@ public class LogToolPluginUnitTest
 
         Assert.AreEqual(3, tools.Count);
         var names = tools.Select(t => t.Name).ToHashSet();
-        Assert.IsTrue(names.Contains("LogStatsAsync"));
-        Assert.IsTrue(names.Contains("LogGrepAsync"));
-        Assert.IsTrue(names.Contains("LogSliceAsync"));
+        Assert.IsTrue(names.Contains("LogStats"));
+        Assert.IsTrue(names.Contains("LogGrep"));
+        Assert.IsTrue(names.Contains("LogSlice"));
     }
 
     [TestMethod]

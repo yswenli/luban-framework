@@ -52,6 +52,11 @@ public class LogToolPlugin : ILuBanToolPlugin
     public bool IsOptIn => false;
 
     /// <inheritdoc />
+    /// <remarks>
+    /// 不传显式 <c>name</c>：<see cref="AIFunctionFactory"/> 会按框架惯例剥离方法名的 <c>Async</c> 后缀，
+    /// 故对 LLM 暴露为 <c>LogStats</c>/<c>LogGrep</c>/<c>LogSlice</c>（与其它工具组一致）。
+    /// 注意：工具内部确认走 <c>nameof(LogStatsAsync)</c>，故 <see cref="ToolConfirmationService.DefaultReadOnlyTools"/> 仍用带 <c>Async</c> 的名称。
+    /// </remarks>
     public IReadOnlyList<AIFunction> GetTools(IServiceProvider sp, ToolGroupOptions? toolsOptions = null)
     {
         if (!_options.Enabled) return Array.Empty<AIFunction>();
@@ -64,9 +69,9 @@ public class LogToolPlugin : ILuBanToolPlugin
 
         return new List<AIFunction>
         {
-            AIFunctionFactoryHelper.Create(group, nameof(LogToolGroup.LogStatsAsync), name: nameof(LogToolGroup.LogStatsAsync)),
-            AIFunctionFactoryHelper.Create(group, nameof(LogToolGroup.LogGrepAsync), name: nameof(LogToolGroup.LogGrepAsync)),
-            AIFunctionFactoryHelper.Create(group, nameof(LogToolGroup.LogSliceAsync), name: nameof(LogToolGroup.LogSliceAsync))
+            AIFunctionFactoryHelper.Create(group, nameof(LogToolGroup.LogStatsAsync)),
+            AIFunctionFactoryHelper.Create(group, nameof(LogToolGroup.LogGrepAsync)),
+            AIFunctionFactoryHelper.Create(group, nameof(LogToolGroup.LogSliceAsync))
         };
     }
 
