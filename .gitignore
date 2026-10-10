@@ -31,6 +31,8 @@ bld/
 [Oo]bj/
 [Ll]og/
 [Ll]ogs/
+!LuBan.AIAgent/Tools/Log/
+!LuBan.AIAgent/Tools/Log/**
 
 # Visual Studio 2015/2017 cache/options directory
 .vs/
