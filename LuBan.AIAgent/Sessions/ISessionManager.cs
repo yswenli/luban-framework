@@ -34,8 +34,9 @@ public interface ISessionManager
     /// </summary>
     /// <param name="userId">用户ID（可选）</param>
     /// <param name="title">会话标题</param>
+    /// <param name="workspaceId">绑定的工作区ID（可选；由调用方显式传入，避免依赖全局「当前工作区」）</param>
     /// <returns>会话信息</returns>
-    Task<SessionInfo> CreateSessionAsync(string? userId = null, string? title = null);
+    Task<SessionInfo> CreateSessionAsync(string? userId = null, string? title = null, string? workspaceId = null);
 
     /// <summary>
     /// 获取会话
@@ -125,7 +126,8 @@ public interface ISessionManager
     /// <summary>
     /// 物理删除全部会话及消息数据
     /// </summary>
-    Task ClearAllSessionsAsync();
+    /// <param name="workspaceId">清除后需重建「新会话」时绑定的工作区ID（可选；null 时不重建）</param>
+    Task ClearAllSessionsAsync(string? workspaceId = null);
 
     /// <summary>
     /// 获取全局会话统计
