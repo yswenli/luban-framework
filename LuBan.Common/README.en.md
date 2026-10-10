@@ -121,7 +121,7 @@ Note: `MemoryCache<T>`, `IServiceCache`, `Logger` are in the `System` namespace.
 
 `HttpClientProxy`, `Http.HttpExtension`, `Http.FormUpload`, `Http.FileParameter`
 
-> Supports GET / POST / upload / custom headers, and strings can directly `.HttpGetAsync()`, `.HttpPostAsync()`.
+> Supports GET / POST / upload / custom headers, and strings can directly `.HttpGetAsync()`, `.HttpPostAsync()`. `HttpClientProxy.GetResponseAsync` returns the raw response bytes plus `ContentType`, ideal for downloading binaries or dispatching by content type.
 
 ### File IO
 
@@ -218,9 +218,9 @@ if (result.Code != 200)
 
 ### Other Treasures
 
-`SerializeUtil`, `StreamUtil`, `ZipUtil`, `Tracer`, `TryUtil`, `TokenUtil`, `EmailUtil`, `ConsoleUtil`, `NPinyin.Pinyin`
+`SerializeUtil`, `StreamUtil`, `ZipUtil`, `Tracer`, `TryUtil`, `TokenUtil`, `EmailUtil`, `ConsoleUtil`, `NPinyin.Pinyin`, `MarkdownUtil.HtmlToMarkdown`
 
-> Serialization, streams, compression, tracing, tokens, email, console, pinyin conversion... quite a few surprises hidden here.
+> Serialization, streams, compression, tracing, tokens, email, console, pinyin conversion, HTML→Markdown conversion... quite a few surprises hidden here.
 
 ---
 
