@@ -16,14 +16,17 @@ namespace LuBan.AIAgent.Tools.Git;
 public class GitToolPlugin : ILuBanToolPlugin
 {
     private readonly GitToolOptions _options;
+    private readonly ISessionContext? _sessionContext;
 
     /// <summary>
     /// 创建 GitToolPlugin 实例。
     /// </summary>
     /// <param name="options">Agent 配置。</param>
-    public GitToolPlugin(IOptions<LuBanAgentOptions> options)
+    /// <param name="sessionContext">会话上下文（提供有效根，按会话隔离；可为 null）。</param>
+    public GitToolPlugin(IOptions<LuBanAgentOptions> options, ISessionContext? sessionContext = null)
     {
         _options = options.Value.Tools.Git;
+        _sessionContext = sessionContext;
     }
 
     /// <inheritdoc />
@@ -39,7 +42,7 @@ public class GitToolPlugin : ILuBanToolPlugin
         var runner = sp.GetRequiredService<ProcessRunner>();
         var confirmationService = sp.GetRequiredService<IToolConfirmationService>();
         var agentOptions = sp.GetService<IOptions<LuBanAgentOptions>>();
-        Func<string?> workspaceRootProvider = () => agentOptions?.Value.WorkspaceRoot;
+        Func<string?> workspaceRootProvider = () => _sessionContext?.EffectiveRoot ?? agentOptions?.Value.WorkspaceRoot;
 
         var group = new GitToolGroup(opts, runner, confirmationService, workspaceRootProvider);
 

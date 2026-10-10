@@ -29,14 +29,17 @@ namespace LuBan.AIAgent.Tools.FileSystem;
 public class FileSystemToolPlugin : ILuBanToolPlugin
 {
     private readonly FileSystemToolOptions _options;
+    private readonly ISessionContext? _sessionContext;
 
     /// <summary>
     /// 创建 FileSystemToolPlugin 实例
     /// </summary>
     /// <param name="options">配置选项</param>
-    public FileSystemToolPlugin(IOptions<LuBanAgentOptions> options)
+    /// <param name="sessionContext">会话上下文（提供有效根，按会话隔离；可为 null）</param>
+    public FileSystemToolPlugin(IOptions<LuBanAgentOptions> options, ISessionContext? sessionContext = null)
     {
         _options = options.Value.Tools.FileSystem;
+        _sessionContext = sessionContext;
     }
 
     /// <summary>
@@ -59,7 +62,7 @@ public class FileSystemToolPlugin : ILuBanToolPlugin
         var confirmationService = sp.GetRequiredService<IToolConfirmationService>();
         var toolGroup = new FileSystemToolGroup(confirmationService);
         var options = sp.GetService<IOptions<LuBanAgentOptions>>();
-        Func<string?> workspaceRootProvider = () => options?.Value.WorkspaceRoot;
+        Func<string?> workspaceRootProvider = () => _sessionContext?.EffectiveRoot ?? options?.Value.WorkspaceRoot;
         // 工作区根兜底仅用于"只读发现类"工具：模型漏传路径时用工作区根做默认扫描范围才有意义。
         // 面向具体文件/目录的读写删改工具一律不兜底——否则漏传 path 会被静默替换成工作区根，
         // 产生"路径被误识别为目录""返回工作区统计"等误导结果；缺参由 RequiredArgumentGuardAIFunction 统一提示。
