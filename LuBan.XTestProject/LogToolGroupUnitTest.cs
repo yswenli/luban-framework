@@ -1,3 +1,4 @@
+using System.Text;
 using LuBan.AIAgent.Abstractions;
 using LuBan.AIAgent.Configuration;
 using LuBan.AIAgent.LogAnalysis;
@@ -169,6 +170,114 @@ public class LogToolGroupUnitTest
 
             Assert.IsFalse(result.IsSuccess);
             Assert.IsTrue(result.UserCancelled);
+        }
+        finally { File.Delete(path); }
+    }
+
+    [TestMethod]
+    public async Task LogGrep_Output_Capped_At_MaxResultChars()
+    {
+        var lines = Enumerable.Range(0, 50).Select(i => $"INFO match_{i}_" + new string('x', 40));
+        var path = await WriteTempAsync(string.Join("\n", lines));
+        try
+        {
+            var result = await New(options: new LogToolOptions { MaxResultChars = 200 }).LogGrepAsync(path, "match");
+
+            Assert.IsTrue(result.IsSuccess);
+            Assert.IsTrue(result.Data!.Length <= 200, $"长度 {result.Data.Length}");
+        }
+        finally { File.Delete(path); }
+    }
+
+    [TestMethod]
+    public async Task LogGrep_Clamps_ContextLines()
+    {
+        var lines = Enumerable.Range(1, 300).Select(i => i == 150 ? "ERROR hit" : $"line{i}");
+        var path = await WriteTempAsync(string.Join("\n", lines));
+        try
+        {
+            var result = await New(options: new LogToolOptions { MaxResultChars = 100_000 })
+                .LogGrepAsync(path, "hit", contextLines: 1_000_000);
+
+            Assert.IsTrue(result.IsSuccess);
+            StringAssert.Contains(result.Data, "line50");
+            Assert.IsFalse(result.Data!.Contains("line49\n"), "上下文应被钳制到硬上限");
+        }
+        finally { File.Delete(path); }
+    }
+
+    [TestMethod]
+    public async Task LogGrep_No_Truncation_Marker_When_Hits_Equal_Max()
+    {
+        var path = await WriteTempAsync(string.Join("\n", new[] { "INFO hit", "INFO hit" }));
+        try
+        {
+            var result = await New().LogGrepAsync(path, "hit", maxMatches: 2);
+
+            StringAssert.Contains(result.Data, "命中 2 处");
+            Assert.IsFalse(result.Data!.Contains("已达上限"));
+        }
+        finally { File.Delete(path); }
+    }
+
+    [TestMethod]
+    public async Task LogGrep_Marks_Truncation_When_More_Hits_Remain()
+    {
+        var path = await WriteTempAsync(string.Join("\n", new[] { "INFO hit", "INFO hit", "INFO hit" }));
+        try
+        {
+            var result = await New().LogGrepAsync(path, "hit", maxMatches: 2);
+
+            StringAssert.Contains(result.Data, "命中 2 处");
+            StringAssert.Contains(result.Data, "已达上限");
+        }
+        finally { File.Delete(path); }
+    }
+
+    [TestMethod]
+    public async Task LogGrep_Trailing_Context_Emitted_At_Cap()
+    {
+        var path = await WriteTempAsync(string.Join("\n", new[] { "line1", "line2", "ERROR hit", "line4", "line5" }));
+        try
+        {
+            var result = await New().LogGrepAsync(path, "hit", maxMatches: 1, contextLines: 1);
+
+            StringAssert.Contains(result.Data, "line4");
+        }
+        finally { File.Delete(path); }
+    }
+
+    [TestMethod]
+    public async Task LogGrep_Times_Out_Returns_Partial()
+    {
+        var path = Path.GetTempFileName();
+        try
+        {
+            await using (var writer = new StreamWriter(path, false, new UTF8Encoding(false)))
+            {
+                for (var i = 0; i < 200_000; i++)
+                    await writer.WriteLineAsync($"2026-01-01 00:00:00 INFO 处理第 {i} 条记录");
+            }
+
+            var result = await New(options: new LogToolOptions { MaxDurationMs = 1 }).LogGrepAsync(path, "zzz");
+
+            Assert.IsTrue(result.IsSuccess);
+            StringAssert.Contains(result.Data, "时长上限");
+        }
+        finally { File.Delete(path); }
+    }
+
+    [TestMethod]
+    public async Task LogSlice_Output_Capped()
+    {
+        var lines = Enumerable.Range(0, 1000).Select(i => $"line{i}_" + new string('y', 500));
+        var path = await WriteTempAsync(string.Join("\n", lines));
+        try
+        {
+            var result = await New(options: new LogToolOptions { MaxSliceLines = 1000 }).LogSliceAsync(path, 1, 1000);
+
+            Assert.IsTrue(result.IsSuccess);
+            Assert.IsTrue(result.Data!.Length <= 256 * 1024 + 100, $"长度 {result.Data.Length}");
         }
         finally { File.Delete(path); }
     }

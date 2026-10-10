@@ -13,6 +13,9 @@ namespace LuBan.AIAgent.Tools.Log;
 /// <summary>大日志分析工具实现。全部只读，共享注入的 <see cref="ILogAggregator"/> 与 <see cref="LogToolOptions"/>。</summary>
 public class LogToolGroup
 {
+    private const string TruncationSuffix = "\n…（已截断）";
+    private const int SliceMaxBytes = 256 * 1024;
+
     private readonly ILogAggregator _aggregator;
     private readonly LogToolOptions _options;
     private readonly IToolConfirmationService _confirmation;
@@ -68,7 +71,7 @@ public class LogToolGroup
     /// <param name="path">日志文件路径。</param>
     /// <param name="pattern">正则表达式（大小写不敏感）。</param>
     /// <param name="maxMatches">命中上限；≤0 用配置默认值。</param>
-    /// <param name="contextLines">每处命中附带的上下文行数（前/后各 N 行）。</param>
+    /// <param name="contextLines">每处命中附带的上下文行数（前/后各 N 行，受硬上限约束）。</param>
     /// <param name="startLine">起始行号（含）；≤0 表示从头。</param>
     /// <param name="endLine">结束行号（含）；≤0 表示到末尾。</param>
     /// <param name="level">仅保留指定级别（如 error/warn/info）；null 不过滤。</param>
@@ -113,35 +116,44 @@ public class LogToolGroup
         var levelFilter = ParseLevelFilter(level);
         var effectiveMax = maxMatches > 0 ? Math.Min(maxMatches, _options.MaxMatches) : _options.MaxMatches;
         if (contextLines < 0) contextLines = 0;
+        if (contextLines > LogToolOptions.HardMaxContextLines) contextLines = LogToolOptions.HardMaxContextLines;
 
         var body = new StringBuilder();
         var before = new Queue<LogLine>();
         var hits = 0L;
         var skippedTimeout = 0;
         var truncatedByMax = false;
+        var timedOut = false;
+        var limitReached = false;
         var follow = 0;
         var lastEmitted = 0L;
+
+        using var timeoutCts = new CancellationTokenSource(_options.MaxDurationMs);
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
 
         try
         {
             var reader = new LogLineReader(path, _options.MaxLineBytes);
-            await foreach (var line in reader.ReadAsync(cancellationToken))
+            await foreach (var line in reader.ReadAsync(linked.Token))
             {
                 if (startLine > 0 && line.LineNumber < startLine) continue;
                 if (endLine > 0 && line.LineNumber > endLine) break;
 
                 var isMatch = false;
-                try
+                if (!limitReached)
                 {
-                    isMatch = regex.IsMatch(line.Text);
-                }
-                catch (RegexMatchTimeoutException)
-                {
-                    skippedTimeout++;
-                }
+                    try
+                    {
+                        isMatch = regex.IsMatch(line.Text);
+                    }
+                    catch (RegexMatchTimeoutException)
+                    {
+                        skippedTimeout++;
+                    }
 
-                if (isMatch && !PassesFilters(line.Text, levelFilter, from, to))
-                    isMatch = false;
+                    if (isMatch && !PassesFilters(line.Text, levelFilter, from, to))
+                        isMatch = false;
+                }
 
                 if (isMatch)
                 {
@@ -161,10 +173,7 @@ public class LogToolGroup
                     follow = contextLines;
 
                     if (hits >= effectiveMax)
-                    {
-                        truncatedByMax = true;
-                        break;
-                    }
+                        limitReached = true;
                 }
                 else if (follow > 0)
                 {
@@ -172,27 +181,54 @@ public class LogToolGroup
                     lastEmitted = line.LineNumber;
                     follow--;
                 }
+                else if (limitReached)
+                {
+                    truncatedByMax = true;
+                    break;
+                }
                 else
                 {
                     before.Enqueue(line);
                     while (before.Count > contextLines) before.Dequeue();
                 }
+
+                if (body.Length > _options.MaxResultChars)
+                {
+                    truncatedByMax = true;
+                    break;
+                }
             }
+        }
+        catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
+        {
+            timedOut = true;
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex) { return FileError(ex, path); }
 
         if (hits == 0)
-            return ToolResult.Ok<string>("未找到匹配的内容");
+        {
+            var none = new StringBuilder("未找到匹配的内容");
+            if (skippedTimeout > 0)
+                none.Append($"（{skippedTimeout} 行的正则匹配超时被跳过）");
+            if (timedOut)
+                none.Append("（检索达到时长上限）");
+            return ToolResult.Ok<string>(none.ToString());
+        }
 
         var header = new StringBuilder();
         header.AppendLine($"命中 {hits} 处" + (truncatedByMax ? "（已达上限，可能被截断）" : string.Empty));
         if (skippedTimeout > 0)
             header.AppendLine($"（{skippedTimeout} 行的正则匹配超时被跳过）");
+        if (timedOut)
+            header.AppendLine("（检索达到时长上限，结果可能不完整）");
 
         var text = header.Append(body).ToString();
         if (text.Length > _options.MaxResultChars)
-            text = text[.._options.MaxResultChars] + "\n…（已截断）";
+        {
+            var take = Math.Max(0, _options.MaxResultChars - TruncationSuffix.Length);
+            text = text[..take] + TruncationSuffix;
+        }
         return ToolResult.Ok<string>(text);
     }
 
@@ -220,12 +256,16 @@ public class LogToolGroup
         var builder = new StringBuilder();
         var emitted = 0;
         var reachedEof = true;
+        var timedOut = false;
         var lastLine = 0L;
+
+        using var timeoutCts = new CancellationTokenSource(_options.MaxDurationMs);
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
 
         try
         {
             var reader = new LogLineReader(path, _options.MaxLineBytes);
-            await foreach (var line in reader.ReadAsync(cancellationToken))
+            await foreach (var line in reader.ReadAsync(linked.Token))
             {
                 if (emitted >= effective)
                 {
@@ -240,6 +280,10 @@ public class LogToolGroup
                 emitted++;
             }
         }
+        catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
+        {
+            timedOut = true;
+        }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex) { return FileError(ex, path); }
 
@@ -247,9 +291,14 @@ public class LogToolGroup
             return ToolResult.Ok<string>($"起始行 {startLine} 超出文件行数（共 {lastLine} 行）。");
 
         var text = builder.ToString();
-        if (text.Length > 256 * 1024)
-            text = text[..(256 * 1024)] + "\n…（已截断）";
-        if (!reachedEof)
+        if (text.Length > SliceMaxBytes)
+        {
+            var take = Math.Max(0, SliceMaxBytes - TruncationSuffix.Length);
+            text = text[..take] + TruncationSuffix;
+        }
+        if (timedOut)
+            text += "\n[已截断] 达到时长上限。";
+        else if (!reachedEof)
             text += $"\n[已截断] 单次最多返回 {effective} 行。";
         else
             text += $"\n[文件结束] 共 {lastLine} 行。";

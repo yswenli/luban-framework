@@ -37,6 +37,9 @@ public class LogToolOptions
     /// <summary>每签名样本行数硬上限。</summary>
     public const int HardMaxSampleLinesPerSignature = 100;
 
+    /// <summary>LogGrep 上下文行数硬上限。</summary>
+    public const int HardMaxContextLines = 100;
+
     /// <summary>是否启用 log 工具组与附件自动聚合。</summary>
     public bool Enabled { get; set; } = true;
 
