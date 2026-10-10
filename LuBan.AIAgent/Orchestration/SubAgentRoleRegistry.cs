@@ -40,28 +40,28 @@ public class SubAgentRoleRegistry
         {
             Name = "analyst",
             SystemPromptTemplate = "You are a problem analysis expert. Analyze the task systematically and provide structured insights. Task: {prompt}",
-            DefaultToolGroups = new List<string> { "filesystem" }
+            DefaultToolGroups = new List<string> { "filesystem", "log" }
         });
 
         Register(new SubAgentRole
         {
             Name = "researcher",
             SystemPromptTemplate = "You are a research specialist. Gather information from multiple sources and verify findings. Task: {prompt}",
-            DefaultToolGroups = new List<string> { "web", "filesystem" }
+            DefaultToolGroups = new List<string> { "web", "filesystem", "log" }
         });
 
         Register(new SubAgentRole
         {
             Name = "coder",
             SystemPromptTemplate = "You are a code implementation expert. Write clean, runnable code with proper error handling. Task: {prompt}",
-            DefaultToolGroups = new List<string> { "filesystem", "script" }
+            DefaultToolGroups = new List<string> { "filesystem", "script", "log" }
         });
 
         Register(new SubAgentRole
         {
             Name = "writer",
             SystemPromptTemplate = "You are a writing specialist. Create clear, well-structured content. Task: {prompt}",
-            DefaultToolGroups = new List<string> { "filesystem" }
+            DefaultToolGroups = new List<string> { "filesystem", "log" }
         });
     }
 
