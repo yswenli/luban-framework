@@ -457,6 +457,7 @@ public class ToolConfirmationService : IToolConfirmationService
     [
         "ReadFileAsync", "ListDirectoryAsync", "GetWorkspaceOverviewAsync",
         "SearchFilesAsync", "GrepAsync", "GetFileInfoAsync",
+        "LogStatsAsync", "LogGrepAsync", "LogSliceAsync",
     ];
 
     /// <summary>
