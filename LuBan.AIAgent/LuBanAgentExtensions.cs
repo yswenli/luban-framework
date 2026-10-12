@@ -62,27 +62,31 @@ public static class LuBanAgentExtensions
 
         services.AddScoped<ToolPluginRegistry>();
 
-        // 注册 Rules（scoped：每会话一份，避免跨会话/跨工作区共享可变注册表）
-        services.AddScoped<IRule, PathAccessRule>();
-        services.AddScoped<IRule, Rules.BuiltIn.BaseBehaviorRule>();
-        services.AddScoped<IRule, Rules.BuiltIn.MemoryRecallRule>();
+        // 内置 Rules 为不可变定义（构造后只读，IsEnabled 无写入路径）：单例共享；
+        // 可变注册表 RuleEngine 仍 scoped，每会话一份，避免跨会话/跨工作区串扰
+        services.AddSingleton<IRule, PathAccessRule>();
+        services.AddSingleton<IRule, Rules.BuiltIn.BaseBehaviorRule>();
+        services.AddSingleton<IRule, Rules.BuiltIn.MemoryRecallRule>();
+        services.AddSingleton<BuiltinRuleCatalog>();
         services.AddScoped<RuleEngine>();
 
         // 注册 MCP（scoped：每会话一份，避免跨会话/跨工作区共享可变注册表）
         services.AddScoped<IMCPClient, FileSystemMCPClient>();
         services.AddScoped<MCPRegistry>();
 
-        // 注册 Skills（scoped：每会话一份，避免跨会话/跨工作区共享可变注册表）
-        services.AddScoped<ISkill, BrainstormingSkill>();
-        services.AddScoped<ISkill, CodeReviewSkill>();
-        services.AddScoped<ISkill, DocumentationSkill>();
-        services.AddScoped<ISkill, CodeRefactorSkill>();
-        services.AddScoped<ISkill, TestGenerationSkill>();
-        services.AddScoped<ISkill, CodeExplainSkill>();
-        services.AddScoped<ISkill, DebugAssistantSkill>();
-        services.AddScoped<ISkill, GitCommitSkill>();
-        services.AddScoped<ISkill, FindSkillsSkill>();
-        services.AddScoped<ISkill, AgentsMdGeneratorSkill>();
+        // 内置 Skills 为纯提示词模板（无状态）：单例共享；
+        // 可变注册表 SkillRegistry 仍 scoped，每会话一份，避免跨会话/跨工作区串扰
+        services.AddSingleton<ISkill, BrainstormingSkill>();
+        services.AddSingleton<ISkill, CodeReviewSkill>();
+        services.AddSingleton<ISkill, DocumentationSkill>();
+        services.AddSingleton<ISkill, CodeRefactorSkill>();
+        services.AddSingleton<ISkill, TestGenerationSkill>();
+        services.AddSingleton<ISkill, CodeExplainSkill>();
+        services.AddSingleton<ISkill, DebugAssistantSkill>();
+        services.AddSingleton<ISkill, GitCommitSkill>();
+        services.AddSingleton<ISkill, FindSkillsSkill>();
+        services.AddSingleton<ISkill, AgentsMdGeneratorSkill>();
+        services.AddSingleton<BuiltinSkillCatalog>();
         services.AddScoped<SkillRegistry>();
 
         services.AddScoped<ILuBanAgentFactory, LuBanAgentFactory>();
