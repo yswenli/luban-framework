@@ -62,28 +62,28 @@ public static class LuBanAgentExtensions
 
         services.AddScoped<ToolPluginRegistry>();
 
-        // 注册 Rules
-        services.AddSingleton<IRule, PathAccessRule>();
-        services.AddSingleton<IRule, Rules.BuiltIn.BaseBehaviorRule>();
-        services.AddSingleton<IRule, Rules.BuiltIn.MemoryRecallRule>();
-        services.AddSingleton<RuleEngine>();
+        // 注册 Rules（scoped：每会话一份，避免跨会话/跨工作区共享可变注册表）
+        services.AddScoped<IRule, PathAccessRule>();
+        services.AddScoped<IRule, Rules.BuiltIn.BaseBehaviorRule>();
+        services.AddScoped<IRule, Rules.BuiltIn.MemoryRecallRule>();
+        services.AddScoped<RuleEngine>();
 
-        // 注册 MCP
-        services.AddSingleton<IMCPClient, FileSystemMCPClient>();
-        services.AddSingleton<MCPRegistry>();
+        // 注册 MCP（scoped：每会话一份，避免跨会话/跨工作区共享可变注册表）
+        services.AddScoped<IMCPClient, FileSystemMCPClient>();
+        services.AddScoped<MCPRegistry>();
 
-        // 注册 Skills
-        services.AddSingleton<ISkill, BrainstormingSkill>();
-        services.AddSingleton<ISkill, CodeReviewSkill>();
-        services.AddSingleton<ISkill, DocumentationSkill>();
-        services.AddSingleton<ISkill, CodeRefactorSkill>();
-        services.AddSingleton<ISkill, TestGenerationSkill>();
-        services.AddSingleton<ISkill, CodeExplainSkill>();
-        services.AddSingleton<ISkill, DebugAssistantSkill>();
-        services.AddSingleton<ISkill, GitCommitSkill>();
-        services.AddSingleton<ISkill, FindSkillsSkill>();
-        services.AddSingleton<ISkill, AgentsMdGeneratorSkill>();
-        services.AddSingleton<SkillRegistry>();
+        // 注册 Skills（scoped：每会话一份，避免跨会话/跨工作区共享可变注册表）
+        services.AddScoped<ISkill, BrainstormingSkill>();
+        services.AddScoped<ISkill, CodeReviewSkill>();
+        services.AddScoped<ISkill, DocumentationSkill>();
+        services.AddScoped<ISkill, CodeRefactorSkill>();
+        services.AddScoped<ISkill, TestGenerationSkill>();
+        services.AddScoped<ISkill, CodeExplainSkill>();
+        services.AddScoped<ISkill, DebugAssistantSkill>();
+        services.AddScoped<ISkill, GitCommitSkill>();
+        services.AddScoped<ISkill, FindSkillsSkill>();
+        services.AddScoped<ISkill, AgentsMdGeneratorSkill>();
+        services.AddScoped<SkillRegistry>();
 
         services.AddScoped<ILuBanAgentFactory, LuBanAgentFactory>();
 
@@ -122,7 +122,8 @@ public static class LuBanAgentExtensions
         services.AddSingleton<Orchestration.SubAgentRoleRegistry>();
 
         // context-build 注入构造器：常规对话（SessionChatHistoryProvider）与编排分支（Orchestrator）共用
-        services.AddSingleton<Rules.ContextInjectBuilder>();
+        // scoped：依赖 RuleEngine（scoped），与消费者同为会话作用域，避免 captive dependency
+        services.AddScoped<Rules.ContextInjectBuilder>();
 
         // SubAgentFactory / DagScheduler / Orchestrator 依赖 Scoped 的 LuBanAgentFactory，必须 Scoped
         services.AddScoped<Orchestration.SubAgentFactory>();
