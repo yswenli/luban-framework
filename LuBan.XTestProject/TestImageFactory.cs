@@ -1,25 +1,25 @@
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Formats.Gif;
-using SixLabors.ImageSharp.Formats.Png;
-using SixLabors.ImageSharp.PixelFormats;
+using SkiaSharp;
 
 namespace LuBan.XTestProject;
 
 internal static class TestImageFactory
 {
     public static string CreatePng(int width, int height)
-    {
-        var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".png");
-        using var image = new Image<Rgba32>(width, height);
-        image.Save(path, new PngEncoder());
-        return path;
-    }
+        => Create(width, height, ".png", SKEncodedImageFormat.Png);
 
-    public static string CreateGif(int width, int height)
+    public static string CreateWebp(int width, int height)
+        => Create(width, height, ".webp", SKEncodedImageFormat.Webp);
+
+    private static string Create(int width, int height, string extension, SKEncodedImageFormat format)
     {
-        var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".gif");
-        using var image = new Image<Rgba32>(width, height);
-        image.Save(path, new GifEncoder());
+        var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + extension);
+        using var bitmap = new SKBitmap(width, height);
+        using var canvas = new SKCanvas(bitmap);
+        canvas.Clear(SKColors.CornflowerBlue);
+        using var image = SKImage.FromBitmap(bitmap);
+        using var data = image.Encode(format, 100);
+        using var fs = File.Create(path);
+        data.SaveTo(fs);
         return path;
     }
 }

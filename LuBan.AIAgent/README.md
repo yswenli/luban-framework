@@ -265,7 +265,7 @@ category: custom
 | 组件 | 说明 |
 |------|------|
 | `IAttachmentProcessor` | 附件处理器接口，判定可支持类型/媒体类型并按需生成缩略图 |
-| `DefaultAttachmentProcessor` | 默认实现：图片（PNG/JPEG/GIF/WebP/BMP/TIFF/HEIC）与文本文件；图片解码校验并缩放，文本读取内容 |
+| `DefaultAttachmentProcessor` | 默认实现：图片（PNG/JPEG/GIF/WebP/BMP；TIFF/HEIC 需先转换）与文本文件；图片解码校验并缩放，文本读取内容 |
 | `AttachmentInfo` | 附件元数据（文件名、MIME、大小、类型、源路径） |
 | `AttachmentKind` | 附件类型枚举（Image / Text） |
 | `ProcessedAttachment` | 处理结果（元数据 + 文本内容 / 缩略图路径 + 像素尺寸） |

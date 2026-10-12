@@ -1,14 +1,11 @@
 using Microsoft.Extensions.AI;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Formats.Jpeg;
-using SixLabors.ImageSharp.Formats.Png;
-using SixLabors.ImageSharp.Processing;
+using SkiaSharp;
 using System.Text;
 
 namespace LuBan.AIAgent.Attachments;
 
 /// <summary>
-/// 默认附件处理器：图片走 ImageSharp 缩放，文本按大小内联或生成指引。
+/// 默认附件处理器：图片走 SkiaSharp 缩放，文本按大小内联或生成指引。
 /// </summary>
 public sealed class DefaultAttachmentProcessor : IAttachmentProcessor
 {
@@ -64,7 +61,7 @@ public sealed class DefaultAttachmentProcessor : IAttachmentProcessor
         ".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".tiff", ".tif", ".heic", ".heif"
     };
 
-    /// <summary>无法用 ImageSharp 解码、需提示转换的扩展名。</summary>
+    /// <summary>无法解码、需提示转换的扩展名。</summary>
     private static readonly HashSet<string> HeicLikeExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".heic", ".heif"
@@ -140,7 +137,11 @@ public sealed class DefaultAttachmentProcessor : IAttachmentProcessor
     private async Task<ProcessedAttachment> ProcessImageAsync(
         string filePath, FileInfo info, string ext, string mediaType, bool generateThumbnail, CancellationToken ct)
     {
-        using var source = await Image.LoadAsync(filePath, ct).ConfigureAwait(false);
+        var raw = await File.ReadAllBytesAsync(filePath, ct).ConfigureAwait(false);
+        using var source = SKBitmap.Decode(raw);
+        if (source == null)
+            throw new NotSupportedException($"当前环境无法解码该图片格式（{ext}），请先转换为 PNG/JPEG");
+
         var width = source.Width;
         var height = source.Height;
         var pixelSize = $"{width}x{height}";
@@ -152,27 +153,24 @@ public sealed class DefaultAttachmentProcessor : IAttachmentProcessor
             var ratio = Math.Min((double)MaxWidth / width, (double)MaxHeight / height);
             var targetW = Math.Max(1, (int)(width * ratio));
             var targetH = Math.Max(1, (int)(height * ratio));
-            source.Mutate(x => x.Resize(targetW, targetH, KnownResamplers.Lanczos3));
-            bytes = await EncodeUnderLimitAsync(source, ct).ConfigureAwait(false);
+            using var resized = Resize(source, targetW, targetH);
+            bytes = EncodeUnderLimit(resized);
+            outMedia = IsPng(bytes) ? "image/png" : "image/jpeg";
+        }
+        else if (raw.LongLength > MaxImageBytes)
+        {
+            bytes = EncodeUnderLimit(source);
             outMedia = IsPng(bytes) ? "image/png" : "image/jpeg";
         }
         else
         {
-            bytes = await File.ReadAllBytesAsync(filePath, ct).ConfigureAwait(false);
-            if (bytes.LongLength > MaxImageBytes)
-            {
-                bytes = await EncodeUnderLimitAsync(source, ct).ConfigureAwait(false);
-                outMedia = IsPng(bytes) ? "image/png" : "image/jpeg";
-            }
-            else
-            {
-                // 原样返回原始字节时，媒体类型必须与载荷真实格式一致（gif/webp/bmp/tiff 原格式），
-                // 不能一律标 image/jpeg，否则模型侧按声明类型解码会失败。
-                outMedia = mediaType;
-            }
+            // 原样返回原始字节时，媒体类型必须与载荷真实格式一致（gif/webp/bmp 原格式），
+            // 不能一律标 image/jpeg，否则模型侧按声明类型解码会失败。
+            bytes = raw;
+            outMedia = mediaType;
         }
 
-        string? thumb = generateThumbnail ? await SaveThumbnailAsync(source, ct).ConfigureAwait(false) : null;
+        string? thumb = generateThumbnail ? SaveThumbnail(source) : null;
 
         return new ProcessedAttachment
         {
@@ -183,50 +181,55 @@ public sealed class DefaultAttachmentProcessor : IAttachmentProcessor
         };
     }
 
-    private static async Task<byte[]> EncodeUnderLimitAsync(Image image, CancellationToken ct)
+    private static readonly SKSamplingOptions ResizeSampling = new(SKFilterMode.Linear, SKMipmapMode.Linear);
+
+    private static SKBitmap Resize(SKBitmap image, int width, int height)
+        => image.Resize(new SKImageInfo(width, height), ResizeSampling);
+
+    private static byte[] EncodeUnderLimit(SKBitmap image)
     {
         // 先试 PNG，再按质量档降级 JPEG
-        var png = await EncodeAsync(image, new PngEncoder(), ct).ConfigureAwait(false);
+        var png = Encode(image, SKEncodedImageFormat.Png, 100);
         if (png.LongLength <= MaxImageBytes)
             return png;
 
         foreach (var quality in new[] { 85, 70, 55, 40 })
         {
-            var jpeg = await EncodeAsync(image, new JpegEncoder { Quality = quality }, ct).ConfigureAwait(false);
+            var jpeg = Encode(image, SKEncodedImageFormat.Jpeg, quality);
             if (jpeg.LongLength <= MaxImageBytes)
                 return jpeg;
         }
 
         // 仍超限：等比缩小再试
-        var work = image.Clone(x => x.Resize((int)(image.Width * 0.75), (int)(image.Height * 0.75), KnownResamplers.Lanczos3));
-        try
-        {
-            return await EncodeUnderLimitAsync(work, ct).ConfigureAwait(false);
-        }
-        finally { work.Dispose(); }
+        var workW = Math.Max(1, (int)(image.Width * 0.75));
+        var workH = Math.Max(1, (int)(image.Height * 0.75));
+        using var work = Resize(image, workW, workH);
+        return EncodeUnderLimit(work);
     }
 
-    private static async Task<byte[]> EncodeAsync(Image image, SixLabors.ImageSharp.Formats.IImageEncoder encoder, CancellationToken ct)
+    private static byte[] Encode(SKBitmap image, SKEncodedImageFormat format, int quality)
     {
-        using var ms = new MemoryStream();
-        await image.SaveAsync(ms, encoder, ct).ConfigureAwait(false);
-        return ms.ToArray();
+        using var data = image.Encode(format, quality);
+        return data.ToArray();
     }
 
     private static bool IsPng(byte[] bytes)
         => bytes.Length >= 8 && bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47;
 
-    private static async Task<string> SaveThumbnailAsync(Image image, CancellationToken ct)
+    private static string SaveThumbnail(SKBitmap image)
     {
         var dir = LuBan.Common.IO.TempDirectory.GetTempDir();
         Directory.CreateDirectory(dir);
         var path = Path.Combine(dir, Guid.NewGuid().ToString("N") + ".jpg");
-        using var thumb = image.Clone(x => x.Resize(new ResizeOptions
-        {
-            Size = new Size(64, 64),
-            Mode = ResizeMode.Max
-        }));
-        await thumb.SaveAsync(path, new JpegEncoder { Quality = 80 }, ct).ConfigureAwait(false);
+
+        // 等比缩放到 64×64 内（不放大小图）
+        var ratio = Math.Min(64.0 / image.Width, 64.0 / image.Height);
+        if (ratio > 1.0) ratio = 1.0;
+        var thumbW = Math.Max(1, (int)Math.Round(image.Width * ratio));
+        var thumbH = Math.Max(1, (int)Math.Round(image.Height * ratio));
+        using var thumb = Resize(image, thumbW, thumbH);
+        using var fs = File.Create(path);
+        thumb.Encode(fs, SKEncodedImageFormat.Jpeg, 80);
         return path;
     }
 

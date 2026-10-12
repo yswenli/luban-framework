@@ -265,7 +265,7 @@ Prompt template content here...
 | Component | Description |
 |-----------|-------------|
 | `IAttachmentProcessor` | Attachment processor interface: reports supported types/MIME types and generates thumbnails on demand |
-| `DefaultAttachmentProcessor` | Default implementation: images (PNG/JPEG/GIF/WebP/BMP/TIFF/HEIC) and text files; decodes and resizes images, reads text content |
+| `DefaultAttachmentProcessor` | Default implementation: images (PNG/JPEG/GIF/WebP/BMP; TIFF/HEIC require conversion first) and text files; decodes and resizes images, reads text content |
 | `AttachmentInfo` | Attachment metadata (file name, MIME, size, kind, source path) |
 | `AttachmentKind` | Attachment kind enum (Image / Text) |
 | `ProcessedAttachment` | Processing result (metadata + text content / thumbnail path + pixel size) |
