@@ -239,7 +239,8 @@ public class LuBanAgentFactory : ILuBanAgentFactory, IScoped
             _chatClient,
             opts.Session.CompactTargetMessages,
             opts.Session.CompactThreshold,
-            ruleEngine);
+            ruleEngine,
+            _serviceProvider);
     }
 
 }

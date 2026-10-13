@@ -49,13 +49,15 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
     /// <param name="targetCount">摘要压缩的目标消息条数</param>
     /// <param name="threshold">触发摘要压缩的冗余阈值</param>
     /// <param name="ruleEngine">规则引擎，用于 context-build 规则注入（可为 null）</param>
+    /// <param name="services">当前作用域服务提供者，供规则惰性解析作用域服务（可为 null）</param>
     public SessionChatHistoryProvider(
         ISessionContext sessionContext,
         ISessionManager sessionManager,
         IChatClient chatClient,
         int targetCount = 20,
         int threshold = 10,
-        RuleEngine? ruleEngine = null)
+        RuleEngine? ruleEngine = null,
+        IServiceProvider? services = null)
         : base(null, null, null)
     {
         _sessionContext = sessionContext;
@@ -63,7 +65,7 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
         _chatClient = chatClient;
         _targetCount = targetCount;
         _threshold = threshold;
-        _contextInjectBuilder = new ContextInjectBuilder(ruleEngine);
+        _contextInjectBuilder = new ContextInjectBuilder(ruleEngine, services);
     }
 
     /// <summary>
