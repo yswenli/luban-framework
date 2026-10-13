@@ -1,6 +1,7 @@
 using System.Text;
 using LuBan.AIAgent.Configuration;
 using LuBan.AIAgent.LocalMemory;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
 /****************************************************************************
@@ -26,17 +27,14 @@ namespace LuBan.AIAgent.Rules.BuiltIn;
 /// </summary>
 public class MemoryRecallRule : RuleBase
 {
-    private readonly ILocalMemoryService? _memory;
     private readonly IOptions<LuBanAgentOptions> _options;
 
     /// <summary>
     /// 创建记忆召回规则
     /// </summary>
-    /// <param name="memory">本地记忆服务（可为 null，此时规则不生效）</param>
     /// <param name="options">LuBan Agent 配置选项</param>
-    public MemoryRecallRule(ILocalMemoryService? memory, IOptions<LuBanAgentOptions> options)
+    public MemoryRecallRule(IOptions<LuBanAgentOptions> options)
     {
-        _memory = memory;
         _options = options;
     }
 
@@ -68,17 +66,23 @@ public class MemoryRecallRule : RuleBase
     {
         var result = RuleResult.AllowResult();
 
-        if (_memory == null || !_options.Value.Tools.LocalMemory.RecallEnabled)
+        if (!_options.Value.Tools.LocalMemory.RecallEnabled)
             return result;
 
         var query = context.UserInput;
         if (string.IsNullOrWhiteSpace(query))
             return result;
 
+        // 记忆服务为 Scoped（按用户隔离），规则本身是 Singleton，故在调用期从当前作用域解析，
+        // 避免 Singleton 捕获 Scoped。context.Services 为 null 时视为未启用。
+        var memory = context.Services?.GetService<ILocalMemoryService>();
+        if (memory == null)
+            return result;
+
         try
         {
             var memOpts = _options.Value.Tools.LocalMemory;
-            var found = await _memory.SearchAsync(query, topK: memOpts.RecallTopK);
+            var found = await memory.SearchAsync(query, topK: memOpts.RecallTopK);
             var relevant = found.Where(r => r.Score >= memOpts.RecallMinScore).ToList();
             if (relevant.Count == 0)
                 return result;
