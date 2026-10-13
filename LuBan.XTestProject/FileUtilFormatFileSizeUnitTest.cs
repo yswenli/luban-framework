@@ -32,4 +32,16 @@ public class FileUtilFormatFileSizeUnitTest
         Assert.AreEqual("1.0MB", FileUtil.FormatFileSize(1024 * 1024));
         Assert.AreEqual("2.0MB", FileUtil.FormatFileSize(2 * 1024 * 1024));
     }
+
+    [TestMethod]
+    public void FormatFileSize_KilobyteUpperBoundary_RoundsTo10240KB()
+    {
+        Assert.AreEqual("1024.0KB", FileUtil.FormatFileSize(1048575));
+    }
+
+    [TestMethod]
+    public void FormatFileSize_LongMaxValue_DoesNotThrowAndEndsWithMb()
+    {
+        Assert.IsTrue(FileUtil.FormatFileSize(long.MaxValue).EndsWith("MB"));
+    }
 }

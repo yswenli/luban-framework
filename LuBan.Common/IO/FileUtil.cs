@@ -21,6 +21,8 @@
 *描述：
 *
 *****************************************************************************/
+using System.Globalization;
+
 namespace LuBan.Common.IO;
 
 /// <summary>
@@ -50,8 +52,8 @@ public static class FileUtil
         if (bytes < 1024)
             return $"{bytes}B";
         if (bytes < 1024 * 1024)
-            return $"{bytes / 1024.0:F1}KB";
-        return $"{bytes / 1024.0 / 1024.0:F1}MB";
+            return (bytes / 1024.0).ToString("F1", CultureInfo.InvariantCulture) + "KB";
+        return (bytes / 1024.0 / 1024.0).ToString("F1", CultureInfo.InvariantCulture) + "MB";
     }
 
     /// <summary>
