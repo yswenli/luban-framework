@@ -3,6 +3,7 @@ using LuBan.AIAgent.Configuration;
 using LuBan.AIAgent.LogAnalysis;
 using Microsoft.Extensions.Options;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using SkiaSharp;
 using System.Text;
 
 namespace LuBan.XTestProject;
@@ -226,6 +227,49 @@ public class AttachmentProcessorUnitTest
             Assert.IsFalse(text.Contains("# 日志概览"));
         }
         finally { File.Delete(path); }
+    }
+
+    [TestMethod]
+    public async Task ProcessAsync_LargeImage_ScalesWithinMax()
+    {
+        // 覆盖大图分支：>2000px 走 ImageUtil.ScaleToFit + ImageUtil.Resize
+        var p = NewProcessor();
+        var path = TestImageFactory.CreatePng(4000, 2000);
+        try
+        {
+            var result = await p.ProcessAsync(path);
+            Assert.AreEqual(AttachmentKind.Image, result.Info.Kind);
+            // PixelSize 记录的是源图尺寸（处理器既有语义，非缩放后尺寸）
+            Assert.AreEqual("4000x2000", result.PixelSize);
+            // 解码输出载荷，证明缩放分支确实把图缩到 2000x1000
+            var data = (Microsoft.Extensions.AI.DataContent)result.Content;
+            using var decoded = SKBitmap.Decode(data.Data.ToArray());
+            Assert.AreEqual(2000, decoded.Width);
+            Assert.AreEqual(1000, decoded.Height);
+        }
+        finally { File.Delete(path); }
+    }
+
+    [TestMethod]
+    public async Task ProcessAsync_GenerateThumbnail_ProducesJpg()
+    {
+        // 覆盖缩略图分支：走 ImageUtil.SaveThumbnail
+        var p = NewProcessor();
+        var path = TestImageFactory.CreatePng(64, 48);
+        string? thumb = null;
+        try
+        {
+            var result = await p.ProcessAsync(path, generateThumbnail: true);
+            thumb = result.ThumbnailPath;
+            Assert.IsNotNull(thumb);
+            Assert.IsTrue(File.Exists(thumb));
+            StringAssert.EndsWith(thumb, ".jpg");
+        }
+        finally
+        {
+            File.Delete(path);
+            if (thumb != null && File.Exists(thumb)) File.Delete(thumb);
+        }
     }
 
     private sealed class ThrowingAggregator : ILogAggregator
