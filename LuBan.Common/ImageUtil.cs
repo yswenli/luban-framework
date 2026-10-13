@@ -164,6 +164,62 @@ public static class ImageUtil
         return ms.ToArray();
     }
 
+    /// <summary>
+    /// 计算等比内缩到指定框内的尺寸；不放大（框大于原图时返回原尺寸）。取整采用截断。
+    /// </summary>
+    /// <param name="width">源宽。</param>
+    /// <param name="height">源高。</param>
+    /// <param name="maxWidth">最大宽。</param>
+    /// <param name="maxHeight">最大高。</param>
+    public static (int Width, int Height) ScaleToFit(int width, int height, int maxWidth, int maxHeight)
+    {
+        var ratio = Math.Min((double)maxWidth / width, (double)maxHeight / height);
+        if (ratio > 1.0) ratio = 1.0;
+        return (Math.Max(1, (int)(width * ratio)), Math.Max(1, (int)(height * ratio)));
+    }
+
+    /// <summary>
+    /// 缩放位图到指定尺寸（Linear 采样）。
+    /// </summary>
+    /// <param name="image">源位图。</param>
+    /// <param name="width">目标宽。</param>
+    /// <param name="height">目标高。</param>
+    public static SKBitmap Resize(SKBitmap image, int width, int height)
+        => image.Resize(new SKImageInfo(width, height), new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear));
+
+    /// <summary>
+    /// 把位图编码为字节数组。
+    /// </summary>
+    /// <param name="image">源位图。</param>
+    /// <param name="format">编码格式。</param>
+    /// <param name="quality">质量（0-100）。</param>
+    public static byte[] Encode(SKBitmap image, SKEncodedImageFormat format, int quality)
+    {
+        using var data = image.Encode(format, quality);
+        return data.ToArray();
+    }
+
+    /// <summary>
+    /// 生成缩略图并落盘到临时目录，返回文件路径。等比缩放到 <paramref name="maxSize"/> 内（不放大），JPEG 质量 80。
+    /// 取整采用四舍五入（与附件处理器缩略图路径一致）。
+    /// </summary>
+    /// <param name="image">源位图。</param>
+    /// <param name="maxSize">最大边长，默认 64。</param>
+    public static string SaveThumbnail(SKBitmap image, int maxSize = 64)
+    {
+        var dir = LuBan.Common.IO.TempDirectory.GetTempDir();
+        Directory.CreateDirectory(dir);
+        var path = Path.Combine(dir, Guid.NewGuid().ToString("N") + ".jpg");
+
+        var ratio = Math.Min((double)maxSize / image.Width, (double)maxSize / image.Height);
+        if (ratio > 1.0) ratio = 1.0;
+        var thumbW = Math.Max(1, (int)Math.Round(image.Width * ratio));
+        var thumbH = Math.Max(1, (int)Math.Round(image.Height * ratio));
+        using var thumb = Resize(image, thumbW, thumbH);
+        using var fs = File.Create(path);
+        thumb.Encode(fs, SKEncodedImageFormat.Jpeg, 80);
+        return path;
+    }
 
     #region Private Methods
 
