@@ -125,9 +125,10 @@ dotnet add package LuBan.Common
 
 ### 文件 IO
 
-`IO.FileUtil`、`IO.PathUtil`、`IO.FileTypeUtil`、`IO.TempFile`、`IO.PersistenceFile`
+`IO.FileUtil`、`IO.PathUtil`、`IO.FileTypeUtil`、`IO.MediaTypeUtil`、`IO.TempFile`、`IO.PersistenceFile`
 
 > 文件读写、路径处理、临时文件、序列化存储，常见操作一行代码。
+> `FileUtil.FormatFileSize` 把字节数格式化为 `123B` / `1.5KB` / `2.0MB`；`MediaTypeUtil` 提供扩展名→MIME、是否图片的统一判定。
 
 ### 日志
 

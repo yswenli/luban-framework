@@ -125,9 +125,10 @@ Note: `MemoryCache<T>`, `IServiceCache`, `Logger` are in the `System` namespace.
 
 ### File IO
 
-`IO.FileUtil`, `IO.PathUtil`, `IO.FileTypeUtil`, `IO.TempFile`, `IO.PersistenceFile`
+`IO.FileUtil`, `IO.PathUtil`, `IO.FileTypeUtil`, `IO.MediaTypeUtil`, `IO.TempFile`, `IO.PersistenceFile`
 
 > File read/write, path handling, temporary files, serialized storage — common operations in one line.
+> `FileUtil.FormatFileSize` formats byte counts as `123B` / `1.5KB` / `2.0MB`; `MediaTypeUtil` provides unified extension-to-MIME and image detection.
 
 ### Logging
 
