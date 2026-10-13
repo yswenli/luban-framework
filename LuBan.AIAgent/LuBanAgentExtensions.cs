@@ -107,10 +107,10 @@ public static class LuBanAgentExtensions
         services.AddScoped<ToolConfirmationContext>();
         services.AddScoped<IToolConfirmationService, ToolConfirmationService>();
 
-        // 注册本地长期记忆（可选依赖 IEmbeddingGenerator）
+        // 注册本地长期记忆（可选依赖 IEmbeddingGenerator / IUserContext）
         // 注意：ILocalMemoryStore 由宿主注册，框架不再默认注册 SqliteLocalMemoryStore
         services.Configure<LocalMemoryOptions>(configuration.GetSection("LuBanAgent:Tools:LocalMemory"));
-        services.AddSingleton<ILocalMemoryService, LocalMemoryService>();
+        services.AddScoped<ILocalMemoryService, LocalMemoryService>();
 
         // ===== Orchestration 子系统注册 =====
         // ContextStore 纯内存线程安全字典，可 Singleton
