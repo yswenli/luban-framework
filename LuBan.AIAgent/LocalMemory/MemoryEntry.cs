@@ -64,6 +64,11 @@ public class MemoryEntry
     public string? WorkspaceId { get; set; }
 
     /// <summary>
+    /// 所属用户 ID（Null/空=历史遗留/未归属，读取时按当前用户过滤）
+    /// </summary>
+    public string? UserId { get; set; }
+
+    /// <summary>
     /// 规范化内容的 SHA256（用于去重）
     /// </summary>
     public string ContentHash { get; set; } = string.Empty;
