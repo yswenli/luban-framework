@@ -30,13 +30,12 @@ namespace LuBan.AIAgent.Sessions;
 public interface ISessionManager
 {
     /// <summary>
-    /// 创建新会话
+    /// 创建新会话（归属当前用户）
     /// </summary>
-    /// <param name="userId">用户ID（可选）</param>
     /// <param name="title">会话标题</param>
     /// <param name="workspaceId">绑定的工作区ID（可选；由调用方显式传入，避免依赖全局「当前工作区」）</param>
     /// <returns>会话信息</returns>
-    Task<SessionInfo> CreateSessionAsync(string? userId = null, string? title = null, string? workspaceId = null);
+    Task<SessionInfo> CreateSessionAsync(string? title = null, string? workspaceId = null);
 
     /// <summary>
     /// 获取会话
@@ -46,11 +45,10 @@ public interface ISessionManager
     Task<SessionInfo?> GetSessionAsync(string sessionId);
 
     /// <summary>
-    /// 获取用户的所有会话
+    /// 获取当前用户的所有会话
     /// </summary>
-    /// <param name="userId">用户ID</param>
     /// <returns>会话列表</returns>
-    Task<IEnumerable<SessionInfo>> GetUserSessionsAsync(string userId);
+    Task<IEnumerable<SessionInfo>> GetUserSessionsAsync();
 
     /// <summary>
     /// 更新会话标题
