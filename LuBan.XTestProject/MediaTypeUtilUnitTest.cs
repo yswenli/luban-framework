@@ -65,4 +65,38 @@ public class MediaTypeUtilUnitTest
         Assert.AreEqual("application/octet-stream", MediaTypeUtil.ResolveMediaType("x.unknownext", "application/octet-stream"));
         Assert.AreEqual("application/octet-stream", MediaTypeUtil.ResolveMediaType("x.pdf", "application/octet-stream"));
     }
+
+    [TestMethod]
+    public void IsImage_NullEmptyAndExtensionless_ReturnsFalse()
+    {
+        Assert.IsFalse(MediaTypeUtil.IsImage(null!));
+        Assert.IsFalse(MediaTypeUtil.IsImage(""));
+        Assert.IsFalse(MediaTypeUtil.IsImage("noextension"));
+    }
+
+    [TestMethod]
+    public void IsHeicLike_Null_ReturnsFalse()
+    {
+        Assert.IsFalse(MediaTypeUtil.IsHeicLike(null!));
+    }
+
+    [TestMethod]
+    public void ResolveMediaType_Null_ReturnsDefault()
+    {
+        Assert.AreEqual("text/plain", MediaTypeUtil.ResolveMediaType(null!));
+        Assert.AreEqual("application/octet-stream", MediaTypeUtil.ResolveMediaType(null!, "application/octet-stream"));
+    }
+
+    [TestMethod]
+    public void ImageExtensions_Has10Entries_NoSvg()
+    {
+        Assert.AreEqual(10, MediaTypeUtil.ImageExtensions.Count);
+        Assert.IsFalse(MediaTypeUtil.ImageExtensions.Contains(".svg"));
+    }
+
+    [TestMethod]
+    public void ResolveMediaType_IgnoresDotInDirectorySegment()
+    {
+        Assert.AreEqual("image/png", MediaTypeUtil.ResolveMediaType(@"C:\a.b\file.png"));
+    }
 }

@@ -1,3 +1,26 @@
+/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：Walle
+*命名空间：LuBan.Common.IO
+*文件名： MediaTypeUtil
+*版本号： V1.0.0.0
+*唯一标识：96e636ff-3373-42cf-8bce-eddae8281c46
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/10/13
+*描述：
+*
+*=================================================
+*修改标记
+*修改时间：2026/10/13
+*修改人： yswenli
+*版本号： V1.0.0.0
+*描述：
+*
+*****************************************************************************/
 namespace LuBan.Common.IO;
 
 /// <summary>
@@ -77,5 +100,7 @@ public static class MediaTypeUtil
 
     /// <summary>解析扩展名对应的媒体类型；未命中返回 <paramref name="defaultMediaType"/>。</summary>
     public static string ResolveMediaType(string pathOrFileName, string defaultMediaType = "text/plain")
-        => ExtensionToMediaType.TryGetValue(Path.GetExtension(pathOrFileName), out var mt) ? mt : defaultMediaType;
+        => pathOrFileName is null
+            ? defaultMediaType
+            : ExtensionToMediaType.TryGetValue(Path.GetExtension(pathOrFileName), out var mt) ? mt : defaultMediaType;
 }
