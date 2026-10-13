@@ -24,14 +24,17 @@ namespace LuBan.AIAgent.Rules;
 public class ContextInjectBuilder
 {
     private readonly RuleEngine? _ruleEngine;
+    private readonly IServiceProvider? _services;
 
     /// <summary>
     /// 创建 context-build 注入构造器。
     /// </summary>
     /// <param name="ruleEngine">规则引擎；为 null 时始终返回空结果。</param>
-    public ContextInjectBuilder(RuleEngine? ruleEngine = null)
+    /// <param name="services">当前作用域服务提供者；供规则惰性解析作用域服务（可为 null）。</param>
+    public ContextInjectBuilder(RuleEngine? ruleEngine = null, IServiceProvider? services = null)
     {
         _ruleEngine = ruleEngine;
+        _services = services;
     }
 
     /// <summary>
@@ -50,7 +53,8 @@ public class ContextInjectBuilder
             var eval = await _ruleEngine.EvaluateAsync(new RuleContext
             {
                 ActionType = "context-build",
-                UserInput = userInput
+                UserInput = userInput,
+                Services = _services
             });
 
             return eval.Inject.Where(s => !string.IsNullOrWhiteSpace(s)).ToList();

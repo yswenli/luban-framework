@@ -100,6 +100,12 @@ public class RuleContext
     public LuBanAgent? Agent { get; set; }
 
     /// <summary>
+    /// 执行规则所在的作用域服务提供者（由调用方填充；可能为 null）。
+    /// 供需要按作用域解析服务（如按用户的本地记忆）的规则惰性使用。
+    /// </summary>
+    public IServiceProvider? Services { get; set; }
+
+    /// <summary>
     /// 扩展属性
     /// </summary>
     public Dictionary<string, object> Properties { get; set; } = new();
