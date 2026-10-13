@@ -8,6 +8,7 @@
 *
 *****************************************************************************/
 using LuBan.AIAgent;
+using LuBan.AIAgent.Abstractions;
 using LuBan.AIAgent.LocalMemory;
 using LuBan.AIAgent.MCP;
 using LuBan.AIAgent.Rules;
@@ -37,22 +38,22 @@ public class SessionScopeRegistryUnitTest
 
     private sealed class NullLocalMemoryStore : ILocalMemoryStore
     {
-        public Task<MemoryEntry> UpsertAsync(MemoryEntry entry, byte[] vectorBytes, CancellationToken cancellationToken = default)
+        public Task<MemoryEntry> UpsertAsync(string userId, MemoryEntry entry, byte[] vectorBytes, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
 
-        public Task<bool> DeleteAsync(string id, CancellationToken cancellationToken = default)
+        public Task<bool> DeleteAsync(string userId, string id, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
 
-        public Task<IReadOnlyList<MemoryEntry>> ListAsync(string? category = null, string? workspaceId = null, int limit = 100, CancellationToken cancellationToken = default)
+        public Task<IReadOnlyList<MemoryEntry>> ListAsync(string userId, string? category = null, string? workspaceId = null, int limit = 100, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
 
-        public Task<IReadOnlyList<(MemoryEntry Entry, byte[] VectorBytes)>> LoadAllAsync(string? category = null, string? workspaceId = null, bool includeAllWorkspaces = false, CancellationToken cancellationToken = default)
+        public Task<IReadOnlyList<(MemoryEntry Entry, byte[] VectorBytes)>> LoadAllAsync(string userId, string? category = null, string? workspaceId = null, bool includeAllWorkspaces = false, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
 
-        public Task<IReadOnlyList<(MemoryEntry Entry, byte[] VectorBytes)>> LoadByIdsAsync(IEnumerable<string> ids, string? workspaceId, CancellationToken cancellationToken = default)
+        public Task<IReadOnlyList<(MemoryEntry Entry, byte[] VectorBytes)>> LoadByIdsAsync(string userId, IEnumerable<string> ids, string? workspaceId, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
 
-        public Task<int> DeleteExpiredAsync(CancellationToken cancellationToken = default)
+        public Task<int> DeleteExpiredAsync(string userId, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
     }
 
@@ -87,5 +88,27 @@ public class SessionScopeRegistryUnitTest
         Assert.AreNotSame(
             a.ServiceProvider.GetRequiredService<MCPRegistry>(),
             b.ServiceProvider.GetRequiredService<MCPRegistry>());
+    }
+
+    [TestMethod]
+    public void LocalMemoryService_DiffersPerScope()
+    {
+        using var sp = Build();
+        using var a = sp.CreateScope();
+        using var b = sp.CreateScope();
+        Assert.AreNotSame(
+            a.ServiceProvider.GetRequiredService<ILocalMemoryService>(),
+            b.ServiceProvider.GetRequiredService<ILocalMemoryService>());
+    }
+
+    [TestMethod]
+    public void MemoryRecallRule_IsSingleton()
+    {
+        using var sp = Build();
+        using var a = sp.CreateScope();
+        using var b = sp.CreateScope();
+        var ra = a.ServiceProvider.GetServices<IRule>().Single(r => r.Id == "memory-recall");
+        var rb = b.ServiceProvider.GetServices<IRule>().Single(r => r.Id == "memory-recall");
+        Assert.AreSame(ra, rb);
     }
 }
