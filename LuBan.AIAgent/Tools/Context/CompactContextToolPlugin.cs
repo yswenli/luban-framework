@@ -40,15 +40,13 @@ namespace LuBan.AIAgent.Tools.Context;
 /// </summary>
 public class CompactContextToolPlugin : ILuBanToolPlugin
 {
-    private readonly IServiceScopeFactory _scopeFactory;
     private readonly IOptions<LuBanAgentOptions> _options;
 
     /// <summary>
     /// 创建 CompactContextToolPlugin 实例
     /// </summary>
-    public CompactContextToolPlugin(IServiceScopeFactory scopeFactory, IOptions<LuBanAgentOptions> options)
+    public CompactContextToolPlugin(IOptions<LuBanAgentOptions> options)
     {
-        _scopeFactory = scopeFactory;
         _options = options;
     }
 
@@ -67,9 +65,14 @@ public class CompactContextToolPlugin : ILuBanToolPlugin
         var sessionManager = sp.GetService<ISessionManager>();
         if (sessionManager is null) return Array.Empty<AIFunction>();
 
+        // IChatClient 由宿主按会话 scope 注册；取不到（未配 ChatClient 的容器）则不暴露本工具，
+        // 避免从 root 派生 scope 丢失用户身份。
+        var chatClient = sp.GetService<IChatClient>();
+        if (chatClient is null) return Array.Empty<AIFunction>();
+
         var confirmationService = sp.GetRequiredService<IToolConfirmationService>();
         var sessionContext = sp.GetService<ISessionContext>();
-        var group = new CompactContextToolGroup(_scopeFactory, sessionManager, _options.Value, confirmationService, sessionContext);
+        var group = new CompactContextToolGroup(chatClient, sessionManager, _options.Value, confirmationService, sessionContext);
         return new List<AIFunction>
         {
             AIFunctionFactoryHelper.Create(group, nameof(CompactContextToolGroup.CompactContextAsync))
@@ -85,7 +88,7 @@ public class CompactContextToolPlugin : ILuBanToolPlugin
 /// </summary>
 public class CompactContextToolGroup
 {
-    private readonly IServiceScopeFactory _scopeFactory;
+    private readonly IChatClient _chatClient;
     private readonly ISessionManager _sessionManager;
     private readonly LuBanAgentOptions _options;
     private readonly IToolConfirmationService _confirmationService;
@@ -95,13 +98,13 @@ public class CompactContextToolGroup
     /// 创建工具组实例
     /// </summary>
     public CompactContextToolGroup(
-        IServiceScopeFactory scopeFactory,
+        IChatClient chatClient,
         ISessionManager sessionManager,
         LuBanAgentOptions options,
         IToolConfirmationService confirmationService,
         ISessionContext? sessionContext = null)
     {
-        _scopeFactory = scopeFactory;
+        _chatClient = chatClient;
         _sessionManager = sessionManager;
         _options = options;
         _confirmationService = confirmationService;
@@ -148,8 +151,8 @@ public class CompactContextToolGroup
                 $"低于压缩阈值，无需压缩。当前 target+threshold={target}+{threshold}={target + threshold}，实际 {messages.Count} 条",
                 $"压缩检查: 活跃 {messages.Count} 条消息，未达阈值");
 
-        using var scope = _scopeFactory.CreateScope();
-        var chatClient = scope.ServiceProvider.GetRequiredService<IChatClient>();
+        // 直接用会话作用域的 ChatClient（原 IServiceScopeFactory 从 root 派生会丢失用户身份）
+        var chatClient = _chatClient;
 
         var history = messages
             .Select(m => new ChatMessage(MapRole(m.Role), m.Content))
