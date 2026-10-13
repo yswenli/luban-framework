@@ -14,6 +14,8 @@
 *描述：本地长期记忆服务实现
 *
 *****************************************************************************/
+using LuBan.AIAgent.Abstractions;
+
 namespace LuBan.AIAgent.LocalMemory;
 
 /// <summary>
@@ -26,6 +28,7 @@ public class LocalMemoryService : ILocalMemoryService
     private readonly IEmbeddingGenerator<string, Embedding<float>>? _embedder;
     private readonly LocalMemoryOptions _options;
     private readonly IWorkspaceContextProvider? _workspaceContext;
+    private readonly IUserContext? _userContext;
 
     private readonly object _indexLock = new();
     private Dictionary<uint, HashSet<string>>? _inverted;
@@ -36,19 +39,24 @@ public class LocalMemoryService : ILocalMemoryService
     /// </summary>
     /// <param name="store">本地记忆持久化存储</param>
     /// <param name="options">本地记忆配置选项</param>
+    /// <param name="userContext">当前用户上下文（可选；为 null 时使用空 userId，等价未归属）</param>
     /// <param name="embedder">Embedding 生成器；为 null 时使用 fallback n-gram 向量</param>
     /// <param name="workspaceContext">当前工作区上下文提供者；为 null 时不按工作区隔离</param>
     public LocalMemoryService(
         ILocalMemoryStore store,
         IOptions<LocalMemoryOptions> options,
+        IUserContext? userContext = null,
         IEmbeddingGenerator<string, Embedding<float>>? embedder = null,
         IWorkspaceContextProvider? workspaceContext = null)
     {
         _store = store;
         _options = options.Value;
+        _userContext = userContext;
         _embedder = embedder;
         _workspaceContext = workspaceContext;
     }
+
+    private string CurrentUserId => _userContext?.UserId ?? string.Empty;
 
     /// <inheritdoc />
     public async Task<MemoryEntry> SaveAsync(string content, string category = "general", CancellationToken cancellationToken = default)
@@ -70,13 +78,14 @@ public class LocalMemoryService : ILocalMemoryService
             UpdatedAt = now,
             VectorDimension = 0,
             WorkspaceId = workspaceId,
+            UserId = CurrentUserId,
             ContentHash = ComputeContentHash(content),
             ExpiresAt = _options.TtlDays.HasValue ? now.AddDays(_options.TtlDays.Value) : null
         };
 
         var vector = await GenerateEmbeddingAsync(entry.Content, cancellationToken);
         entry.VectorDimension = vector.Length;
-        var saved = await _store.UpsertAsync(entry, ToBytes(vector), cancellationToken);
+        var saved = await _store.UpsertAsync(CurrentUserId, entry, ToBytes(vector), cancellationToken);
 
         lock (_indexLock)
             _indexDirty = true;
@@ -94,7 +103,7 @@ public class LocalMemoryService : ILocalMemoryService
         {
             try
             {
-                await _store.DeleteExpiredAsync(default);
+                await _store.DeleteExpiredAsync(CurrentUserId);
                 lock (_indexLock)
                     _indexDirty = true;
             }
@@ -113,25 +122,25 @@ public class LocalMemoryService : ILocalMemoryService
             var candidates = await GetCandidates(query, cancellationToken);
             if (candidates.Count > 0)
             {
-                var rows = await _store.LoadByIdsAsync(candidates, workspaceId, cancellationToken);
+                var rows = await _store.LoadByIdsAsync(CurrentUserId, candidates, workspaceId, cancellationToken);
                 if (category != null)
                     rows = rows.Where(r => r.Entry.Category == category).ToList();
                 return ScoreRows(queryVector, rows, topK);
             }
         }
 
-        var all = await _store.LoadAllAsync(category, workspaceId, cancellationToken: cancellationToken);
+        var all = await _store.LoadAllAsync(CurrentUserId, category, workspaceId, cancellationToken: cancellationToken);
         return ScoreRows(queryVector, all, topK);
     }
 
     /// <inheritdoc />
     public Task<IReadOnlyList<MemoryEntry>> ListAsync(string? category = null, int limit = 100, CancellationToken cancellationToken = default)
-        => _store.ListAsync(category, _workspaceContext?.CurrentWorkspaceId, limit, cancellationToken);
+        => _store.ListAsync(CurrentUserId, category, _workspaceContext?.CurrentWorkspaceId, limit, cancellationToken);
 
     /// <inheritdoc />
     public async Task<bool> DeleteAsync(string id, CancellationToken cancellationToken = default)
     {
-        var ok = await _store.DeleteAsync(id, cancellationToken);
+        var ok = await _store.DeleteAsync(CurrentUserId, id, cancellationToken);
         if (ok)
             lock (_indexLock)
                 _indexDirty = true;
@@ -149,7 +158,7 @@ public class LocalMemoryService : ILocalMemoryService
                 return CollectCandidates(grams);
         }
 
-        var all = await _store.LoadAllAsync(category: null, workspaceId: null, includeAllWorkspaces: true, cancellationToken: cancellationToken);
+        var all = await _store.LoadAllAsync(CurrentUserId, category: null, workspaceId: null, includeAllWorkspaces: true, cancellationToken: cancellationToken);
         var rebuilt = new Dictionary<uint, HashSet<string>>();
         foreach (var (entry, _) in all)
         {
