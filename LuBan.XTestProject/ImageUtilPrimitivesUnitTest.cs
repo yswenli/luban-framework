@@ -20,6 +20,13 @@ public class ImageUtilPrimitivesUnitTest
     }
 
     [TestMethod]
+    public void ScaleToFit_TruncatesRatherThanRounds()
+    {
+        // ratio = 5/9 ≈ 0.5556 -> truncating (5,3); rounding would give (5,4)
+        Assert.AreEqual((5, 3), ImageUtil.ScaleToFit(9, 7, 5, 5));
+    }
+
+    [TestMethod]
     public void Resize_ProducesExactDimensions()
     {
         using var src = new SKBitmap(200, 100);
@@ -45,6 +52,9 @@ public class ImageUtilPrimitivesUnitTest
         {
             Assert.IsTrue(File.Exists(path));
             Assert.IsTrue(path.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase));
+            using var decoded = SKBitmap.Decode(path);
+            Assert.AreEqual(64, decoded.Width);
+            Assert.AreEqual(32, decoded.Height);
         }
         finally
         {

@@ -184,6 +184,7 @@ public static class ImageUtil
     /// <param name="image">源位图。</param>
     /// <param name="width">目标宽。</param>
     /// <param name="height">目标高。</param>
+    /// <returns>缩放后的位图，调用方负责 Dispose。</returns>
     public static SKBitmap Resize(SKBitmap image, int width, int height)
         => image.Resize(new SKImageInfo(width, height), new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear));
 
@@ -205,6 +206,7 @@ public static class ImageUtil
     /// </summary>
     /// <param name="image">源位图。</param>
     /// <param name="maxSize">最大边长，默认 64。</param>
+    /// <returns>缩略图文件路径。</returns>
     public static string SaveThumbnail(SKBitmap image, int maxSize = 64)
     {
         var dir = LuBan.Common.IO.TempDirectory.GetTempDir();
