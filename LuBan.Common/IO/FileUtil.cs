@@ -39,6 +39,22 @@ public static class FileUtil
     }
 
     /// <summary>
+    /// 把字节数格式化为人类可读文本（不带空格）：B / KB / MB。
+    /// 负值归一为 <c>"0B"</c>；各档保留一位小数（B 档为整数）。
+    /// </summary>
+    /// <param name="bytes">字节数。</param>
+    public static string FormatFileSize(long bytes)
+    {
+        if (bytes < 0)
+            return "0B";
+        if (bytes < 1024)
+            return $"{bytes}B";
+        if (bytes < 1024 * 1024)
+            return $"{bytes / 1024.0:F1}KB";
+        return $"{bytes / 1024.0 / 1024.0:F1}MB";
+    }
+
+    /// <summary>
     /// CreateFile
     /// </summary>
     /// <param name="filePath"></param>
