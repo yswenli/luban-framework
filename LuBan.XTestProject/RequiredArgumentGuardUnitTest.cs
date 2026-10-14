@@ -210,6 +210,93 @@ public class RequiredArgumentGuardUnitTest
         StringAssert.Contains(data, "AGENTS.md");
     }
 
+    /// <summary>
+    /// 只读发现类工具模型给 "." 时应锚定到工作区根，而非进程当前目录。
+    /// </summary>
+    [TestMethod]
+    public async Task DiscoveryTool_DotPath_AnchoredToWorkspaceRoot()
+    {
+        var tools = BuildGuardedTools();
+        var listDirectory = FindTool(tools, "ListDirectory");
+
+        var result = await listDirectory.InvokeAsync(new AIFunctionArguments(
+            new Dictionary<string, object?> { ["path"] = "." }));
+
+        var (success, message, data) = Parse(result);
+        Assert.IsTrue(success, message);
+        StringAssert.Contains(data, "AGENTS.md");
+        StringAssert.Contains(data, _root, "结果应来自工作区根，而非进程当前目录");
+    }
+
+    /// <summary>
+    /// 面向具体文件的读取工具收到相对路径时应锚定到工作区根。
+    /// </summary>
+    [TestMethod]
+    public async Task FileTool_RelativePath_AnchoredToWorkspaceRoot()
+    {
+        var tools = BuildGuardedTools();
+        var readFile = FindTool(tools, "ReadFile");
+
+        var result = await readFile.InvokeAsync(new AIFunctionArguments(
+            new Dictionary<string, object?> { ["path"] = "AGENTS.md" }));
+
+        var (success, message, data) = Parse(result);
+        Assert.IsTrue(success, message);
+        StringAssert.Contains(data, "AGENTS.md");
+    }
+
+    /// <summary>
+    /// SearchFiles 收到 rootPath="." 时应扫描工作区根。
+    /// </summary>
+    [TestMethod]
+    public async Task SearchFiles_DotPath_AnchoredToWorkspaceRoot()
+    {
+        var tools = BuildGuardedTools();
+        var searchFiles = FindTool(tools, "SearchFiles");
+
+        var result = await searchFiles.InvokeAsync(new AIFunctionArguments(
+            new Dictionary<string, object?> { ["rootPath"] = ".", ["pattern"] = "*.md" }));
+
+        var (success, message, data) = Parse(result);
+        Assert.IsTrue(success, message);
+        StringAssert.Contains(data, "AGENTS.md");
+        StringAssert.Contains(data, _root, "结果应落在工作区根，而非进程当前目录");
+    }
+
+    /// <summary>
+    /// GetWorkspaceOverview 收到 rootPath="." 时应展示工作区根，而非进程当前目录。
+    /// </summary>
+    [TestMethod]
+    public async Task GetWorkspaceOverview_DotPath_AnchoredToWorkspaceRoot()
+    {
+        var tools = BuildGuardedTools();
+        var overview = FindTool(tools, "GetWorkspaceOverview");
+
+        var result = await overview.InvokeAsync(new AIFunctionArguments(
+            new Dictionary<string, object?> { ["rootPath"] = "." }));
+
+        var (success, message, data) = Parse(result);
+        Assert.IsTrue(success, message);
+        StringAssert.Contains(data, _root, "概览根目录应为工作区根，而非进程当前目录");
+    }
+
+    /// <summary>
+    /// 绝对路径不受锚定影响，原样透传。
+    /// </summary>
+    [TestMethod]
+    public async Task FileTool_AbsolutePath_Unchanged()
+    {
+        var tools = BuildGuardedTools();
+        var readFile = FindTool(tools, "ReadFile");
+
+        var result = await readFile.InvokeAsync(new AIFunctionArguments(
+            new Dictionary<string, object?> { ["path"] = _agentFile }));
+
+        var (success, message, data) = Parse(result);
+        Assert.IsTrue(success, message);
+        StringAssert.Contains(data, "AGENTS.md");
+    }
+
     [TestMethod]
     public async Task ScriptTool_MissingCommand_ReturnsFriendlyResult()
     {

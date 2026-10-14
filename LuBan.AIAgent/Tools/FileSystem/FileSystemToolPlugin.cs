@@ -63,25 +63,27 @@ public class FileSystemToolPlugin : ILuBanToolPlugin
         var toolGroup = new FileSystemToolGroup(confirmationService);
         var options = sp.GetService<IOptions<LuBanAgentOptions>>();
         Func<string?> workspaceRootProvider = () => _sessionContext?.EffectiveRoot ?? options?.Value.WorkspaceRoot;
-        // 工作区根兜底仅用于"只读发现类"工具：模型漏传路径时用工作区根做默认扫描范围才有意义。
-        // 面向具体文件/目录的读写删改工具一律不兜底——否则漏传 path 会被静默替换成工作区根，
-        // 产生"路径被误识别为目录""返回工作区统计"等误导结果；缺参由 RequiredArgumentGuardAIFunction 统一提示。
+        // 所有文件工具都接工作区根 provider：模型给出的相对路径（含 "."）一律锚定到工作区根，
+        // 避免按进程 CWD 解析（GUI 宿主常为 bin 输出目录）导致"工作区里的文件都查不出来"。
+        // 其中只有"只读发现类"工具允许在漏传路径时以工作区根兜底（fallback=true）；
+        // 面向具体文件/目录的读写删改工具 fallback=false——漏传 path 不得被静默替换成工作区根，
+        // 否则产生"路径被误识别为目录""返回工作区统计"等误导结果，缺参由 RequiredArgumentGuardAIFunction 统一提示。
         return new List<AIFunction>
         {
-            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.ReadFileAsync)),
-            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.WriteFileAsync)),
-            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.EditFileAsync)),
-            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.MultiEditFileAsync)),
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.ReadFileAsync), workspaceRootProvider, fallbackToWorkspaceRootWhenMissing: false),
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.WriteFileAsync), workspaceRootProvider, fallbackToWorkspaceRootWhenMissing: false),
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.EditFileAsync), workspaceRootProvider, fallbackToWorkspaceRootWhenMissing: false),
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.MultiEditFileAsync), workspaceRootProvider, fallbackToWorkspaceRootWhenMissing: false),
             AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.ListDirectoryAsync), workspaceRootProvider),
             AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.GetWorkspaceOverviewAsync), workspaceRootProvider),
-            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.DeleteFileAsync)),
-            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.DeleteDirectoryAsync)),
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.DeleteFileAsync), workspaceRootProvider, fallbackToWorkspaceRootWhenMissing: false),
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.DeleteDirectoryAsync), workspaceRootProvider, fallbackToWorkspaceRootWhenMissing: false),
             AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.SearchFilesAsync), workspaceRootProvider),
             AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.GrepAsync), workspaceRootProvider),
-            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.CreateDirectoryAsync)),
-            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.CopyFileAsync)),
-            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.MoveFileAsync)),
-            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.GetFileInfoAsync))
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.CreateDirectoryAsync), workspaceRootProvider, fallbackToWorkspaceRootWhenMissing: false),
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.CopyFileAsync), workspaceRootProvider, fallbackToWorkspaceRootWhenMissing: false),
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.MoveFileAsync), workspaceRootProvider, fallbackToWorkspaceRootWhenMissing: false),
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.GetFileInfoAsync), workspaceRootProvider, fallbackToWorkspaceRootWhenMissing: false)
         };
     }
 
@@ -544,7 +546,9 @@ public class FileSystemToolGroup
     [Description("获取工作区概览：目录树（限3层）+ 文件类型统计 + 关键文件。一次调用了解工作区结构，避免多次ListDirectory。")]
     public async Task<ToolResult<string>> GetWorkspaceOverviewAsync(string rootPath)
     {
-        var resolvedPath = string.IsNullOrEmpty(rootPath) || rootPath == "."
+        // 相对路径（含 "."）已由参数绑定锚定到工作区根，这里不再按进程 CWD 解析；
+        // 仅对直接调用（未经过绑定）做空值保底。
+        var resolvedPath = string.IsNullOrEmpty(rootPath)
             ? Path.GetFullPath(".")
             : rootPath;
 
