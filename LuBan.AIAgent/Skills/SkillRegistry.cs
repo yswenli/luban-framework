@@ -266,6 +266,46 @@ public class SkillRegistry
             .ToList();
     }
 
+    /// <summary>
+    /// 构建用于注入系统提示词的 Skill 清单文本。
+    /// </summary>
+    /// <param name="maxEntries">最多列出的 Skill 条数。</param>
+    /// <returns>Markdown 格式的清单文本；无 Skill 时返回提示语。</returns>
+    public string BuildCatalogPrompt(int maxEntries)
+    {
+        var all = GetAll();
+        if (all.Count == 0)
+            return "## 可用 Skill 清单\n\n当前无可用 Skill。";
+
+        var sorted = all.OrderBy(s => s.Id, StringComparer.OrdinalIgnoreCase).Take(maxEntries).ToList();
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("## 可用 Skill 清单");
+        sb.AppendLine();
+        sb.AppendLine("以下是当前可用的 Skill（按 Id 排序）：");
+        sb.AppendLine();
+
+        foreach (var skill in sorted)
+        {
+            sb.AppendLine($"- **{skill.Id}**: {skill.Description}");
+        }
+
+        if (all.Count > maxEntries)
+            sb.AppendLine($"\n... 共 {all.Count} 个 Skill，已截断。");
+
+        sb.AppendLine();
+        sb.AppendLine("使用 `UseSkillAsync` 工具加载指定 Skill 的详细指令。");
+
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// 判断是否为硬编码的内置 Skill。
+    /// </summary>
+    /// <param name="id">Skill Id。</param>
+    /// <returns>内置返回 true，否则 false。</returns>
+    public bool IsBuiltin(string id) => _hardcoded.ContainsKey(id);
+
     private void RebuildMerged()
     {
         var merged = new Dictionary<string, ISkill>(StringComparer.OrdinalIgnoreCase);
