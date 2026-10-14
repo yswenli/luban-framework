@@ -72,6 +72,18 @@ public class LuBanAgentFactory : ILuBanAgentFactory, IScoped
         var opts = _options.Value;
         var instructions = systemPrompt ?? opts.SystemPrompt ?? "你是一个智能助手。";
 
+        // 注入 Skill 清单（当 CatalogEnabled 且未显式提供 systemPrompt 时）
+        var skillToolOptions = toolsOptions?.Skill ?? opts.Tools.Skill;
+        if (skillToolOptions.CatalogEnabled && string.IsNullOrEmpty(systemPrompt))
+        {
+            var skillRegistry = _serviceProvider.GetService<Skills.SkillRegistry>();
+            if (skillRegistry != null)
+            {
+                var catalog = skillRegistry.BuildCatalogPrompt(skillToolOptions.CatalogMaxEntries);
+                instructions = $"{instructions}\n\n{catalog}";
+            }
+        }
+
         var tools = BuildTools(toolGroups, toolsOptions);
 
         var functionClient = BuildFunctionClient(tools, opts, modelName);
