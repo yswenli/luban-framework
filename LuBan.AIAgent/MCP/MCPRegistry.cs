@@ -109,9 +109,15 @@ public class MCPRegistry
         _lock.EnterWriteLock();
         try
         {
-            // 断开旧的连接
+            // 只断开/释放配置变更的客户端；指纹未变的复用
             foreach (var kvp in _workspace)
             {
+                if (temp.TryGetValue(kvp.Key, out var updated) && updated.Fingerprint == kvp.Value.Fingerprint)
+                {
+                    temp[kvp.Key] = kvp.Value; // 复用
+                    continue;
+                }
+
                 if (kvp.Value.Client.IsConnected)
                 {
                     try { kvp.Value.Client.DisconnectAsync().GetAwaiter().GetResult(); }
