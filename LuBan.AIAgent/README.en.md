@@ -21,13 +21,17 @@ LuBan.AIAgent provides complete AI Agent infrastructure — from Agent runtime, 
 
 ## Quick Preview
 
+### Option 1: Ready to use (recommended)
+
+`AddLuBanAgentDefaults` layers default (in-memory) implementations of session context, local memory store, and session manager on top of `AddLuBanAgent`, so a minimal host runs out of the box:
+
 ```csharp
-// Register services
-services.AddSingleton<IChatClient>(sp => CreateChatClient());
-services.AddLuBanAgent(configuration);
+// Register services (three lines to take off)
+services.AddLuBanAgentDefaults(configuration, sp => CreateChatClient());
 
 // Create Agent
-var factory = serviceProvider.GetRequiredService<ILuBanAgentFactory>();
+using var scope = serviceProvider.CreateScope();
+var factory = scope.ServiceProvider.GetRequiredService<ILuBanAgentFactory>();
 var agent = await factory.CreateAsync(
     systemPrompt: "You are a browser automation assistant",
     toolGroups: new[] { "browser" });
@@ -36,6 +40,21 @@ var agent = await factory.CreateAsync(
 var response = await agent.RunAsync("Open Baidu and search for LuBan Framework");
 Console.WriteLine(response.Text);
 ```
+
+> All defaults are registered with `TryAdd`, so **registering your own implementation first overrides them**.
+> The defaults do not persist (data is lost on process exit). For production, register your own
+> `ISessionManager`, `ILocalMemoryStore`, `ISessionContext`, etc.
+
+### Option 2: Framework parts only (host implements the contracts)
+
+```csharp
+services.AddSingleton<IChatClient>(sp => CreateChatClient());
+services.AddLuBanAgent(configuration);
+```
+
+With this option the host must implement `ISessionContext` (required by PathGuard and every tool group),
+`ILocalMemoryStore` (required by the localmemory tool group), and other contracts; otherwise resolving
+the related services throws `InvalidOperationException`.
 
 ## Tech Stack
 

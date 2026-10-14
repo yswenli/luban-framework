@@ -21,13 +21,17 @@ LuBan.AIAgent 提供完整的 AI Agent 基础设施，从 Agent 运行时、多�
 
 ## 快速预览
 
+### 方式一：开箱即用（推荐）
+
+`AddLuBanAgentDefaults` 在 `AddLuBanAgent` 之上补齐会话上下文、本地记忆存储、会话管理的默认（内存）实现，最小宿主即可跑通：
+
 ```csharp
-// 注册服务
-services.AddSingleton<IChatClient>(sp => CreateChatClient());
-services.AddLuBanAgent(configuration);
+// 注册服务（三行起飞）
+services.AddLuBanAgentDefaults(configuration, sp => CreateChatClient());
 
 // 创建 Agent
-var factory = serviceProvider.GetRequiredService<ILuBanAgentFactory>();
+using var scope = serviceProvider.CreateScope();
+var factory = scope.ServiceProvider.GetRequiredService<ILuBanAgentFactory>();
 var agent = await factory.CreateAsync(
     systemPrompt: "你是一个浏览器自动化助手",
     toolGroups: new[] { "browser" });
@@ -36,6 +40,20 @@ var agent = await factory.CreateAsync(
 var response = await agent.RunAsync("打开百度并搜索 LuBan Framework");
 Console.WriteLine(response.Text);
 ```
+
+> 默认实现均为 `TryAdd` 注册，**宿主先注册自己的实现即可覆盖**。
+> 默认实现不持久化（进程退出即丢失），生产环境请自行注册
+> `ISessionManager`、`ILocalMemoryStore`、`ISessionContext` 等实现。
+
+### 方式二：仅注册框架零件（宿主自行实现契约）
+
+```csharp
+services.AddSingleton<IChatClient>(sp => CreateChatClient());
+services.AddLuBanAgent(configuration);
+```
+
+此方式需宿主自行实现 `ISessionContext`（PathGuard / 全部工具组依赖）、`ILocalMemoryStore`
+（localmemory 工具组依赖）等契约，否则在解析相关服务时会抛出 `InvalidOperationException`。
 
 ## 技术栈
 
