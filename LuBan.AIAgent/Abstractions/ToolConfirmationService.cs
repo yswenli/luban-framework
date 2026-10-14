@@ -445,6 +445,10 @@ public class ToolConfirmationService : IToolConfirmationService
     [
         "DeleteFileAsync", "DeleteDirectoryAsync",
         "DeletePageAsync", // wiki 删除工具（WikiToolGroup.DeletePageAsync），删除均需确认
+        // Skill 管理写删
+        "WriteSkillAsync", "DeleteSkillAsync",
+        // MCP 管理写删
+        "WriteMcpServerAsync", "DeleteMcpServerAsync",
     ];
 
     /// <summary>
@@ -463,6 +467,8 @@ public class ToolConfirmationService : IToolConfirmationService
         "GitBranchListAsync", "GitRemoteListAsync", "GitBlameAsync", "GitStashListAsync",
         // MCP 资源只读工具
         "mcp_list_resources", "mcp_read_resource",
+        // Skill 消费只读工具
+        "ListSkillsAsync", "UseSkillAsync",
     ];
 
     /// <summary>
