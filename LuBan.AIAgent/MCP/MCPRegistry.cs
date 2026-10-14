@@ -267,28 +267,43 @@ public class MCPRegistry
     public bool IsBuiltin(string name) => _hardcoded.ContainsKey(name);
 
     /// <summary>
-    /// 连接全部 MCP 客户端
+    /// 连接全部非内置的 MCP 客户端。
     /// </summary>
-    /// <param name="cancellationToken">取消令牌</param>
-    /// <returns>客户端名称到连接结果的字典</returns>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>客户端名称到连接结果的字典（不含内置客户端）。</returns>
     public async Task<Dictionary<string, bool>> ConnectAllAsync(CancellationToken cancellationToken = default)
     {
-        var results = new Dictionary<string, bool>();
-        var clients = GetAll();
+        var results = new System.Collections.Concurrent.ConcurrentDictionary<string, bool>();
+        // 跳过已连接的客户端（内置 MCP 恒 IsConnected=true）
+        var clients = GetAll().Where(c => !c.IsConnected).ToList();
         
-        foreach (var client in clients)
+        if (clients.Count == 0)
+            return new Dictionary<string, bool>();
+
+        var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        linkedCts.CancelAfter(TimeSpan.FromSeconds(30)); // 总体超时兜底
+
+        var tasks = clients.Select(async client =>
         {
             try
             {
-                var connected = await client.ConnectAsync(cancellationToken);
+                var connected = await client.ConnectAsync(linkedCts.Token).ConfigureAwait(false);
                 results[client.Name] = connected;
             }
-            catch
+            catch (OperationCanceledException)
             {
                 results[client.Name] = false;
             }
-        }
-        return results;
+            catch (Exception ex)
+            {
+                Logger.Debug($"MCP '{client.Name}' 连接失败", ex);
+                results[client.Name] = false;
+            }
+        });
+
+        await Task.WhenAll(tasks).ConfigureAwait(false);
+
+        return new Dictionary<string, bool>(results);
     }
 
     /// <summary>
