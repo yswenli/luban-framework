@@ -312,6 +312,129 @@ public class RequiredArgumentGuardUnitTest
         StringAssert.Contains(message, "command");
     }
 
+    /// <summary>
+    /// 回归：模型参数经 JSON 反序列化后是 <see cref="JsonElement"/>（非 string），
+    /// 路径类工具的 path 曾因此被绑定成 null，报
+    /// "路径无效:。Value cannot be null.(Parameter 'fileName')"。
+    /// </summary>
+    [TestMethod]
+    public async Task FileTool_JsonElementPath_AnchoredAndWorks()
+    {
+        var tools = BuildGuardedTools();
+        var readFile = FindTool(tools, "ReadFile");
+
+        var result = await readFile.InvokeAsync(JsonArgs(new { path = "AGENTS.md" }));
+
+        var (success, message, data) = Parse(result);
+        Assert.IsTrue(success, message);
+        StringAssert.Contains(data, "AGENTS.md");
+        Assert.IsFalse(message.Contains("fileName"),
+            "不得再出现 new FileInfo(null) 的 fileName 异常");
+    }
+
+    /// <summary>
+    /// 回归：JsonElement 形式的绝对路径读文件应正常（覆盖 GetFileInfo 的 new FileInfo 抛点）。
+    /// </summary>
+    [TestMethod]
+    public async Task GetFileInfo_JsonElementAbsolutePath_Works()
+    {
+        var tools = BuildGuardedTools();
+        var info = FindTool(tools, "GetFileInfo");
+
+        var result = await info.InvokeAsync(JsonArgs(new { path = _agentFile }));
+
+        var (success, message, _) = Parse(result);
+        Assert.IsTrue(success, message);
+    }
+
+    /// <summary>
+    /// 回归：只读发现类工具收到 JsonElement 的根路径时，仍应锚定到工作区根。
+    /// </summary>
+    [TestMethod]
+    public async Task DiscoveryTool_JsonElementDotPath_AnchoredToWorkspaceRoot()
+    {
+        var tools = BuildGuardedTools();
+        var listDirectory = FindTool(tools, "ListDirectory");
+
+        var result = await listDirectory.InvokeAsync(JsonArgs(new { path = "." }));
+
+        var (success, message, data) = Parse(result);
+        Assert.IsTrue(success, message);
+        StringAssert.Contains(data, "AGENTS.md");
+        StringAssert.Contains(data, _root, "结果应来自工作区根，而非进程当前目录");
+    }
+
+    /// <summary>
+    /// 回归：SearchFiles 收到 JsonElement 的 rootPath="." 时应扫描工作区根。
+    /// </summary>
+    [TestMethod]
+    public async Task SearchFiles_JsonElementDotRootPath_AnchoredToWorkspaceRoot()
+    {
+        var tools = BuildGuardedTools();
+        var searchFiles = FindTool(tools, "SearchFiles");
+
+        var result = await searchFiles.InvokeAsync(JsonArgs(new { rootPath = ".", pattern = "*.md" }));
+
+        var (success, message, data) = Parse(result);
+        Assert.IsTrue(success, message);
+        StringAssert.Contains(data, "AGENTS.md");
+    }
+
+    /// <summary>
+    /// C 方案：string 型必填参数收到 JSON null 时判为缺参并给出中文提示。
+    /// </summary>
+    [TestMethod]
+    public async Task Guard_JsonNullValue_TreatedAsMissing()
+    {
+        var tool = new RequiredArgumentGuardAIFunction(
+            AIFunctionFactory.Create((Func<string, string>)(path => "ok:" + path), "DemoTool"));
+
+        var result = await tool.InvokeAsync(JsonArgs(new { path = (string?)null }));
+
+        var (success, message, _) = Parse(result);
+        Assert.IsFalse(success);
+        StringAssert.Contains(message, "缺少必填参数");
+    }
+
+    /// <summary>
+    /// C 方案：string 型必填参数收到 JSON 对象（无法解释为路径）时判为缺参，
+    /// 避免继续下传导致工具内 <c>new FileInfo(null)</c> 抛异常。
+    /// </summary>
+    [TestMethod]
+    public async Task Guard_JsonObjectValueForStringParam_TreatedAsMissing()
+    {
+        var tool = new RequiredArgumentGuardAIFunction(
+            AIFunctionFactory.Create((Func<string, string>)(path => "ok:" + path), "DemoTool"));
+
+        var result = await tool.InvokeAsync(JsonArgs(new { path = new { nested = 1 } }));
+
+        var (success, message, _) = Parse(result);
+        Assert.IsFalse(success);
+        StringAssert.Contains(message, "缺少必填参数");
+    }
+
+    /// <summary>
+    /// C 方案边界：非 string 型必填参数（如数字）不得因"不可解释为字符串"被误判为缺参，
+    /// 以免误伤 MCP 等结构化参数。
+    /// </summary>
+    [TestMethod]
+    public async Task Guard_JsonNumberForNonStringParam_PassesThrough()
+    {
+        var tool = new RequiredArgumentGuardAIFunction(
+            AIFunctionFactory.Create((Func<int, string>)(count => "n:" + count), "DemoTool"));
+
+        var result = await tool.InvokeAsync(JsonArgs(new { count = 5 }));
+
+        StringAssert.Contains(result!.ToString(), "n:5");
+    }
+
+    /// <summary>
+    /// 构造"真实链路形态"的参数：值经 JSON 序列化再反序列化为 object（即 <see cref="JsonElement"/>），
+    /// 复现 Microsoft.Extensions.AI / OpenAI 客户端下发工具参数时的实际类型。
+    /// </summary>
+    private static AIFunctionArguments JsonArgs(object payload)
+        => new(JsonSerializer.Deserialize<Dictionary<string, object?>>(JsonSerializer.Serialize(payload))!);
+
     private sealed class StubServiceProvider(Dictionary<Type, object> map) : IServiceProvider
     {
         public object? GetService(Type serviceType)

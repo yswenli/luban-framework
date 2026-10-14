@@ -33,6 +33,7 @@ namespace LuBan.AIAgent.Tools;
 public class RequiredArgumentGuardAIFunction : DelegatingAIFunction
 {
     private readonly IReadOnlyList<string> _requiredParameters;
+    private readonly IReadOnlySet<string> _stringParameters;
 
     /// <summary>
     /// 创建必填参数守卫装饰器
@@ -42,6 +43,7 @@ public class RequiredArgumentGuardAIFunction : DelegatingAIFunction
         : base(innerFunction)
     {
         _requiredParameters = ExtractRequiredParameters(innerFunction.JsonSchema);
+        _stringParameters = ExtractStringParameters(innerFunction.JsonSchema);
     }
 
     /// <summary>
@@ -93,41 +95,71 @@ public class RequiredArgumentGuardAIFunction : DelegatingAIFunction
     }
 
     /// <summary>
-    /// 判断必填参数是否缺失（键不存在、值为 null、或字符串为空白）。
+    /// 判断必填参数是否缺失。
     /// </summary>
-    private static bool IsMissing(AIFunctionArguments arguments, string name)
+    /// <remarks>
+    /// 参数值来自模型返回的 JSON 反序列化，运行时通常是 <see cref="JsonElement"/> 而非 string，
+    /// 故统一走 <see cref="ToolArgumentValue"/> 解释，与路径参数绑定保持同一套判断。
+    /// 仅对 Schema 声明为 string 的必填参数附加"空白或不可解释为字符串即缺参"的校验；
+    /// 其他类型（数字/对象/数组等）保持"存在且非 null 即满足"，避免误伤 MCP 等结构化参数。
+    /// </remarks>
+    private bool IsMissing(AIFunctionArguments arguments, string name)
     {
-        if (!TryGetValue(arguments, name, out var value))
+        if (!ToolArgumentValue.TryGet(arguments, name, out var value))
             return true;
 
-        return value switch
+        if (value is null || value is JsonElement { ValueKind: JsonValueKind.Null or JsonValueKind.Undefined })
+            return true;
+
+        if (_stringParameters.Contains(name))
         {
-            null => true,
-            string s => string.IsNullOrWhiteSpace(s),
-            JsonElement { ValueKind: JsonValueKind.Null or JsonValueKind.Undefined } => true,
-            JsonElement { ValueKind: JsonValueKind.String } je => string.IsNullOrWhiteSpace(je.GetString()),
-            _ => false
-        };
+            return !ToolArgumentValue.TryGetString(value, out var text) || string.IsNullOrWhiteSpace(text);
+        }
+
+        return false;
     }
 
     /// <summary>
-    /// 大小写不敏感地取值（AIFunctionArguments 的键通常已与参数名一致，此处仅作兜底）。
+    /// 从 JSON Schema 提取"类型为 string"的属性名集合（兼容 type 为 ["string","null"] 的联合类型）。
     /// </summary>
-    private static bool TryGetValue(AIFunctionArguments arguments, string name, out object? value)
+    private static IReadOnlySet<string> ExtractStringParameters(JsonElement schema)
     {
-        if (arguments.TryGetValue(name, out value))
-            return true;
-
-        foreach (var kv in arguments)
+        var names = new HashSet<string>(StringComparer.Ordinal);
+        if (schema.ValueKind != JsonValueKind.Object
+            || !schema.TryGetProperty("properties", out var properties)
+            || properties.ValueKind != JsonValueKind.Object)
         {
-            if (string.Equals(kv.Key, name, StringComparison.OrdinalIgnoreCase))
-            {
-                value = kv.Value;
-                return true;
-            }
+            return names;
         }
 
-        value = null;
-        return false;
+        foreach (var property in properties.EnumerateObject())
+        {
+            if (IsStringType(property.Value))
+                names.Add(property.Name);
+        }
+        return names;
+    }
+
+    /// <summary>
+    /// 判断属性 Schema 的类型是否为 string（兼容 type 为字符串或字符串数组的写法）。
+    /// </summary>
+    private static bool IsStringType(JsonElement propertySchema)
+    {
+        if (propertySchema.ValueKind != JsonValueKind.Object
+            || !propertySchema.TryGetProperty("type", out var type))
+        {
+            return false;
+        }
+
+        return type.ValueKind switch
+        {
+            JsonValueKind.String => IsStringKeyword(type.GetString()),
+            JsonValueKind.Array => type.EnumerateArray().Any(t =>
+                t.ValueKind == JsonValueKind.String && IsStringKeyword(t.GetString())),
+            _ => false
+        };
+
+        static bool IsStringKeyword(string? value)
+            => string.Equals(value, "string", StringComparison.Ordinal);
     }
 }

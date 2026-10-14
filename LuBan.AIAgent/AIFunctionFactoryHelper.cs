@@ -51,7 +51,13 @@ internal static class AIFunctionFactoryHelper
     /// （如 ListDirectory/GetWorkspaceOverview/SearchFiles/Grep）；面向具体文件/目录的读写删改工具
     /// 须为 false，否则模型漏传 path 会被静默替换成工作区根，产生"路径被误识别为目录"
     /// "返回工作区统计"等误导结果（缺参由 <see cref="RequiredArgumentGuardAIFunction"/> 统一提示）。
-    /// 注意：无论该值为何，只要提供了 <paramref name="workspaceRootProvider"/>，"相对路径锚定"始终生效。
+    /// 注意：
+    /// <list type="bullet">
+    /// <item>无论该值为何，只要提供了 <paramref name="workspaceRootProvider"/>，"相对路径锚定"始终生效。</item>
+    /// <item>该值只决定是否打 <see cref="WorkspaceRootFallbackAIFunction"/> 标记（即是否跳过必填参数守卫），
+    /// 不改变参数绑定的取值：绑定层对"缺参/不可解释为字符串"一律回落工作区根（绝不返回 null），
+    /// 以保证缺参时守卫先返回中文提示、而非在工具内 <c>new FileInfo(null)</c> 抛英文异常。</item>
+    /// </list>
     /// </param>
     /// <returns>AIFunction 实例</returns>
     public static AIFunction Create<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicMethods)] T>(
@@ -80,21 +86,24 @@ internal static class AIFunctionFactoryHelper
                 {
                     BindParameter = (parameterInfo, arguments) =>
                     {
-                        if (arguments.TryGetValue(parameterInfo.Name!, out var value)
-                            && value is string provided
-                            && !string.IsNullOrWhiteSpace(provided))
+                        // 参数值来自模型返回的 JSON 反序列化，运行时通常是 JsonElement 而非 string；
+                        // 统一走 ToolArgumentValue 解释，避免与守卫的"是否已提供"判断出现二义（曾致 path 绑定为 null）。
+                        var provided = ToolArgumentValue.TryGet(arguments, parameterInfo.Name!, out var value)
+                            && ToolArgumentValue.TryGetString(value, out var text)
+                            && !string.IsNullOrWhiteSpace(text)
+                                ? text
+                                : null;
+
+                        if (provided != null)
                         {
                             // 模型显式给出的路径：相对路径（含 "."）锚定到工作区根，
                             // 避免按进程 CWD 解析（GUI 宿主常为 bin 输出目录）导致工作区文件"查不到"。
                             return ResolveRelativeToWorkspaceRoot(provided, workspaceRootProvider);
                         }
 
-                        if (!fallbackToWorkspaceRootWhenMissing)
-                        {
-                            // 缺参不静默替换成工作区根，交由 RequiredArgumentGuardAIFunction 提示。
-                            return null;
-                        }
-
+                        // 走到这里说明"缺参"或"提供了无法解释为字符串的值"。
+                        // 防御：不得返回 null——参数值一旦为 null，工具内的 new FileInfo(null) 等会抛
+                        // ArgumentNullException(Parameter 'fileName')。故统一回落到工作区根（或进程当前目录）。
                         var root = workspaceRootProvider();
                         return string.IsNullOrWhiteSpace(root) ? Environment.CurrentDirectory : root;
                     }
