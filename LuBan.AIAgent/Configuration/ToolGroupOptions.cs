@@ -78,4 +78,19 @@ public class ToolGroupOptions
     /// 大日志分析工具配置（非 opt-in，默认启用）。引擎读取以注入的 IOptions&lt;LogToolOptions&gt; 为准。
     /// </summary>
     public LogToolOptions Log { get; set; } = new();
+
+    /// <summary>
+    /// Skill 消费工具组配置。
+    /// </summary>
+    public SkillToolOptions Skill { get; set; } = new();
+
+    /// <summary>
+    /// Skill 管理工具组配置。
+    /// </summary>
+    public SkillManageToolOptions SkillManage { get; set; } = new();
+
+    /// <summary>
+    /// MCP 管理工具组配置。
+    /// </summary>
+    public McpManageToolOptions McpManage { get; set; } = new();
 }

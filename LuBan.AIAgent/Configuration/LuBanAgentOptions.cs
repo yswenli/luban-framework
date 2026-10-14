@@ -59,6 +59,11 @@ public class LuBanAgentOptions
     public ToolGroupOptions Tools { get; set; } = new();
 
     /// <summary>
+    /// MCP 运行期配置。
+    /// </summary>
+    public McpOptions Mcp { get; set; } = new();
+
+    /// <summary>
     /// 外部插件程序集列表
     /// </summary>
     public List<string> ExternalPlugins { get; set; } = new();
