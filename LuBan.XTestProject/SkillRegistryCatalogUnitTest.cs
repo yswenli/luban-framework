@@ -53,6 +53,51 @@ public class SkillRegistryCatalogUnitTest
         Assert.IsFalse(registry.IsBuiltin("not-exists"));
     }
 
+    [TestMethod]
+    public void BuildCatalogPrompt_ZeroMaxEntries_Throws()
+    {
+        var registry = new SkillRegistry(Array.Empty<ISkill>());
+        try
+        {
+            registry.BuildCatalogPrompt(0);
+            Assert.Fail("应该抛出 ArgumentOutOfRangeException 异常");
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            // 预期的异常
+        }
+    }
+
+    [TestMethod]
+    public void BuildCatalogPrompt_NegativeMaxEntries_Throws()
+    {
+        var registry = new SkillRegistry(Array.Empty<ISkill>());
+        try
+        {
+            registry.BuildCatalogPrompt(-1);
+            Assert.Fail("应该抛出 ArgumentOutOfRangeException 异常");
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            // 预期的异常
+        }
+    }
+
+    [TestMethod]
+    public void IsBuiltin_NullId_Throws()
+    {
+        var registry = new SkillRegistry(Array.Empty<ISkill>());
+        try
+        {
+            registry.IsBuiltin(null!);
+            Assert.Fail("应该抛出 ArgumentNullException 异常");
+        }
+        catch (ArgumentNullException)
+        {
+            // 预期的异常
+        }
+    }
+
     private sealed class TestSkill : ISkill
     {
         public TestSkill(string id, string name, string desc)

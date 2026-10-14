@@ -271,8 +271,12 @@ public class SkillRegistry
     /// </summary>
     /// <param name="maxEntries">最多列出的 Skill 条数。</param>
     /// <returns>Markdown 格式的清单文本；无 Skill 时返回提示语。</returns>
+    /// <exception cref="ArgumentOutOfRangeException">maxEntries 必须为正整数。</exception>
     public string BuildCatalogPrompt(int maxEntries)
     {
+        if (maxEntries <= 0)
+            throw new ArgumentOutOfRangeException(nameof(maxEntries), "maxEntries 必须为正整数。");
+
         var all = GetAll();
         if (all.Count == 0)
             return "## 可用 Skill 清单\n\n当前无可用 Skill。";
@@ -304,7 +308,14 @@ public class SkillRegistry
     /// </summary>
     /// <param name="id">Skill Id。</param>
     /// <returns>内置返回 true，否则 false。</returns>
-    public bool IsBuiltin(string id) => _hardcoded.ContainsKey(id);
+    /// <exception cref="ArgumentNullException">id 为 null。</exception>
+    public bool IsBuiltin(string id)
+    {
+        if (id == null) throw new ArgumentNullException(nameof(id));
+        _lock.EnterReadLock();
+        try { return _hardcoded.ContainsKey(id); }
+        finally { _lock.ExitReadLock(); }
+    }
 
     private void RebuildMerged()
     {
