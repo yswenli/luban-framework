@@ -152,6 +152,35 @@ public static class LuBanAgentExtensions
             services.AddScoped<ILuBanToolPlugin, Tools.Orchestration.OrchestrationToolPlugin>();
         }
 
+        // ===== 插件体系（PRD §3.4 / §3.5）=====
+        // 重要：PluginManager 注册为单例，其构造链只含单例（Loader / 依赖解析器 / 内置目录 /
+        // 状态仓储 / 根 IServiceProvider），不得注入任何 Scoped 服务（SkillRegistry / MCPRegistry /
+        // IAgentReloadTrigger / ISessionContext / IWorkspaceContext / IUserContext），否则
+        // ValidateScopes=true 下构建即失败（PRD §3.9）。
+        services.AddSingleton(new ManifestValidationOptions
+        {
+            TargetApp = configuration["LuBanAgent:Plugins:TargetApp"],
+            HostVersion = configuration["LuBanAgent:Plugins:HostVersion"]
+        });
+        services.AddSingleton<ManifestValidator>();
+        services.AddSingleton<PluginFactory>();
+        services.AddSingleton<PluginLoader>();
+        services.AddSingleton<PluginDependencyResolver>();
+        services.AddSingleton(new PluginManagerOptions
+        {
+            ShutdownTimeoutSeconds = configuration.GetSection("LuBanAgent:Plugins:ShutdownTimeoutSeconds").Get<int?>() ?? 5,
+            UnloadVerificationRounds = configuration.GetSection("LuBanAgent:Plugins:UnloadVerificationRounds").Get<int?>() ?? 8
+        });
+        // 内置插件（宿主自带的进程内 IPlugin）必须注册为 Singleton：BuiltinPluginCatalog 在单例工厂内
+        // 从根容器解析 IEnumerable<IPlugin>，若注册为 Scoped 会触发 ValidateScopes 异常。
+        services.AddSingleton(sp => new BuiltinPluginCatalog(sp.GetServices<IPlugin>()));
+        services.AddSingleton<IPluginStateRepository>(_ =>
+            new PluginStateRepository(configuration["LuBanAgent:Plugins:StateFile"]));
+        services.AddSingleton<PluginManager>();
+
+        // ===== 云效连接器与进程内 MCP 客户端（PRD §3.10 / §4.11）=====
+        services.AddYunxiaoConnector(configuration);
+
         return services;
     }
 

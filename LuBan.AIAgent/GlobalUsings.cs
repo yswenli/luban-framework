@@ -23,6 +23,7 @@
 *****************************************************************************/
 global using LuBan.AIAgent.Abstractions;
 global using LuBan.AIAgent.Configuration;
+global using LuBan.AIAgent.Connectors.AliyunDevOps;
 global using LuBan.AIAgent.Errors;
 global using LuBan.AIAgent.Infrastructure;
 global using LuBan.AIAgent.LocalMemory;
@@ -30,6 +31,10 @@ global using LuBan.AIAgent.LogAnalysis;
 global using LuBan.AIAgent.MCP;
 global using LuBan.AIAgent.MCP.BuiltIn;
 global using LuBan.AIAgent.Orchestration.Models;
+global using LuBan.AIAgent.Plugins;
+global using LuBan.AIAgent.Plugins.Base;
+global using LuBan.AIAgent.Plugins.Lifecycle;
+global using LuBan.AIAgent.Plugins.Loading;
 global using LuBan.AIAgent.Retrieval.Chunkers;
 global using LuBan.AIAgent.Rules;
 global using LuBan.AIAgent.Rules.BuiltIn;

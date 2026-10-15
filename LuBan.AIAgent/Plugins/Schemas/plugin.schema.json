@@ -1,0 +1,145 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://luban.local/schemas/plugin.schema.json",
+  "title": "LuBan Agent 插件清单 plugin.json",
+  "description": "PRD《插件体系与新建项目插件》§3.2 定义的插件清单结构（v0.18，含 mcpServers）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "name", "version", "entryAssembly"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "全局唯一标识，建议反向域名，如 com.tjc.newproject。",
+      "pattern": "^[a-zA-Z][a-zA-Z0-9._\\-]{1,127}$"
+    },
+    "name": {
+      "type": "string",
+      "description": "展示名，如「新建项目」。",
+      "minLength": 1
+    },
+    "version": {
+      "type": "string",
+      "description": "语义化版本，如 1.0.0。",
+      "pattern": "^\\d+\\.\\d+(\\.\\d+){0,2}(-[0-9A-Za-z.\\-]+)?$"
+    },
+    "author": {
+      "type": "string",
+      "description": "作者 / 团队。"
+    },
+    "description": {
+      "type": "string",
+      "description": "简介。"
+    },
+    "entryAssembly": {
+      "type": "string",
+      "description": "入口程序集文件名（含 IPlugin 实现），置于 lib/ 下。",
+      "minLength": 1
+    },
+    "targetApp": {
+      "type": "string",
+      "description": "宿主标识，如 LubanAgentCodex。"
+    },
+    "minHostVersion": {
+      "type": "string",
+      "description": "最低宿主版本。",
+      "pattern": "^\\d+\\.\\d+(\\.\\d+){0,2}(-[0-9A-Za-z.\\-]+)?$"
+    },
+    "uiContributions": {
+      "type": "array",
+      "description": "侧栏条目：{ id, label, icon, panelType }。",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1, "description": "条目标识（同插件内唯一）。" },
+          "label": { "type": "string", "description": "显示标题。" },
+          "icon": { "type": "string", "description": "图标标识，如 project。" },
+          "panelType": { "type": "string", "description": "对应契约 IPluginPanel 实现的类型名。" }
+        }
+      }
+    },
+    "skills": {
+      "type": "array",
+      "description": "插件贡献的专属 Skill 定义（见 PRD §4.10）。",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "技能标识：小写字母 / 数字 / 下划线 / 中划线，不含点号。",
+            "pattern": "^[a-z0-9][a-z0-9_\\-]{0,63}$"
+          },
+          "name": { "type": "string", "description": "技能名称。" },
+          "description": { "type": "string", "description": "技能说明。" },
+          "entry": { "type": "string", "description": "插件包内 SKILL.md 相对路径。" },
+          "category": { "type": "string", "description": "技能分类。" },
+          "triggerKeywords": {
+            "type": "array",
+            "description": "触发关键词（供自然语言触发）。",
+            "items": { "type": "string" }
+          },
+          "permissions": { "$ref": "#/$defs/permissions" }
+        }
+      }
+    },
+    "mcpServers": {
+      "type": "array",
+      "description": "插件启用的内置 MCP 服务器（连接器本身不在本字段声明）。",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "description": "服务器名，如 yunxiao。" },
+          "transport": {
+            "type": "string",
+            "description": "传输方式，当前仅支持 inproc。",
+            "enum": ["inproc"],
+            "default": "inproc"
+          },
+          "enabled": { "type": "boolean", "description": "是否启用。", "default": true }
+        }
+      }
+    },
+    "permissions": { "$ref": "#/$defs/permissions" },
+    "dependencies": {
+      "type": "array",
+      "description": "依赖插件 id 列表（仅校验存在性）。",
+      "items": { "type": "string", "minLength": 1 }
+    }
+  },
+  "$defs": {
+    "permissions": {
+      "description": "权限声明。对象详写或数组简写（[\"filesystem\"， \"network:codeup.aliyun.com\"]）均可。",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "filesystem": { "$ref": "#/$defs/scopeList" },
+            "network": { "$ref": "#/$defs/scopeList" },
+            "git": { "$ref": "#/$defs/scopeList" },
+            "database": { "$ref": "#/$defs/scopeList" },
+            "process": { "$ref": "#/$defs/scopeList" },
+            "credential": { "$ref": "#/$defs/scopeList" }
+          }
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "description": "维度名，或 维度:范围，如 filesystem:workspace。",
+            "pattern": "^(filesystem|network|git|database|process|credential)(:.+)?$"
+          }
+        }
+      ]
+    },
+    "scopeList": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}
