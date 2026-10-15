@@ -92,8 +92,18 @@ public sealed class PluginManifest
     /// <summary>
     /// 权限声明。
     /// </summary>
+    /// <remarks>
+    /// 赋值 <c>null</c> 时归一化为空权限：即便 JSON 里显式写 <c>"permissions": null</c>，
+    /// 也不能让该属性变成空引用。
+    /// </remarks>
     [JsonPropertyName("permissions")]
-    public PluginPermissions Permissions { get; set; } = new();
+    public PluginPermissions Permissions
+    {
+        get => _permissions;
+        set => _permissions = value ?? new PluginPermissions();
+    }
+
+    private PluginPermissions _permissions = new();
 
     /// <summary>
     /// 依赖插件 id 列表（仅校验存在性，PRD §3.2）。

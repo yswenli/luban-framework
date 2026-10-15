@@ -91,17 +91,28 @@ public sealed class PluginManager
         try
         {
             // 内置插件优先登记（不来自 plugin.json，不参与 ALC 隔离）
+            // 与目录插件一致：读取持久化状态，支持「禁用后重启仍禁用」与开机恢复（PRD §3.5）
             foreach (var builtin in _builtinCatalog.All)
             {
                 if (string.IsNullOrWhiteSpace(builtin.Id) || _entries.ContainsKey(builtin.Id))
                     continue;
 
+                var builtinRecord = await _stateRepository.GetAsync(builtin.Id, cancellationToken).ConfigureAwait(false);
+
                 _entries[builtin.Id] = new PluginEntry
                 {
                     Id = builtin.Id,
                     IsBuiltin = true,
-                    State = PluginState.Installed,
-                    BuiltinPlugin = builtin
+                    BuiltinPlugin = builtin,
+                    State = builtinRecord?.State switch
+                    {
+                        PluginState.Disabled => PluginState.Disabled,
+                        PluginState.Error => PluginState.Error,
+                        _ => PluginState.Installed
+                    },
+                    RequiresRestart = builtinRecord?.RequiresRestart ?? false,
+                    LastError = builtinRecord?.LastError,
+                    ShouldEnableOnStartup = builtinRecord?.State == PluginState.Enabled
                 };
             }
 
@@ -311,6 +322,141 @@ public sealed class PluginManager
 
         await _stateRepository.DeleteAsync(pluginId, cancellationToken).ConfigureAwait(false);
         RaiseChanged(entry, PluginChangedKind.Uninstalled);
+        return true;
+    }
+
+    /// <summary>
+    /// 升级（热替换）插件：对旧版本执行完整卸载流程，<b>卸载验证通过才</b>复制新包并重新启用（PRD §3.5 / §6 #21）。
+    /// </summary>
+    /// <param name="pluginId">插件标识。</param>
+    /// <param name="sourceDirectory">新版本插件源目录（含 plugin.json，id 必须与 <paramref name="pluginId"/> 一致）。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>是否升级成功。</returns>
+    /// <remarks>
+    /// 卸载验证未通过时<b>中止安装</b>并返回 <c>false</c>：不允许在降级态下继续加载新版本，
+    /// 否则每升级一次就会多泄漏一份程序集。
+    /// </remarks>
+    public async Task<bool> UpgradeAsync(
+        string pluginId,
+        string sourceDirectory,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(pluginId);
+
+        if (string.IsNullOrWhiteSpace(sourceDirectory) || !Directory.Exists(sourceDirectory))
+            return false;
+
+        PluginEntry entry;
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            if (!_entries.TryGetValue(pluginId, out var found) || found.IsBuiltin)
+            {
+                Logger.Warn($"升级插件失败：未登记的插件或内置插件 {pluginId}");
+                return false;
+            }
+
+            entry = found;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+
+        // 新版本清单先行校验（避免先卸载了旧版本、却发现新包根本不可用）
+        var manifest = _loader.ReadManifest(sourceDirectory);
+        if (manifest is null || string.IsNullOrWhiteSpace(manifest.Id))
+            return false;
+
+        if (!string.Equals(manifest.Id, pluginId, StringComparison.OrdinalIgnoreCase))
+        {
+            Logger.Warn($"升级插件失败：源目录清单 id（{manifest.Id}）与目标插件（{pluginId}）不一致。");
+            return false;
+        }
+
+        var validation = _loader.Validate(manifest, sourceDirectory);
+        if (!validation.IsValid)
+        {
+            Logger.Warn($"升级插件失败（{pluginId}）：{validation.ToSummary()}");
+            return false;
+        }
+
+        var wasEnabled = entry.State == PluginState.Enabled;
+
+        // ① 完整卸载流程（旧版本处于启用态或仍持有 ALC 时）
+        if (wasEnabled || entry.Loaded is not null)
+        {
+            if (!await DisableAsync(pluginId, cancellationToken).ConfigureAwait(false))
+                return false;
+
+            // ② 卸载验证未通过 → 中止安装（PRD v0.18：不允许在降级态下加载新版本）
+            if (entry.RequiresRestart)
+            {
+                Logger.Warn(
+                    $"升级插件中止（{pluginId}）：旧版本程序集未能完全释放，请重启应用后再安装新版本。");
+                return false;
+            }
+        }
+
+        // ③ 复制新包（先清空旧目录，避免旧版本依赖残留）
+        var target = entry.Directory ?? Path.Combine(PluginLocation.BuiltinRoot, pluginId);
+
+        ManifestValidationResult? newValidation;
+        try
+        {
+            if (Directory.Exists(target))
+                Directory.Delete(target, recursive: true);
+
+            CopyDirectory(sourceDirectory, target);
+            newValidation = _loader.Validate(
+                _loader.ReadManifest(target) ?? manifest,
+                target);
+        }
+        catch (Exception ex)
+        {
+            Logger.Error($"升级插件失败（{pluginId}）：复制插件包出错。", ex);
+            return false;
+        }
+
+        if (newValidation is not null && !newValidation.IsValid)
+        {
+            Logger.Warn($"升级插件失败（{pluginId}）：新目录校验失败（{newValidation.ToSummary()}）。");
+            return false;
+        }
+
+        // ④ 刷新登记（新目录 + 新清单 + 回到 Installed）
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            entry.Directory = target;
+            entry.Manifest = _loader.ReadManifest(target) ?? manifest;
+            entry.Loaded = null;
+            entry.Scope = null;
+            entry.State = PluginState.Installed;
+            entry.RequiresRestart = false;
+            entry.LastError = null;
+            entry.ShouldEnableOnStartup = false;
+            entry.RegisteredSidebarEntries.Clear();
+            entry.RegisteredSkillIds.Clear();
+            entry.RegisteredMcpServers.Clear();
+
+            await PersistAsync(entry, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+
+        RaiseChanged(entry, PluginChangedKind.Upgraded);
+
+        // ⑤ 升级前处于启用态 → 重新启用新版本
+        if (wasEnabled && !await EnableAsync(pluginId, cancellationToken).ConfigureAwait(false))
+        {
+            Logger.Warn($"升级插件后重新启用失败：{pluginId}");
+            return false;
+        }
+
+        Logger.Info($"插件 {pluginId} 已升级至 {entry.Manifest?.Version}。");
         return true;
     }
 
@@ -636,7 +782,7 @@ public sealed class PluginManager
         // 第 1 步：通知插件关闭（退订事件、停定时器、释句柄、取消后台任务）。
         // 注意：本方法运行在 async 状态机上，任何跨越 await 存活的对 LoadedPlugin/ALC 的局部引用
         // 都会让第 6 步的弱引用验证永远失败，故所有强引用都收敛在同步辅助方法内部。
-        if (entry.Loaded is not null)
+        if (entry.Loaded is not null || entry.BuiltinPlugin is not null)
             await ShutdownPluginAsync(entry, cancellationToken).ConfigureAwait(false);
 
         // 第 2 步：注销 UI（侧栏条目 + 面板）—— 遍历「实际注册过的」集合，而非仅清单声明
@@ -722,12 +868,16 @@ public sealed class PluginManager
     /// <summary>
     /// 第 1 步：调用插件 <c>ShutdownAsync</c>（带超时与异常隔离）。
     /// </summary>
+    /// <remarks>
+    /// 内置插件没有 <see cref="PluginEntry.Loaded"/>（不来自 ALC），故实例从
+    /// <see cref="PluginEntry.BuiltinPlugin"/> 取；两类插件都必须收到关闭通知（PRD §3.5 第 1 步）。
+    /// </remarks>
     private async Task ShutdownPluginAsync(
         PluginEntry entry,
         CancellationToken cancellationToken)
     {
-        var loaded = entry.Loaded;
-        if (loaded is null)
+        var plugin = entry.Loaded?.Plugin ?? entry.BuiltinPlugin;
+        if (plugin is null)
             return;
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -736,7 +886,7 @@ public sealed class PluginManager
         var stopwatch = Stopwatch.StartNew();
         try
         {
-            await loaded.Plugin.ShutdownAsync(timeout.Token).ConfigureAwait(false);
+            await plugin.ShutdownAsync(timeout.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (timeout.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
         {
@@ -853,17 +1003,18 @@ public sealed class PluginManager
     /// <summary>
     /// 持久化插件状态。
     /// </summary>
+    /// <remarks>
+    /// 内置插件同样持久化（PRD §3.5 未对内置插件作例外）：否则「禁用后重启仍禁用」「开机恢复」在
+    /// 内置插件上失效，且 <see cref="ActivateBuiltinAsync"/> 的持久化写入会变成死代码。
+    /// </remarks>
     private async Task PersistAsync(PluginEntry entry, CancellationToken cancellationToken)
     {
-        if (entry.IsBuiltin)
-            return;
-
         var existing = await _stateRepository.GetAsync(entry.Id, cancellationToken).ConfigureAwait(false);
 
         var record = new PluginStateRecord
         {
             Id = entry.Id,
-            Version = entry.Manifest?.Version,
+            Version = entry.Manifest?.Version ?? entry.BuiltinPlugin?.Version,
             State = entry.State,
             InstalledAt = existing?.InstalledAt ?? DateTimeOffset.Now,
             LastError = entry.LastError,
@@ -1066,6 +1217,9 @@ public enum PluginChangedKind
 
     /// <summary>已卸载。</summary>
     Uninstalled,
+
+    /// <summary>已升级（热替换成功）。</summary>
+    Upgraded,
 
     /// <summary>进入错误态。</summary>
     Error

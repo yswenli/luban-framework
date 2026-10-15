@@ -65,7 +65,11 @@ public static class YunxiaoServiceCollectionExtensions
         });
 
         // 默认凭据提供者读配置；宿主（如 LubanAgentCodex）可在调用 AddLuBanAgent 后注册自己的实现覆盖。
-        services.TryAddSingleton<IYunxiaoCredentialProvider, ConfigurationYunxiaoCredentialProvider>();
+        // 注意：必须用工厂显式传入 configuration，不能按实现类型注册——否则容器需要解析 IConfiguration，
+        // 而宿主（含 AddLuBanAgentDefaults 的最小宿主与 AgentHostBuilder 的 ValidateOnBuild）未必把
+        // IConfiguration 本身注册为服务，会直接导致 "Unable to resolve service for type IConfiguration"。
+        services.TryAddSingleton<IYunxiaoCredentialProvider>(
+            _ => new ConfigurationYunxiaoCredentialProvider(configuration));
 
         services.TryAddSingleton<YunxiaoConnector>();
         services.TryAddSingleton<CodeupClient>();

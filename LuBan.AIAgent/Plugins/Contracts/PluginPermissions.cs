@@ -150,6 +150,16 @@ public sealed class PluginPermissions
 /// </summary>
 public sealed class PluginPermissionsConverter : JsonConverter<PluginPermissions>
 {
+    /// <summary>
+    /// <c>null</c> 令牌也交给本转换器处理。
+    /// </summary>
+    /// <remarks>
+    /// 默认值为 <c>false</c> 时，引用类型遇到 JSON <c>null</c> 会绕过转换器、把属性直接赋成 <c>null</c>，
+    /// 于是清单里写 <c>"permissions": null</c> 就会产生空引用，后续任何权限判断都会 NRE。
+    /// 置为 <c>true</c> 后统一归一化为「空权限」。
+    /// </remarks>
+    public override bool HandleNull => true;
+
     /// <inheritdoc />
     public override PluginPermissions Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
@@ -179,6 +189,14 @@ public sealed class PluginPermissionsConverter : JsonConverter<PluginPermissions
     /// <inheritdoc />
     public override void Write(Utf8JsonWriter writer, PluginPermissions value, JsonSerializerOptions options)
     {
+        // HandleNull = true 时 null 也会进到这里，必须自行处理（序列化为空对象，与「空权限」等价）。
+        if (value is null)
+        {
+            writer.WriteStartObject();
+            writer.WriteEndObject();
+            return;
+        }
+
         writer.WriteStartObject();
         foreach (var dimension in PluginPermissions.KnownDimensions)
         {
