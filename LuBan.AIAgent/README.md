@@ -402,6 +402,25 @@ AI: [调用 WriteMcpServerAsync] 已创建 MCP 配置，正在连接...
 | `OrchestrationProgress` / `OrchestrationProgressContent` | 编排进度事件与流式内容载体（`AIContent`），供 UI 在规划/节点执行期间实时渲染 |
 | `ReflectionResult` / `ReplanContext` | 动态重规划数据模型，关键节点失败后 LLM 分析并生成修正图谱 |
 
+### 插件体系
+
+插件是**应用级**的安装单元（`plugins/<id>/` 目录 + `plugin.json` 清单），宿主在运行期用可回收 `AssemblyLoadContext` 加载，禁用/卸载时按固定顺序断开引用并做 GC 弱引用验证。
+
+| 组件 | 说明 |
+|------|------|
+| `IPlugin` | 插件契约：`Id` / `Name` / `Version` / `Description` / `InitializeAsync` / `ShutdownAsync` / `ContributeSkills` |
+| `PluginBase` | 插件基类（命名空间 `LuBan.AIAgent.Plugins.Base`），提供 `Host` / `SafeLog` / `PostToUi`（失效令牌包装，禁止插件直调 UI 线程）与 `OnInitializeAsync` / `OnShutdownAsync` 钩子 |
+| `IPluginHost` | 宿主能力契约：注册/注销侧栏条目与面板、注册/注销 Skill 与 MCP、`PostToUi`、`GetConfig`、插件日志 |
+| `PluginManager` | 单例管理器：`ScanAsync` / `RestoreEnabledAsync` / `GetPlugins` / `EnableAsync` / `DisableAsync` / `InstallAsync` / `UpgradeAsync` / `UninstallAsync` 与 `Changed` 事件 |
+| `PluginLoader` / `ManifestValidator` | 清单读取与校验：必填项、id 与版本正则、入口程序集存在性、`minHostVersion` / `targetApp`、重复项、`transport`、依赖自引用 |
+| `PluginDependencyResolver` | 依赖拓扑与环检测（仅校验依赖存在性，不做自动启用） |
+| `PluginLocation` | 目录约定：`<AppContext.BaseDirectory>/plugins/<id>/{plugin.json, lib/, assets/}` |
+| `IPluginStateRepository` / `PluginStateRepository` | 状态持久化契约 + 默认 JSON 文件实现（`id` / `version` / `state` / `installedAt` / `lastError` / `requiresRestart`） |
+| `BuiltinPluginCatalog` | 内置插件目录：登记宿主随包发布的进程内 `IPlugin`（必须注册为 Singleton） |
+| `PluginHostScope` / `PluginDescriptor` / `PluginChangedEventArgs` | 插件身份回填与贡献记账、管理器界面用的只读描述、状态变更事件载荷 |
+
+目录语义：**插件只有应用级**（`<AppContext.BaseDirectory>/plugins/<plugin-id>/`）；插件**贡献的** Skill / MCP 则落工作区级（`.luban-agent/skills`、`.luban-agent/mcps`），随卸载被显式删除。
+
 ## 使用指南
 
 ### 1. 配置与注册
@@ -732,6 +751,92 @@ options.Value.OnApiRetry = notice =>
 - **子代理等待无限期**：`Orchestration.DefaultNodeTimeoutSeconds` 与 `ReflectionTimeoutSeconds` 默认 0（无限期）；显式配置大于 0 时才限时，节点仍可用 `TimeoutSeconds` 单独覆盖。
 - **规划不再「长时间无响应」**：`Orchestration.PlannerReasoningEffort` 控制规划/反思调用的推理强度，推理模型（如 glm-5）默认开思考时会在规划阶段输出大量 reasoning 内容，单次规划耗时可达 1 分钟以上；建议设为 `"none"` 关闭（默认 `null` 表示不传递该参数，兼容不支持 `reasoning_effort` 的非推理模型）。
 
+### 12. 插件体系
+
+插件 = 清单（`plugin.json`）+ 程序集（`lib/`）+ 静态资源（`assets/`）三件套，装到 `<AppContext.BaseDirectory>/plugins/<plugin-id>/`，宿主在运行期加载并允许禁用/卸载。
+
+**写第一个插件（随宿主发布的内置插件）**
+
+```csharp
+using LuBan.AIAgent.Plugins;
+using LuBan.AIAgent.Plugins.Base;   // PluginBase 在子命名空间，需显式 using
+
+public sealed class HelloPlugin : PluginBase
+{
+    public override string Id => "com.tjc.hello";
+    public override string Name => "Hello 插件";
+    public override string Version => "1.0.0";
+
+    protected override Task OnInitializeAsync(IPluginHost host, CancellationToken cancellationToken)
+    {
+        host.RegisterSidebarEntry(new PluginSidebarEntry
+        {
+            Id = "hello-entry",
+            Label = "Hello",
+            PanelType = "hello-panel"
+        });
+
+        host.RegisterMcpServer("hello-mcp");
+
+        return Task.CompletedTask;
+    }
+
+    public override IEnumerable<SkillDefinition> ContributeSkills()
+    {
+        yield return new SkillDefinition { Id = "hello-skill", Name = "Hello 技能" };
+    }
+}
+```
+
+注册到 DI —— **必须 `AddSingleton`**（`PluginManager` 的构造链只允许单例服务，宿主若开启 `ValidateScopes` 会直接抛错）：
+
+```csharp
+services.AddSingleton<IPlugin, HelloPlugin>();
+services.AddLuBanAgent(configuration);      // 内部注册 PluginManager / PluginLoader / 状态仓储
+services.AddSingleton<IPluginHost, MyPluginHost>();   // 宿主自己实现：落到真实 UI 与注册表
+```
+
+**写一个列表插件（`plugin.json`）**
+
+```json
+{
+  "id": "com.tjc.demo",
+  "name": "Demo 插件",
+  "version": "1.0.0",
+  "author": "TJC",
+  "description": "示例插件",
+  "entryAssembly": "Tjc.Demo.Plugin.dll",
+  "targetApp": "codex",
+  "minHostVersion": "2026.10.15",
+  "uiContributions": [{ "id": "demo-entry", "label": "Demo", "panelType": "demo-panel" }],
+  "skills": [{ "id": "demo-skill", "name": "Demo 技能" }],
+  "mcpServers": [{ "name": "demo-mcp", "transport": "inproc", "enabled": true }],
+  "permissions": { "filesystem": ["workspace"], "network": ["*"] },
+  "dependencies": ["com.tjc.base"]
+}
+```
+
+清单约定：
+
+| 字段 | 约定 |
+|------|------|
+| `id` | 必填，`^[a-zA-Z][a-zA-Z0-9._\-]{1,127}$` |
+| `name` / `version` / `entryAssembly` | 必填；版本形如 `1.0.0` 或 `1.0.0-beta.1` |
+| `skills[].id` | 不含点号（与 Skill 注册表约定一致） |
+| `mcpServers[].transport` | 目前仅支持 `inproc`（进程内 MCP 客户端） |
+| `permissions` | 6 个维度 `filesystem` / `network` / `git` / `database` / `process` / `credential`；可写数组简写 `["filesystem:workspace"]`，未声明的维度等价于不声明，`"permissions": null` 归一化为空权限 |
+| `dependencies` | 仅校验依赖插件是否存在且已启用，不允许自引用 |
+
+`plugin.json` 的 JSON Schema 随包发布（`Plugins/Schemas/plugin.schema.json`），编辑器可据此补全与校验。
+
+**生命周期与卸载语义**
+
+- 状态：`Installed` → `Enabled` → `Disabled`（`Error` 为异常分支），持久化后跨重启恢复：`ScanAsync` 恢复记忆（上次 `Enabled` 的插件标记为待启用），`RestoreEnabledAsync` 再实际启用它们。
+- 禁用/卸载严格按 **7 步**：① `ShutdownAsync` → ② 注销 UI 贡献 → ③ 注销 Skill / MCP（**必须先于 ALC 卸载**，否则注册表里的实例会变成残留强引用、卸载必然失败）→ ④ 删除落盘的工作区文件式 Skill / MCP → ⑤ `AssemblyLoadContext.Unload()` → ⑥ 多轮 `GC.Collect` + 弱引用验证 → ⑦ 未通过则**降级**为 `Disabled` 并置 `RequiresRestart = true`，提示用户重启、同时把引用链路写进诊断日志。
+- 插件在 `InitializeAsync` 中**自行注册**（而非清单声明）的侧栏条目 / Skill / MCP 同样被记账，卸载时一并精确注销，避免"插件已卸载、入口仍在"的幽灵状态。
+- `UpgradeAsync` 热替换：先对旧版本走完整卸载流程，**卸载验证通过才**复制新包并重新启用；验证未通过则中止升级（否则每升级一次就多泄漏一份程序集）。
+- `IPluginHost` 注册的 Skill / MCP 落到**工作区级**文件，因此卸载必须显式删除，否则宿主的 `LoadFromWorkspace()` 会把它们重新加载回来。
+
 ## 支持的 AI Provider
 
 | Provider | 显示名称 | 支持的模型 |
@@ -906,6 +1011,34 @@ LuBan.AIAgent/
 │   └── Exceptions/                    # 异常定义
 │       ├── TaskPlanningException.cs   # 规划异常
 │       └── NodeExecutionException.cs  # 节点执行异常
+├── Plugins/                           # 插件体系（应用级插件：清单 + 可回收 ALC 生命周期）
+│   ├── Base/
+│   │   ├── PluginBase.cs              # 插件基类（Host/SafeLog/PostToUi + 初始化与关闭钩子）
+│   │   └── BuiltinPluginCatalog.cs    # 内置插件目录（随宿主发布）
+│   ├── Contracts/                     # 契约：IPlugin / IPluginHost / IPluginPanel / 状态仓储
+│   │   ├── IPlugin.cs                 # 插件契约
+│   │   ├── IPluginHost.cs             # 宿主能力契约（侧栏/面板/Skill/MCP/日志/UI 回调）
+│   │   ├── IPluginPanel.cs            # 插件面板契约（UI 无关）
+│   │   ├── IPluginStateRepository.cs  # 状态持久化契约
+│   │   ├── PluginManifest.cs          # plugin.json 清单模型
+│   │   ├── PluginPermissions.cs       # 权限声明（6 维度 + 数组/对象双形态 JSON 转换器）
+│   │   ├── PluginSidebarEntry.cs      # 侧栏条目声明
+│   │   ├── PluginCommandDescriptor.cs # 命令声明
+│   │   ├── SkillDefinition.cs         # 插件贡献的 Skill 声明
+│   │   └── PluginState.cs             # 生命周期状态枚举（4 态）
+│   ├── Loading/
+│   │   ├── PluginLoader.cs            # 加载入口（清单 + 入口程序集 + IPlugin 实例）
+│   │   ├── PluginFactory.cs           # IPlugin 反射实例化（带 IL2067 抑制）
+│   │   ├── PluginLocation.cs          # 目录约定与解析（仅应用级）
+│   │   ├── ManifestValidator.cs       # 清单校验
+│   │   └── PluginDependencyResolver.cs# 依赖拓扑与环检测
+│   ├── Lifecycle/
+│   │   ├── PluginManager.cs           # 扫描/启用/禁用/安装/升级/卸载编排 + 7 步卸载与 GC 验证
+│   │   ├── PluginLoadContext.cs       # 可回收 AssemblyLoadContext（lib/ 优先，根部回退）
+│   │   ├── PluginHostScope.cs         # 宿主能力代理 + 贡献记账
+│   │   └── PluginStateRepository.cs   # 状态仓储 JSON 默认实现
+│   └── Schemas/
+│       └── plugin.schema.json         # plugin.json 的 JSON Schema（随包发布）
 ├── LuBanAgent.cs                      # Agent 实例
 ├── LuBanAgentFactory.cs               # Agent 工厂
 ├── LuBanAgentExtensions.cs            # DI 扩展方法
@@ -927,6 +1060,7 @@ LuBan.AIAgent/
 - **规则拦截**在工具执行前自动检查，支持 deny/allow/modify
 - **MCP 工具集成**，外部 MCP 服务器工具自动暴露给 Agent
 - 通过 `ExternalPlugins` 配置可热加载外部工具插件程序集
+- **插件体系**：应用级插件（`plugins/<id>/` + `plugin.json`）走可回收 ALC，支持启用/禁用/升级/卸载；卸载按 7 步顺序断引用并做 GC 弱引用验证，未通过则降级 `Disabled` 并提示重启
 - 结合 LuBan.AIFlow 可对接 RagFlow / Dify / Coze 等 AI 平台
 - **多 Agent 编排**：复合任务自动拆解为 DAG，SubAgent 串行/并行混合执行，支持关键节点失败跳过、超时控制、上下文传递
 - **附件支持**：`IAttachmentProcessor` 统一处理图片与文本文件；图片本地缩放后以 base64 `DataContent` 发送，大文本仅注入路径指引；会话仅持久化路径与元数据

@@ -402,6 +402,25 @@ Main Agent parses composite tasks → decomposes into DAG task graph → dispatc
 | `OrchestrationToolPlugin` | Tool plugin, exposes orchestration capability to main Agent |
 | `ReflectionResult` / `ReplanContext` | Dynamic replanning models, LLM analyzes failures and generates fix graph after critical node failure |
 
+### Plugin System
+
+A plugin is an **application-level** install unit (`plugins/<id>/` directory plus a `plugin.json` manifest). The host loads it at runtime through a collectible `AssemblyLoadContext`, and on disable/uninstall it breaks every reference in a fixed order and verifies them with GC weak-reference assertions.
+
+| Component | Description |
+|------|------|
+| `IPlugin` | Plugin contract: `Id` / `Name` / `Version` / `Description` / `InitializeAsync` / `ShutdownAsync` / `ContributeSkills` |
+| `PluginBase` | Plugin base class (namespace `LuBan.AIAgent.Plugins.Base`), providing `Host` / `SafeLog` / `PostToUi` (wrapped in an invalidation token, plugins must never post to the UI thread directly) and `OnInitializeAsync` / `OnShutdownAsync` hooks |
+| `IPluginHost` | Host capability contract: register/unregister sidebar entries and panels, register/unregister Skills and MCP servers, `PostToUi`, `GetConfig`, plugin logging |
+| `PluginManager` | Singleton manager: `ScanAsync` / `RestoreEnabledAsync` / `GetPlugins` / `EnableAsync` / `DisableAsync` / `InstallAsync` / `UpgradeAsync` / `UninstallAsync`, plus the `Changed` event |
+| `PluginLoader` / `ManifestValidator` | Manifest reading and validation: required fields, id/version regexes, entry assembly existence, `minHostVersion` / `targetApp`, duplicates, `transport`, dependency self-reference |
+| `PluginDependencyResolver` | Dependency topology and cycle detection (validates existence only, never auto-enables) |
+| `PluginLocation` | Directory convention: `<AppContext.BaseDirectory>/plugins/<id>/{plugin.json, lib/, assets/}` |
+| `IPluginStateRepository` / `PluginStateRepository` | State persistence contract plus the default JSON-file implementation (`id` / `version` / `state` / `installedAt` / `lastError` / `requiresRestart`) |
+| `BuiltinPluginCatalog` | Built-in plugin catalog that registers in-process `IPlugin` instances shipped with the host (must be registered as Singleton) |
+| `PluginHostScope` / `PluginDescriptor` / `PluginChangedEventArgs` | Plugin identity backfill and contribution bookkeeping, read-only descriptor for manager UIs, state-change event payload |
+
+Directory semantics: **plugins exist at application level only** (`<AppContext.BaseDirectory>/plugins/<plugin-id>/`); the Skills / MCP servers a plugin **contributes** land at workspace level (`.luban-agent/skills`, `.luban-agent/mcps`) and are explicitly deleted on uninstall.
+
 ## Usage Guide
 
 ### 1. Configuration & Registration
@@ -735,6 +754,92 @@ Notes:
 - **Unbounded sub-agent waits**: `Orchestration.DefaultNodeTimeoutSeconds` and `ReflectionTimeoutSeconds` default to 0 (unbounded); set them above 0 to enforce limits, and `TimeoutSeconds` can still override per node.
 - **Planning no longer hangs**: `Orchestration.PlannerReasoningEffort` controls the reasoning effort of planning/reflection calls. Reasoning models (e.g. glm-5) emit large amounts of reasoning content during planning by default, which can take over a minute per call; set it to `"none"` to disable reasoning (`null`, the default, sends nothing and stays compatible with non-reasoning models that do not support `reasoning_effort`).
 
+### 12. Plugin System
+
+A plugin is a triple of manifest (`plugin.json`) + assemblies (`lib/`) + static assets (`assets/`), installed into `<AppContext.BaseDirectory>/plugins/<plugin-id>/`, loaded by the host at runtime, and disableable/uninstallable.
+
+**Write your first plugin (built-in, shipped with the host)**
+
+```csharp
+using LuBan.AIAgent.Plugins;
+using LuBan.AIAgent.Plugins.Base;   // PluginBase lives in a sub-namespace; add the using explicitly
+
+public sealed class HelloPlugin : PluginBase
+{
+    public override string Id => "com.tjc.hello";
+    public override string Name => "Hello Plugin";
+    public override string Version => "1.0.0";
+
+    protected override Task OnInitializeAsync(IPluginHost host, CancellationToken cancellationToken)
+    {
+        host.RegisterSidebarEntry(new PluginSidebarEntry
+        {
+            Id = "hello-entry",
+            Label = "Hello",
+            PanelType = "hello-panel"
+        });
+
+        host.RegisterMcpServer("hello-mcp");
+
+        return Task.CompletedTask;
+    }
+
+    public override IEnumerable<SkillDefinition> ContributeSkills()
+    {
+        yield return new SkillDefinition { Id = "hello-skill", Name = "Hello Skill" };
+    }
+}
+```
+
+Register it in DI — **`AddSingleton` is mandatory** (the `PluginManager` constructor chain may only contain singleton services; hosts that enable `ValidateScopes` will throw otherwise):
+
+```csharp
+services.AddSingleton<IPlugin, HelloPlugin>();
+services.AddLuBanAgent(configuration);      // registers PluginManager / PluginLoader / state repository
+services.AddSingleton<IPluginHost, MyPluginHost>();   // host-supplied: wires into real UI and registries
+```
+
+**Write a directory-based plugin (`plugin.json`)**
+
+```json
+{
+  "id": "com.tjc.demo",
+  "name": "Demo Plugin",
+  "version": "1.0.0",
+  "author": "TJC",
+  "description": "Sample plugin",
+  "entryAssembly": "Tjc.Demo.Plugin.dll",
+  "targetApp": "codex",
+  "minHostVersion": "2026.10.15",
+  "uiContributions": [{ "id": "demo-entry", "label": "Demo", "panelType": "demo-panel" }],
+  "skills": [{ "id": "demo-skill", "name": "Demo Skill" }],
+  "mcpServers": [{ "name": "demo-mcp", "transport": "inproc", "enabled": true }],
+  "permissions": { "filesystem": ["workspace"], "network": ["*"] },
+  "dependencies": ["com.tjc.base"]
+}
+```
+
+Manifest conventions:
+
+| Field | Convention |
+|------|------|
+| `id` | Required, `^[a-zA-Z][a-zA-Z0-9._\-]{1,127}$` |
+| `name` / `version` / `entryAssembly` | Required; version looks like `1.0.0` or `1.0.0-beta.1` |
+| `skills[].id` | Must not contain dots (matches the Skill registry convention) |
+| `mcpServers[].transport` | Only `inproc` is supported for now (in-process MCP client) |
+| `permissions` | Six dimensions `filesystem` / `network` / `git` / `database` / `process` / `credential`; the array shorthand `["filesystem:workspace"]` is accepted, an omitted dimension is equivalent to undeclared, and `"permissions": null` normalizes to empty permissions |
+| `dependencies` | Only verifies that the dependency plugin exists and is enabled; self-reference is rejected |
+
+A JSON Schema for `plugin.json` ships with the package (`Plugins/Schemas/plugin.schema.json`) so editors can complete and validate it.
+
+**Lifecycle and unload semantics**
+
+- States: `Installed` → `Enabled` → `Disabled` (with `Error` as the exception branch), persisted across restarts: `ScanAsync` restores the memory (plugins last left `Enabled` are marked for startup), and `RestoreEnabledAsync` actually enables them.
+- Disable/uninstall always follows **7 steps**: ① `ShutdownAsync` → ② unregister UI contributions → ③ unregister Skills / MCP servers (**must happen before the ALC unload**, otherwise registry-held instances become lingering strong references and unload inevitably fails) → ④ delete the workspace file-based Skills / MCP servers → ⑤ `AssemblyLoadContext.Unload()` → ⑥ several rounds of `GC.Collect` plus weak-reference verification → ⑦ on failure, **degrade** to `Disabled` with `RequiresRestart = true`, tell the user to restart, and write the reference chain to the diagnostic log.
+- Entries a plugin **registers itself** during `InitializeAsync` (rather than declaring in the manifest) are tracked too, and are unregistered precisely on unload, preventing "plugin uninstalled but entry still visible" ghost states.
+- `UpgradeAsync` (hot replacement): runs the full unload flow on the old version and **only copies the new package when unload verification passed**, then re-enables it; otherwise the upgrade is aborted (otherwise every upgrade would leak another assembly).
+- Skills / MCP servers registered through `IPluginHost` land as **workspace-level** files, so uninstall must delete them explicitly; otherwise the host's `LoadFromWorkspace()` will simply load them back.
+
 ## Supported AI Providers
 
 | Provider | Display Name | Supported Models |
@@ -909,6 +1014,34 @@ LuBan.AIAgent/
 │   └── Exceptions/                    # Exception definitions
 │       ├── TaskPlanningException.cs   # Planning exception
 │       └── NodeExecutionException.cs  # Node execution exception
+├── Plugins/                           # Plugin system (application-level plugins: manifest + collectible ALC lifecycle)
+│   ├── Base/
+│   │   ├── PluginBase.cs              # Plugin base class (Host/SafeLog/PostToUi + init/shutdown hooks)
+│   │   └── BuiltinPluginCatalog.cs    # Built-in plugin catalog (shipped with the host)
+│   ├── Contracts/                     # Contracts: IPlugin / IPluginHost / IPluginPanel / state repository
+│   │   ├── IPlugin.cs                 # Plugin contract
+│   │   ├── IPluginHost.cs             # Host capability contract (sidebar/panel/Skill/MCP/logging/UI callback)
+│   │   ├── IPluginPanel.cs            # Plugin panel contract (UI-agnostic)
+│   │   ├── IPluginStateRepository.cs  # State persistence contract
+│   │   ├── PluginManifest.cs          # plugin.json manifest model
+│   │   ├── PluginPermissions.cs       # Permission declarations (6 dimensions + array/object JSON converter)
+│   │   ├── PluginSidebarEntry.cs      # Sidebar entry declaration
+│   │   ├── PluginCommandDescriptor.cs # Command declaration
+│   │   ├── SkillDefinition.cs         # Skill declaration contributed by a plugin
+│   │   └── PluginState.cs             # Lifecycle state enum (4 states)
+│   ├── Loading/
+│   │   ├── PluginLoader.cs            # Loading entry (manifest + entry assembly + IPlugin instance)
+│   │   ├── PluginFactory.cs           # IPlugin instantiation via reflection (with IL2067 suppression)
+│   │   ├── PluginLocation.cs          # Directory convention and resolution (application level only)
+│   │   ├── ManifestValidator.cs       # Manifest validation
+│   │   └── PluginDependencyResolver.cs# Dependency topology and cycle detection
+│   ├── Lifecycle/
+│   │   ├── PluginManager.cs           # Scan/enable/disable/install/upgrade/uninstall orchestration + 7-step unload and GC verification
+│   │   ├── PluginLoadContext.cs       # Collectible AssemblyLoadContext (lib/ first, falls back to the root)
+│   │   ├── PluginHostScope.cs         # Host capability proxy + contribution bookkeeping
+│   │   └── PluginStateRepository.cs   # Default JSON state repository
+│   └── Schemas/
+│       └── plugin.schema.json         # JSON Schema for plugin.json (shipped in the package)
 ├── LuBanAgent.cs                      # Agent instance
 ├── LuBanAgentFactory.cs               # Agent factory
 ├── LuBanAgentExtensions.cs            # DI extension methods
@@ -930,6 +1063,7 @@ LuBan.AIAgent/
 - **Rule interception** checks before tool execution, supports deny/allow/modify
 - **MCP tool integration**, external MCP server tools exposed to Agent
 - External tool plugin assemblies can be hot-loaded via `ExternalPlugins` configuration
+- **Plugin system**: application-level plugins (`plugins/<id>/` + `plugin.json`) use a collectible ALC and support enable/disable/upgrade/uninstall; uninstall breaks references in a fixed 7-step order and verifies them with GC weak references, degrading to `Disabled` with a restart hint when verification fails
 - Combine with LuBan.AIFlow to connect to RagFlow / Dify / Coze and other AI platforms
 - **Multi-Agent Orchestration**: composite tasks decomposed into DAG, SubAgents execute serially/parallelly with skip-on-failure, timeout, and context passing
 - **Attachment Support**: `IAttachmentProcessor` handles images and text files uniformly; images are resized locally and sent as base64 `DataContent`, large text injects only a path hint, and sessions persist paths/metadata only
