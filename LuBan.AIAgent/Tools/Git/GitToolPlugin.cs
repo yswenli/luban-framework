@@ -206,6 +206,26 @@ public class GitToolGroup
         return null;
     }
 
+    /// <summary>
+    /// 复制一份参数字典并把其中的字符串值统一脱敏（URL 内嵌凭据），
+    /// 供工具确认弹窗使用，避免明文 PAT 泄漏（PRD §4.9.3）。
+    /// </summary>
+    private static Dictionary<string, object?> MaskArguments(Dictionary<string, object?> arguments)
+    {
+        if (arguments.Count == 0)
+            return arguments;
+
+        var masked = new Dictionary<string, object?>(arguments.Count);
+        foreach (var kvp in arguments)
+        {
+            masked[kvp.Key] = kvp.Value is string s
+                ? SecretMasker.MaskUrlCredentials(s)
+                : kvp.Value;
+        }
+
+        return masked;
+    }
+
     private async Task<ToolResult<string>?> ConfirmOrBlockAsync(
         string toolName, string? path, Dictionary<string, object?> arguments)
     {
@@ -229,13 +249,16 @@ public class GitToolGroup
     {
         var dir = ResolveWorkingDirectory(workingDirectory);
         var pathForConfirm = confirmPath ?? dir;
-        if (await ConfirmOrBlockAsync(toolName, pathForConfirm, arguments) is { } blocked)
+        // 确认弹窗参数统一脱敏，避免含 PAT 的 URL 明文出现在弹窗上（PRD §4.9.3）
+        var safeArguments = MaskArguments(arguments);
+        if (await ConfirmOrBlockAsync(toolName, pathForConfirm, safeArguments) is { } blocked)
             return blocked;
 
         try
         {
             var timeout = timeoutMs ?? _options.DefaultTimeout;
-            var commandLine = "git " + string.Join(" ", args);
+            // 命令行会写入 ToolResult 并进入会话记录，同样必须脱敏
+            var commandLine = SecretMasker.MaskUrlCredentials("git " + string.Join(" ", args));
 
             var result = await _processRunner.RunAsync(
                 "git", string.Empty, dir,
@@ -581,21 +604,25 @@ public class GitToolGroup
 
     /// <summary>克隆仓库。</summary>
     /// <param name="url">远端地址。</param>
+    /// <param name="branch">分支或标签（对应 git clone -b，可选）。</param>
     /// <param name="directory">目标目录。</param>
     /// <param name="workingDirectory">执行目录。</param>
     /// <param name="timeoutMs">超时毫秒。</param>
-    [Description("git clone 克隆远端仓库。")]
-    public Task<ToolResult<string>> GitCloneAsync(string url, string? directory = null, string? workingDirectory = null, int? timeoutMs = null)
+    [Description("git clone 克隆远端仓库。branch 指定分支或标签（对应 -b，可选）。")]
+    public Task<ToolResult<string>> GitCloneAsync(string url, string? branch = null, string? directory = null, string? workingDirectory = null, int? timeoutMs = null)
     {
         if (RejectOptionLike(nameof(url), url) is { } reject) return Task.FromResult(reject);
+        if (RejectOptionLike(nameof(branch), branch) is { } rejectBranch) return Task.FromResult(rejectBranch);
         if (RejectOptionLike(nameof(directory), directory) is { } rejectDirectory) return Task.FromResult(rejectDirectory);
         var baseDir = ResolveWorkingDirectory(workingDirectory) ?? Directory.GetCurrentDirectory();
         var target = string.IsNullOrWhiteSpace(directory) ? baseDir : Path.GetFullPath(directory!, baseDir);
 
-        var args = new List<string> { "clone", url };
+        var args = new List<string> { "clone" };
+        if (!string.IsNullOrWhiteSpace(branch)) { args.Add("-b"); args.Add(branch!); }
+        args.Add(url);
         if (!string.IsNullOrWhiteSpace(directory)) args.Add(directory!);
         return RunGitAsync(nameof(GitCloneAsync), args, workingDirectory, timeoutMs, false,
-            new Dictionary<string, object?> { ["url"] = url, ["directory"] = target, ["workingDirectory"] = workingDirectory },
+            new Dictionary<string, object?> { ["url"] = url, ["branch"] = branch, ["directory"] = target, ["workingDirectory"] = workingDirectory },
             confirmPath: target);
     }
 

@@ -236,7 +236,7 @@ public class YunxiaoMCPClient : MCPClientBase, IDisposable
         var result = await client.PushAsync(remoteUrl!, localPath!, branch, force, cancellationToken);
 
         return result
-            ? Ok(new { localPath, remoteUrl, branch }.ToJson())
+            ? Ok(new { localPath, remoteUrl = SecretMasker.MaskUrlCredentials(remoteUrl), branch }.ToJson())
             : Fail("推送失败");
     }
 
