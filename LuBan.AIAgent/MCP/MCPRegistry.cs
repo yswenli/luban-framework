@@ -267,6 +267,82 @@ public class MCPRegistry
     public bool IsBuiltin(string name) => _hardcoded.ContainsKey(name);
 
     /// <summary>
+    /// 注册一个进程内插件 MCP 客户端（不走 stdio/http 子进程通道）。
+    /// </summary>
+    /// <remarks>
+    /// 插件贡献的 MCP 客户端（如进程内 <c>YunxiaoMCPClient</c>）无法用文件式 <c>mcps/*.json</c>
+    /// 描述（<c>McpServerConfig.Command</c> 为必填，会强制外部进程，且 PAT 需明文落盘）。
+    /// 故提供此实例注册口，随插件启用注入、禁用/卸载时经
+    /// <see cref="UnregisterPluginClient"/> 显式注销——<b>注销必须先于 ALC 卸载</b>，
+    /// 否则注册表持有的强引用会导致插件程序集无法回收。
+    /// </remarks>
+    /// <param name="client">进程内 MCP 客户端实例</param>
+    /// <returns>是否注册成功（同名已存在时覆盖并返回 false）</returns>
+    public bool RegisterPluginClient(IMCPClient client)
+    {
+        ArgumentNullException.ThrowIfNull(client);
+
+        _lock.EnterWriteLock();
+        try
+        {
+            var overwritten = _hardcoded.ContainsKey(client.Name);
+            _hardcoded[client.Name] = client;
+            RebuildMerged();
+            return !overwritten;
+        }
+        finally
+        {
+            _lock.ExitWriteLock();
+        }
+    }
+
+    /// <summary>
+    /// 注销一个进程内插件 MCP 客户端。
+    /// </summary>
+    /// <remarks>
+    /// 必须先断开连接并释放实例，再从注册表移除，确保插件程序集可被 ALC 回收。
+    /// 内置客户端（随框架 DI 注入）不应经此方法移除。
+    /// </remarks>
+    /// <param name="name">客户端名称</param>
+    /// <returns>是否成功注销（未找到时返回 false）</returns>
+    public bool UnregisterPluginClient(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return false;
+
+        IMCPClient? removed = null;
+        _lock.EnterWriteLock();
+        try
+        {
+            if (_hardcoded.Remove(name, out var client))
+            {
+                removed = client;
+                RebuildMerged();
+            }
+        }
+        finally
+        {
+            _lock.ExitWriteLock();
+        }
+
+        if (removed == null)
+            return false;
+
+        try
+        {
+            if (removed.IsConnected)
+                removed.DisconnectAsync().GetAwaiter().GetResult();
+        }
+        catch (Exception ex)
+        {
+            Logger.Debug($"注销插件 MCP 客户端时断开连接失败: {name}", ex);
+        }
+
+        (removed as IDisposable)?.Dispose();
+        return true;
+    }
+
+    /// <summary>
     /// 连接全部非内置的 MCP 客户端。
     /// </summary>
     /// <param name="cancellationToken">取消令牌。</param>
