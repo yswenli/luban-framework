@@ -142,6 +142,9 @@ Skills, MCPs, and Rules use a unified three-tier priority registry pattern:
 | **Orchestration Tools** | `orchestration` | Expose `plan_task` / `run_orchestration` so the model itself detects composite tasks and dispatches SubAgents to run a DAG (opt-in, requires `Orchestration.Enabled=true`) |
 | **Wiki Knowledge Base Tools** | `wiki` | Read/write/delete wiki pages, vector search, health check (opt-in, must be named in `ToolGroups`) |
 | **Log Analysis Tools** | `log` | Aggregate overview, regex search (filter by level/time/line range), and line slicing for large log files with constant memory (enabled by default, non-opt-in) |
+| **Skill Consumption Tools** | `skill` | List available Skills (with keyword search), load and use Skill prompt templates; confirmation-free within the workspace root (enabled by default) |
+| **Skill Management Tools** | `skillmanage` | Create/overwrite/delete workspace-level Skills; built-in Skills cannot be overwritten or deleted; write/delete operations require user confirmation (enabled by default) |
+| **MCP Management Tools** | `mcpmanage` | Create/overwrite/delete workspace-level MCP configurations, test MCP connections; built-in MCPs cannot be overwritten or deleted; write/delete operations require user confirmation (enabled by default) |
 
 > **Script execution notes**: The Shell tool auto-detects the runtime (on Windows `pwsh` > `powershell` > `cmd`; on Unix-like `bash` > `sh`), adapts argument style and quoting to the interpreter, and returns the actual `shell`/`shellPath`/`platform` in the result. The Lua tool runs on an embedded MoonSharp soft sandbox with no external `lua` interpreter required; the sandbox has no file-system or system-command access, and results are emitted via `print`.
 
@@ -250,6 +253,76 @@ Prompt template content here...
 - User-level: `%LocalAppData%/LuBan/AIAgent/skills/<skill-id>/SKILL.md`
 
 **Priority**: Hardcoded (DI) > Workspace files > config.json
+
+### Conversational Skill/MCP Management
+
+Create, use, and manage Skills and MCP servers through natural language conversation without manual config editing.
+
+**Core Capabilities**:
+
+| Feature | Tool | Description |
+|---------|------|-------------|
+| List Skills | `ListSkillsAsync` | List all available Skills, with optional keyword search, sorted by Id |
+| Use Skill | `UseSkillAsync` | Load a specific Skill's prompt template, auto-inject into current conversation |
+| Create Skill | `WriteSkillAsync` | Create or overwrite a workspace-level Skill, generating SKILL.md file |
+| Delete Skill | `DeleteSkillAsync` | Delete a workspace-level Skill |
+| Create MCP | `WriteMcpServerAsync` | Create or overwrite a workspace-level MCP server config, generating JSON file |
+| Delete MCP | `DeleteMcpServerAsync` | Delete a workspace-level MCP config |
+| Test MCP | `TestMcpServerAsync` | Test MCP server connection, without persisting the configuration |
+
+**Usage Examples** (natural language conversation):
+
+```
+User: "List all available Skills"
+AI: [calls ListSkillsAsync] There are 10 built-in Skills available...
+
+User: "Create a Skill named code-review-v2, described as code quality review assistant"
+AI: [calls WriteSkillAsync] Created Skill 'code-review-v2', available in the next conversation turn
+
+User: "Add an MCP server named weather-api, command is node, arguments are weather-server.js"
+AI: [calls WriteMcpServerAsync] Created MCP configuration, connecting...
+```
+
+**Security Protections**:
+
+- Built-in Skills/MCPs cannot be overwritten or deleted
+- Skill IDs must match `^[a-z0-9][a-z0-9_-]{0,63}$` format
+- Single SKILL.md file size limit: 256KB
+- Write/delete operations require user confirmation (recorded as plan items in Plan mode)
+- Changes take effect in the next conversation turn (delayed reload mechanism)
+
+**Storage Locations**:
+
+- Skill: `<workspace>/.luban-agent/skills/<skill-id>/SKILL.md`
+- MCP: `<workspace>/.luban-agent/mcps/<mcp-name>.json`
+
+**Configuration Options**:
+
+```json
+{
+  "LuBanAgent": {
+    "Tools": {
+      "Skill": {
+        "Enabled": true,
+        "CatalogEnabled": true,
+        "CatalogMaxEntries": 50
+      },
+      "SkillManage": {
+        "Enabled": true,
+        "MaxSkillFileBytes": 262144
+      },
+      "McpManage": {
+        "Enabled": true
+      }
+    },
+    "Mcp": {
+      "ConnectTimeoutSeconds": 10
+    }
+  }
+}
+```
+
+**Auto-Connection**: On Agent startup, all external MCPs are auto-connected (skipping built-in `filesystem`), and the Agent is automatically rebuilt at the end of a turn when configurations are modified, making new configs effective immediately.
 
 ### Rule System
 

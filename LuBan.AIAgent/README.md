@@ -141,6 +141,9 @@ Skills、MCPs、Rules 采用统一的三级优先级注册表模式：
 | **编排工具** | `orchestration` | 向模型暴露 `plan_task` / `run_orchestration`，由模型自行判定复合任务并调度 SubAgent 执行 DAG（opt-in，需 `Orchestration.Enabled=true`） |
 | **Wiki 知识库工具** | `wiki` | 读取/写入/删除 wiki 页面、向量搜索、健康检查（opt-in，需在 `ToolGroups` 中显式点名） |
 | **大日志分析工具** | `log` | 大日志文件聚合概览、正则检索（级别/时间/行区间过滤）、按行切片，恒定内存（默认启用，非 opt-in） |
+| **Skill 消费工具** | `skill` | 列出可用 Skill（支持关键词搜索）、加载并使用 Skill 模板指令；工作区根路径内免确认（默认启用） |
+| **Skill 管理工具** | `skillmanage` | 创建/覆盖/删除工作区级 Skill；内置 Skill 不可覆盖删除；写/删操作需用户确认（默认启用） |
+| **MCP 管理工具** | `mcpmanage` | 创建/覆盖/删除工作区级 MCP 配置、测试 MCP 连接；内置 MCP 不可覆盖删除；写/删操作需用户确认（默认启用） |
 
 > **脚本执行说明**：Shell 工具会自动探测运行环境（Windows 优先 `pwsh` > `powershell` > `cmd`，类 Unix 优先 `bash` > `sh`），并按解释器自动适配参数风格与引用方式，执行结果中回传实际使用的 `shell`/`shellPath`/`platform`。Lua 工具基于内嵌 MoonSharp 软沙箱执行，无需外部 `lua` 解释器，沙箱不具备文件系统与系统命令能力，结果通过 `print` 输出。
 
@@ -249,6 +252,76 @@ category: custom
 - 用户级: `%LocalAppData%/LuBan/AIAgent/skills/<skill-id>/SKILL.md`
 
 **优先级**：硬编码（DI）> 工作区文件 > config.json
+
+### 对话式 Skill/MCP 管理
+
+通过自然语言对话直接创建、使用和管理 Skill 与 MCP 服务器，无需手动编辑配置文件。
+
+**核心能力**：
+
+| 功能 | 工具 | 说明 |
+|------|------|------|
+| 列出 Skill | `ListSkillsAsync` | 列出所有可用 Skill，支持关键词搜索，返回按 Id 排序的列表 |
+| 使用 Skill | `UseSkillAsync` | 加载指定 Skill 的提示词模板，自动注入到当前对话 |
+| 创建 Skill | `WriteSkillAsync` | 创建或覆盖工作区级 Skill，生成 SKILL.md 文件 |
+| 删除 Skill | `DeleteSkillAsync` | 删除工作区级 Skill |
+| 创建 MCP | `WriteMcpServerAsync` | 创建或覆盖工作区级 MCP 服务器配置，生成 JSON 配置文件 |
+| 删除 MCP | `DeleteMcpServerAsync` | 删除工作区级 MCP 配置 |
+| 测试 MCP | `TestMcpServerAsync` | 测试 MCP 服务器连接，不持久化配置 |
+
+**使用示例**（自然语言对话）：
+
+```
+用户: "列出所有可用的 Skill"
+AI: [调用 ListSkillsAsync] 当前有 10 个内置 Skill...
+
+用户: "创建一个名为 code-review-v2 的 Skill，描述是代码质量审查助手"
+AI: [调用 WriteSkillAsync] 已创建 Skill 'code-review-v2'，下一轮对话即可使用
+
+用户: "添加一个 MCP 服务器，名称是 weather-api，命令是 node，参数是 weather-server.js"
+AI: [调用 WriteMcpServerAsync] 已创建 MCP 配置，正在连接...
+```
+
+**安全保护**：
+
+- 内置 Skill/MCP 不可覆盖或删除
+- Skill ID 必须符合 `^[a-z0-9][a-z0-9_-]{0,63}$` 格式
+- 单个 SKILL.md 文件大小限制 256KB
+- 写入/删除操作需用户确认（Plan 模式下记录为计划项）
+- 修改后下一轮对话生效（延迟重载机制）
+
+**存储位置**：
+
+- Skill: `<workspace>/.luban-agent/skills/<skill-id>/SKILL.md`
+- MCP: `<workspace>/.luban-agent/mcps/<mcp-name>.json`
+
+**配置选项**：
+
+```json
+{
+  "LuBanAgent": {
+    "Tools": {
+      "Skill": {
+        "Enabled": true,
+        "CatalogEnabled": true,
+        "CatalogMaxEntries": 50
+      },
+      "SkillManage": {
+        "Enabled": true,
+        "MaxSkillFileBytes": 262144
+      },
+      "McpManage": {
+        "Enabled": true
+      }
+    },
+    "Mcp": {
+      "ConnectTimeoutSeconds": 10
+    }
+  }
+}
+```
+
+**自动连接**：Agent 启动时自动连接所有外部 MCP（跳过内置 `filesystem`），配置修改后在回合结束时自动重建 Agent，使新配置立即生效。
 
 ### Rule 系统
 
