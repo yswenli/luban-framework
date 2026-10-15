@@ -82,7 +82,7 @@ public sealed class PluginManager
     /// <summary>
     /// 扫描插件目录与内置插件，登记为 <see cref="PluginState.Installed"/> 或恢复已持久化状态。
     /// </summary>
-    /// <param name="roots">插件根目录列表；为空时按 PRD §3.3「用户级 → 应用内置」解析。</param>
+    /// <param name="roots">插件根目录列表；为空时按 PRD §3.3 取应用级插件根目录。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     /// <returns>扫描后登记的插件数量。</returns>
     public async Task<int> ScanAsync(IEnumerable<string>? roots = null, CancellationToken cancellationToken = default)
@@ -120,7 +120,7 @@ public sealed class PluginManager
                     if (manifest is null || string.IsNullOrWhiteSpace(manifest.Id))
                         continue;
 
-                    // 用户级优先：先登记者胜出（roots 顺序即优先级）
+                    // 同名插件先登记者胜出（roots 顺序即优先级）
                     if (_entries.ContainsKey(manifest.Id))
                         continue;
 
@@ -315,7 +315,7 @@ public sealed class PluginManager
     }
 
     /// <summary>
-    /// 安装插件：把源目录复制到用户级插件目录后重新扫描（PRD §3.3 用户级覆盖）。
+    /// 安装插件：把源目录复制到插件根目录（应用级）后登记（PRD §3.3）。
     /// </summary>
     /// <param name="sourceDirectory">插件源目录（含 plugin.json）。</param>
     /// <param name="cancellationToken">取消令牌。</param>
@@ -336,7 +336,7 @@ public sealed class PluginManager
             return null;
         }
 
-        var target = Path.Combine(PluginLocation.UserRoot, manifest.Id);
+        var target = Path.Combine(PluginLocation.BuiltinRoot, manifest.Id);
 
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try

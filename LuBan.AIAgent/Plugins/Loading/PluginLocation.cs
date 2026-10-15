@@ -20,14 +20,18 @@ namespace LuBan.AIAgent.Plugins.Loading;
 /// 插件目录解析（PRD §3.3 v0.16 定案）。
 /// </summary>
 /// <remarks>
-/// <list type="bullet">
-/// <item><b>应用内置</b>：<c>&lt;AppContext.BaseDirectory&gt;/plugins/&lt;plugin-id&gt;/</c>；</item>
-/// <item><b>用户级覆盖</b>（开发/调试优先）：<c>%LocalAppData%/LuBan/AIAgent/plugins/&lt;plugin-id&gt;/</c>。</item>
-/// </list>
-/// 解析顺序：用户级优先，未命中回退应用内置。
+/// <b>插件只有应用级</b>：目录固定为宿主目录下的 <c>&lt;AppContext.BaseDirectory&gt;/plugins/&lt;plugin-id&gt;/</c>
+/// （首版即 <c>luban-agent-codex/plugins/</c>）。用户级（<c>~/.luban-agent/plugins/</c>）覆盖机制本期不实现。
+/// <para>
+/// 注意区分<b>两个作用域</b>：插件程序集与清单是<b>应用级</b>；而插件贡献的 Skill / MCP
+/// 落在<b>工作区级</b>（<c>.luban-agent/skills|mcps</c>），由 <see cref="IPluginHost"/> 的宿主实现
+/// 按工作区作用域写入并即时重载（PRD §3.11）。两者不要混淆。
+/// </para>
+/// <para>结构：<c>plugin.json</c> + <c>lib/</c>（程序集，含 <c>entryAssembly</c> 及其依赖）+ <c>assets/</c>。</para>
 /// </remarks>
 public static class PluginLocation
 {
+
     /// <summary>
     /// 插件清单文件名。
     /// </summary>
@@ -44,45 +48,26 @@ public static class PluginLocation
     public const string AssetsDirectoryName = "assets";
 
     /// <summary>
-    /// 应用内置插件根目录。
+    /// 插件根目录（应用级，唯一）。
     /// </summary>
     public static string BuiltinRoot =>
         Path.Combine(AppContext.BaseDirectory, "plugins");
 
     /// <summary>
-    /// 用户级插件根目录。
+    /// 返回插件根目录列表（只含真实存在的目录）。
     /// </summary>
-    public static string UserRoot =>
-        Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "LuBan",
-            "AIAgent",
-            "plugins");
-
-    /// <summary>
-    /// 返回「用户级 → 应用内置」的有序插件根目录列表（仅含真实存在的目录）。
-    /// </summary>
-    /// <returns>有序目录列表（用户级在前）。</returns>
+    /// <returns>有序目录列表；根目录不存在时为空列表。</returns>
     public static IReadOnlyList<string> ResolveDirectories()
     {
-        var directories = new List<string>(2);
-
-        var userRoot = UserRoot;
-        if (Directory.Exists(userRoot))
-            directories.Add(userRoot);
-
-        var builtinRoot = BuiltinRoot;
-        if (Directory.Exists(builtinRoot))
-            directories.Add(builtinRoot);
-
-        return directories;
+        var root = BuiltinRoot;
+        return Directory.Exists(root) ? new[] { root } : Array.Empty<string>();
     }
 
     /// <summary>
-    /// 在给定根目录集合中定位插件目录（用户级优先，返回首个含 <c>plugin.json</c> 的目录）。
+    /// 在给定根目录集合中定位插件目录（返回首个含 <c>plugin.json</c> 的目录）。
     /// </summary>
     /// <param name="pluginId">插件标识。</param>
-    /// <param name="roots">有序根目录列表；为空时使用 <see cref="ResolveDirectories"/>。</param>
+    /// <param name="roots">根目录列表；为空时使用 <see cref="ResolveDirectories"/>。</param>
     /// <returns>插件目录绝对路径；未命中返回 <c>null</c>。</returns>
     public static string? ResolvePluginDirectory(string pluginId, IEnumerable<string>? roots = null)
     {
