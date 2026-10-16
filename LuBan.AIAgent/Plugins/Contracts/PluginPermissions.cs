@@ -28,8 +28,13 @@ namespace LuBan.AIAgent.Plugins;
 /// <para>
 /// 为兼容 <c>plugin.json</c> 的两种写法，本类型挂了
 /// <see cref="PluginPermissionsConverter"/>：
-/// ① 数组简写 <c>["filesystem", "network"]</c>（等价于各维度通配）；
+/// ① 数组简写 <c>["filesystem", "network"]</c>（裸维度等价于该维度通配 <c>"*"</c>）；
 /// ② 对象详写 <c>{"filesystem": ["workspace"], "network": ["*"]}</c>。
+/// </para>
+/// <para>
+/// 通配 <c>"*"</c>（含数组简写的裸维度）表示「声明该维度、具体范围由宿主白名单决定」：
+/// 声明期放行（仅记警告），运行期以宿主白名单为上限判定访问是否越界（PRD §3.7）。
+/// 要精确限定范围，请写 <c>维度:范围</c>（如 <c>"network:codeup.aliyun.com"</c>）。
 /// </para>
 /// </remarks>
 [JsonConverter(typeof(PluginPermissionsConverter))]

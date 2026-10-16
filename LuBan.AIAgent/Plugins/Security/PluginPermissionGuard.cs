@@ -194,7 +194,7 @@ public sealed class PluginPermissionDeniedException : Exception
     /// <param name="denial">拒绝记录。</param>
     public PluginPermissionDeniedException(PluginPermissionDenial denial)
         : base($"[插件 {denial.PluginId}] 权限越界：{denial.Dimension} 未授权访问 {denial.Target}（调用点：{denial.Context}）。" +
-               "插件必须先在 plugin.json 的 permissions 中声明，且声明须落在宿主白名单内。")
+               "插件必须先在 plugin.json 的 permissions 中声明该维度；声明为通配 * 时，实际可访问范围以宿主白名单为上限。")
     {
         Denial = denial ?? throw new ArgumentNullException(nameof(denial));
     }

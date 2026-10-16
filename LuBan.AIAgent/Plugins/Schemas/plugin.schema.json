@@ -113,7 +113,7 @@
   },
   "$defs": {
     "permissions": {
-      "description": "权限声明。对象详写或数组简写（[\"filesystem\"， \"network:codeup.aliyun.com\"]）均可。声明的范围必须被宿主白名单覆盖，否则插件在启用前被判 Disabled；裸 * 仅在白名单本身含 * 时被授权。",
+      "description": "权限声明。对象详写或数组简写（[\"filesystem:workspace\"， \"network:codeup.aliyun.com\"]）均可；数组简写里的裸维度（如 \"network\"）等价于该维度通配 \"*\"。写明的具体范围必须被宿主白名单覆盖，否则插件在启用前被判 Disabled；通配 * 表示「声明该维度、具体范围由宿主白名单决定」，声明期放行（仅记警告），运行期以宿主白名单为上限判定。",
       "oneOf": [
         {
           "type": "object",

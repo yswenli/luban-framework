@@ -20,8 +20,12 @@ namespace LuBan.AIAgent.Plugins.Security;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>声明期</b>（<see cref="ValidateDeclaration"/>）：插件清单里的每一处权限范围都必须落在白名单目录内，
+/// <b>声明期</b>（<see cref="ValidateDeclaration"/>）：插件清单里写明的<b>具体范围</b>必须落在白名单目录内，
 /// 否则计入错误 → 清单校验不通过 → 加载前直接 <c>Disabled</c>（PRD §3.7）。
+/// </para>
+/// <para>
+/// <b>通配声明</b>（<c>*</c>，含数组简写的裸维度形式，如 <c>"network"</c>）：表示「声明该维度、具体范围由宿主
+/// 白名单决定」。声明期<b>放行</b>（仅记警告），运行期以宿主白名单为<b>上限</b>判定。
 /// </para>
 /// <para>
 /// <b>运行期</b>（<see cref="IsNetworkAllowed"/> 等）：以插件<b>声明</b>的范围为准判定单次访问是否越界；
@@ -59,7 +63,11 @@ public sealed class PluginPermissionEvaluator
             return false;
 
         var scopes = permissions.GetScopes("network");
-        return scopes.Any(pattern => HostMatches(pattern, host));
+
+        // 通配声明不直接放行：其实际范围以宿主网络白名单为上限（PRD §3.7 默认拒绝）
+        return scopes.Any(pattern => IsWildcard(pattern)
+            ? _options.NetworkWhitelist.Any(allowed => HostMatches(allowed, host))
+            : HostMatches(pattern, host));
     }
 
     /// <summary>
@@ -76,8 +84,11 @@ public sealed class PluginPermissionEvaluator
         var name = NormalizeCommandName(command);
         var scopes = permissions.GetScopes("process");
 
-        return scopes.Any(scope => IsWildcard(scope) ||
-                                   string.Equals(scope.Trim(), name, StringComparison.OrdinalIgnoreCase));
+        // 通配声明以宿主进程白名单为上限，而非直接放行
+        return scopes.Any(scope => IsWildcard(scope)
+            ? _options.ProcessWhitelist.Any(allowed => IsWildcard(allowed) ||
+                                                       string.Equals(allowed.Trim(), name, StringComparison.OrdinalIgnoreCase))
+            : string.Equals(scope.Trim(), name, StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>
@@ -94,8 +105,11 @@ public sealed class PluginPermissionEvaluator
         var normalized = CredentialKeys.Normalize(key);
         var scopes = permissions.GetScopes("credential");
 
-        return scopes.Any(scope => IsWildcard(scope) ||
-                                   string.Equals(CredentialKeys.Normalize(scope), normalized, StringComparison.OrdinalIgnoreCase));
+        // 通配声明以宿主凭据目录为上限，而非直接放行
+        return scopes.Any(scope => IsWildcard(scope)
+            ? _options.CredentialCatalog.Any(allowed => IsWildcard(allowed) ||
+                                                        string.Equals(CredentialKeys.Normalize(allowed), normalized, StringComparison.OrdinalIgnoreCase))
+            : string.Equals(CredentialKeys.Normalize(scope), normalized, StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>
@@ -112,7 +126,10 @@ public sealed class PluginPermissionEvaluator
         var op = operation.Trim().ToLowerInvariant();
         var scopes = permissions.GetScopes("git");
 
-        return scopes.Any(scope => GitScopeCovers(scope, op));
+        // 通配声明以宿主 Git 能力白名单为上限，而非直接放行
+        return scopes.Any(scope => IsWildcard(scope)
+            ? _options.GitWhitelist.Any(allowed => GitScopeCovers(allowed, op))
+            : GitScopeCovers(scope, op));
     }
 
     /// <summary>
@@ -128,8 +145,11 @@ public sealed class PluginPermissionEvaluator
 
         var scopes = permissions.GetScopes("filesystem");
 
-        return scopes.Any(item => IsWildcard(item) ||
-                                  string.Equals(item.Trim(), scope.Trim(), StringComparison.OrdinalIgnoreCase));
+        // 通配声明以宿主文件系统白名单为上限，而非直接放行
+        return scopes.Any(item => IsWildcard(item)
+            ? _options.FilesystemWhitelist.Any(allowed => IsWildcard(allowed) ||
+                                                         string.Equals(allowed.Trim(), scope.Trim(), StringComparison.OrdinalIgnoreCase))
+            : string.Equals(item.Trim(), scope.Trim(), StringComparison.OrdinalIgnoreCase));
     }
 
     // ---------------- 声明期校验 ----------------
@@ -158,7 +178,18 @@ public sealed class PluginPermissionEvaluator
                     continue;
                 }
 
-                ValidateScope(result, path, dimension, scope.Trim());
+                var trimmed = scope.Trim();
+
+                // 通配声明（含数组简写的裸维度形式，如 "network"）＝「声明该维度、范围由宿主白名单决定」：
+                // 声明期放行并记警告，运行期仍以宿主白名单为上限判定（见 IsXxxAllowed）。
+                if (IsWildcard(trimmed))
+                {
+                    result.Warnings.Add(
+                        $"{path}.{dimension} 声明为通配 *，实际可访问范围以宿主白名单为上限（{DescribeWhitelist(dimension)}）。");
+                    continue;
+                }
+
+                ValidateScope(result, path, dimension, trimmed);
             }
         }
     }
@@ -168,7 +199,7 @@ public sealed class PluginPermissionEvaluator
         switch (dimension)
         {
             case "network":
-                // 声明必须被白名单「覆盖」：裸 * 只有在白名单本身含 * 时才被授权（PRD §3.7 不得放行全网）
+                // 具体范围必须被白名单「覆盖」；通配 * 已在 ValidateDeclaration 中放行（运行期以白名单为上限）
                 if (!_options.NetworkWhitelist.Any(allowed => PatternCovers(allowed, scope)))
                 {
                     result.Errors.Add(
@@ -320,4 +351,19 @@ public sealed class PluginPermissionEvaluator
     }
 
     private static string Format(IEnumerable<string> values) => string.Join(", ", values);
+
+    /// <summary>
+    /// 描述某维度的宿主白名单，用于通配声明的警告文案。
+    /// </summary>
+    /// <param name="dimension">维度名。</param>
+    /// <returns>白名单的可读描述。</returns>
+    private string DescribeWhitelist(string dimension) => dimension switch
+    {
+        "network" => Format(_options.NetworkWhitelist),
+        "process" => Format(_options.ProcessWhitelist),
+        "credential" => Format(_options.CredentialCatalog),
+        "git" => Format(_options.GitWhitelist),
+        "filesystem" => Format(_options.FilesystemWhitelist),
+        _ => "宿主策略"
+    };
 }

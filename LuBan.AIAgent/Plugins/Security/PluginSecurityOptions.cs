@@ -18,8 +18,9 @@ namespace LuBan.AIAgent.Plugins.Security;
 /// </summary>
 /// <remarks>
 /// <para>
-/// 语义为<b>目录白名单 + 默认拒绝</b>：插件的权限声明必须<b>落在目录内</b>，否则加载前静态校验即判不合规
-/// （直接 <c>Disabled</c>，PRD §3.7）；运行期出口再按目录拦截越界访问。
+/// 语义为<b>目录白名单 + 默认拒绝</b>：插件声明的<b>具体范围</b>必须<b>落在目录内</b>，否则加载前静态校验即判不合规
+/// （直接 <c>Disabled</c>，PRD §3.7）；声明通配 <c>*</c> 表示范围由本白名单决定（声明期放行并记警告）；
+/// 运行期出口再按目录拦截越界访问。
 /// </para>
 /// <para>
 /// 本类型是纯数据 + 规范化，不含匹配逻辑；匹配语义见 <see cref="PluginPermissionEvaluator"/>。
@@ -33,7 +34,8 @@ public sealed class PluginSecurityOptions
     /// </summary>
     /// <remarks>
     /// 支持通配前缀 <c>*.</c>（如 <c>*.aliyuncs.com</c> 覆盖 <c>openapi-rdc.aliyuncs.com</c>）。
-    /// 插件<b>不得</b>声明此目录之外的主机，也不得声明裸 <c>*</c>（即「放行全网」）。
+    /// 插件<b>不得</b>声明此目录之外的具体主机；声明通配 <c>*</c>（含数组简写的裸维度 <c>"network"</c>）时，
+    /// 实际可访问范围以本白名单为上限（声明期放行并记警告，运行期按白名单判定）。
     /// </remarks>
     public List<string> NetworkWhitelist { get; set; } = new()
     {

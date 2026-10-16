@@ -17,8 +17,9 @@ namespace LuBan.XTestProject;
 /// 清单校验器 × 权限白名单集成测试（PRD §3.7）。
 /// </summary>
 /// <remarks>
-/// 不合规的权限声明必须计入 <see cref="ManifestValidationResult.Errors"/>，使插件在 <c>EnableAsync</c>
+/// 不合规的权限声明（具体范围越界）必须计入 <see cref="ManifestValidationResult.Errors"/>，使插件在 <c>EnableAsync</c>
 /// 阶段被直接判 <c>Disabled</c>（而不是加载后才在运行期拦截）。
+/// 通配 <c>*</c> 声明不算越界：计入 <see cref="ManifestValidationResult.Warnings"/>，运行期以宿主白名单为上限。
 /// </remarks>
 [TestClass]
 public class PluginSecurityValidatorUnitTest
@@ -64,13 +65,17 @@ public class PluginSecurityValidatorUnitTest
     }
 
     [TestMethod]
-    public void BareNetworkWildcard_MakesManifestInvalid()
+    public void BareNetworkWildcard_IsAcceptedWithWarning()
     {
+        // 通配 = 「声明网络维度、范围由宿主白名单决定」：不算越界，但必须留下警告（运行期以白名单为上限）
         var permissions = new PluginPermissions { Network = new List<string> { "*" } };
 
         var result = Validator().Validate(Manifest(permissions));
 
-        Assert.IsFalse(result.IsValid);
+        Assert.IsTrue(result.IsValid, result.ToSummary());
+        Assert.IsTrue(result.Warnings.Any(w => w.Contains("permissions.network", StringComparison.Ordinal)),
+            result.ToSummary());
+        Assert.IsFalse(result.Errors.Any(), result.ToSummary());
     }
 
     [TestMethod]

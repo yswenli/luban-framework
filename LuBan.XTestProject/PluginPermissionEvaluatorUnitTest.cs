@@ -10,6 +10,7 @@ using LuBan.AIAgent.Plugins;
 using LuBan.AIAgent.Plugins.Loading;
 using LuBan.AIAgent.Plugins.Security;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System.Text.Json;
 
 namespace LuBan.XTestProject;
 
@@ -17,8 +18,10 @@ namespace LuBan.XTestProject;
 /// 插件权限判定器测试（PRD §3.7）：目录白名单 + 默认拒绝。
 /// </summary>
 /// <remarks>
-/// 语义要点：插件声明必须被白名单<b>覆盖</b>；裸 <c>*</c> 只有在白名单本身含 <c>*</c> 时才被授权
-/// （即「不得放行全网」）。运行期未声明即拒绝。
+/// 语义要点：插件写明的<b>具体范围</b>必须被白名单<b>覆盖</b>；通配 <c>*</c>（含数组简写的裸维度形式，
+/// 如 <c>["filesystem", "network"]</c>）表示「声明该维度、具体范围由宿主白名单决定」——
+/// 声明期放行并记警告，运行期以宿主白名单为上限判定（不得借 <c>*</c> 绕过白名单）。
+/// 运行期未声明即拒绝。
 /// </remarks>
 [TestClass]
 public class PluginPermissionEvaluatorUnitTest
@@ -60,6 +63,20 @@ public class PluginPermissionEvaluatorUnitTest
         Assert.IsTrue(result.IsValid, $"{dimension} 合规声明应通过：{result.ToSummary()}");
     }
 
+    /// <summary>
+    /// 断言通配声明（<c>*</c>）在声明期被放行，并留下「范围由宿主白名单决定」的警告。
+    /// </summary>
+    private static void AssertWildcardAcceptedWithWarning(PluginPermissions permissions, string dimension)
+    {
+        var result = Validate(permissions);
+
+        Assert.IsTrue(result.IsValid, $"{dimension} 通配声明应放行：{result.ToSummary()}");
+        Assert.IsTrue(
+            result.Warnings.Any(w => w.Contains($"permissions.{dimension}", StringComparison.Ordinal) &&
+                                     w.Contains("通配", StringComparison.Ordinal)),
+            $"{dimension} 通配声明应记警告：{result.ToSummary()}");
+    }
+
     // ---------------- 声明期：network ----------------
 
     [TestMethod]
@@ -82,18 +99,30 @@ public class PluginPermissionEvaluatorUnitTest
     }
 
     [TestMethod]
-    public void Declaration_NetworkBareWildcard_IsRejected()
+    public void Declaration_NetworkBareWildcard_IsAcceptedWithWarning()
     {
-        // 宿主白名单不含 *，插件不得声明「放行全网」
-        AssertRejected(Perms("network", "*"), "network");
+        // 通配 = 「声明网络维度，范围由宿主白名单决定」：声明期放行，运行期以白名单为上限
+        AssertWildcardAcceptedWithWarning(Perms("network", "*"), "network");
     }
 
     [TestMethod]
-    public void Declaration_NetworkBareWildcard_AllowedWhenWhitelistHasWildcard()
+    public void Declaration_BareDimensionShorthand_EqualsWildcardAndIsAccepted()
     {
-        var options = new PluginSecurityOptions { NetworkWhitelist = new List<string> { "*" } };
-        var result = Validate(Perms("network", "*"), options);
-        Assert.IsTrue(result.IsValid, result.ToSummary());
+        // 数组简写里的裸维度（"network"）解析为 network: ["*"]，与显式通配同义
+        var permissions = JsonSerializer.Deserialize<PluginPermissions>(
+            """["filesystem:workspace", "network"]""")!;
+
+        Assert.IsTrue(permissions.Network.Single() == "*", "裸维度应解析为通配 *");
+        AssertWildcardAcceptedWithWarning(permissions, "network");
+    }
+
+    [TestMethod]
+    public void Declaration_NetworkBareWildcard_WarningMentionsHostWhitelist()
+    {
+        var result = Validate(Perms("network", "*"));
+
+        Assert.IsTrue(result.Warnings.Any(w => w.Contains("codeup.aliyun.com", StringComparison.Ordinal)),
+            $"警告应列出宿主白名单：{result.ToSummary()}");
     }
 
     [TestMethod]
@@ -124,9 +153,9 @@ public class PluginPermissionEvaluatorUnitTest
     }
 
     [TestMethod]
-    public void Declaration_ProcessBareWildcard_IsRejected()
+    public void Declaration_ProcessBareWildcard_IsAcceptedWithWarning()
     {
-        AssertRejected(Perms("process", "*"), "process");
+        AssertWildcardAcceptedWithWarning(Perms("process", "*"), "process");
     }
 
     // ---------------- 声明期：credential ----------------
@@ -146,9 +175,9 @@ public class PluginPermissionEvaluatorUnitTest
     }
 
     [TestMethod]
-    public void Declaration_CredentialBareWildcard_IsRejected()
+    public void Declaration_CredentialBareWildcard_IsAcceptedWithWarning()
     {
-        AssertRejected(Perms("credential", "*"), "credential");
+        AssertWildcardAcceptedWithWarning(Perms("credential", "*"), "credential");
     }
 
     // ---------------- 声明期：git ----------------
@@ -173,9 +202,9 @@ public class PluginPermissionEvaluatorUnitTest
     }
 
     [TestMethod]
-    public void Declaration_GitBareWildcard_IsRejected()
+    public void Declaration_GitBareWildcard_IsAcceptedWithWarning()
     {
-        AssertRejected(Perms("git", "*"), "git");
+        AssertWildcardAcceptedWithWarning(Perms("git", "*"), "git");
     }
 
     // ---------------- 声明期：filesystem / database ----------------
@@ -284,6 +313,75 @@ public class PluginPermissionEvaluatorUnitTest
     {
         var evaluator = new PluginPermissionEvaluator();
         var permissions = Perms("filesystem", "workspace");
+
+        Assert.IsTrue(evaluator.IsFilesystemAllowed(permissions, "workspace"));
+        Assert.IsFalse(evaluator.IsFilesystemAllowed(permissions, "/etc"));
+    }
+
+    // ---------------- 运行期判定：通配声明以宿主白名单为上限 ----------------
+
+    [TestMethod]
+    public void Runtime_Network_WildcardIsBoundedByHostWhitelist()
+    {
+        var evaluator = new PluginPermissionEvaluator();
+        var permissions = Perms("network", "*");
+
+        // 白名单内的主机放行
+        Assert.IsTrue(evaluator.IsNetworkAllowed(permissions, "codeup.aliyun.com"));
+        Assert.IsTrue(evaluator.IsNetworkAllowed(permissions, "openapi-rdc.aliyuncs.com"));
+
+        // 白名单外仍被拒绝：通配 ≠ 放行全网
+        Assert.IsFalse(evaluator.IsNetworkAllowed(permissions, "evil.example.com"));
+        Assert.IsFalse(evaluator.IsNetworkAllowed(permissions, "aliyuncs.com"));
+    }
+
+    [TestMethod]
+    public void Runtime_Network_WildcardIsBoundedByCustomWhitelist()
+    {
+        var options = new PluginSecurityOptions { NetworkWhitelist = new List<string> { "corp.internal" } };
+        var evaluator = new PluginPermissionEvaluator(options);
+        var permissions = Perms("network", "*");
+
+        Assert.IsTrue(evaluator.IsNetworkAllowed(permissions, "corp.internal"));
+        Assert.IsFalse(evaluator.IsNetworkAllowed(permissions, "codeup.aliyun.com"));
+    }
+
+    [TestMethod]
+    public void Runtime_Process_WildcardIsBoundedByHostWhitelist()
+    {
+        var evaluator = new PluginPermissionEvaluator();
+        var permissions = Perms("process", "*");
+
+        Assert.IsTrue(evaluator.IsProcessAllowed(permissions, @"C:\Program Files\Git\bin\git.exe"));
+        Assert.IsFalse(evaluator.IsProcessAllowed(permissions, "curl"));
+    }
+
+    [TestMethod]
+    public void Runtime_Credential_WildcardIsBoundedByHostCatalog()
+    {
+        var evaluator = new PluginPermissionEvaluator();
+        var permissions = Perms("credential", "*");
+
+        Assert.IsTrue(evaluator.IsCredentialAllowed(permissions, CredentialKeys.YunxiaoPat));
+        Assert.IsFalse(evaluator.IsCredentialAllowed(permissions, "other_key"));
+    }
+
+    [TestMethod]
+    public void Runtime_Git_WildcardIsBoundedByHostWhitelist()
+    {
+        var evaluator = new PluginPermissionEvaluator();
+        var permissions = Perms("git", "*");
+
+        Assert.IsTrue(evaluator.IsGitAllowed(permissions, "clone"));
+        Assert.IsTrue(evaluator.IsGitAllowed(permissions, "push"));
+        Assert.IsFalse(evaluator.IsGitAllowed(permissions, "reset_hard"));
+    }
+
+    [TestMethod]
+    public void Runtime_Filesystem_WildcardIsBoundedByHostWhitelist()
+    {
+        var evaluator = new PluginPermissionEvaluator();
+        var permissions = Perms("filesystem", "*");
 
         Assert.IsTrue(evaluator.IsFilesystemAllowed(permissions, "workspace"));
         Assert.IsFalse(evaluator.IsFilesystemAllowed(permissions, "/etc"));

@@ -228,7 +228,8 @@ public sealed class ManifestValidator
     }
 
     /// <summary>
-    /// 校验权限声明：范围非空 + 落在宿主白名单目录内（PRD §3.7，不合规直接判 <c>Disabled</c>）。
+    /// 校验权限声明：具体范围非空 + 落在宿主白名单目录内（PRD §3.7，不合规直接判 <c>Disabled</c>）；
+    /// 通配 <c>*</c> 声明不计入错误，仅记警告（运行期以白名单为上限）。
     /// </summary>
     private void ValidatePermissionsOf(PluginManifest manifest, ManifestValidationResult result)
     {

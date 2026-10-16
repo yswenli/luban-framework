@@ -428,7 +428,7 @@ AI: [调用 WriteMcpServerAsync] 已创建 MCP 配置，正在连接...
 | 组件 | 说明 |
 |------|------|
 | `PluginSecurityOptions` | 白名单策略（`NetworkWhitelist` / `ProcessWhitelist` / `GitWhitelist` / `FilesystemWhitelist` / `CredentialCatalog` / `EnforceAtRuntime` / `AuditDenials` / `MaxAuditRecords`），可从配置节点 `LuBanAgent:Plugins:Security` 覆盖；默认网络白名单为 `codeup.aliyun.com` / `flow.aliyun.com` / `*.aliyuncs.com`，进程白名单为 `dotnet` / `git`，凭据目录为 `yunxiao_pat` |
-| `PluginPermissionEvaluator` | 判定引擎：`ValidateDeclaration` 做声明期覆盖校验（写入 `ManifestValidationResult.Errors`）；`IsNetworkAllowed` / `IsProcessAllowed` / `IsCredentialAllowed` / `IsGitAllowed` / `IsFilesystemAllowed` 做运行期越界判定（只读、不抛异常） |
+| `PluginPermissionEvaluator` | 判定引擎：`ValidateDeclaration` 做声明期覆盖校验（具体范围越界写入 `ManifestValidationResult.Errors`，通配 `*` 写入 `Warnings`）；`IsNetworkAllowed` / `IsProcessAllowed` / `IsCredentialAllowed` / `IsGitAllowed` / `IsFilesystemAllowed` 做运行期越界判定（通配声明以宿主白名单为上限；只读、不抛异常） |
 | `PluginScopeContext` | 权限环境（`AsyncLocal`）：`Enter(pluginId, permissions)` 声明「当前调用以哪个插件身份发起」，可嵌套；`Current == null` 表示宿主自身调用，一律放行 |
 | `PluginPermissionGuard` | 运行期出口门禁：`RequireNetwork` / `RequireProcess` / `RequireCredential` / `RequireGit` 越界即抛 `PluginPermissionDeniedException` 并写入有界的 `RecentDenials` 审计；`PluginPermissionGuard.Default` 为无 DI 场景的兜底实例 |
 | `ICredentialStore` / `ConfigurationCredentialStore` | 凭据读写契约 + 默认「配置节点 `LuBanAgent:Credentials:<key>` + 环境变量兜底」只读实现（`SetAsync` 抛 `NotSupportedException`）；桌面宿主宜注册自己的可写实现替换它 |
@@ -436,7 +436,7 @@ AI: [调用 WriteMcpServerAsync] 已创建 MCP 配置，正在连接...
 
 要点：
 
-- **白名单是「覆盖」语义，不是「包含」语义**：插件声明的每个范围都必须被白名单里的某条规则覆盖。裸 `*`（放行全网 / 全进程 / 全部凭据）**只有白名单本身含 `*` 时才被授权**；`*.aliyuncs.com` 覆盖 `openapi-rdc.aliyuncs.com`，但不覆盖裸域 `aliyuncs.com`。
+- **白名单是「覆盖」语义，不是「包含」语义**：插件写明的每个**具体范围**都必须被白名单里的某条规则覆盖。通配 `*`（含数组简写的裸维度，如 `["filesystem", "network"]`）表示「声明该维度、具体范围由宿主白名单决定」——声明期放行并记警告，运行期以白名单为**上限**判定，因此不会绕过白名单；`*.aliyuncs.com` 覆盖 `openapi-rdc.aliyuncs.com`，但不覆盖裸域 `aliyuncs.com`。
 - **`Disabled` 与 `Error` 的语义区别**：权限 / 凭据声明不合规 = 宿主策略不允许启用 → `Disabled`；清单格式问题（缺 `id`、`id` 非法、入口程序集缺失等）= 插件自身不可用 → 激活阶段判 `Error`。管家界面因此仍能列出格式有问题的插件并给出可诊断错误。
 - `PluginSecurityOptions.EnforceAtRuntime = false` 时只审计不拦截，仅供排查兼容性问题；生产应保持 `true`。
 - 凭据**绝不入 DB 明文**；框架只提供「配置 + 环境变量」兜底实现，实际落盘基线由宿主决定（桌面宿主与 LLM ApiKey 同基线）。
@@ -844,7 +844,7 @@ services.AddSingleton<IPluginHost, MyPluginHost>();   // 宿主自己实现：�
 | `name` / `version` / `entryAssembly` | 必填；版本形如 `1.0.0` 或 `1.0.0-beta.1` |
 | `skills[].id` | 不含点号（与 Skill 注册表约定一致） |
 | `mcpServers[].transport` | 目前仅支持 `inproc`（进程内 MCP 客户端） |
-| `permissions` | 6 个维度 `filesystem` / `network` / `git` / `database` / `process` / `credential`；可写数组简写 `["filesystem:workspace"]`，未声明的维度等价于不声明，`"permissions": null` 归一化为空权限。声明须被宿主白名单**覆盖**，越界即 `Disabled`（见下方「权限声明如何生效」） |
+| `permissions` | 6 个维度 `filesystem` / `network` / `git` / `database` / `process` / `credential`；可写数组简写 `["filesystem:workspace"]`（裸维度如 `"network"` 等价于该维度通配 `"*"`），未声明的维度等价于不声明，`"permissions": null` 归一化为空权限。**具体范围**须被宿主白名单**覆盖**，越界即 `Disabled`；通配 `*` 声明期放行、运行期以白名单为上限（见下方「权限声明如何生效」） |
 | `dependencies` | 仅校验依赖插件是否存在且已启用，不允许自引用 |
 
 `plugin.json` 的 JSON Schema 随包发布（`Plugins/Schemas/plugin.schema.json`），编辑器可据此补全与校验。
@@ -853,8 +853,8 @@ services.AddSingleton<IPluginHost, MyPluginHost>();   // 宿主自己实现：�
 
 清单里的 `permissions` 不是「告知」，而是一份**受宿主白名单审核的申请**（PRD §3.7：目录白名单 + 默认拒绝）：
 
-1. **声明期**：`EnableAsync` 先调 `PluginLoader.ValidatePermissions`（插件级 + 技能级），逐维度检查范围是否被 `PluginSecurityOptions` 白名单覆盖；任一越界即判 **`Disabled`**（`LastError` 写明越界项）。裸 `*`（放行全网 / 全进程 / 全部凭据）**只有白名单本身含 `*` 时才被授权**；`*.aliyuncs.com` 覆盖 `openapi-rdc.aliyuncs.com`，但不覆盖裸域 `aliyuncs.com`。
-2. **运行期**：框架连接器（`CodeupClient` / `FlowClient` / `YunxiaoMCPClient` 等）在真正发起网络 / 进程 / 凭据 / Git 访问前调用 `PluginPermissionGuard` 判定。宿主在调用插件代码前用 `PluginScopeContext.Enter(pluginId, permissions)` 包裹；插件在宿主包裹不到的回调（UI 事件）里可自行 `PluginBase.EnterPermissionScope()`。**未声明即拒绝**；权限环境为空表示宿主自身调用，一律放行。
+1. **声明期**：`EnableAsync` 先调 `PluginLoader.ValidatePermissions`（插件级 + 技能级），逐维度检查**具体范围**是否被 `PluginSecurityOptions` 白名单覆盖；任一越界即判 **`Disabled`**（`LastError` 写明越界项）。通配 `*`（含数组简写的裸维度，如 `["filesystem", "network"]`）不算越界，计入警告，运行期以白名单为**上限**；`*.aliyuncs.com` 覆盖 `openapi-rdc.aliyuncs.com`，但不覆盖裸域 `aliyuncs.com`。
+2. **运行期**：框架连接器（`CodeupClient` / `FlowClient` / `YunxiaoMCPClient` 等）在真正发起网络 / 进程 / 凭据 / Git 访问前调用 `PluginPermissionGuard` 判定。宿主在调用插件代码前用 `PluginScopeContext.Enter(pluginId, permissions)` 包裹；插件在宿主包裹不到的回调（UI 事件）里可自行 `PluginBase.EnterPermissionScope()`。**未声明即拒绝**；声明为通配 `*` 的维度以宿主白名单为上限判定；权限环境为空表示宿主自身调用，一律放行。
 3. **凭据取用**：插件不能直接读凭据，须声明 `credential` 后由宿主经 `ICredentialStore` 代取；`EnforceAtRuntime = false` 时只审计不拦截（仅供排查兼容性问题，生产应保持 `true`）。
 
 **生命周期与卸载语义**
