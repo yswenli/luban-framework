@@ -35,6 +35,7 @@ global using LuBan.AIAgent.Plugins;
 global using LuBan.AIAgent.Plugins.Base;
 global using LuBan.AIAgent.Plugins.Lifecycle;
 global using LuBan.AIAgent.Plugins.Loading;
+global using LuBan.AIAgent.Plugins.Security;
 global using LuBan.AIAgent.Retrieval.Chunkers;
 global using LuBan.AIAgent.Rules;
 global using LuBan.AIAgent.Rules.BuiltIn;

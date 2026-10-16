@@ -412,7 +412,7 @@ A plugin is an **application-level** install unit (`plugins/<id>/` directory plu
 | `PluginBase` | Plugin base class (namespace `LuBan.AIAgent.Plugins.Base`), providing `Host` / `SafeLog` / `PostToUi` (wrapped in an invalidation token, plugins must never post to the UI thread directly) and `OnInitializeAsync` / `OnShutdownAsync` hooks |
 | `IPluginHost` | Host capability contract: register/unregister sidebar entries and panels, register/unregister Skills and MCP servers, `PostToUi`, `GetConfig`, plugin logging |
 | `PluginManager` | Singleton manager: `ScanAsync` / `RestoreEnabledAsync` / `GetPlugins` / `EnableAsync` / `DisableAsync` / `InstallAsync` / `UpgradeAsync` / `UninstallAsync`, plus the `Changed` event |
-| `PluginLoader` / `ManifestValidator` | Manifest reading and validation: required fields, id/version regexes, entry assembly existence, `minHostVersion` / `targetApp`, duplicates, `transport`, dependency self-reference |
+| `PluginLoader` / `ManifestValidator` | Manifest reading and validation: required fields, id/version regexes, entry assembly existence, `minHostVersion` / `targetApp`, duplicates, `transport`, dependency self-reference; `ValidatePermissions` performs the permission/credential coverage check on its own (used by the pre-load gate, separate from the whole-manifest validation that yields `Error`) |
 | `PluginDependencyResolver` | Dependency topology and cycle detection (validates existence only, never auto-enables) |
 | `PluginLocation` | Directory convention: `<AppContext.BaseDirectory>/plugins/<id>/{plugin.json, lib/, assets/}` |
 | `IPluginStateRepository` / `PluginStateRepository` | State persistence contract plus the default JSON-file implementation (`id` / `version` / `state` / `installedAt` / `lastError` / `requiresRestart`) |
@@ -420,6 +420,26 @@ A plugin is an **application-level** install unit (`plugins/<id>/` directory plu
 | `PluginHostScope` / `PluginDescriptor` / `PluginChangedEventArgs` | Plugin identity backfill and contribution bookkeeping, read-only descriptor for manager UIs, state-change event payload |
 
 Directory semantics: **plugins exist at application level only** (`<AppContext.BaseDirectory>/plugins/<plugin-id>/`); the Skills / MCP servers a plugin **contributes** land at workspace level (`.luban-agent/skills`, `.luban-agent/mcps`) and are explicitly deleted on uninstall.
+
+### Plugin Permissions & Credential Security
+
+Plugins are third-party code, so the host constrains their access with **directory whitelists + default deny** (PRD §3.7): **at declaration time** every permission scope in the manifest must fall inside the whitelist directory, otherwise the plugin is marked `Disabled` before loading; **at runtime** the real egress points (network / process / credential / Git) are intercepted again according to the declaration.
+
+| Component | Description |
+|------|------|
+| `PluginSecurityOptions` | Whitelist policy (`NetworkWhitelist` / `ProcessWhitelist` / `GitWhitelist` / `FilesystemWhitelist` / `CredentialCatalog` / `EnforceAtRuntime` / `AuditDenials` / `MaxAuditRecords`), overridable from the `LuBanAgent:Plugins:Security` configuration node; the default network whitelist is `codeup.aliyun.com` / `flow.aliyun.com` / `*.aliyuncs.com`, the process whitelist is `dotnet` / `git`, and the credential catalog is `yunxiao_pat` |
+| `PluginPermissionEvaluator` | The decision engine: `ValidateDeclaration` performs the declaration-time coverage check (writing into `ManifestValidationResult.Errors`); `IsNetworkAllowed` / `IsProcessAllowed` / `IsCredentialAllowed` / `IsGitAllowed` / `IsFilesystemAllowed` perform read-only runtime boundary decisions (they never throw) |
+| `PluginScopeContext` | The permission environment (`AsyncLocal`): `Enter(pluginId, permissions)` declares "which plugin identity the current call belongs to", and it nests; `Current == null` means a host-originated call and is always allowed |
+| `PluginPermissionGuard` | The runtime egress guard: `RequireNetwork` / `RequireProcess` / `RequireCredential` / `RequireGit` throw `PluginPermissionDeniedException` on a boundary violation and append to the bounded `RecentDenials` audit; `PluginPermissionGuard.Default` is the fallback instance for non-DI scenarios |
+| `ICredentialStore` / `ConfigurationCredentialStore` | Credential read/write contract plus the default read-only "configuration node `LuBanAgent:Credentials:<key>` + environment-variable fallback" implementation (`SetAsync` throws `NotSupportedException`); desktop hosts should register their own writable implementation to replace it |
+| `CredentialKeys` | Credential key catalog and normalization: `codeup:pat` / `codeup_pat` / `yunxiao:pat` → `yunxiao_pat`, organization ID → `yunxiao_organization_id`; environment-variable mapping `LUBAN_YUNXIAO_PAT` / `LUBAN_YUNXIAO_ORGANIZATION_ID` |
+
+Key points:
+
+- **The whitelist uses "coverage" semantics, not "containment"**: every scope a plugin declares must be covered by some whitelist rule. A bare `*` (allow the whole network / every process / every credential) is **only granted when the whitelist itself contains `*`**. `*.aliyuncs.com` covers `openapi-rdc.aliyuncs.com` but not the bare domain `aliyuncs.com`.
+- **`Disabled` vs `Error`**: a non-compliant permission/credential declaration means "host policy forbids enabling" → `Disabled`; a manifest format problem (missing `id`, invalid `id`, missing entry assembly, ...) means "the plugin itself is unusable" → `Error` at the activation stage. Manager UIs can therefore still list malformed plugins and surface a diagnosable error.
+- Setting `PluginSecurityOptions.EnforceAtRuntime = false` audits without blocking, purely for compatibility debugging; production should keep it `true`.
+- Credentials **never** land in the DB as plain text; the framework only ships the "configuration + environment variable" fallback, and the actual storage baseline is the host's choice (desktop hosts reuse their LLM ApiKey baseline).
 
 ## Usage Guide
 
@@ -814,7 +834,7 @@ services.AddSingleton<IPluginHost, MyPluginHost>();   // host-supplied: wires in
   "uiContributions": [{ "id": "demo-entry", "label": "Demo", "panelType": "demo-panel" }],
   "skills": [{ "id": "demo-skill", "name": "Demo Skill" }],
   "mcpServers": [{ "name": "demo-mcp", "transport": "inproc", "enabled": true }],
-  "permissions": { "filesystem": ["workspace"], "network": ["*"] },
+  "permissions": { "filesystem": ["workspace"], "network": ["codeup.aliyun.com", "*.aliyuncs.com"], "credential": ["yunxiao_pat"] },
   "dependencies": ["com.tjc.base"]
 }
 ```
@@ -827,10 +847,18 @@ Manifest conventions:
 | `name` / `version` / `entryAssembly` | Required; version looks like `1.0.0` or `1.0.0-beta.1` |
 | `skills[].id` | Must not contain dots (matches the Skill registry convention) |
 | `mcpServers[].transport` | Only `inproc` is supported for now (in-process MCP client) |
-| `permissions` | Six dimensions `filesystem` / `network` / `git` / `database` / `process` / `credential`; the array shorthand `["filesystem:workspace"]` is accepted, an omitted dimension is equivalent to undeclared, and `"permissions": null` normalizes to empty permissions |
+| `permissions` | Six dimensions `filesystem` / `network` / `git` / `database` / `process` / `credential`; the array shorthand `["filesystem:workspace"]` is accepted, an omitted dimension is equivalent to undeclared, and `"permissions": null` normalizes to empty permissions. Declarations must be **covered** by the host whitelist, and a boundary violation means `Disabled` (see "How a permission declaration takes effect" below) |
 | `dependencies` | Only verifies that the dependency plugin exists and is enabled; self-reference is rejected |
 
 A JSON Schema for `plugin.json` ships with the package (`Plugins/Schemas/plugin.schema.json`) so editors can complete and validate it.
+
+**How a permission declaration takes effect**
+
+The `permissions` in a manifest is not a notification — it is an **application reviewed against the host whitelist** (PRD §3.7: directory whitelist + default deny):
+
+1. **Declaration time**: `EnableAsync` first calls `PluginLoader.ValidatePermissions` (plugin-level plus skill-level) and checks every scope against `PluginSecurityOptions`; any violation marks the plugin **`Disabled`** (with the offending scope in `LastError`). A bare `*` (allow the whole network / every process / every credential) is **only granted when the whitelist itself contains `*`**; `*.aliyuncs.com` covers `openapi-rdc.aliyuncs.com` but not the bare domain `aliyuncs.com`.
+2. **Runtime**: framework connectors (`CodeupClient` / `FlowClient` / `YunxiaoMCPClient`, ...) consult `PluginPermissionGuard` right before any network / process / credential / Git call. The host wraps plugin calls with `PluginScopeContext.Enter(pluginId, permissions)`; plugins can call `PluginBase.EnterPermissionScope()` themselves in callbacks the host cannot wrap (UI events). **Undeclared means denied**; an empty permission environment denotes a host-originated call and is always allowed.
+3. **Credential access**: plugins cannot read credentials directly; they declare `credential` and the host fetches on their behalf through `ICredentialStore`. With `EnforceAtRuntime = false` the guard only audits instead of blocking (compatibility debugging only; production should keep it `true`).
 
 **Lifecycle and unload semantics**
 
@@ -1040,6 +1068,14 @@ LuBan.AIAgent/
 │   │   ├── PluginLoadContext.cs       # Collectible AssemblyLoadContext (lib/ first, falls back to the root)
 │   │   ├── PluginHostScope.cs         # Host capability proxy + contribution bookkeeping
 │   │   └── PluginStateRepository.cs   # Default JSON state repository
+│   ├── Security/
+│   │   ├── PluginSecurityOptions.cs   # Permission whitelist policy (network/process/Git/filesystem/credentials)
+│   │   ├── PluginPermissionEvaluator.cs # Declaration-time coverage check + runtime boundary decisions
+│   │   ├── PluginPermissionGuard.cs   # Runtime egress guard + bounded violation audit
+│   │   ├── PluginScopeContext.cs      # Permission environment (AsyncLocal) propagation
+│   │   ├── CredentialKeys.cs          # Credential key normalization and environment-variable mapping
+│   │   ├── ICredentialStore.cs        # Credential storage contract
+│   │   └── ConfigurationCredentialStore.cs # Default read-only "configuration + environment variable" store
 │   └── Schemas/
 │       └── plugin.schema.json         # JSON Schema for plugin.json (shipped in the package)
 ├── LuBanAgent.cs                      # Agent instance

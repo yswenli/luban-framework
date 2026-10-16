@@ -64,16 +64,30 @@ public static class YunxiaoServiceCollectionExtensions
             return options;
         });
 
-        // 默认凭据提供者读配置；宿主（如 LubanAgentCodex）可在调用 AddLuBanAgent 后注册自己的实现覆盖。
+        // 默认凭据提供者：优先读 ICredentialStore（宿主可覆盖的凭据存储），未命中再回退配置节点。
         // 注意：必须用工厂显式传入 configuration，不能按实现类型注册——否则容器需要解析 IConfiguration，
         // 而宿主（含 AddLuBanAgentDefaults 的最小宿主与 AgentHostBuilder 的 ValidateOnBuild）未必把
         // IConfiguration 本身注册为服务，会直接导致 "Unable to resolve service for type IConfiguration"。
         services.TryAddSingleton<IYunxiaoCredentialProvider>(
-            _ => new ConfigurationYunxiaoCredentialProvider(configuration));
+            sp => new ConfigurationYunxiaoCredentialProvider(configuration, sp.GetService<ICredentialStore>()));
 
-        services.TryAddSingleton<YunxiaoConnector>();
-        services.TryAddSingleton<CodeupClient>();
-        services.TryAddSingleton<FlowClient>();
+        services.TryAddSingleton<YunxiaoConnector>(sp => new YunxiaoConnector(
+            sp.GetRequiredService<YunxiaoApiOptions>(),
+            sp.GetRequiredService<IYunxiaoCredentialProvider>(),
+            sp.GetService<ProcessRunner>(),
+            sp.GetService<PluginPermissionGuard>() ?? PluginPermissionGuard.Default));
+
+        services.TryAddSingleton(sp => new CodeupClient(
+            sp.GetRequiredService<YunxiaoApiOptions>(),
+            sp.GetRequiredService<IYunxiaoCredentialProvider>(),
+            sp.GetService<ProcessRunner>(),
+            sp.GetService<PluginPermissionGuard>() ?? PluginPermissionGuard.Default));
+
+        services.TryAddSingleton(sp => new FlowClient(
+            sp.GetRequiredService<YunxiaoApiOptions>(),
+            sp.GetRequiredService<IYunxiaoCredentialProvider>(),
+            sp.GetService<PluginPermissionGuard>() ?? PluginPermissionGuard.Default));
+
         services.TryAddSingleton<Mcp.YunxiaoMCPClient>();
 
         return services;
@@ -84,23 +98,38 @@ public static class YunxiaoServiceCollectionExtensions
 /// 基于配置的云效凭据提供者（默认实现，便于本地联调）。
 /// </summary>
 /// <remarks>
-/// 读取 <c>LuBanAgent:Connectors:Yunxiao:AccessToken</c>；未配置时返回 <c>null</c>，连接器会给出明确错误。
-/// <b>不缓存、不日志回显</b>明文 PAT（PRD §4.9.3）。
+/// <para>
+/// 依次尝试：① <see cref="ICredentialStore"/>（宿主可写凭据存储，PRD §3.7）；
+/// ② 配置节点 <c>LuBanAgent:Connectors:Yunxiao:AccessToken</c>。均未命中时返回 <c>null</c>，
+/// 连接器会给出明确错误。<b>不缓存、不日志回显</b>明文 PAT（PRD §4.9.3）。
+/// </para>
 /// </remarks>
 internal sealed class ConfigurationYunxiaoCredentialProvider : IYunxiaoCredentialProvider
 {
     private readonly IConfiguration _configuration;
+    private readonly ICredentialStore? _credentialStore;
 
     /// <summary>
     /// 创建配置凭据提供者。
     /// </summary>
     /// <param name="configuration">配置。</param>
-    public ConfigurationYunxiaoCredentialProvider(IConfiguration configuration)
+    /// <param name="credentialStore">凭据存储；为空时仅读配置节点。</param>
+    public ConfigurationYunxiaoCredentialProvider(IConfiguration configuration, ICredentialStore? credentialStore = null)
     {
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+        _credentialStore = credentialStore;
     }
 
     /// <inheritdoc />
-    public Task<string?> GetPatAsync(CancellationToken cancellationToken = default)
-        => Task.FromResult(_configuration[$"{YunxiaoServiceCollectionExtensions.ConfigurationSectionName}:AccessToken"]);
+    public async Task<string?> GetPatAsync(CancellationToken cancellationToken = default)
+    {
+        if (_credentialStore is not null)
+        {
+            var stored = await _credentialStore.GetAsync(CredentialKeys.YunxiaoPat, cancellationToken).ConfigureAwait(false);
+            if (!string.IsNullOrWhiteSpace(stored))
+                return stored;
+        }
+
+        return _configuration[$"{YunxiaoServiceCollectionExtensions.ConfigurationSectionName}:AccessToken"];
+    }
 }

@@ -89,6 +89,14 @@ public sealed class PluginLoader
         => _validator.Validate(manifest, pluginDirectory);
 
     /// <summary>
+    /// 仅校验清单的权限声明（插件级 + 技能级），供「加载前权限门禁」使用（PRD §3.7）。
+    /// </summary>
+    /// <param name="manifest">清单对象。</param>
+    /// <returns>仅含权限相关错误的校验结果。</returns>
+    public ManifestValidationResult ValidatePermissions(PluginManifest? manifest)
+        => _validator.ValidatePermissions(manifest);
+
+    /// <summary>
     /// 加载插件：清单 → 校验 → 可回收 ALC → 入口程序集 → <see cref="IPlugin"/> 实例。
     /// </summary>
     /// <param name="pluginDirectory">插件目录。</param>

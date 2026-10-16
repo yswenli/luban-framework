@@ -178,6 +178,19 @@ public static class LuBanAgentExtensions
             new PluginStateRepository(configuration["LuBanAgent:Plugins:StateFile"]));
         services.AddSingleton<PluginManager>();
 
+        // ===== 插件权限与凭据安全（PRD §3.7，M3）=====
+        // 白名单策略 → 判定器 → 运行期出口门禁，三者均为单例且构造链无 Scoped 依赖。
+        // 默认凭据存储为只读实现（配置节点 + 环境变量兜底），宿主可用可写实现覆盖：
+        // 用 TryAdd 保证「宿主已注册」时不被本默认实现抢占。
+        var securityOptions = new PluginSecurityOptions();
+        configuration.GetSection("LuBanAgent:Plugins:Security").Bind(securityOptions);
+        securityOptions.Normalize();
+
+        services.AddSingleton(securityOptions);
+        services.AddSingleton<PluginPermissionEvaluator>();
+        services.AddSingleton<PluginPermissionGuard>();
+        services.TryAddSingleton<ICredentialStore>(_ => new ConfigurationCredentialStore(configuration));
+
         // ===== 云效连接器与进程内 MCP 客户端（PRD §3.10 / §4.11）=====
         services.AddYunxiaoConnector(configuration);
 

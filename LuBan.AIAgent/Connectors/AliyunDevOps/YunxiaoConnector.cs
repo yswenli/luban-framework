@@ -25,7 +25,8 @@ public class YunxiaoConnector : IDisposable
     private readonly YunxiaoApiOptions _options;
     private readonly IYunxiaoCredentialProvider _credentialProvider;
     private readonly ProcessRunner? _processRunner;
-    
+    private readonly PluginPermissionGuard _guard;
+
     private CodeupClient? _codeupClient;
     private FlowClient? _flowClient;
     private bool _disposed;
@@ -36,14 +37,17 @@ public class YunxiaoConnector : IDisposable
     /// <param name="options">API 配置</param>
     /// <param name="credentialProvider">凭据提供者</param>
     /// <param name="processRunner">进程执行器（用于 Git 操作，可选）</param>
+    /// <param name="permissionGuard">插件权限门禁（可选；不传则用进程级兜底实例）。</param>
     public YunxiaoConnector(
         YunxiaoApiOptions options,
         IYunxiaoCredentialProvider credentialProvider,
-        ProcessRunner? processRunner = null)
+        ProcessRunner? processRunner = null,
+        PluginPermissionGuard? permissionGuard = null)
     {
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _credentialProvider = credentialProvider ?? throw new ArgumentNullException(nameof(credentialProvider));
         _processRunner = processRunner;
+        _guard = permissionGuard ?? PluginPermissionGuard.Default;
     }
 
     /// <summary>
@@ -54,7 +58,7 @@ public class YunxiaoConnector : IDisposable
         if (_disposed)
             throw new ObjectDisposedException(nameof(YunxiaoConnector));
 
-        return _codeupClient ??= new CodeupClient(_options, _credentialProvider, _processRunner);
+        return _codeupClient ??= new CodeupClient(_options, _credentialProvider, _processRunner, _guard);
     }
 
     /// <summary>
@@ -65,7 +69,7 @@ public class YunxiaoConnector : IDisposable
         if (_disposed)
             throw new ObjectDisposedException(nameof(YunxiaoConnector));
 
-        return _flowClient ??= new FlowClient(_options, _credentialProvider);
+        return _flowClient ??= new FlowClient(_options, _credentialProvider, _guard);
     }
 
     /// <summary>

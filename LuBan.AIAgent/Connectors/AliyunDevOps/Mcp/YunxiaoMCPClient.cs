@@ -49,6 +49,16 @@ public class YunxiaoMCPClient : MCPClientBase, IDisposable
         _connector = connector ?? throw new ArgumentNullException(nameof(connector));
     }
 
+    /// <summary>
+    /// 本实例的权限环境（由宿主在创建时注入，PRD §3.7）。
+    /// </summary>
+    /// <remarks>
+    /// 进程内 MCP 客户端由宿主按插件创建（<c>PluginMcpCatalog</c> 每次调用新建），
+    /// 故用可写属性而非构造参数注入：本类型亦被框架注册为单例，构造签名不宜改动。
+    /// 保持为 <c>null</c> 时视为宿主自身调用（放行）。
+    /// </remarks>
+    public PluginPermissionScope? PermissionScope { get; set; }
+
     /// <inheritdoc />
     public override Task<bool> ConnectAsync(CancellationToken cancellationToken = default)
     {
@@ -76,6 +86,9 @@ public class YunxiaoMCPClient : MCPClientBase, IDisposable
         Dictionary<string, object?> arguments,
         CancellationToken cancellationToken = default)
     {
+        // 以插件身份执行：出口门禁据此判定越界（PRD §3.7）
+        using var _ = PluginScopeContext.Enter(PermissionScope);
+
         try
         {
             // 注意：MCPToolPlugin 传入的是 base 名（如 codeup_search_repos），

@@ -40,6 +40,15 @@ public interface IPluginHost
     string PluginId { get; }
 
     /// <summary>
+    /// 当前插件在清单中声明的权限（宿主在分发 host 时回填）。
+    /// </summary>
+    /// <remarks>
+    /// 供插件在<b>宿主未包裹权限环境</b>的场景（如 UI 面板事件回调、向导按钮）自行进入权限环境：
+    /// 见 <c>PluginBase.EnterPermissionScope</c>。框架自身进入插件代码时会自动包裹，插件无需重复。
+    /// </remarks>
+    PluginPermissions Permissions { get; }
+
+    /// <summary>
     /// 写一条插件日志（宿主负责落地到统一日志通道）。
     /// </summary>
     /// <param name="message">日志内容。</param>

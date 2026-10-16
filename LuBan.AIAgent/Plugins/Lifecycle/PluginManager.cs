@@ -239,6 +239,10 @@ public sealed class PluginManager
                 return false;
             }
 
+            // 加载前静态校验：清单权限 / credential 声明不合规 → 直接 Disabled 并提示（PRD §3.7）
+            if (!entry.IsBuiltin && !await EnsureManifestCompliantAsync(entry, cancellationToken).ConfigureAwait(false))
+                return false;
+
             return entry.IsBuiltin
                 ? await ActivateBuiltinAsync(entry, host, cancellationToken).ConfigureAwait(false)
                 : await ActivateDirectoryPluginAsync(entry, host, cancellationToken).ConfigureAwait(false);
@@ -555,7 +559,7 @@ public sealed class PluginManager
         entry.Loaded = loaded;
         entry.State = PluginState.Installed;
 
-        var scope = new PluginHostScope(host, entry.Id);
+        var scope = new PluginHostScope(host, entry.Id, entry.Manifest?.Permissions);
         entry.Scope = scope;
 
         // 第 6 步：先按清单登记侧栏条目，保证 UI 有入口
@@ -564,7 +568,10 @@ public sealed class PluginManager
         // 第 5 步：插件主程序初始化（隔离异常）
         try
         {
-            await loaded.Plugin.InitializeAsync(scope, cancellationToken).ConfigureAwait(false);
+            using (PluginScopeContext.Enter(entry.Id, entry.Manifest?.Permissions))
+            {
+                await loaded.Plugin.InitializeAsync(scope, cancellationToken).ConfigureAwait(false);
+            }
         }
         catch (Exception ex)
         {
@@ -605,12 +612,15 @@ public sealed class PluginManager
         CancellationToken cancellationToken)
     {
         var plugin = entry.BuiltinPlugin!;
-        var scope = new PluginHostScope(host, entry.Id);
+        var scope = new PluginHostScope(host, entry.Id, entry.Manifest?.Permissions);
         entry.Scope = scope;
 
         try
         {
-            await plugin.InitializeAsync(scope, cancellationToken).ConfigureAwait(false);
+            using (PluginScopeContext.Enter(entry.Id, entry.Manifest?.Permissions))
+            {
+                await plugin.InitializeAsync(scope, cancellationToken).ConfigureAwait(false);
+            }
         }
         catch (Exception ex)
         {
@@ -674,7 +684,10 @@ public sealed class PluginManager
         IEnumerable<SkillDefinition> definitions;
         try
         {
-            definitions = plugin.ContributeSkills() ?? Array.Empty<SkillDefinition>();
+            using (PluginScopeContext.Enter(entry.Id, entry.Manifest?.Permissions))
+            {
+                definitions = plugin.ContributeSkills() ?? Array.Empty<SkillDefinition>();
+            }
         }
         catch (Exception ex)
         {
@@ -777,7 +790,7 @@ public sealed class PluginManager
     private async Task<bool> UnloadAsync(PluginEntry entry, CancellationToken cancellationToken)
     {
         var host = ResolveHost();
-        var scope = entry.Scope ?? (host is null ? null : new PluginHostScope(host, entry.Id));
+        var scope = entry.Scope ?? (host is null ? null : new PluginHostScope(host, entry.Id, entry.Manifest?.Permissions));
 
         // 第 1 步：通知插件关闭（退订事件、停定时器、释句柄、取消后台任务）。
         // 注意：本方法运行在 async 状态机上，任何跨越 await 存活的对 LoadedPlugin/ALC 的局部引用
@@ -886,7 +899,10 @@ public sealed class PluginManager
         var stopwatch = Stopwatch.StartNew();
         try
         {
-            await plugin.ShutdownAsync(timeout.Token).ConfigureAwait(false);
+            using (PluginScopeContext.Enter(entry.Id, entry.Manifest?.Permissions))
+            {
+                await plugin.ShutdownAsync(timeout.Token).ConfigureAwait(false);
+            }
         }
         catch (OperationCanceledException) when (timeout.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
         {
@@ -998,6 +1014,61 @@ public sealed class PluginManager
         entry.LastError = message;
         await PersistAsync(entry, cancellationToken).ConfigureAwait(false);
         RaiseChanged(entry, PluginChangedKind.Error);
+    }
+
+    /// <summary>
+    /// 加载前权限门禁：仅校验清单的权限 / credential 声明是否落在宿主白名单目录内（PRD §3.7）。
+    /// </summary>
+    /// <remarks>
+    /// 不合规 → 直接判 <c>Disabled</c>（宿主策略不允许启用）；其余清单问题（缺 id、id 格式、入口程序集缺失等）
+    /// <b>不在此处处理</b>，交由激活路径判 <c>Error</c>（插件自身不可用）——两种状态语义不同，
+    /// 且宿主管家界面需要能列出格式有问题的插件并给出可诊断错误。
+    /// </remarks>
+    /// <param name="entry">插件条目。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>权限声明合规返回 <c>true</c>（可继续激活）。</returns>
+    private async Task<bool> EnsureManifestCompliantAsync(PluginEntry entry, CancellationToken cancellationToken)
+    {
+        // 目录缺失 / 清单读不出：交给激活路径统一判 Error
+        if (string.IsNullOrWhiteSpace(entry.Directory))
+            return true;
+
+        PluginManifest? manifest;
+        try
+        {
+            manifest = entry.Manifest ?? _loader.ReadManifest(entry.Directory);
+        }
+        catch (Exception ex)
+        {
+            Logger.Error($"读取插件清单失败：{entry.Id}", ex);
+            return true;
+        }
+
+        if (manifest is null)
+            return true;
+
+        var result = _loader.ValidatePermissions(manifest);
+        if (result.IsValid)
+        {
+            entry.Manifest = manifest;
+            return true;
+        }
+
+        Logger.Warn($"插件 {entry.Id} 权限声明不合规，已置为 Disabled：{result.ToSummary()}");
+        await MarkDisabledAsync(entry, result.ToSummary(), cancellationToken).ConfigureAwait(false);
+        return false;
+    }
+
+    /// <summary>
+    /// 标记插件为 Disabled 并持久化（宿主策略不允许启用，PRD §3.7）。
+    /// </summary>
+    private async Task MarkDisabledAsync(PluginEntry entry, string message, CancellationToken cancellationToken)
+    {
+        entry.State = PluginState.Disabled;
+        entry.LastError = message;
+        entry.ShouldEnableOnStartup = false;
+        await PersistAsync(entry, cancellationToken).ConfigureAwait(false);
+        RaiseChanged(entry, PluginChangedKind.Disabled);
     }
 
     /// <summary>

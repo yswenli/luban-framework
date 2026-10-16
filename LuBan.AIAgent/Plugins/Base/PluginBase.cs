@@ -56,6 +56,25 @@ public abstract class PluginBase : IPlugin
     /// </summary>
     protected bool IsInitialized => _host is not null && !_invalidated;
 
+    /// <summary>
+    /// 进入本插件的权限环境（网络 / 进程 / 凭据 / Git 出口门禁的判定依据，PRD §3.7）。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 框架在调用 <c>InitializeAsync</c> / <c>ShutdownAsync</c> / <c>ContributeSkills</c> 时<b>已自动包裹</b>，
+    /// 插件无需重复。<b>但</b> UI 面板事件回调、向导按钮等由宿主 UI 线程直接触发的代码不在框架包裹范围内，
+    /// 这些代码在调用连接器 / 进程 / 凭据前须自行进入：
+    /// </para>
+    /// <code>
+    /// using var _ = EnterPermissionScope();
+    /// await _connector.GetCodeupClient().CreateRepositoryAsync(request);
+    /// </code>
+    /// <para>未进入权限环境时，连接器会视为「宿主自身调用」而放行，越界检查形同虚设。</para>
+    /// </remarks>
+    /// <returns>退出令牌，<c>Dispose</c> 后还原外层权限环境。</returns>
+    protected IDisposable EnterPermissionScope()
+        => PluginScopeContext.Enter(new PluginPermissionScope(Id, Host.Permissions));
+
     /// <inheritdoc />
     public async Task InitializeAsync(IPluginHost host, CancellationToken cancellationToken = default)
     {

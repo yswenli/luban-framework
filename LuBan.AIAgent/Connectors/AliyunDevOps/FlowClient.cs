@@ -31,6 +31,7 @@ public class FlowClient : IDisposable
     private readonly HttpClient _httpClient;
     private readonly YunxiaoApiOptions _options;
     private readonly IYunxiaoCredentialProvider _credentialProvider;
+    private readonly PluginPermissionGuard _guard;
     private bool _disposed;
 
     private static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web)
@@ -50,12 +51,15 @@ public class FlowClient : IDisposable
     /// </summary>
     /// <param name="options">API 配置</param>
     /// <param name="credentialProvider">凭据提供者</param>
+    /// <param name="permissionGuard">插件权限门禁（可选；不传则用进程级兜底实例）。</param>
     public FlowClient(
         YunxiaoApiOptions options,
-        IYunxiaoCredentialProvider credentialProvider)
+        IYunxiaoCredentialProvider credentialProvider,
+        PluginPermissionGuard? permissionGuard = null)
     {
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _credentialProvider = credentialProvider ?? throw new ArgumentNullException(nameof(credentialProvider));
+        _guard = permissionGuard ?? PluginPermissionGuard.Default;
 
         _httpClient = new HttpClient
         {
@@ -360,6 +364,10 @@ public class FlowClient : IDisposable
         object? body = null,
         CancellationToken cancellationToken = default)
     {
+        // 出口门禁（PRD §3.7）：目标主机 + PAT 凭据
+        _guard.RequireNetwork(_options.Endpoint, "FlowClient.SendRequestAsync");
+        _guard.RequireCredential(CredentialKeys.YunxiaoPat, "FlowClient.SendRequestAsync");
+
         var pat = await _credentialProvider.GetPatAsync(cancellationToken);
         if (string.IsNullOrWhiteSpace(pat))
             throw new InvalidOperationException("未配置 PAT");

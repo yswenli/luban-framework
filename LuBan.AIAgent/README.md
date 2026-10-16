@@ -412,7 +412,7 @@ AI: [调用 WriteMcpServerAsync] 已创建 MCP 配置，正在连接...
 | `PluginBase` | 插件基类（命名空间 `LuBan.AIAgent.Plugins.Base`），提供 `Host` / `SafeLog` / `PostToUi`（失效令牌包装，禁止插件直调 UI 线程）与 `OnInitializeAsync` / `OnShutdownAsync` 钩子 |
 | `IPluginHost` | 宿主能力契约：注册/注销侧栏条目与面板、注册/注销 Skill 与 MCP、`PostToUi`、`GetConfig`、插件日志 |
 | `PluginManager` | 单例管理器：`ScanAsync` / `RestoreEnabledAsync` / `GetPlugins` / `EnableAsync` / `DisableAsync` / `InstallAsync` / `UpgradeAsync` / `UninstallAsync` 与 `Changed` 事件 |
-| `PluginLoader` / `ManifestValidator` | 清单读取与校验：必填项、id 与版本正则、入口程序集存在性、`minHostVersion` / `targetApp`、重复项、`transport`、依赖自引用 |
+| `PluginLoader` / `ManifestValidator` | 清单读取与校验：必填项、id 与版本正则、入口程序集存在性、`minHostVersion` / `targetApp`、重复项、`transport`、依赖自引用；`ValidatePermissions` 可单独做权限 / 凭据声明覆盖校验（供加载前门禁调用，与会判 `Error` 的整单校验分离） |
 | `PluginDependencyResolver` | 依赖拓扑与环检测（仅校验依赖存在性，不做自动启用） |
 | `PluginLocation` | 目录约定：`<AppContext.BaseDirectory>/plugins/<id>/{plugin.json, lib/, assets/}` |
 | `IPluginStateRepository` / `PluginStateRepository` | 状态持久化契约 + 默认 JSON 文件实现（`id` / `version` / `state` / `installedAt` / `lastError` / `requiresRestart`） |
@@ -420,6 +420,26 @@ AI: [调用 WriteMcpServerAsync] 已创建 MCP 配置，正在连接...
 | `PluginHostScope` / `PluginDescriptor` / `PluginChangedEventArgs` | 插件身份回填与贡献记账、管理器界面用的只读描述、状态变更事件载荷 |
 
 目录语义：**插件只有应用级**（`<AppContext.BaseDirectory>/plugins/<plugin-id>/`）；插件**贡献的** Skill / MCP 则落工作区级（`.luban-agent/skills`、`.luban-agent/mcps`），随卸载被显式删除。
+
+### 插件权限与凭据安全
+
+插件是第三方代码，宿主以「**目录白名单 + 默认拒绝**」约束其访问（PRD §3.7）：**声明期**要求清单里的每处权限范围都落在白名单目录内，否则加载前直接判 `Disabled`；**运行期**在真正的出口（网络 / 进程 / 凭据 / Git）再按声明拦截越界访问。
+
+| 组件 | 说明 |
+|------|------|
+| `PluginSecurityOptions` | 白名单策略（`NetworkWhitelist` / `ProcessWhitelist` / `GitWhitelist` / `FilesystemWhitelist` / `CredentialCatalog` / `EnforceAtRuntime` / `AuditDenials` / `MaxAuditRecords`），可从配置节点 `LuBanAgent:Plugins:Security` 覆盖；默认网络白名单为 `codeup.aliyun.com` / `flow.aliyun.com` / `*.aliyuncs.com`，进程白名单为 `dotnet` / `git`，凭据目录为 `yunxiao_pat` |
+| `PluginPermissionEvaluator` | 判定引擎：`ValidateDeclaration` 做声明期覆盖校验（写入 `ManifestValidationResult.Errors`）；`IsNetworkAllowed` / `IsProcessAllowed` / `IsCredentialAllowed` / `IsGitAllowed` / `IsFilesystemAllowed` 做运行期越界判定（只读、不抛异常） |
+| `PluginScopeContext` | 权限环境（`AsyncLocal`）：`Enter(pluginId, permissions)` 声明「当前调用以哪个插件身份发起」，可嵌套；`Current == null` 表示宿主自身调用，一律放行 |
+| `PluginPermissionGuard` | 运行期出口门禁：`RequireNetwork` / `RequireProcess` / `RequireCredential` / `RequireGit` 越界即抛 `PluginPermissionDeniedException` 并写入有界的 `RecentDenials` 审计；`PluginPermissionGuard.Default` 为无 DI 场景的兜底实例 |
+| `ICredentialStore` / `ConfigurationCredentialStore` | 凭据读写契约 + 默认「配置节点 `LuBanAgent:Credentials:<key>` + 环境变量兜底」只读实现（`SetAsync` 抛 `NotSupportedException`）；桌面宿主宜注册自己的可写实现替换它 |
+| `CredentialKeys` | 凭据键目录与归一化：`codeup:pat` / `codeup_pat` / `yunxiao:pat` → `yunxiao_pat`，组织 ID → `yunxiao_organization_id`；环境变量映射 `LUBAN_YUNXIAO_PAT` / `LUBAN_YUNXIAO_ORGANIZATION_ID` |
+
+要点：
+
+- **白名单是「覆盖」语义，不是「包含」语义**：插件声明的每个范围都必须被白名单里的某条规则覆盖。裸 `*`（放行全网 / 全进程 / 全部凭据）**只有白名单本身含 `*` 时才被授权**；`*.aliyuncs.com` 覆盖 `openapi-rdc.aliyuncs.com`，但不覆盖裸域 `aliyuncs.com`。
+- **`Disabled` 与 `Error` 的语义区别**：权限 / 凭据声明不合规 = 宿主策略不允许启用 → `Disabled`；清单格式问题（缺 `id`、`id` 非法、入口程序集缺失等）= 插件自身不可用 → 激活阶段判 `Error`。管家界面因此仍能列出格式有问题的插件并给出可诊断错误。
+- `PluginSecurityOptions.EnforceAtRuntime = false` 时只审计不拦截，仅供排查兼容性问题；生产应保持 `true`。
+- 凭据**绝不入 DB 明文**；框架只提供「配置 + 环境变量」兜底实现，实际落盘基线由宿主决定（桌面宿主与 LLM ApiKey 同基线）。
 
 ## 使用指南
 
@@ -811,7 +831,7 @@ services.AddSingleton<IPluginHost, MyPluginHost>();   // 宿主自己实现：�
   "uiContributions": [{ "id": "demo-entry", "label": "Demo", "panelType": "demo-panel" }],
   "skills": [{ "id": "demo-skill", "name": "Demo 技能" }],
   "mcpServers": [{ "name": "demo-mcp", "transport": "inproc", "enabled": true }],
-  "permissions": { "filesystem": ["workspace"], "network": ["*"] },
+  "permissions": { "filesystem": ["workspace"], "network": ["codeup.aliyun.com", "*.aliyuncs.com"], "credential": ["yunxiao_pat"] },
   "dependencies": ["com.tjc.base"]
 }
 ```
@@ -824,10 +844,18 @@ services.AddSingleton<IPluginHost, MyPluginHost>();   // 宿主自己实现：�
 | `name` / `version` / `entryAssembly` | 必填；版本形如 `1.0.0` 或 `1.0.0-beta.1` |
 | `skills[].id` | 不含点号（与 Skill 注册表约定一致） |
 | `mcpServers[].transport` | 目前仅支持 `inproc`（进程内 MCP 客户端） |
-| `permissions` | 6 个维度 `filesystem` / `network` / `git` / `database` / `process` / `credential`；可写数组简写 `["filesystem:workspace"]`，未声明的维度等价于不声明，`"permissions": null` 归一化为空权限 |
+| `permissions` | 6 个维度 `filesystem` / `network` / `git` / `database` / `process` / `credential`；可写数组简写 `["filesystem:workspace"]`，未声明的维度等价于不声明，`"permissions": null` 归一化为空权限。声明须被宿主白名单**覆盖**，越界即 `Disabled`（见下方「权限声明如何生效」） |
 | `dependencies` | 仅校验依赖插件是否存在且已启用，不允许自引用 |
 
 `plugin.json` 的 JSON Schema 随包发布（`Plugins/Schemas/plugin.schema.json`），编辑器可据此补全与校验。
+
+**权限声明如何生效**
+
+清单里的 `permissions` 不是「告知」，而是一份**受宿主白名单审核的申请**（PRD §3.7：目录白名单 + 默认拒绝）：
+
+1. **声明期**：`EnableAsync` 先调 `PluginLoader.ValidatePermissions`（插件级 + 技能级），逐维度检查范围是否被 `PluginSecurityOptions` 白名单覆盖；任一越界即判 **`Disabled`**（`LastError` 写明越界项）。裸 `*`（放行全网 / 全进程 / 全部凭据）**只有白名单本身含 `*` 时才被授权**；`*.aliyuncs.com` 覆盖 `openapi-rdc.aliyuncs.com`，但不覆盖裸域 `aliyuncs.com`。
+2. **运行期**：框架连接器（`CodeupClient` / `FlowClient` / `YunxiaoMCPClient` 等）在真正发起网络 / 进程 / 凭据 / Git 访问前调用 `PluginPermissionGuard` 判定。宿主在调用插件代码前用 `PluginScopeContext.Enter(pluginId, permissions)` 包裹；插件在宿主包裹不到的回调（UI 事件）里可自行 `PluginBase.EnterPermissionScope()`。**未声明即拒绝**；权限环境为空表示宿主自身调用，一律放行。
+3. **凭据取用**：插件不能直接读凭据，须声明 `credential` 后由宿主经 `ICredentialStore` 代取；`EnforceAtRuntime = false` 时只审计不拦截（仅供排查兼容性问题，生产应保持 `true`）。
 
 **生命周期与卸载语义**
 
@@ -1037,6 +1065,14 @@ LuBan.AIAgent/
 │   │   ├── PluginLoadContext.cs       # 可回收 AssemblyLoadContext（lib/ 优先，根部回退）
 │   │   ├── PluginHostScope.cs         # 宿主能力代理 + 贡献记账
 │   │   └── PluginStateRepository.cs   # 状态仓储 JSON 默认实现
+│   ├── Security/
+│   │   ├── PluginSecurityOptions.cs   # 权限白名单策略（网络/进程/Git/文件系统/凭据目录）
+│   │   ├── PluginPermissionEvaluator.cs # 声明期覆盖校验 + 运行期越界判定
+│   │   ├── PluginPermissionGuard.cs   # 运行期出口门禁 + 有界越界审计
+│   │   ├── PluginScopeContext.cs      # 权限环境（AsyncLocal）传递
+│   │   ├── CredentialKeys.cs          # 凭据键归一化与环境变量映射
+│   │   ├── ICredentialStore.cs        # 凭据存储契约
+│   │   └── ConfigurationCredentialStore.cs # 默认「配置 + 环境变量」只读实现
 │   └── Schemas/
 │       └── plugin.schema.json         # plugin.json 的 JSON Schema（随包发布）
 ├── LuBanAgent.cs                      # Agent 实例

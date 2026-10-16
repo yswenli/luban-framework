@@ -49,14 +49,19 @@ public sealed class ManifestValidator
         RegexOptions.Compiled);
 
     private readonly ManifestValidationOptions _options;
+    private readonly PluginPermissionEvaluator _permissions;
 
     /// <summary>
     /// 创建清单校验器。
     /// </summary>
     /// <param name="options">校验选项；为空时取默认值。</param>
-    public ManifestValidator(ManifestValidationOptions? options = null)
+    /// <param name="permissions">权限判定器（白名单语义）；为空时取默认白名单。</param>
+    public ManifestValidator(
+        ManifestValidationOptions? options = null,
+        PluginPermissionEvaluator? permissions = null)
     {
         _options = options ?? new ManifestValidationOptions();
+        _permissions = permissions ?? new PluginPermissionEvaluator();
     }
 
     /// <summary>
@@ -157,8 +162,6 @@ public sealed class ManifestValidator
 
             if (string.IsNullOrWhiteSpace(skill.Name))
                 result.Warnings.Add($"skills[{skill.Id}] 未声明 name。");
-
-            ValidatePermissions(result, skill.Permissions, $"skills[{skill.Id}].permissions");
         }
 
         // MCP 服务器声明
@@ -181,8 +184,8 @@ public sealed class ManifestValidator
             }
         }
 
-        // 权限
-        ValidatePermissions(result, manifest.Permissions, "permissions");
+        // 权限（插件级 + 技能级）
+        ValidatePermissionsOf(manifest, result);
 
         // 依赖：自引用非法
         foreach (var dependency in manifest.Dependencies)
@@ -205,26 +208,49 @@ public sealed class ManifestValidator
     }
 
     /// <summary>
-    /// 校验权限声明的维度合法性。
+    /// 单独校验清单的权限声明（插件级 <c>permissions</c> + 技能级 <c>skills[].permissions</c>）。
     /// </summary>
-    private static void ValidatePermissions(
+    /// <remarks>
+    /// 与 <see cref="Validate"/> 分离的原因：PRD §3.7 要求「权限 / credential 声明不合规」在加载前直接判
+    /// <c>Disabled</c>（宿主策略不允许），而清单格式问题（缺 id、入口程序集缺失等）仍应在激活阶段判
+    /// <c>Error</c>（插件自身不可用）。二者状态语义不同，故权限校验需可独立调用。
+    /// </remarks>
+    /// <param name="manifest">清单对象；为 <c>null</c> 时返回空结果（不做判定）。</param>
+    /// <returns>仅含权限相关错误的校验结果。</returns>
+    public ManifestValidationResult ValidatePermissions(PluginManifest? manifest)
+    {
+        var result = new ManifestValidationResult();
+        if (manifest is null)
+            return result;
+
+        ValidatePermissionsOf(manifest, result);
+        return result;
+    }
+
+    /// <summary>
+    /// 校验权限声明：范围非空 + 落在宿主白名单目录内（PRD §3.7，不合规直接判 <c>Disabled</c>）。
+    /// </summary>
+    private void ValidatePermissionsOf(PluginManifest manifest, ManifestValidationResult result)
+    {
+        foreach (var skill in manifest.Skills)
+        {
+            if (string.IsNullOrWhiteSpace(skill.Id))
+                continue;
+
+            ValidatePermissions(result, skill.Permissions, $"skills[{skill.Id}].permissions");
+        }
+
+        ValidatePermissions(result, manifest.Permissions, "permissions");
+    }
+
+    /// <summary>
+    /// 校验单个权限声明的每个维度（PRD §3.7，不合规直接判 <c>Disabled</c>）。
+    /// </summary>
+    private void ValidatePermissions(
         ManifestValidationResult result,
         PluginPermissions? permissions,
         string path)
-    {
-        if (permissions is null || permissions.IsEmpty)
-            return;
-
-        foreach (var dimension in PluginPermissions.KnownDimensions)
-        {
-            var scopes = permissions.GetScopes(dimension);
-            foreach (var scope in scopes)
-            {
-                if (string.IsNullOrWhiteSpace(scope))
-                    result.Errors.Add($"{path}.{dimension} 存在空范围项。");
-            }
-        }
-    }
+        => _permissions.ValidateDeclaration(permissions, path, result);
 
     /// <summary>
     /// 必填字段校验。

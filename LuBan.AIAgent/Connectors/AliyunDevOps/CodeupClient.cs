@@ -31,6 +31,7 @@ public class CodeupClient : IDisposable
     private readonly YunxiaoApiOptions _options;
     private readonly IYunxiaoCredentialProvider _credentialProvider;
     private readonly ProcessRunner? _processRunner;
+    private readonly PluginPermissionGuard _guard;
     private bool _disposed;
 
     // 忽略 null 字段，避免把未设置的可见性/模板等参数以 null 发给云效
@@ -45,14 +46,17 @@ public class CodeupClient : IDisposable
     /// <param name="options">API 配置</param>
     /// <param name="credentialProvider">凭据提供者</param>
     /// <param name="processRunner">进程执行器（用于 Git 操作，可选）</param>
+    /// <param name="permissionGuard">插件权限门禁（可选；不传则用进程级兜底实例）。</param>
     public CodeupClient(
         YunxiaoApiOptions options,
         IYunxiaoCredentialProvider credentialProvider,
-        ProcessRunner? processRunner = null)
+        ProcessRunner? processRunner = null,
+        PluginPermissionGuard? permissionGuard = null)
     {
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _credentialProvider = credentialProvider ?? throw new ArgumentNullException(nameof(credentialProvider));
         _processRunner = processRunner;
+        _guard = permissionGuard ?? PluginPermissionGuard.Default;
 
         _httpClient = new HttpClient
         {
@@ -227,6 +231,12 @@ public class CodeupClient : IDisposable
         if (_processRunner == null)
             throw new InvalidOperationException("未配置 ProcessRunner，无法执行 Git 操作");
 
+        // 出口门禁（PRD §3.7）：Git 能力 + git 进程 + 目标主机 + PAT 凭据
+        _guard.RequireGit("clone", "CodeupClient.CloneToLocalAsync");
+        _guard.RequireProcess("git", "CodeupClient.CloneToLocalAsync");
+        _guard.RequireNetwork(ExtractHost(repositoryUrl), "CodeupClient.CloneToLocalAsync");
+        _guard.RequireCredential(CredentialKeys.YunxiaoPat, "CodeupClient.CloneToLocalAsync");
+
         var pat = await _credentialProvider.GetPatAsync(cancellationToken);
         if (string.IsNullOrWhiteSpace(pat))
             throw new InvalidOperationException("未配置 PAT，无法克隆仓库");
@@ -276,6 +286,12 @@ public class CodeupClient : IDisposable
         if (_processRunner == null)
             throw new InvalidOperationException("未配置 ProcessRunner，无法执行 Git 操作");
 
+        // 出口门禁（PRD §3.7）：Git 能力 + git 进程 + 目标主机 + PAT 凭据
+        _guard.RequireGit("push", "CodeupClient.PushAsync");
+        _guard.RequireProcess("git", "CodeupClient.PushAsync");
+        _guard.RequireNetwork(ExtractHost(repositoryUrl), "CodeupClient.PushAsync");
+        _guard.RequireCredential(CredentialKeys.YunxiaoPat, "CodeupClient.PushAsync");
+
         var pat = await _credentialProvider.GetPatAsync(cancellationToken);
         if (string.IsNullOrWhiteSpace(pat))
             throw new InvalidOperationException("未配置 PAT，无法推送仓库");
@@ -324,6 +340,10 @@ public class CodeupClient : IDisposable
         object? body = null,
         CancellationToken cancellationToken = default)
     {
+        // 出口门禁（PRD §3.7）：目标主机 + PAT 凭据
+        _guard.RequireNetwork(_options.Endpoint, "CodeupClient.SendRequestAsync");
+        _guard.RequireCredential(CredentialKeys.YunxiaoPat, "CodeupClient.SendRequestAsync");
+
         var pat = await _credentialProvider.GetPatAsync(cancellationToken);
         if (string.IsNullOrWhiteSpace(pat))
             throw new InvalidOperationException("未配置 PAT");
@@ -411,6 +431,21 @@ public class CodeupClient : IDisposable
     }
 
     #endregion
+
+    /// <summary>
+    /// 从仓库 URL 中提取主机（用于出口门禁的域名判定）。
+    /// </summary>
+    /// <param name="url">仓库 URL（http/https，可能带鉴权信息）。</param>
+    /// <returns>主机名；无法解析时返回原字符串。</returns>
+    private static string ExtractHost(string url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+            return string.Empty;
+
+        return Uri.TryCreate(url, UriKind.Absolute, out var uri) && !string.IsNullOrWhiteSpace(uri.Host)
+            ? uri.Host
+            : url;
+    }
 
     /// <inheritdoc />
     public void Dispose()

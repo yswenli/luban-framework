@@ -39,10 +39,12 @@ internal sealed class PluginHostScope : IPluginHost
     /// </summary>
     /// <param name="inner">宿主提供的共享实现。</param>
     /// <param name="pluginId">当前插件标识。</param>
-    public PluginHostScope(IPluginHost inner, string pluginId)
+    /// <param name="permissions">插件在清单中声明的权限；为空时视为无授权（默认拒绝）。</param>
+    public PluginHostScope(IPluginHost inner, string pluginId, PluginPermissions? permissions = null)
     {
         _inner = inner ?? throw new ArgumentNullException(nameof(inner));
         PluginId = pluginId ?? string.Empty;
+        Permissions = permissions ?? new PluginPermissions();
     }
 
     /// <summary>
@@ -66,6 +68,9 @@ internal sealed class PluginHostScope : IPluginHost
 
     /// <inheritdoc />
     public string PluginId { get; }
+
+    /// <inheritdoc />
+    public PluginPermissions Permissions { get; }
 
     /// <inheritdoc />
     public IServiceProvider Services => _inner.Services;
@@ -128,9 +133,14 @@ internal sealed class PluginHostScope : IPluginHost
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    /// 进入本插件权限环境后再委派：共享宿主实现（如 codex 的 <c>CodexPluginHost</c>）据此把 MCP 客户端
+    /// 绑定到插件身份，使其出口调用按插件声明判定越界（PRD §3.7）。
+    /// </remarks>
     public void RegisterMcpServer(string name)
     {
-        _inner.RegisterMcpServer(name);
+        using (PluginScopeContext.Enter(PluginId, Permissions))
+            _inner.RegisterMcpServer(name);
 
         if (!string.IsNullOrWhiteSpace(name))
             _mcpServers.Add(name);

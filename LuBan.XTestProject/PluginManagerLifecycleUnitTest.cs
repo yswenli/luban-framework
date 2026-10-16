@@ -359,6 +359,72 @@ public class PluginManagerLifecycleUnitTest
     }
 
     [TestMethod]
+    public async Task EnableAsync_PermissionOutOfWhitelist_MarksDisabled()
+    {
+        using var root = PluginTestDirectory.Create();
+        root.WriteFile(Path.Combine("com.tjc.evil", "plugin.json"), """
+        {
+          "id": "com.tjc.evil",
+          "name": "越界插件",
+          "version": "1.0.0",
+          "entryAssembly": "Evil.dll",
+          "permissions": { "network": ["evil.example.com"] }
+        }
+        """);
+
+        var context = CreateManager();
+        try
+        {
+            await context.Manager.ScanAsync(new[] { root.Path });
+            Assert.IsNotNull(context.Manager.GetPlugin("com.tjc.evil"));
+
+            Assert.IsFalse(await context.Manager.EnableAsync("com.tjc.evil"));
+
+            // PRD §3.7：权限声明越界属「宿主策略不允许启用」→ Disabled（而非 Error）
+            var descriptor = context.Manager.GetPlugin("com.tjc.evil")!;
+            Assert.AreEqual(PluginState.Disabled, descriptor.State);
+            Assert.IsTrue(descriptor.LastError!.Contains("越界"), descriptor.LastError);
+            CollectionAssert.Contains(descriptor.Permissions.Network.ToArray(), "evil.example.com");
+        }
+        finally
+        {
+            context.Provider.Dispose();
+            TryDelete(context.StateFile);
+        }
+    }
+
+    [TestMethod]
+    public async Task EnableAsync_PermissionInsideWhitelist_ReachesActivation()
+    {
+        using var root = PluginTestDirectory.Create();
+        // 权限声明合规，但入口程序集缺失 → 应走到激活阶段判 Error
+        // （证明权限门禁只拦权限，不会把格式问题误判为 Disabled）
+        root.WriteFile(Path.Combine("com.tjc.ok", "plugin.json"), """
+        {
+          "id": "com.tjc.ok",
+          "name": "合规插件",
+          "version": "1.0.0",
+          "entryAssembly": "Ok.dll",
+          "permissions": { "network": ["codeup.aliyun.com"], "credential": ["codeup:pat"] }
+        }
+        """);
+
+        var context = CreateManager();
+        try
+        {
+            await context.Manager.ScanAsync(new[] { root.Path });
+
+            Assert.IsFalse(await context.Manager.EnableAsync("com.tjc.ok"));
+            Assert.AreEqual(PluginState.Error, context.Manager.GetPlugin("com.tjc.ok")!.State);
+        }
+        finally
+        {
+            context.Provider.Dispose();
+            TryDelete(context.StateFile);
+        }
+    }
+
+    [TestMethod]
     public async Task EnableAsync_DirectoryPluginWithBadAssembly_MarksError()
     {
         using var root = PluginTestDirectory.Create();
@@ -546,6 +612,8 @@ public class PluginManagerLifecycleUnitTest
         public IServiceProvider Services { get; set; } = null!;
 
         public string PluginId => BuiltinId;
+
+        public PluginPermissions Permissions => new();
 
         public List<string> Logs { get; } = new();
 
