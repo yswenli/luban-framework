@@ -867,6 +867,7 @@ The `permissions` in a manifest is not a notification — it is an **application
 - Entries a plugin **registers itself** during `InitializeAsync` (rather than declaring in the manifest) are tracked too, and are unregistered precisely on unload, preventing "plugin uninstalled but entry still visible" ghost states.
 - `UpgradeAsync` (hot replacement): runs the full unload flow on the old version and **only copies the new package when unload verification passed**, then re-enables it; otherwise the upgrade is aborted (otherwise every upgrade would leak another assembly).
 - Skills / MCP servers registered through `IPluginHost` land as **workspace-level** files, so uninstall must delete them explicitly; otherwise the host's `LoadFromWorkspace()` will simply load them back.
+- **Plugins must not use the reflection-based JSON serializer**: `JsonSerializer.Deserialize<T>` / `Serialize<T>` (with `T` being a plugin-owned type) caches reflection metadata (`JsonTypeInfo` / member accessors) keyed by that plugin type **inside the default ALC**, pinning the plugin ALC forever so the step-⑥ weak-reference verification always fails. Use `System.Text.Json` **source generation** (`JsonSerializerContext` + `[JsonSerializable]`) or the DOM APIs (`JsonDocument` / `Utf8JsonWriter`) instead; plugins should also avoid creating their own `JsonSerializerOptions` (measured: the reflection path pins the ALC, while source generation and DOM both collect).
 
 ## Supported AI Providers
 

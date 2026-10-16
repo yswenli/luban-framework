@@ -864,6 +864,7 @@ services.AddSingleton<IPluginHost, MyPluginHost>();   // 宿主自己实现：�
 - 插件在 `InitializeAsync` 中**自行注册**（而非清单声明）的侧栏条目 / Skill / MCP 同样被记账，卸载时一并精确注销，避免"插件已卸载、入口仍在"的幽灵状态。
 - `UpgradeAsync` 热替换：先对旧版本走完整卸载流程，**卸载验证通过才**复制新包并重新启用；验证未通过则中止升级（否则每升级一次就多泄漏一份程序集）。
 - `IPluginHost` 注册的 Skill / MCP 落到**工作区级**文件，因此卸载必须显式删除，否则宿主的 `LoadFromWorkspace()` 会把它们重新加载回来。
+- **插件内的 JSON 读写不得走反射式序列化器**：`JsonSerializer.Deserialize<T>` / `Serialize<T>`（`T` 为插件自身类型）会在**默认 ALC** 里按「插件类型」缓存反射元数据（`JsonTypeInfo` / 成员访问委托），把插件 ALC 永久钉住，使第 ⑥ 步的弱引用验证必然失败。请改用 `System.Text.Json` **源生成**（`JsonSerializerContext` + `[JsonSerializable]`）或 DOM API（`JsonDocument` / `Utf8JsonWriter`）；插件内自建 `JsonSerializerOptions` 同样应避免（实测：反射路径钉住 ALC，源生成与 DOM 均可回收）。
 
 ## 支持的 AI Provider
 
