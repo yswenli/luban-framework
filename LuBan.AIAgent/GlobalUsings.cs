@@ -23,6 +23,7 @@
 *****************************************************************************/
 global using LuBan.AIAgent.Abstractions;
 global using LuBan.AIAgent.Configuration;
+global using LuBan.AIAgent.Connectors;
 global using LuBan.AIAgent.Connectors.AliyunDevOps;
 global using LuBan.AIAgent.Errors;
 global using LuBan.AIAgent.Infrastructure;

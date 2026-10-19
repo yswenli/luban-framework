@@ -23,11 +23,46 @@ namespace LuBan.AIAgent.Plugins.Security;
 /// </remarks>
 public static class CredentialKeys
 {
-    /// <summary>云效个人访问令牌（PAT）的规范键名。</summary>
-    public const string YunxiaoPat = "yunxiao_pat";
+    /// <summary>
+    /// 云效个人访问令牌（PAT）的规范键名 —— 即 <c>connector:yunxiao:token</c>。
+    /// </summary>
+    /// <remarks>
+    /// 自 Q15 起连接器令牌统一泛化为 <c>connector:&lt;实例名&gt;:token</c>（见 <see cref="ForConnectorToken"/>）。
+    /// 常量名 <c>YunxiaoPat</c> 保留为<b>兼容别名</b>，旧键拼写（<c>yunxiao_pat</c> / <c>codeup:pat</c> 等）
+    /// 仍由 <see cref="Normalize"/> 归一化到本键，历史数据由 <see cref="GetLegacyKeyAliases"/> 支持回退读取。
+    /// </remarks>
+    public const string YunxiaoPat = "connector:yunxiao:token";
 
     /// <summary>云效组织 ID（非敏感，但与会话/连接配置同源存放）。</summary>
     public const string YunxiaoOrganizationId = "yunxiao_organization_id";
+
+    /// <summary>
+    /// 取连接器令牌凭据的规范键名（Q15 泛化约定）。
+    /// </summary>
+    /// <param name="connectorName">连接器实例名（如 <c>yunxiao</c>）。</param>
+    /// <returns>形如 <c>connector:&lt;实例名&gt;:token</c> 的键名（小写、去空白）。</returns>
+    public static string ForConnectorToken(string connectorName)
+        => $"connector:{(connectorName ?? string.Empty).Trim().ToLowerInvariant()}:token";
+
+    /// <summary>
+    /// 各规范键对应的<b>历史键拼写</b>表（仅用于旧数据回退读取与一次性迁移）。
+    /// </summary>
+    private static readonly Dictionary<string, string[]> LegacyKeyAliases = new(StringComparer.OrdinalIgnoreCase)
+    {
+        [YunxiaoPat] = ["yunxiao_pat", "yunxiao:pat", "codeup_pat", "codeup:pat"],
+        [YunxiaoOrganizationId] = ["yunxiao_org_id", "yunxiao:org", "codeup_org_id", "codeup:org"]
+    };
+
+    /// <summary>
+    /// 取指定键（任意别名写法）对应的历史键拼写列表。
+    /// </summary>
+    /// <remarks>
+    /// 迁移后旧键仍被保留，回退读取保证「配置迁移未落盘（如只读文件）」时凭据不丢。
+    /// </remarks>
+    /// <param name="key">凭据键（任意别名写法）。</param>
+    /// <returns>历史键拼写；无别名时返回空集合。</returns>
+    public static IReadOnlyList<string> GetLegacyKeyAliases(string key)
+        => LegacyKeyAliases.TryGetValue(Normalize(key), out var aliases) ? aliases : Array.Empty<string>();
 
     /// <summary>
     /// 把别名键归一化为规范键名（忽略大小写与首尾空白）。

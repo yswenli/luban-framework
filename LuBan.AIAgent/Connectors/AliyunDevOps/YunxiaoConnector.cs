@@ -20,8 +20,18 @@ namespace LuBan.AIAgent.Connectors.AliyunDevOps;
 /// <summary>
 /// 云效连接器门面类 - 聚合 CodeupClient 和 FlowClient，统一 PAT 取用
 /// </summary>
-public class YunxiaoConnector : IDisposable
+/// <remarks>
+/// 实现 <see cref="IConnector"/>：连接器是<b>唯一声明单元</b>，其 MCP 暴露面
+/// （<c>yunxiao</c>）由 <see cref="McpExposures"/> 派生，供宿主按配置决定是否注册。
+/// </remarks>
+public class YunxiaoConnector : IConnector, IDisposable
 {
+    /// <summary>提供方键（连接器实现归属）。</summary>
+    public const string ProviderKey = "aliyunDevOps";
+
+    /// <summary>默认实例名。</summary>
+    public const string DefaultName = "yunxiao";
+
     private readonly YunxiaoApiOptions _options;
     private readonly IYunxiaoCredentialProvider _credentialProvider;
     private readonly ProcessRunner? _processRunner;
@@ -48,7 +58,31 @@ public class YunxiaoConnector : IDisposable
         _credentialProvider = credentialProvider ?? throw new ArgumentNullException(nameof(credentialProvider));
         _processRunner = processRunner;
         _guard = permissionGuard ?? PluginPermissionGuard.Default;
+
+        McpExposures = new[]
+        {
+            new ConnectorMcpExposure(
+                DefaultName,
+                "云效代码管理与流水线工具",
+                (_, scope) => new Mcp.YunxiaoMCPClient(this) { PermissionScope = scope })
+        };
     }
+
+    /// <inheritdoc />
+    public string Key => ProviderKey;
+
+    /// <inheritdoc />
+    /// <remarks>实例名由连接器工厂按配置注入；未注入时为默认名。</remarks>
+    public string Name { get; set; } = DefaultName;
+
+    /// <inheritdoc />
+    public string DisplayName => "云效（阿里云 DevOps）";
+
+    /// <inheritdoc />
+    public IReadOnlyList<ConnectorMcpExposure> McpExposures { get; }
+
+    /// <inheritdoc />
+    public ValueTask InitializeAsync(CancellationToken cancellationToken = default) => ValueTask.CompletedTask;
 
     /// <summary>
     /// 获取代码管理客户端
@@ -85,5 +119,12 @@ public class YunxiaoConnector : IDisposable
 
         _codeupClient?.Dispose();
         _flowClient?.Dispose();
+    }
+
+    /// <inheritdoc />
+    public ValueTask DisposeAsync()
+    {
+        Dispose();
+        return ValueTask.CompletedTask;
     }
 }

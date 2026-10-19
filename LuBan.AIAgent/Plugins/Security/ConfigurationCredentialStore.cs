@@ -64,11 +64,8 @@ public sealed class ConfigurationCredentialStore : ICredentialStore
         {
             var keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-            foreach (var child in _configuration.GetSection(SectionName).GetChildren())
-            {
-                if (!string.IsNullOrWhiteSpace(child.Key))
-                    keys.Add(CredentialKeys.Normalize(child.Key));
-            }
+            foreach (var key in EnumerateKeys(_configuration.GetSection(SectionName)))
+                keys.Add(CredentialKeys.Normalize(key));
 
             // 已知键若可通过环境变量获得，也视为可用
             foreach (var known in PluginSecurityOptionsDefaults.KnownCredentialKeys)
@@ -78,6 +75,36 @@ public sealed class ConfigurationCredentialStore : ICredentialStore
             }
 
             return keys;
+        }
+    }
+
+    /// <summary>
+    /// 递归展平配置节点的键路径。
+    /// </summary>
+    /// <remarks>
+    /// <c>IConfiguration</c> 以 <c>:</c> 为层级分隔符，而连接器令牌的规范键本身含冒号
+    /// （<c>connector:&lt;实例名&gt;:token</c>，Q15），故 <c>connector:yunxiao:token</c> 在配置树里
+    /// 是三层嵌套。直接取子节点短名只会得到 <c>connector</c> 这样的伪键，必须按路径拼回完整键。
+    /// </remarks>
+    /// <param name="section">配置节。</param>
+    /// <returns>叶子节点的完整键路径。</returns>
+    private static IEnumerable<string> EnumerateKeys(IConfigurationSection section)
+    {
+        foreach (var child in section.GetChildren())
+        {
+            var nested = child.GetChildren().ToList();
+            if (nested.Count == 0)
+            {
+                yield return child.Key;
+                continue;
+            }
+
+            // 既是节又有值（少见）：两者都算
+            if (child.Value is not null)
+                yield return child.Key;
+
+            foreach (var path in EnumerateKeys(child))
+                yield return $"{child.Key}:{path}";
         }
     }
 

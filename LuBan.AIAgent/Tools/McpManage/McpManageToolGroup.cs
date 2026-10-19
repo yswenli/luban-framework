@@ -137,11 +137,7 @@ public class McpManageToolGroup
             Enabled = true
         };
 
-        IMCPClient client = config.Transport?.ToLowerInvariant() switch
-        {
-            "http" or "sse" => new HttpMCPClient(config),
-            _ => new StdioMCPClient(config)
-        };
+        var client = MCPClientFactory.Create(config);
 
         try
         {

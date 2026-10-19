@@ -192,7 +192,7 @@ public static class LuBanAgentExtensions
         services.TryAddSingleton<ICredentialStore>(_ => new ConfigurationCredentialStore(configuration));
 
         // ===== 云效连接器与进程内 MCP 客户端（PRD §3.10 / §4.11）=====
-        services.AddYunxiaoConnector(configuration);
+        services.AddBuiltinConnectors(configuration);
 
         return services;
     }

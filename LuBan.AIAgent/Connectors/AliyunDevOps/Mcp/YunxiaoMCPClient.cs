@@ -419,10 +419,14 @@ public class YunxiaoMCPClient : MCPClientBase, IDisposable
     #endregion
 
     /// <inheritdoc />
+    /// <remarks>
+    /// 只清理自身状态：<b>不</b>释放 <see cref="YunxiaoConnector"/>。连接器由 DI 容器以宿主单例持有，
+    /// MCP 客户端对它是<b>借用</b>关系——若在此释放，某个会话反注册会连带把全局连接器 Dispose 掉，
+    /// 导致其余会话在 <c>GetCodeupClient()</c> 抛 <see cref="ObjectDisposedException"/>。
+    /// </remarks>
     public void Dispose()
     {
         if (_disposed) return;
         _disposed = true;
-        _connector.Dispose();
     }
 }

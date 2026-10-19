@@ -27,12 +27,12 @@ namespace LuBan.AIAgent.Connectors.AliyunDevOps;
 /// <para>
 /// 注册项（均为单例，构造链不含 Scoped 服务，可在 <c>ValidateScopes=true</c> 下通过构建校验）：
 /// <see cref="YunxiaoApiOptions"/>、<see cref="IYunxiaoCredentialProvider"/>（宿主可先注册覆盖）、
-/// <see cref="YunxiaoConnector"/>、<see cref="CodeupClient"/>、<see cref="FlowClient"/>、
-/// <see cref="Mcp.YunxiaoMCPClient"/>。
+/// <see cref="YunxiaoConnector"/>、<see cref="CodeupClient"/>、<see cref="FlowClient"/>。
 /// </para>
 /// <para>
-/// 注意：<b>不</b>把 <c>YunxiaoMCPClient</c> 注册为 <c>IMCPClient</c>。按 PRD §4.11，MCP 生命周期
-/// 跟随插件——插件 Enabled 时由宿主把它注册进 <c>MCPRegistry</c>，Disabled/Uninstalled 时反注册。
+/// 注意：<b>不</b>把 <c>YunxiaoMCPClient</c> 注册进容器。按 PRD §4.11，MCP 生命周期跟随插件/工作区——
+/// 由 <c>ConnectorRegistry</c> 从 <see cref="YunxiaoConnector.McpExposures"/> 按需派生并注册进会话的
+/// <c>MCPRegistry</c>，停用/卸载时反注册。
 /// </para>
 /// </remarks>
 public static class YunxiaoServiceCollectionExtensions
@@ -87,8 +87,6 @@ public static class YunxiaoServiceCollectionExtensions
             sp.GetRequiredService<YunxiaoApiOptions>(),
             sp.GetRequiredService<IYunxiaoCredentialProvider>(),
             sp.GetService<PluginPermissionGuard>() ?? PluginPermissionGuard.Default));
-
-        services.TryAddSingleton<Mcp.YunxiaoMCPClient>();
 
         return services;
     }

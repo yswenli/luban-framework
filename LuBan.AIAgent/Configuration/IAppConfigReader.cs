@@ -47,6 +47,11 @@ public interface IAppConfigReader
     List<McpServerConfig> McpServers { get; }
 
     /// <summary>
+    /// 连接器声明列表（可用性 + 非敏感参数；启用状态另由工作区决定）
+    /// </summary>
+    List<ConnectorConfig> Connectors { get; }
+
+    /// <summary>
     /// 禁用的内置技能列表
     /// </summary>
     List<string> DisabledBuiltinSkills { get; }

@@ -66,11 +66,7 @@ public class MCPRegistry
                     var config = json.ToObject<Configuration.McpServerConfig>();
                     if (config != null && config.Enabled)
                     {
-                        IMCPClient client = config.Transport?.ToLowerInvariant() switch
-                        {
-                            "http" or "sse" => new HttpMCPClient(config),
-                            _ => new StdioMCPClient(config)
-                        };
+                        var client = MCPClientFactory.Create(config);
                         temp[config.Name] = (client, FingerprintOf(config));
                     }
                 }
@@ -91,11 +87,7 @@ public class MCPRegistry
                     var config = json.ToObject<Configuration.McpServerConfig>();
                     if (config != null && config.Enabled)
                     {
-                        IMCPClient client = config.Transport?.ToLowerInvariant() switch
-                        {
-                            "http" or "sse" => new HttpMCPClient(config),
-                            _ => new StdioMCPClient(config)
-                        };
+                        var client = MCPClientFactory.Create(config);
                         temp[config.Name] = (client, FingerprintOf(config));
                     }
                 }
@@ -150,11 +142,7 @@ public class MCPRegistry
             {
                 foreach (var cfg in _configReader.McpServers.Where(s => s.Enabled))
                 {
-                    IMCPClient client = cfg.Transport?.ToLowerInvariant() switch
-                    {
-                        "http" or "sse" => new HttpMCPClient(cfg),
-                        _ => new StdioMCPClient(cfg)
-                    };
+                    var client = MCPClientFactory.Create(cfg);
                     temp[cfg.Name] = (client, FingerprintOf(cfg));
                 }
             }

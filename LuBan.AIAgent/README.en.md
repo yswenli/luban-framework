@@ -86,7 +86,7 @@ npx playwright@1.61.0 install chromium
 |-----------|-------------|
 | `LuBanAgent` | Agent instance, wraps ChatClientAgent, supports sync/streaming execution |
 | `ILuBanAgentFactory` / `LuBanAgentFactory` | Agent factory, creates agents with configured tools |
-| `IAppConfigReader` | Application config read-only interface |
+| `IAppConfigReader` | Application config read-only interface (providers / skills / rules / MCP / connector declarations) |
 | `IProviderRouter` | Provider routing interface |
 | `TextUtils` | Text processing utilities |
 | `WildcardMatcher` | Wildcard matching |
@@ -340,7 +340,8 @@ AI: [calls WriteMcpServerAsync] Created MCP configuration, connecting...
 |-----------|-------------|
 | `IMCPClient` | MCP client interface, interacts with MCP servers |
 | `StdioMCPClient` | stdio JSON-RPC based external MCP client |
-| `MCPRegistry` | MCP registry, manages built-in and external clients |
+| `MCPRegistry` | MCP registry, manages built-in and external clients (workspace files / config.json / in-process, three-tier merge) |
+| `MCPClientFactory` | Builds external clients from `McpServerConfig.Transport` (the stdio / http / sse dispatch lives in one place) |
 | `MCPToolPlugin` | MCP tool plugin, exposes MCP tools to Agent |
 | `FileSystemMCPClient` | Built-in file system MCP client |
 
@@ -427,12 +428,12 @@ Plugins are third-party code, so the host constrains their access with **directo
 
 | Component | Description |
 |------|------|
-| `PluginSecurityOptions` | Whitelist policy (`NetworkWhitelist` / `ProcessWhitelist` / `GitWhitelist` / `FilesystemWhitelist` / `CredentialCatalog` / `EnforceAtRuntime` / `AuditDenials` / `MaxAuditRecords`), overridable from the `LuBanAgent:Plugins:Security` configuration node; the default network whitelist is `codeup.aliyun.com` / `flow.aliyun.com` / `*.aliyuncs.com`, the process whitelist is `dotnet` / `git`, and the credential catalog is `yunxiao_pat` |
+| `PluginSecurityOptions` | Whitelist policy (`NetworkWhitelist` / `ProcessWhitelist` / `GitWhitelist` / `FilesystemWhitelist` / `CredentialCatalog` / `EnforceAtRuntime` / `AuditDenials` / `MaxAuditRecords`), overridable from the `LuBanAgent:Plugins:Security` configuration node; the default network whitelist is `codeup.aliyun.com` / `flow.aliyun.com` / `*.aliyuncs.com`, the process whitelist is `dotnet` / `git`, and the credential catalog is `connector:yunxiao:token` (the legacy spelling `yunxiao_pat` still normalizes) |
 | `PluginPermissionEvaluator` | The decision engine: `ValidateDeclaration` performs the declaration-time coverage check (concrete out-of-range scopes go into `ManifestValidationResult.Errors`; a wildcard `*` goes into `Warnings`); `IsNetworkAllowed` / `IsProcessAllowed` / `IsCredentialAllowed` / `IsGitAllowed` / `IsFilesystemAllowed` perform read-only runtime boundary decisions (a wildcard declaration is bounded by the host whitelist; they never throw) |
 | `PluginScopeContext` | The permission environment (`AsyncLocal`): `Enter(pluginId, permissions)` declares "which plugin identity the current call belongs to", and it nests; `Current == null` means a host-originated call and is always allowed |
 | `PluginPermissionGuard` | The runtime egress guard: `RequireNetwork` / `RequireProcess` / `RequireCredential` / `RequireGit` throw `PluginPermissionDeniedException` on a boundary violation and append to the bounded `RecentDenials` audit; `PluginPermissionGuard.Default` is the fallback instance for non-DI scenarios |
-| `ICredentialStore` / `ConfigurationCredentialStore` | Credential read/write contract plus the default read-only "configuration node `LuBanAgent:Credentials:<key>` + environment-variable fallback" implementation (`SetAsync` throws `NotSupportedException`); desktop hosts should register their own writable implementation to replace it |
-| `CredentialKeys` | Credential key catalog and normalization: `codeup:pat` / `codeup_pat` / `yunxiao:pat` → `yunxiao_pat`, organization ID → `yunxiao_organization_id`; environment-variable mapping `LUBAN_YUNXIAO_PAT` / `LUBAN_YUNXIAO_ORGANIZATION_ID` |
+| `ICredentialStore` / `ConfigurationCredentialStore` | Credential read/write contract plus the default read-only "configuration node `LuBanAgent:Credentials:<key>` + environment-variable fallback" implementation (`SetAsync` throws `NotSupportedException`); desktop hosts should register their own writable implementation to replace it. A canonical key contains colons (`connector:yunxiao:token`), which is a three-level nested node in `IConfiguration`, so `Keys` flattens paths back to full keys — do not rely on short child names |
+| `CredentialKeys` | Credential key catalog and normalization: connector tokens are uniformly `connector:<instanceName>:token` (e.g. `connector:yunxiao:token`, see `ForConnectorToken`), and the legacy spellings `codeup:pat` / `codeup_pat` / `yunxiao:pat` / `yunxiao_pat` all normalize to the same canonical key; organization ID → `yunxiao_organization_id`; environment-variable mapping `LUBAN_YUNXIAO_PAT` / `LUBAN_YUNXIAO_ORGANIZATION_ID`; `GetLegacyKeyAliases` supports legacy-key fallback reads (the Q15 generalization) |
 
 Key points:
 
@@ -440,6 +441,54 @@ Key points:
 - **`Disabled` vs `Error`**: a non-compliant permission/credential declaration means "host policy forbids enabling" → `Disabled`; a manifest format problem (missing `id`, invalid `id`, missing entry assembly, ...) means "the plugin itself is unusable" → `Error` at the activation stage. Manager UIs can therefore still list malformed plugins and surface a diagnosable error.
 - Setting `PluginSecurityOptions.EnforceAtRuntime = false` audits without blocking, purely for compatibility debugging; production should keep it `true`.
 - Credentials **never** land in the DB as plain text; the framework only ships the "configuration + environment variable" fallback, and the actual storage baseline is the host's choice (desktop hosts reuse their LLM ApiKey baseline).
+
+### Connector System (Connectors)
+
+A connector bundles "external-system I/O + permission gate + MCP exposure" into one configurable unit: **the abstraction and built-in implementations live in the framework**, and **the host only assembles them from configuration** — no name-based `switch` (PRD §3.10).
+
+| Component | Description |
+|-----------|-------------|
+| `IConnector` | Connector contract: `Key` / `Name` / `DisplayName` / `McpExposures` / `InitializeAsync`, implements `IAsyncDisposable` |
+| `ConnectorMcpExposure` | An MCP surface exposed by a connector: `Name` / `Description` / `CreateClient(services, scope)` (the in-process client only **borrows** the connector; `Dispose` never disposes the connector) |
+| `ConnectorBuildContext` / `ConnectorSettings` | Factory inputs (instance name / provider key / services / settings / `IConfiguration`) and the settings bag |
+| `AddConnector<T>` / `AddBuiltinConnectors` | Registers connector **factories** (built-ins are registered, not enabled); `AddLuBanAgent` already calls this, minimal hosts may call it explicitly |
+| `ConnectorRegistry` (scoped) | Resolver: `LoadFromWorkspace` / `GetStates` (4-state catalog) / `ApplyEnabledAsync` / `CreateMcpClient(mcpName, scope)` / `UnregisterAll` |
+| `ConnectorFactoryRegistry` / `ConnectorInstanceHost` | Factory table plus the host-level **singleton** instance cache (connectors are owned by DI; session-scoped MCP clients are derived by name) |
+| `ConnectorConfig` | A `config.json` `connectors[]` item: `name` / `provider` / `enabled` / `settings` |
+
+**Three-level availability (configuration-driven)**:
+
+| Level | Source | Effect |
+|-------|--------|--------|
+| Declared | `config.json:connectors` (via `IAppConfigReader.Connectors`) | Whether the provider is **available** (undeclared / unregistered = `Unavailable`, warn and skip, never fail-fast) |
+| Enabled | `.luban-agent/connectors/<name>.json` | Whether the connector is enabled in this **workspace** (enabling an undeclared connector counts as not installed) |
+| Exposed | Plugin manifest `mcpServers: ["<name>"]` | Resolves the connector's MCP surface by name and injects the plugin permission scope |
+
+```json
+// config.json (host per-user file)
+{ "connectors": [ { "name": "yunxiao", "provider": "aliyunDevOps", "enabled": false } ] }
+```
+
+```json
+// appsettings.json (non-secret parameter overrides; the PAT never lands here)
+{ "LuBanAgent": { "Connectors": { "Yunxiao": { "OrganizationId": "your-org-id" } } } }
+```
+
+> Credential keys are generalized per instance name to `connector:<instanceName>:token` (see `CredentialKeys`); the PAT flows only through `ICredentialStore` and is **never** written in plain text into `.luban-agent/mcps/*.json`.
+
+### Aliyun DevOps Connector (Codeup / Yunxiao)
+
+Code repository and pipeline access for Aliyun DevOps (formerly Codeup / Flow) lives in `Connectors/AliyunDevOps/`; it implements `IConnector` (`ProviderKey = "aliyunDevOps"`, default instance name `yunxiao`), registers its factory through `AddBuiltinConnectors` and is assembled from configuration, and every outbound call passes through `PluginPermissionGuard`.
+
+| Component | Description |
+|-----------|-------------|
+| `YunxiaoApiOptions` / `YunxiaoConnector` | Organization ID, domain, timeout, and the shared `HttpClient` egress |
+| `CodeupClient` | Repository I/O: `SearchRepositoriesAsync` / `GetRepositoryAsync` / `CreateRepositoryAsync` / `UpdateRepositoryAsync` (creation supports `namespaceId` for a code group and `templateProject` for template sync), `ListBranchesAsync` / `ListTemplateRepositoriesAsync` (template-library lookup and runtime pin resolution), `ListNamespacesAsync` / `CreateNamespaceAsync` (find-or-create code groups), `CloneToLocalAsync` / `PushAsync` |
+| `FlowClient` | Pipeline I/O (Aliyun Flow) |
+| `IYunxiaoCredentialProvider` / `PatCredential` | PAT and organization ID credential source (the PAT is read from `connector:yunxiao:token`, with legacy-key `yunxiao_pat` compatibility; the organization ID from `yunxiao_organization_id`), no plain-text DB storage |
+| `YunxiaoMCPClient` / `YunxiaoToolDefinitions` | Wraps repository / pipeline capabilities as MCP tools for conversational use |
+
+**Response shapes**: a successful Yunxiao OpenAPI response is a **bare object / bare array** (no `{ result: ... }` envelope) and the list total is in the `x-total` response header; business errors use `{ code, errorCode, errorDescription, errorMessage, ... }` (`errorCode` is a string) and are mapped to `YunxiaoApiException` by `YunxiaoErrorMapper`.
 
 ## Usage Guide
 
@@ -463,8 +512,10 @@ Key points:
 // Register services
 services.AddSingleton<IAppConfigReader>(myConfigManager);
 services.AddSingleton<IProviderRouter>(myProviderRouter);
-services.AddLuBanAgent(configuration);
+services.AddLuBanAgent(configuration);   // already calls AddBuiltinConnectors: registers built-in connector factories (registered, not enabled)
 ```
+
+> Whether a connector is available is declared by `IAppConfigReader.Connectors` (`config.json:connectors`), and whether it is enabled is decided by the workspace file `.luban-agent/connectors/<name>.json` — see the "Connector System" section.
 
 ### 2. Multi-Model Routing
 
@@ -911,6 +962,7 @@ LuBan.AIAgent/
 │   ├── CustomSkillConfig.cs           # Custom skill configuration
 │   ├── CustomRuleConfig.cs            # Custom rule configuration
 │   ├── McpServerConfig.cs             # External MCP server config
+│   ├── ConnectorConfig.cs             # Connector declaration config (config.json connectors[])
 │   ├── LuBanAgentOptions.cs           # Agent configuration options
 │   ├── BrowserToolOptions.cs          # Browser tool options
 │   ├── FileSystemToolOptions.cs       # File system tool options
@@ -975,11 +1027,31 @@ LuBan.AIAgent/
 │       └── PathAccessRule.cs          # Path access rule
 ├── MCP/
 │   ├── IMCPClient.cs                  # MCP client interface
+│   ├── MCPClientBase.cs               # Client base class
 │   ├── StdioMCPClient.cs              # stdio JSON-RPC client
+│   ├── HttpMCPClient.cs               # http / sse client
+│   ├── MCPClientFactory.cs            # External client factory (stdio/http/sse dispatch in one place)
 │   ├── MCPRegistry.cs                 # MCP registry
 │   ├── MCPToolPlugin.cs               # MCP tool plugin
 │   └── BuiltIn/
 │       └── FileSystemMCPClient.cs     # File system MCP client
+├── Connectors/                        # Connector system (abstraction in the framework, assembled from config, no name switch)
+│   ├── IConnector.cs                  # Connector contract + MCP exposure + factory inputs/settings
+│   ├── ConnectorFactoryRegistry.cs    # Connector factory table + host-level singleton instance cache
+│   ├── ConnectorRegistry.cs           # Scoped resolver: declaration/enablement/4-state catalog/MCP derivation
+│   ├── ConnectorServiceCollectionExtensions.cs # AddConnector / AddBuiltinConnectors
+│   └── AliyunDevOps/                  # Aliyun DevOps connector (ProviderKey: aliyunDevOps, instance name yunxiao)
+│       ├── YunxiaoConnector.cs        # IConnector implementation + MCP exposure
+│       ├── YunxiaoApiOptions.cs       # Organization ID / domain / timeout
+│       ├── YunxiaoServiceCollectionExtensions.cs # Connector DI registration extension
+│       ├── IYunxiaoCredentialProvider.cs / PatCredential.cs # Credential source
+│       ├── CodeupClient.cs            # Repository I/O
+│       ├── FlowClient.cs              # Pipeline I/O
+│       ├── YunxiaoErrorMapper.cs / YunxiaoModels.cs # Error mapping and data models
+│       └── Mcp/                       # In-process MCP client and tool definitions
+│           ├── YunxiaoMCPClient.cs    # Yunxiao MCP client (borrows the connector, never disposes it)
+│           ├── YunxiaoToolDefinitions.cs # Tool schemas (code-defined)
+│           └── MCPRegistryExtensions.cs  # Register/unregister semantic aliases (pass-through)
 ├── Attachments/
 │   ├── IAttachmentProcessor.cs        # Attachment processor interface
 │   ├── DefaultAttachmentProcessor.cs  # Default implementation (images/text)
