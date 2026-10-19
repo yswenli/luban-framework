@@ -428,7 +428,7 @@ AI: [调用 WriteMcpServerAsync] 已创建 MCP 配置，正在连接...
 
 | 组件 | 说明 |
 |------|------|
-| `PluginSecurityOptions` | 白名单策略（`NetworkWhitelist` / `ProcessWhitelist` / `GitWhitelist` / `FilesystemWhitelist` / `CredentialCatalog` / `EnforceAtRuntime` / `AuditDenials` / `MaxAuditRecords`），可从配置节点 `LuBanAgent:Plugins:Security` 覆盖；默认网络白名单为 `codeup.aliyun.com` / `flow.aliyun.com` / `*.aliyuncs.com`，进程白名单为 `dotnet` / `git`，凭据目录为 `connector:yunxiao:token`（旧拼写 `yunxiao_pat` 归一化兼容） |
+| `PluginSecurityOptions` | 白名单策略（`NetworkWhitelist` / `ProcessWhitelist` / `GitWhitelist` / `FilesystemWhitelist` / `CredentialCatalog` / `EnforceAtRuntime` / `AuditDenials` / `MaxAuditRecords`），可从配置节点 `LuBanAgent:Plugins:Security` 覆盖（集合项为**追加**语义）；默认网络白名单为 `codeup.aliyun.com` / `flow.aliyun.com` / `*.aliyuncs.com`，进程白名单为 `dotnet` / `git`，**Git 能力白名单为能力组 `clone_push`（`clone` / `push`）/ `commit`（`add` / `commit`）/ `inspect`（`rev-parse` / `status` / `diff` / `branch` / `config` / `checkout`）**，凭据目录为 `connector:yunxiao:token`（旧拼写 `yunxiao_pat` 归一化兼容） |
 | `PluginPermissionEvaluator` | 判定引擎：`ValidateDeclaration` 做声明期覆盖校验（具体范围越界写入 `ManifestValidationResult.Errors`，通配 `*` 写入 `Warnings`）；`IsNetworkAllowed` / `IsProcessAllowed` / `IsCredentialAllowed` / `IsGitAllowed` / `IsFilesystemAllowed` 做运行期越界判定（通配声明以宿主白名单为上限；只读、不抛异常） |
 | `PluginScopeContext` | 权限环境（`AsyncLocal`）：`Enter(pluginId, permissions)` 声明「当前调用以哪个插件身份发起」，可嵌套；`Current == null` 表示宿主自身调用，一律放行 |
 | `PluginPermissionGuard` | 运行期出口门禁：`RequireNetwork` / `RequireProcess` / `RequireCredential` / `RequireGit` 越界即抛 `PluginPermissionDeniedException` 并写入有界的 `RecentDenials` 审计；`PluginPermissionGuard.Default` 为无 DI 场景的兜底实例 |
@@ -438,6 +438,7 @@ AI: [调用 WriteMcpServerAsync] 已创建 MCP 配置，正在连接...
 要点：
 
 - **白名单是「覆盖」语义，不是「包含」语义**：插件写明的每个**具体范围**都必须被白名单里的某条规则覆盖。通配 `*`（含数组简写的裸维度，如 `["filesystem", "network"]`）表示「声明该维度、具体范围由宿主白名单决定」——声明期放行并记警告，运行期以白名单为**上限**判定，因此不会绕过白名单；`*.aliyuncs.com` 覆盖 `openapi-rdc.aliyuncs.com`，但不覆盖裸域 `aliyuncs.com`。
+- **Git 能力按「组」声明、按「操作名」判定**：白名单项是能力组，声明组即获得其全部子操作——`clone_push` → `clone` / `push`（远端读写）、`commit` → `add` / `commit`（本地暂存与提交）、`inspect` → `rev-parse` / `status` / `diff` / `branch` / `config` / `checkout`（本地只读检查与切分支）；也可直接声明具体操作名（如 `git:push`，被 `clone_push` 覆盖后声明亦合规）。宿主出口按**操作名**判定，插件自行拉起 git 进程时传子命令名（如 `add`）——只声明 `clone_push` 的插件执行本地 `add` / `commit` 会被判越界。
 - **`Disabled` 与 `Error` 的语义区别**：权限 / 凭据声明不合规 = 宿主策略不允许启用 → `Disabled`；清单格式问题（缺 `id`、`id` 非法、入口程序集缺失等）= 插件自身不可用 → 激活阶段判 `Error`。管家界面因此仍能列出格式有问题的插件并给出可诊断错误。
 - `PluginSecurityOptions.EnforceAtRuntime = false` 时只审计不拦截，仅供排查兼容性问题；生产应保持 `true`。
 - 凭据**绝不入 DB 明文**；框架只提供「配置 + 环境变量」兜底实现，实际落盘基线由宿主决定（桌面宿主与 LLM ApiKey 同基线）。

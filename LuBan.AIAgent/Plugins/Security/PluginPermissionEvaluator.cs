@@ -116,7 +116,7 @@ public sealed class PluginPermissionEvaluator
     /// 判定插件是否有权执行指定 Git 操作。
     /// </summary>
     /// <param name="permissions">插件声明的权限。</param>
-    /// <param name="operation">操作名（<c>clone</c> / <c>push</c>）。</param>
+    /// <param name="operation">操作名（如 <c>clone</c> / <c>push</c> / <c>add</c> / <c>commit</c> / <c>rev-parse</c>）。</param>
     /// <returns>允许时返回 <c>true</c>。</returns>
     public bool IsGitAllowed(PluginPermissions? permissions, string? operation)
     {
@@ -313,22 +313,35 @@ public sealed class PluginPermissionEvaluator
     }
 
     /// <summary>
-    /// Git 能力覆盖：<c>clone_push</c> 覆盖 <c>clone</c> / <c>push</c>，其余精确匹配。
+    /// Git 能力覆盖：能力组覆盖其子操作，其余精确匹配。
     /// </summary>
+    /// <remarks>
+    /// <c>clone_push</c> → <c>clone</c> / <c>push</c>（远端读写）；
+    /// <c>commit</c> → <c>add</c> / <c>commit</c>（本地暂存与提交）；
+    /// <c>inspect</c> → <c>rev-parse</c> / <c>status</c> / <c>diff</c> / <c>branch</c> / <c>config</c> / <c>checkout</c>
+    /// （本地只读检查与切分支）。
+    /// </remarks>
     /// <param name="scope">声明或白名单项。</param>
     /// <param name="operation">操作名（小写）。</param>
     /// <returns>覆盖返回 <c>true</c>。</returns>
     private static bool GitScopeCovers(string? scope, string operation)
     {
         var s = (scope ?? string.Empty).Trim().ToLowerInvariant();
+        var op = (operation ?? string.Empty).Trim().ToLowerInvariant();
 
         if (s.Length == 0)
             return false;
 
-        if (s == "*" || s == operation)
+        if (s == "*" || s == op)
             return true;
 
-        return s == "clone_push" && (operation == "clone" || operation == "push");
+        return s switch
+        {
+            "clone_push" => op is "clone" or "push",
+            "commit" => op is "add" or "commit",
+            "inspect" => op is "rev-parse" or "status" or "diff" or "branch" or "config" or "checkout",
+            _ => false
+        };
     }
 
     private static bool IsWildcard(string? value) => (value ?? string.Empty).Trim() == "*";

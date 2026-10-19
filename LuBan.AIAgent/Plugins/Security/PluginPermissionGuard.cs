@@ -84,7 +84,7 @@ public sealed class PluginPermissionGuard
     public bool IsCredentialAllowed(string? key) => Evaluate(scope => _evaluator.IsCredentialAllowed(scope.Permissions, key));
 
     /// <summary>判定当前调用是否有权执行指定 Git 操作。</summary>
-    /// <param name="operation">操作名（<c>clone</c> / <c>push</c>）。</param>
+    /// <param name="operation">操作名（如 <c>clone</c> / <c>push</c> / <c>add</c> / <c>commit</c> / <c>rev-parse</c>）。</param>
     /// <returns>允许返回 <c>true</c>。</returns>
     public bool IsGitAllowed(string? operation) => Evaluate(scope => _evaluator.IsGitAllowed(scope.Permissions, operation));
 

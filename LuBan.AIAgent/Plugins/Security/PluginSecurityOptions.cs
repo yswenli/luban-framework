@@ -67,15 +67,19 @@ public sealed class PluginSecurityOptions
     };
 
     /// <summary>
-    /// Git 能力白名单（PRD §3.7：<c>clone_push</c>）。
+    /// Git 能力白名单（PRD §3.7：<c>clone_push</c>、<c>commit</c>、<c>inspect</c>）。
     /// </summary>
     /// <remarks>
-    /// 插件声明 <c>git: ["clone_push"]</c> 即同时获得克隆与推送；宿主出口按操作名
-    /// （<c>clone</c> / <c>push</c>）判定，二者均视为 <c>clone_push</c> 的子操作。
+    /// 能力组覆盖其子操作：<c>clone_push</c> → <c>clone</c> / <c>push</c>（远端读写）；
+    /// <c>commit</c> → <c>add</c> / <c>commit</c>（本地暂存与提交）；
+    /// <c>inspect</c> → <c>rev-parse</c> / <c>status</c> / <c>diff</c> / <c>branch</c> / <c>config</c> / <c>checkout</c>
+    /// （本地只读检查与切分支）。插件必须声明到「组」或「具体操作名」，未声明即拒绝。
     /// </remarks>
     public List<string> GitWhitelist { get; set; } = new()
     {
-        "clone_push"
+        "clone_push",
+        "commit",
+        "inspect"
     };
 
     /// <summary>

@@ -196,6 +196,22 @@ public class PluginPermissionEvaluatorUnitTest
     }
 
     [TestMethod]
+    public void Declaration_Git_CommitAndInspectGroups_AreValid()
+    {
+        AssertAccepted(Perms("git", "commit"), "git");
+        AssertAccepted(Perms("git", "inspect"), "git");
+    }
+
+    [TestMethod]
+    public void Declaration_Git_LocalOperations_CoveredByGroups()
+    {
+        AssertAccepted(Perms("git", "add"), "git");
+        AssertAccepted(Perms("git", "commit"), "git");
+        AssertAccepted(Perms("git", "rev-parse"), "git");
+        AssertAccepted(Perms("git", "checkout"), "git");
+    }
+
+    [TestMethod]
     public void Declaration_Git_UnrelatedOperation_IsRejected()
     {
         AssertRejected(Perms("git", "reset_hard"), "git");
@@ -309,6 +325,46 @@ public class PluginPermissionEvaluatorUnitTest
     }
 
     [TestMethod]
+    public void Runtime_Git_ClonePush_DoesNotCoverLocalCommitOrInspect()
+    {
+        // 回归：Step 6 本地提交/检查（add/commit/rev-parse）不在 clone_push 覆盖内，必须单独声明
+        var evaluator = new PluginPermissionEvaluator();
+        var permissions = Perms("git", "clone_push");
+
+        Assert.IsFalse(evaluator.IsGitAllowed(permissions, "add"));
+        Assert.IsFalse(evaluator.IsGitAllowed(permissions, "commit"));
+        Assert.IsFalse(evaluator.IsGitAllowed(permissions, "rev-parse"));
+    }
+
+    [TestMethod]
+    public void Runtime_Git_CommitGroup_CoversAddAndCommit()
+    {
+        var evaluator = new PluginPermissionEvaluator();
+        var permissions = Perms("git", "commit");
+
+        Assert.IsTrue(evaluator.IsGitAllowed(permissions, "add"));
+        Assert.IsTrue(evaluator.IsGitAllowed(permissions, "commit"));
+        Assert.IsFalse(evaluator.IsGitAllowed(permissions, "push"));
+        Assert.IsFalse(evaluator.IsGitAllowed(permissions, "reset_hard"));
+    }
+
+    [TestMethod]
+    public void Runtime_Git_InspectGroup_CoversLocalReadOperations()
+    {
+        var evaluator = new PluginPermissionEvaluator();
+        var permissions = Perms("git", "inspect");
+
+        Assert.IsTrue(evaluator.IsGitAllowed(permissions, "rev-parse"));
+        Assert.IsTrue(evaluator.IsGitAllowed(permissions, "status"));
+        Assert.IsTrue(evaluator.IsGitAllowed(permissions, "diff"));
+        Assert.IsTrue(evaluator.IsGitAllowed(permissions, "branch"));
+        Assert.IsTrue(evaluator.IsGitAllowed(permissions, "config"));
+        Assert.IsTrue(evaluator.IsGitAllowed(permissions, "checkout"));
+        Assert.IsFalse(evaluator.IsGitAllowed(permissions, "add"));
+        Assert.IsFalse(evaluator.IsGitAllowed(permissions, "push"));
+    }
+
+    [TestMethod]
     public void Runtime_Filesystem_WorkspaceOnly()
     {
         var evaluator = new PluginPermissionEvaluator();
@@ -416,6 +472,8 @@ public class PluginPermissionEvaluatorUnitTest
         CollectionAssert.Contains(options.ProcessWhitelist.ToArray(), "dotnet");
         CollectionAssert.Contains(options.CredentialCatalog.ToArray(), CredentialKeys.YunxiaoPat);
         CollectionAssert.Contains(options.GitWhitelist.ToArray(), "clone_push");
+        CollectionAssert.Contains(options.GitWhitelist.ToArray(), "commit");
+        CollectionAssert.Contains(options.GitWhitelist.ToArray(), "inspect");
         CollectionAssert.Contains(options.FilesystemWhitelist.ToArray(), "workspace");
         Assert.IsTrue(options.EnforceAtRuntime);
         Assert.IsTrue(options.AuditDenials);
