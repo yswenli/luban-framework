@@ -390,8 +390,16 @@ public class CodeupClient : IDisposable
     /// <param name="targetDirectory">目标目录</param>
     /// <param name="branch">要克隆的分支或标签（对应 git clone -b，可选）</param>
     /// <param name="cancellationToken">取消令牌</param>
-    /// <returns>克隆结果</returns>
-    public async Task<bool> CloneToLocalAsync(
+    /// <returns>
+    /// 克隆结果（<see cref="GitCommandResult"/>）：<c>Success</c> 为假时，
+    /// <see cref="GitCommandResult.FailureSummary"/> 给出 git 原始报错摘要（已脱敏），供调用方带进失败文案。
+    /// </returns>
+    /// <remarks>
+    /// 克隆失败时 git 会在目标目录留下残骸（<c>.git/HEAD = ref: refs/heads/.invalid</c>）；
+    /// 本方法<b>不</b>清理该目录（是否删除由调用方按「本次新建 / 原本已存在」判定），
+    /// 但调用方若判定目录本步新建，应删除以免重跑时被误判为「已克隆」。
+    /// </remarks>
+    public async Task<GitCommandResult> CloneToLocalAsync(
         string repositoryUrl,
         string targetDirectory,
         string? branch = null,
@@ -433,7 +441,7 @@ public class CodeupClient : IDisposable
             argumentList: cloneArgs,
             outputEncoding: Encoding.UTF8);
 
-        return result.ExitCode == 0;
+        return ToGitCommandResult(result);
     }
 
     /// <summary>
@@ -444,8 +452,11 @@ public class CodeupClient : IDisposable
     /// <param name="branch">分支名</param>
     /// <param name="force">是否强制推送（--force）</param>
     /// <param name="cancellationToken">取消令牌</param>
-    /// <returns>推送结果</returns>
-    public async Task<bool> PushAsync(
+    /// <returns>
+    /// 推送结果（<see cref="GitCommandResult"/>）：<c>Success</c> 为假时，
+    /// <see cref="GitCommandResult.FailureSummary"/> 给出 git 原始报错摘要（已脱敏）。
+    /// </returns>
+    public async Task<GitCommandResult> PushAsync(
         string repositoryUrl,
         string workingDirectory,
         string? branch = null,
@@ -496,8 +507,21 @@ public class CodeupClient : IDisposable
             argumentList: pushArgs,
             outputEncoding: Encoding.UTF8);
 
-        return result.ExitCode == 0;
+        return ToGitCommandResult(result);
     }
+
+    /// <summary>
+    /// 把 <see cref="ProcessResult"/> 转成 <see cref="GitCommandResult"/>，并对诊断信息做 URL 内嵌凭据脱敏。
+    /// </summary>
+    /// <param name="result">进程执行结果。</param>
+    /// <returns>Git 命令结果（标准输出 / 标准错误均已脱敏）。</returns>
+    private static GitCommandResult ToGitCommandResult(ProcessResult result)
+        => new(
+            result.ExitCode == 0,
+            result.ExitCode,
+            SecretMasker.MaskUrlCredentials(result.StandardOutput),
+            SecretMasker.MaskUrlCredentials(result.StandardError),
+            result.TimedOut);
 
     #endregion
 

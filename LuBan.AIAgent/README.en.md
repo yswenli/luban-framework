@@ -483,7 +483,8 @@ Code repository and pipeline access for Aliyun DevOps (formerly Codeup / Flow) l
 | Component | Description |
 |-----------|-------------|
 | `YunxiaoApiOptions` / `YunxiaoConnector` | Organization ID, domain, timeout, and the shared `HttpClient` egress |
-| `CodeupClient` | Repository I/O: `SearchRepositoriesAsync` / `GetRepositoryAsync` / `CreateRepositoryAsync` / `UpdateRepositoryAsync` (creation supports `namespaceId` for a code group and `templateProject` for template sync), `ListBranchesAsync` / `ListTemplateRepositoriesAsync` (template-library lookup and runtime pin resolution), `ListNamespacesAsync` / `CreateNamespaceAsync` (find-or-create code groups), `CloneToLocalAsync` / `PushAsync` |
+| `CodeupClient` | Repository I/O: `SearchRepositoriesAsync` / `GetRepositoryAsync` / `CreateRepositoryAsync` / `UpdateRepositoryAsync` (creation supports `namespaceId` for a code group and `templateProject` for template sync), `ListBranchesAsync` / `ListTemplateRepositoriesAsync` (template-library lookup and runtime pin resolution), `ListNamespacesAsync` / `CreateNamespaceAsync` (find-or-create code groups), `CloneToLocalAsync` / `PushAsync` (both return `GitCommandResult`) |
+| `GitCommandResult` | Local Git command result (`Success` / `ExitCode` / `StandardOutput` / `StandardError` / `TimedOut`): on failure `FailureSummary()` surfaces the raw git error summary (URL-embedded credentials masked via `SecretMasker`), replacing the previous `bool`-only return |
 | `FlowClient` | Pipeline I/O (Aliyun Flow) |
 | `IYunxiaoCredentialProvider` / `PatCredential` | PAT and organization ID credential source (the PAT is read from `connector:yunxiao:token`, with legacy-key `yunxiao_pat` compatibility; the organization ID from `yunxiao_organization_id`), no plain-text DB storage |
 | `YunxiaoMCPClient` / `YunxiaoToolDefinitions` | Wraps repository / pipeline capabilities as MCP tools for conversational use |

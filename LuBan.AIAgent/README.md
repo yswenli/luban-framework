@@ -483,7 +483,8 @@ AI: [调用 WriteMcpServerAsync] 已创建 MCP 配置，正在连接...
 | 组件 | 说明 |
 |------|------|
 | `YunxiaoApiOptions` / `YunxiaoConnector` | 组织 ID、域名、超时与统一 `HttpClient` 出口 |
-| `CodeupClient` | 代码库读写：`SearchRepositoriesAsync` / `GetRepositoryAsync` / `CreateRepositoryAsync` / `UpdateRepositoryAsync`（建库支持 `namespaceId` 归属代码组与 `templateProject` 模板同步）、`ListBranchesAsync` / `ListTemplateRepositoriesAsync`（模板库定位与实时解析 pin）、`ListNamespacesAsync` / `CreateNamespaceAsync`（代码组先查后建）、`CloneToLocalAsync` / `PushAsync` |
+| `CodeupClient` | 代码库读写：`SearchRepositoriesAsync` / `GetRepositoryAsync` / `CreateRepositoryAsync` / `UpdateRepositoryAsync`（建库支持 `namespaceId` 归属代码组与 `templateProject` 模板同步）、`ListBranchesAsync` / `ListTemplateRepositoriesAsync`（模板库定位与实时解析 pin）、`ListNamespacesAsync` / `CreateNamespaceAsync`（代码组先查后建）、`CloneToLocalAsync` / `PushAsync`（均返回 `GitCommandResult`） |
+| `GitCommandResult` | 本地 Git 命令结果（`Success` / `ExitCode` / `StandardOutput` / `StandardError` / `TimedOut`）：失败时 `FailureSummary()` 给出 git 原始报错摘要（URL 内嵌凭据经 `SecretMasker` 脱敏），取代原先只回 `bool` 的做法 |
 | `FlowClient` | 流水线读写（云效 Flow） |
 | `IYunxiaoCredentialProvider` / `PatCredential` | PAT 与组织 ID 的凭据来源（PAT 读 `connector:yunxiao:token`，兼容旧键 `yunxiao_pat`；组织 ID 读 `yunxiao_organization_id`），不落明文 DB |
 | `YunxiaoMCPClient` / `YunxiaoToolDefinitions` | 把代码库 / 流水线能力包装成 MCP 工具，供对话式调用 |

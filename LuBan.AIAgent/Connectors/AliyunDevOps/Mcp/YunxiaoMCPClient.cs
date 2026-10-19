@@ -173,9 +173,9 @@ public class YunxiaoMCPClient : MCPClientBase, IDisposable
         var client = _connector.GetCodeupClient();
         var result = await client.CloneToLocalAsync(httpsUrl!, localPath!, branch, cancellationToken);
 
-        return result
+        return result.Success
             ? Ok(new { localPath, commitId = (string?)null, branch }.ToJson())
-            : Fail("克隆失败");
+            : Fail($"克隆失败：{result.FailureSummary()}");
     }
 
     private async Task<MCPToolResult> CodeupCreateRepoAsync(
@@ -251,9 +251,9 @@ public class YunxiaoMCPClient : MCPClientBase, IDisposable
         var client = _connector.GetCodeupClient();
         var result = await client.PushAsync(remoteUrl!, localPath!, branch, force, cancellationToken);
 
-        return result
+        return result.Success
             ? Ok(new { localPath, remoteUrl = SecretMasker.MaskUrlCredentials(remoteUrl), branch }.ToJson())
-            : Fail("推送失败");
+            : Fail($"推送失败：{result.FailureSummary()}");
     }
 
     #endregion
