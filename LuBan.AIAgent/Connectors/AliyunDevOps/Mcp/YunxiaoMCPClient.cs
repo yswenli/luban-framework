@@ -15,6 +15,8 @@
 *
 *****************************************************************************/
 
+using System.Globalization;
+
 namespace LuBan.AIAgent.Connectors.AliyunDevOps.Mcp;
 
 /// <summary>
@@ -188,19 +190,19 @@ public class YunxiaoMCPClient : MCPClientBase, IDisposable
             return Fail("缺少参数: path");
 
         var organizationId = GetString(arguments, "organizationId");
-        var templateProjectId = GetString(arguments, "templateProjectId");
+        var templateProjectId = GetLong(arguments, "templateProjectId");
 
         var request = new YunxiaoCreateRepositoryRequest
         {
             Name = name,
             Path = path,
             Visibility = GetString(arguments, "visibility") ?? "internal",
-            NamespaceId = GetString(arguments, "namespaceId"),
+            NamespaceId = GetLong(arguments, "namespaceId"),
             CreateParentPath = GetBool(arguments, "createParentPath"),
             Description = GetString(arguments, "description")
         };
 
-        if (!string.IsNullOrWhiteSpace(templateProjectId))
+        if (templateProjectId.HasValue)
         {
             request.TemplateProject = new YunxiaoTemplateProject
             {
@@ -216,9 +218,10 @@ public class YunxiaoMCPClient : MCPClientBase, IDisposable
             return Fail("创建仓库失败");
 
         // 创建接口返回不含 HTTPS 克隆地址，补查仓库详情取 httpUrlToRepo（PRD §4.11.3 注③）
-        if (string.IsNullOrWhiteSpace(created.HttpUrlToRepo) && !string.IsNullOrWhiteSpace(created.Id))
+        if (string.IsNullOrWhiteSpace(created.HttpUrlToRepo) && created.Id.HasValue)
         {
-            var detail = await client.GetRepositoryAsync(created.Id!, organizationId, cancellationToken);
+            var detail = await client.GetRepositoryAsync(
+                created.Id.Value.ToString(CultureInfo.InvariantCulture), organizationId, cancellationToken);
             if (detail != null)
             {
                 created.HttpUrlToRepo ??= detail.HttpUrlToRepo;
@@ -374,6 +377,18 @@ public class YunxiaoMCPClient : MCPClientBase, IDisposable
     private static string? GetString(Dictionary<string, object?> arguments, string key)
     {
         return arguments.GetValueOrDefault(key)?.ToString();
+    }
+
+    /// <summary>
+    /// 取整型参数（兼容数字与数字字符串：模型可能把 ID 当字符串传）。
+    /// </summary>
+    private static long? GetLong(Dictionary<string, object?> arguments, string key)
+    {
+        var value = arguments.GetValueOrDefault(key);
+        if (value == null) return null;
+
+        if (value is long longValue) return longValue;
+        return long.TryParse(value.ToString(), out var parsed) ? parsed : null;
     }
 
     private static int GetInt(Dictionary<string, object?> arguments, string key, int defaultValue)

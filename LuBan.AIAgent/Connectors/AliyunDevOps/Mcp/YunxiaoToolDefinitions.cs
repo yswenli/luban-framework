@@ -86,11 +86,11 @@ public static class YunxiaoToolDefinitions
             {
                 name = new { type = "string", description = "仓库名称（必填）" },
                 path = new { type = "string", description = "仓库路径标识（必填，通常与 name 相同）" },
-                templateProjectId = new { type = "string", description = "模板仓 ID（如 TJCES-Service/Admin/Mobile 对应的仓库 ID，可选）" },
+                templateProjectId = new { type = "integer", description = "模板仓 ID（整数，如 TJCES-Service/Admin/Mobile 对应的仓库 ID，可选）" },
                 templateType = new { type = "integer", description = "模板类型：1 自定义模板 / 2 系统预置模板（默认 1）", @default = 1 },
                 syncAllBranches = new { type = "boolean", description = "是否同步模板全部分支（建议 true，否则新仓可能无分支，默认 true）", @default = true },
                 visibility = new { type = "string", description = "可见性：internal（组织内公开，默认）/ private（私有）/ public（公开）", @default = "internal" },
-                namespaceId = new { type = "string", description = "组织下的分组/命名空间 ID（可选，不传则建在组织根下）" },
+                namespaceId = new { type = "integer", description = "所属代码组 / 命名空间 ID（整数，可选，不传则建在组织根下）" },
                 createParentPath = new { type = "boolean", description = "path 含多级分组时是否自动创建父路径（建议 true）" },
                 description = new { type = "string", description = "仓库描述（可选）" },
                 organizationId = new { type = "string", description = "组织 ID（中心版必带）" }

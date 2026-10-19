@@ -91,10 +91,11 @@ public class YunxiaoPagedResult<T>
 public class YunxiaoRepository
 {
     /// <summary>
-    /// 仓库 ID
+    /// 仓库 ID（云效返回 JSON 数字，故必须用整型；
+    /// 用 <see cref="long"/> 而非 <see cref="int"/> 以容纳云效未来增长）。
     /// </summary>
     [JsonPropertyName("id")]
-    public string? Id { get; set; }
+    public long? Id { get; set; }
 
     /// <summary>
     /// 仓库名称
@@ -121,10 +122,10 @@ public class YunxiaoRepository
     public string? SSHUrlToRepo { get; set; }
 
     /// <summary>
-    /// 可见性：private / public
+    /// 可见性：<c>private</c> / <c>internal</c>（组织内公开）/ <c>public</c>。
     /// </summary>
-    [JsonPropertyName("visibilityLevel")]
-    public int VisibilityLevel { get; set; }
+    [JsonPropertyName("visibility")]
+    public string? Visibility { get; set; }
 
     /// <summary>
     /// 描述
@@ -175,21 +176,31 @@ public class YunxiaoCreateRepositoryRequest
     public string? Visibility { get; set; }
 
     /// <summary>
-    /// 可见性级别（数字，0-私有 / 10-组织内公开 / 20-公开；与 Visibility 二选一）
+    /// 可见性级别（数字）。
     /// </summary>
+    /// <remarks>
+    /// <b>云效「创建代码库」文档未定义该字段</b>（只定义 <see cref="Visibility"/>），
+    /// 保留仅为向后兼容：默认 <c>null</c> 时不会进入请求体，请勿设置，否则请求体出现未定义参数名会导致 400。
+    /// </remarks>
     [JsonPropertyName("visibilityLevel")]
     public int? VisibilityLevel { get; set; }
 
     /// <summary>
-    /// 组织下的分组/命名空间 ID（不传则建在组织根下）
+    /// 组织下的分组 / 命名空间 ID（不传则建在组织根下）。
     /// </summary>
+    /// <remarks>云效返回 JSON 数字，故用整型；字符串会被判为参数类型错误。</remarks>
     [JsonPropertyName("namespaceId")]
-    public string? NamespaceId { get; set; }
+    public long? NamespaceId { get; set; }
 
     /// <summary>
-    /// path 含多级分组时是否自动创建父路径
+    /// <c>path</c> 含多级分组时是否自动创建父路径。
     /// </summary>
-    [JsonPropertyName("createParentPath")]
+    /// <remarks>
+    /// <b>该参数是查询串（query）而不是请求体字段</b>（云效文档「创建代码库」：
+    /// <c>POST .../repositories?createParentPath=true</c>），故此处 <c>JsonIgnore</c>，
+    /// 由 <see cref="CodeupClient.CreateRepositoryAsync"/> 拼进 URL；放进请求体既无效也可能被判未定义参数名。
+    /// </remarks>
+    [JsonIgnore]
     public bool? CreateParentPath { get; set; }
 
     /// <summary>
@@ -211,10 +222,10 @@ public class YunxiaoCreateRepositoryRequest
 public class YunxiaoTemplateProject
 {
     /// <summary>
-    /// 模板仓 ID（如 TJCES-Service/Admin/Mobile 对应的仓库 ID）
+    /// 模板仓 ID（如 TJCES-Service/Admin/Mobile 对应的仓库 ID；云效返回 JSON 数字）。
     /// </summary>
     [JsonPropertyName("templateProjectId")]
-    public string? TemplateProjectId { get; set; }
+    public long? TemplateProjectId { get; set; }
 
     /// <summary>
     /// 模板类型：1 自定义模板 / 2 系统预置模板
@@ -257,6 +268,189 @@ public class YunxiaoUpdateRepositoryRequest
     /// </summary>
     [JsonPropertyName("defaultBranch")]
     public string? DefaultBranch { get; set; }
+}
+
+#endregion
+
+#region 分支 / 模板库 / 代码组（Codeup）
+
+/// <summary>
+/// 云效代码分支（<c>GET .../repositories/{id}/branches</c>）。
+/// </summary>
+public class YunxiaoBranch
+{
+    /// <summary>
+    /// 分支名（如 <c>develop</c> / <c>master</c>）。
+    /// </summary>
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    /// <summary>
+    /// 是否为仓库默认分支。
+    /// </summary>
+    [JsonPropertyName("defaultBranch")]
+    public bool DefaultBranch { get; set; }
+
+    /// <summary>
+    /// 是否受保护分支。
+    /// </summary>
+    [JsonPropertyName("protected")]
+    public bool Protected { get; set; }
+
+    /// <summary>
+    /// 分支 Web 地址。
+    /// </summary>
+    [JsonPropertyName("webUrl")]
+    public string? WebUrl { get; set; }
+
+    /// <summary>
+    /// 分支 HEAD 提交。
+    /// </summary>
+    [JsonPropertyName("commit")]
+    public YunxiaoBranchCommit? Commit { get; set; }
+}
+
+/// <summary>
+/// 分支 HEAD 提交（云效分支接口内嵌对象）。
+/// </summary>
+public class YunxiaoBranchCommit
+{
+    /// <summary>完整提交 ID。</summary>
+    [JsonPropertyName("id")]
+    public string? Id { get; set; }
+
+    /// <summary>短提交 ID。</summary>
+    [JsonPropertyName("shortId")]
+    public string? ShortId { get; set; }
+
+    /// <summary>提交标题。</summary>
+    [JsonPropertyName("title")]
+    public string? Title { get; set; }
+
+    /// <summary>提交完整信息。</summary>
+    [JsonPropertyName("message")]
+    public string? Message { get; set; }
+
+    /// <summary>作者名。</summary>
+    [JsonPropertyName("authorName")]
+    public string? AuthorName { get; set; }
+
+    /// <summary>作者时间（ISO8601 字符串）。</summary>
+    [JsonPropertyName("authoredDate")]
+    public string? AuthoredDate { get; set; }
+
+    /// <summary>提交时间（ISO8601 字符串）。</summary>
+    [JsonPropertyName("committedDate")]
+    public string? CommittedDate { get; set; }
+}
+
+/// <summary>
+/// 云效模板代码库（<c>GET .../repositories/templates</c>）。
+/// </summary>
+/// <remarks>
+/// 这是云效的「模板库」正式概念：只有登记在模板库中的仓库才能作为
+/// <see cref="YunxiaoTemplateProject.TemplateProjectId"/> 来源。比按名搜索普通仓库更可靠。
+/// </remarks>
+public class YunxiaoTemplateRepository
+{
+    /// <summary>模板库对应的仓库 ID（即创建新仓时的 <c>templateProjectId</c>）。</summary>
+    [JsonPropertyName("projectId")]
+    public long ProjectId { get; set; }
+
+    /// <summary>仓库名（如 <c>TJCES-Admin</c>）。</summary>
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    /// <summary>全路径（如 <c>tjc/TJCES/TJCES-Admin</c>）。</summary>
+    [JsonPropertyName("path")]
+    public string? Path { get; set; }
+
+    /// <summary>描述。</summary>
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    /// <summary>图标地址。</summary>
+    [JsonPropertyName("avatarUrl")]
+    public string? AvatarUrl { get; set; }
+}
+
+/// <summary>
+/// 云效代码组 / 命名空间（<c>GET .../namespaces</c>、<c>POST .../groups</c>）。
+/// </summary>
+public class YunxiaoNamespace
+{
+    /// <summary>代码组 ID（即创建仓库时的 <c>namespaceId</c>）。</summary>
+    [JsonPropertyName("id")]
+    public long Id { get; set; }
+
+    /// <summary>代码组名（如 <c>TJCES</c>）。</summary>
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    /// <summary>本层级路径段（如 <c>TJCES</c>）。</summary>
+    [JsonPropertyName("path")]
+    public string? Path { get; set; }
+
+    /// <summary>含父级的完整路径（如 <c>tjc/TJCES</c>）。</summary>
+    [JsonPropertyName("pathWithNamespace")]
+    public string? PathWithNamespace { get; set; }
+
+    /// <summary>完整路径（部分接口返回，语义同 <see cref="PathWithNamespace"/>）。</summary>
+    [JsonPropertyName("fullPath")]
+    public string? FullPath { get; set; }
+
+    /// <summary>含父级的展示名（如 <c>tjc / TJCES</c>）。</summary>
+    [JsonPropertyName("nameWithNamespace")]
+    public string? NameWithNamespace { get; set; }
+
+    /// <summary>父级 ID；<c>null</c> 表示直接挂在组织根下。</summary>
+    [JsonPropertyName("parentId")]
+    public long? ParentId { get; set; }
+
+    /// <summary>类型（<c>group</c> / <c>project</c>）。</summary>
+    [JsonPropertyName("kind")]
+    public string? Kind { get; set; }
+
+    /// <summary>可见性（<c>private</c> / <c>internal</c> / <c>public</c>）。</summary>
+    [JsonPropertyName("visibility")]
+    public string? Visibility { get; set; }
+
+    /// <summary>Web 地址。</summary>
+    [JsonPropertyName("webUrl")]
+    public string? WebUrl { get; set; }
+}
+
+/// <summary>
+/// 创建代码组请求（<c>POST .../groups</c>）。
+/// </summary>
+/// <remarks>
+/// 云效文档「CreateGroup」：<c>name</c> 与 <c>path</c> 必填；<c>parentId</c> 为空即在组织路径下创建。
+/// </remarks>
+public class YunxiaoCreateNamespaceRequest
+{
+    /// <summary>代码组名（显示名，必填）。</summary>
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    /// <summary>代码组路径段（必填，通常与 <see cref="Name"/> 一致）。</summary>
+    [JsonPropertyName("path")]
+    public string? Path { get; set; }
+
+    /// <summary>父级代码组 ID；<c>null</c> 表示建在组织根下。</summary>
+    [JsonPropertyName("parentId")]
+    public long? ParentId { get; set; }
+
+    /// <summary>可见性（<c>private</c> / <c>internal</c>）。</summary>
+    [JsonPropertyName("visibility")]
+    public string? Visibility { get; set; }
+
+    /// <summary>描述。</summary>
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    /// <summary>图标地址。</summary>
+    [JsonPropertyName("avatarUrl")]
+    public string? AvatarUrl { get; set; }
 }
 
 #endregion

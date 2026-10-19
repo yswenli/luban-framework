@@ -16,6 +16,7 @@
 *****************************************************************************/
 
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -78,6 +79,10 @@ public class CodeupClient : IDisposable
     /// <param name="organizationId">组织 ID（可选，优先于配置）</param>
     /// <param name="cancellationToken">取消令牌</param>
     /// <returns>仓库列表</returns>
+    /// <remarks>
+    /// 云效列表接口返回的是<b>裸数组</b>，总数在响应头 <c>x-total</c>（不在响应体内），
+    /// 故此处把两者合成为 <see cref="YunxiaoPagedResult{T}"/> 以保持调用方签名稳定。
+    /// </remarks>
     public async Task<YunxiaoPagedResult<YunxiaoRepository>?> SearchRepositoriesAsync(
         string? search = null,
         int page = 1,
@@ -108,12 +113,21 @@ public class CodeupClient : IDisposable
         if (archived.HasValue)
             queryParams.Add($"archived={(archived.Value ? "true" : "false")}");
 
-        var result = await SendRequestAsync<YunxiaoPagedResult<YunxiaoRepository>>(
-            HttpMethod.Get, 
+        var response = await SendRawAsync(
+            HttpMethod.Get,
             $"{path}?{string.Join("&", queryParams)}",
-            cancellationToken: cancellationToken);
+            body: null,
+            cancellationToken);
 
-        return result;
+        var items = DeserializeList<YunxiaoRepository>(response.Body);
+
+        return new YunxiaoPagedResult<YunxiaoRepository>
+        {
+            Items = items,
+            Total = ReadHeaderInt(response.Headers, "x-total", items?.Count ?? 0),
+            Page = page,
+            PerPage = perPage
+        };
     }
 
     /// <summary>
@@ -165,7 +179,11 @@ public class CodeupClient : IDisposable
             throw new InvalidOperationException("未配置组织 ID");
 
         var path = $"/oapi/v1/codeup/organizations/{orgId}/repositories";
-        
+
+        // createParentPath 是查询串参数（不是请求体字段）：path 含多级分组时由云效自动补建父路径
+        if (request.CreateParentPath == true)
+            path += "?createParentPath=true";
+
         var result = await SendRequestAsync<YunxiaoRepository>(
             HttpMethod.Post,
             path,
@@ -208,6 +226,157 @@ public class CodeupClient : IDisposable
             cancellationToken);
 
         return result;
+    }
+
+    #endregion
+
+    #region 分支 / 模板库 / 代码组 API
+
+    /// <summary>
+    /// 查询仓库分支列表（<c>GET .../repositories/{id}/branches</c>）。
+    /// </summary>
+    /// <param name="repositoryId">仓库 ID。</param>
+    /// <param name="page">页码（从 1 开始）。</param>
+    /// <param name="perPage">每页条数。</param>
+    /// <param name="sort">排序方向：asc / desc（可选）。</param>
+    /// <param name="search">分支名关键字（可选）。</param>
+    /// <param name="organizationId">组织 ID（可选，优先于配置）。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>分支列表（含 <c>defaultBranch</c> 标记，用于解析模板 pin）。</returns>
+    public async Task<List<YunxiaoBranch>?> ListBranchesAsync(
+        long repositoryId,
+        int page = 1,
+        int perPage = 100,
+        string? sort = null,
+        string? search = null,
+        string? organizationId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var orgId = organizationId ?? _options.OrganizationId;
+        if (string.IsNullOrWhiteSpace(orgId))
+            throw new InvalidOperationException("未配置组织 ID");
+
+        var path = $"/oapi/v1/codeup/organizations/{orgId}/repositories/{repositoryId}/branches";
+        var queryParams = new List<string> { $"page={page}", $"perPage={perPage}" };
+        if (!string.IsNullOrWhiteSpace(sort))
+            queryParams.Add($"sort={Uri.EscapeDataString(sort!)}");
+        if (!string.IsNullOrWhiteSpace(search))
+            queryParams.Add($"search={Uri.EscapeDataString(search!)}");
+
+        var response = await SendRawAsync(
+            HttpMethod.Get,
+            $"{path}?{string.Join("&", queryParams)}",
+            body: null,
+            cancellationToken);
+
+        return DeserializeList<YunxiaoBranch>(response.Body);
+    }
+
+    /// <summary>
+    /// 查询模板代码库列表（<c>GET .../repositories/templates</c>）。
+    /// </summary>
+    /// <param name="templateType">模板类型：1 自定义模板（组织登记）/ 2 系统预置模板。</param>
+    /// <param name="page">页码（从 1 开始）。</param>
+    /// <param name="perPage">每页条数。</param>
+    /// <param name="organizationId">组织 ID（可选，优先于配置）。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>模板库列表。</returns>
+    /// <remarks>
+    /// 云效的「模板库」是独立概念：只有登记在模板库里的仓库才能作为
+    /// <see cref="YunxiaoTemplateProject.TemplateProjectId"/> 使用。定位模板仓应优先走本方法，
+    /// 而不是按名搜索普通仓库（后者可能命中未登记为模板的仓，导致建库时才失败）。
+    /// </remarks>
+    public async Task<List<YunxiaoTemplateRepository>?> ListTemplateRepositoriesAsync(
+        int templateType = 1,
+        int page = 1,
+        int perPage = 100,
+        string? organizationId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var orgId = organizationId ?? _options.OrganizationId;
+        if (string.IsNullOrWhiteSpace(orgId))
+            throw new InvalidOperationException("未配置组织 ID");
+
+        var path = $"/oapi/v1/codeup/organizations/{orgId}/repositories/templates"
+                   + $"?page={page}&perPage={perPage}&templateType={templateType}";
+
+        var response = await SendRawAsync(HttpMethod.Get, path, body: null, cancellationToken);
+
+        return DeserializeList<YunxiaoTemplateRepository>(response.Body);
+    }
+
+    /// <summary>
+    /// 查询代码组 / 命名空间列表（<c>GET .../namespaces</c>）。
+    /// </summary>
+    /// <param name="search">代码组名关键字（可选）。</param>
+    /// <param name="parentId">父级 ID 过滤（可选）。</param>
+    /// <param name="page">页码（从 1 开始）。</param>
+    /// <param name="perPage">每页条数。</param>
+    /// <param name="orderBy">排序字段（可选）。</param>
+    /// <param name="sort">排序方向：asc / desc（可选）。</param>
+    /// <param name="organizationId">组织 ID（可选，优先于配置）。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>代码组列表。</returns>
+    public async Task<List<YunxiaoNamespace>?> ListNamespacesAsync(
+        string? search = null,
+        long? parentId = null,
+        int page = 1,
+        int perPage = 100,
+        string? orderBy = null,
+        string? sort = null,
+        string? organizationId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var orgId = organizationId ?? _options.OrganizationId;
+        if (string.IsNullOrWhiteSpace(orgId))
+            throw new InvalidOperationException("未配置组织 ID");
+
+        var path = $"/oapi/v1/codeup/organizations/{orgId}/namespaces";
+        var queryParams = new List<string> { $"page={page}", $"perPage={perPage}" };
+        if (!string.IsNullOrWhiteSpace(search))
+            queryParams.Add($"search={Uri.EscapeDataString(search!)}");
+        if (parentId.HasValue)
+            queryParams.Add($"parentId={parentId.Value}");
+        if (!string.IsNullOrWhiteSpace(orderBy))
+            queryParams.Add($"orderBy={Uri.EscapeDataString(orderBy!)}");
+        if (!string.IsNullOrWhiteSpace(sort))
+            queryParams.Add($"sort={Uri.EscapeDataString(sort!)}");
+
+        var response = await SendRawAsync(
+            HttpMethod.Get,
+            $"{path}?{string.Join("&", queryParams)}",
+            body: null,
+            cancellationToken);
+
+        return DeserializeList<YunxiaoNamespace>(response.Body);
+    }
+
+    /// <summary>
+    /// 创建代码组（<c>POST .../groups</c>）。
+    /// </summary>
+    /// <param name="request">创建请求（<c>name</c> / <c>path</c> 必填）。</param>
+    /// <param name="organizationId">组织 ID（可选，优先于配置）。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>创建的代码组。</returns>
+    public async Task<YunxiaoNamespace?> CreateNamespaceAsync(
+        YunxiaoCreateNamespaceRequest request,
+        string? organizationId = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (request == null)
+            throw new ArgumentNullException(nameof(request));
+
+        var orgId = organizationId ?? _options.OrganizationId;
+        if (string.IsNullOrWhiteSpace(orgId))
+            throw new InvalidOperationException("未配置组织 ID");
+
+        var path = $"/oapi/v1/codeup/organizations/{orgId}/groups";
+
+        return await SendRequestAsync<YunxiaoNamespace>(
+            HttpMethod.Post,
+            path,
+            request,
+            cancellationToken);
     }
 
     #endregion
@@ -334,15 +503,31 @@ public class CodeupClient : IDisposable
 
     #region HTTP 请求
 
-    private async Task<T?> SendRequestAsync<T>(
+    /// <summary>
+    /// 原始响应：响应体 + 响应头（云效列表接口把分页信息放在 <c>x-total</c> 等响应头里）。
+    /// </summary>
+    /// <param name="Body">响应体文本。</param>
+    /// <param name="Headers">响应头。</param>
+    private sealed record RawResponse(string Body, HttpResponseHeaders Headers);
+
+    /// <summary>
+    /// 发起请求并返回原始响应体（含出口门禁、重试与错误映射）。
+    /// </summary>
+    /// <param name="method">HTTP 方法。</param>
+    /// <param name="path">相对路径（含查询串）。</param>
+    /// <param name="body">请求体对象（<c>null</c> 表示无体）。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>原始响应。</returns>
+    /// <exception cref="YunxiaoApiException">HTTP 非 2xx，或 2xx 但响应体携带业务错误码。</exception>
+    private async Task<RawResponse> SendRawAsync(
         HttpMethod method,
         string path,
-        object? body = null,
-        CancellationToken cancellationToken = default)
+        object? body,
+        CancellationToken cancellationToken)
     {
         // 出口门禁（PRD §3.7）：目标主机 + PAT 凭据
-        _guard.RequireNetwork(_options.Endpoint, "CodeupClient.SendRequestAsync");
-        _guard.RequireCredential(CredentialKeys.YunxiaoPat, "CodeupClient.SendRequestAsync");
+        _guard.RequireNetwork(_options.Endpoint, "CodeupClient.SendRawAsync");
+        _guard.RequireCredential(CredentialKeys.YunxiaoPat, "CodeupClient.SendRawAsync");
 
         var pat = await _credentialProvider.GetPatAsync(cancellationToken);
         if (string.IsNullOrWhiteSpace(pat))
@@ -356,10 +541,10 @@ public class CodeupClient : IDisposable
             try
             {
                 using var request = new HttpRequestMessage(method, url);
-                
+
                 // 添加鉴权头
                 request.Headers.Add("x-yunxiao-token", pat);
-                
+
                 // 添加请求体
                 if (body != null)
                 {
@@ -375,8 +560,10 @@ public class CodeupClient : IDisposable
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    var errorMsg = YunxiaoErrorMapper.MapHttpStatus((int)response.StatusCode, responseBody);
-                    
+                    // 云效错误体是 {"code":404,"errorCode":"SYSTEM_NOT_FOUND_ERROR","errorMessage":"...","traceId":"..."}
+                    var detail = ExtractErrorMessage(responseBody) ?? responseBody;
+                    var errorMsg = YunxiaoErrorMapper.MapHttpStatus((int)response.StatusCode, detail);
+
                     // 检查是否需要重试
                     if (YunxiaoErrorMapper.ShouldRetry((int)response.StatusCode) && retryCount < _options.RetryCount)
                     {
@@ -390,19 +577,15 @@ public class CodeupClient : IDisposable
                     throw new YunxiaoApiException((int)response.StatusCode, errorMsg);
                 }
 
-                // 解析响应
-                var apiResponse = JsonSerializer.Deserialize<YunxiaoApiResponse<T>>(responseBody, JsonOpts);
-
-                if (apiResponse == null)
-                    throw new YunxiaoApiException(0, "响应解析失败");
-
-                if (apiResponse.ErrorCode != 0)
+                // 少数接口会用 2xx 携带业务错误码，这里统一拦截
+                var businessError = ParseBusinessError(responseBody);
+                if (businessError is not null)
                 {
-                    var errorMsg = YunxiaoErrorMapper.MapBusinessError(apiResponse.ErrorCode, apiResponse.ErrorMessage);
-                    throw new YunxiaoApiException(apiResponse.ErrorCode, errorMsg);
+                    var (code, message) = businessError.Value;
+                    throw new YunxiaoApiException(code, YunxiaoErrorMapper.MapBusinessError(code, message));
                 }
 
-                return apiResponse.Result;
+                return new RawResponse(responseBody, response.Headers);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -427,8 +610,184 @@ public class CodeupClient : IDisposable
             }
         }
 
-        return default;
+        throw new YunxiaoApiException(0, "云效 API 请求失败：重试次数已耗尽");
     }
+
+    /// <summary>
+    /// 请求并反序列化<b>单个对象</b>响应。
+    /// </summary>
+    /// <remarks>
+    /// 云效成功响应是<b>裸对象</b>（直接把资源字段放在根上），<b>不套</b> <c>{ "result": ... }</c> 外壳
+    /// ——这一点已对 <c>GET /repositories/{id}</c> 实测确认。
+    /// </remarks>
+    /// <typeparam name="T">目标类型。</typeparam>
+    /// <param name="method">HTTP 方法。</param>
+    /// <param name="path">相对路径。</param>
+    /// <param name="body">请求体对象（可选）。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>反序列化结果；响应体为空时为 <c>default</c>。</returns>
+    private async Task<T?> SendRequestAsync<T>(
+        HttpMethod method,
+        string path,
+        object? body = null,
+        CancellationToken cancellationToken = default)
+    {
+        var response = await SendRawAsync(method, path, body, cancellationToken);
+
+        if (string.IsNullOrWhiteSpace(response.Body))
+            return default;
+
+        return DeserializeObject<T>(response.Body, path);
+    }
+
+    /// <summary>
+    /// 反序列化单个对象（解析失败即抛 <see cref="YunxiaoApiException"/>，不静默返回 <c>null</c>）。
+    /// </summary>
+    /// <typeparam name="T">目标类型。</typeparam>
+    /// <param name="json">JSON 文本。</param>
+    /// <param name="path">请求路径（仅用于错误文案）。</param>
+    /// <returns>反序列化结果。</returns>
+    private static T? DeserializeObject<T>(string json, string path)
+    {
+        try
+        {
+            return JsonSerializer.Deserialize<T>(json, JsonOpts);
+        }
+        catch (JsonException ex)
+        {
+            throw new YunxiaoApiException(0, $"云效响应解析失败（{path}）：{ex.Message}", ex);
+        }
+    }
+
+    /// <summary>
+    /// 反序列化<b>数组</b>响应（云效列表接口一律返回裸数组）。
+    /// </summary>
+    /// <typeparam name="T">元素类型。</typeparam>
+    /// <param name="json">JSON 文本。</param>
+    /// <returns>列表；空体或根不是数组时为 <c>null</c>。</returns>
+    private static List<T>? DeserializeList<T>(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return null;
+
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            return document.RootElement.ValueKind == JsonValueKind.Array
+                ? JsonSerializer.Deserialize<List<T>>(json, JsonOpts)
+                : null;
+        }
+        catch (JsonException ex)
+        {
+            throw new YunxiaoApiException(0, $"云效列表响应解析失败：{ex.Message}", ex);
+        }
+    }
+
+    /// <summary>
+    /// 识别「2xx 但携带业务错误码」的响应体。
+    /// </summary>
+    /// <remarks>
+    /// 云效成功响应没有 <c>errorCode</c> 字段，出现该字段即视为错误；
+    /// 错误码可能是字符串（如 <c>BAD_REQUEST</c>）也可能是数字，故按字符串读后再尝试转数字，
+    /// 转不出时用响应体里的 <c>code</c>（HTTP 语义状态码）兜底。
+    /// </remarks>
+    /// <param name="json">响应体。</param>
+    /// <returns>错误码与信息；非错误时为 <c>null</c>。</returns>
+    private static (int Code, string Message)? ParseBusinessError(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return null;
+
+        var trimmed = json.TrimStart();
+        if (trimmed.StartsWith('['))
+            return null;
+
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            var root = document.RootElement;
+            if (root.ValueKind != JsonValueKind.Object)
+                return null;
+            if (!root.TryGetProperty("errorCode", out var errorCodeElement))
+                return null;
+
+            var rawCode = errorCodeElement.ValueKind switch
+            {
+                JsonValueKind.String => errorCodeElement.GetString(),
+                JsonValueKind.Number => errorCodeElement.GetRawText(),
+                JsonValueKind.Null => null,
+                _ => null
+            };
+
+            if (string.IsNullOrWhiteSpace(rawCode)
+                || rawCode == "0"
+                || string.Equals(rawCode, "SUCCESS", StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            var code = int.TryParse(rawCode, out var parsed) ? parsed : 0;
+            if (code == 0 && root.TryGetProperty("code", out var httpCodeElement)
+                && httpCodeElement.ValueKind == JsonValueKind.Number)
+            {
+                code = httpCodeElement.GetInt32();
+            }
+
+            var message = ExtractErrorMessage(json) ?? "云效返回业务错误";
+            return (code == 0 ? 400 : code, message);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// 从错误响应体中取可读信息（<c>errorMessage</c> → <c>errorDescription</c> → <c>message</c>）。
+    /// </summary>
+    /// <param name="json">响应体。</param>
+    /// <returns>错误信息；取不到时为 <c>null</c>。</returns>
+    private static string? ExtractErrorMessage(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return null;
+
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            if (document.RootElement.ValueKind != JsonValueKind.Object)
+                return null;
+
+            foreach (var name in new[] { "errorMessage", "errorDescription", "message" })
+            {
+                if (document.RootElement.TryGetProperty(name, out var element)
+                    && element.ValueKind == JsonValueKind.String
+                    && !string.IsNullOrWhiteSpace(element.GetString()))
+                {
+                    return element.GetString();
+                }
+            }
+        }
+        catch (JsonException)
+        {
+            // 非 JSON 错误体：交给调用方回退到原始文本
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// 从响应头读取整型值（云效列表接口的总数在 <c>x-total</c>）。
+    /// </summary>
+    /// <param name="headers">响应头。</param>
+    /// <param name="name">头名称。</param>
+    /// <param name="fallback">读不到时的兜底值。</param>
+    /// <returns>整型值。</returns>
+    private static int ReadHeaderInt(HttpResponseHeaders headers, string name, int fallback)
+        => headers.TryGetValues(name, out var values)
+           && int.TryParse(values.FirstOrDefault(), out var parsed)
+            ? parsed
+            : fallback;
 
     #endregion
 
