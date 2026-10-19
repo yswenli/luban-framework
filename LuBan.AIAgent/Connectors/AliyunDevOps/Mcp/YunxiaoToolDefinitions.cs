@@ -11,7 +11,7 @@
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2026/10/15
-*描述：云效 MCP 工具定义（8 个，对应 PRD §4.11.3）
+*描述：云效 MCP 工具定义（10 个，对应 PRD §4.11.3）
 *
 *****************************************************************************/
 
@@ -120,6 +120,52 @@ public static class YunxiaoToolDefinitions
         }.ToJson()
     };
 
+    /// <summary>
+    /// 查询仓库分支列表（ListBranches）
+    /// </summary>
+    public static readonly MCPTool CodeupListBranches = new()
+    {
+        Name = "codeup_list_branches",
+        Description = "查询云效代码仓库的分支列表（含 defaultBranch 标记）。用于确认模板仓可用分支、核对新仓的模板分支是否已同步就绪。",
+        InputSchema = new
+        {
+            type = "object",
+            properties = new
+            {
+                repositoryId = new { type = "integer", description = "仓库 ID（整数，必填；取自仓库详情或建库返回）" },
+                page = new { type = "integer", description = "页码（从 1 开始，默认 1）", @default = 1 },
+                perPage = new { type = "integer", description = "每页条数（默认 100）", @default = 100 },
+                sort = new { type = "string", description = "排序方向：asc / desc（可选）" },
+                search = new { type = "string", description = "分支名关键字（可选）" },
+                organizationId = new { type = "string", description = "组织 ID（中心版必带）" }
+            },
+            required = new[] { "repositoryId" }
+        }.ToJson()
+    };
+
+    /// <summary>
+    /// 创建代码组（CreateNamespace）
+    /// </summary>
+    public static readonly MCPTool CodeupCreateGroup = new()
+    {
+        Name = "codeup_create_group",
+        Description = "在云效创建代码组（命名空间），返回含 id / pathWithNamespace。注意：本工具直接创建、不做重名查重；先查后建由向导后端负责，聊天路径请自行先确认同名组不存在。parentId 留空表示建在组织根下。",
+        InputSchema = new
+        {
+            type = "object",
+            properties = new
+            {
+                name = new { type = "string", description = "代码组名（显示名，必填）" },
+                path = new { type = "string", description = "代码组路径段（必填，通常与 name 相同，勿含 \"/\"）" },
+                parentId = new { type = "integer", description = "父级代码组 ID（整数，可选；不传则建在组织根下）" },
+                visibility = new { type = "string", description = "可见性：internal（组织内公开，默认）/ private（私有）", @default = "internal" },
+                description = new { type = "string", description = "代码组描述（可选）" },
+                organizationId = new { type = "string", description = "组织 ID（中心版必带）" }
+            },
+            required = new[] { "name", "path" }
+        }.ToJson()
+    };
+
     #endregion
 
     #region 流水线工具（Flow）
@@ -224,7 +270,7 @@ public static class YunxiaoToolDefinitions
     #endregion
 
     /// <summary>
-    /// 获取所有工具列表（PRD §4.11.3 定义的 8 个）
+    /// 获取所有工具列表（PRD §4.11.3 定义的 10 个）
     /// </summary>
     public static IEnumerable<MCPTool> GetAllTools()
     {
@@ -232,6 +278,8 @@ public static class YunxiaoToolDefinitions
         yield return CodeupClone;
         yield return CodeupCreateRepo;
         yield return CodeupPush;
+        yield return CodeupListBranches;
+        yield return CodeupCreateGroup;
         yield return FlowListPipelines;
         yield return FlowClonePipeline;
         yield return FlowUpdatePipeline;

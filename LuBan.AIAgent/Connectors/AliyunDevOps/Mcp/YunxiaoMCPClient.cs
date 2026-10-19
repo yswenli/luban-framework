@@ -20,7 +20,7 @@ using System.Globalization;
 namespace LuBan.AIAgent.Connectors.AliyunDevOps.Mcp;
 
 /// <summary>
-/// 云效进程内 MCP 客户端 - 包装 <see cref="YunxiaoConnector"/> 暴露 8 个工具。
+/// 云效进程内 MCP 客户端 - 包装 <see cref="YunxiaoConnector"/> 暴露 10 个工具。
 /// </summary>
 /// <remarks>
 /// 采用进程内形态（而非 stdio 子进程）是为了避免把 PAT 明文写进
@@ -103,6 +103,8 @@ public class YunxiaoMCPClient : MCPClientBase, IDisposable
                 "codeup_clone" => await CodeupCloneAsync(arguments, cancellationToken),
                 "codeup_create_repo" => await CodeupCreateRepoAsync(arguments, cancellationToken),
                 "codeup_push" => await CodeupPushAsync(arguments, cancellationToken),
+                "codeup_list_branches" => await CodeupListBranchesAsync(arguments, cancellationToken),
+                "codeup_create_group" => await CodeupCreateGroupAsync(arguments, cancellationToken),
                 "flow_list_pipelines" => await FlowListPipelinesAsync(arguments, cancellationToken),
                 "flow_clone_pipeline" => await FlowClonePipelineAsync(arguments, cancellationToken),
                 "flow_update_pipeline" => await FlowUpdatePipelineAsync(arguments, cancellationToken),
@@ -254,6 +256,59 @@ public class YunxiaoMCPClient : MCPClientBase, IDisposable
         return result.Success
             ? Ok(new { localPath, remoteUrl = SecretMasker.MaskUrlCredentials(remoteUrl), branch }.ToJson())
             : Fail($"推送失败：{result.FailureSummary()}");
+    }
+
+    private async Task<MCPToolResult> CodeupListBranchesAsync(
+        Dictionary<string, object?> arguments,
+        CancellationToken cancellationToken)
+    {
+        var repositoryId = GetLong(arguments, "repositoryId");
+        if (!repositoryId.HasValue)
+            return Fail("缺少参数: repositoryId");
+
+        var page = GetInt(arguments, "page", 1);
+        var perPage = GetInt(arguments, "perPage", 100);
+        var sort = GetString(arguments, "sort");
+        var search = GetString(arguments, "search");
+        var organizationId = GetString(arguments, "organizationId");
+
+        var client = _connector.GetCodeupClient();
+        var branches = await client.ListBranchesAsync(
+            repositoryId.Value, page, perPage, sort, search, organizationId, cancellationToken);
+
+        if (branches == null)
+            return Fail("查询分支失败");
+
+        return Ok(branches.ToJson());
+    }
+
+    private async Task<MCPToolResult> CodeupCreateGroupAsync(
+        Dictionary<string, object?> arguments,
+        CancellationToken cancellationToken)
+    {
+        var name = GetString(arguments, "name");
+        var path = GetString(arguments, "path");
+        if (string.IsNullOrWhiteSpace(name))
+            return Fail("缺少参数: name");
+        if (string.IsNullOrWhiteSpace(path))
+            return Fail("缺少参数: path");
+
+        var request = new YunxiaoCreateNamespaceRequest
+        {
+            Name = name,
+            Path = path,
+            ParentId = GetLong(arguments, "parentId"),
+            Visibility = GetString(arguments, "visibility") ?? "internal",
+            Description = GetString(arguments, "description")
+        };
+
+        var client = _connector.GetCodeupClient();
+        var created = await client.CreateNamespaceAsync(
+            request, GetString(arguments, "organizationId"), cancellationToken);
+
+        return created == null
+            ? Fail("创建代码组失败")
+            : Ok(created.ToJson());
     }
 
     #endregion

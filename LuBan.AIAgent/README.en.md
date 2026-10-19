@@ -488,7 +488,7 @@ Code repository and pipeline access for Aliyun DevOps (formerly Codeup / Flow) l
 | `GitCommandResult` | Local Git command result (`Success` / `ExitCode` / `StandardOutput` / `StandardError` / `TimedOut`): on failure `FailureSummary()` surfaces the raw git error summary (URL-embedded credentials masked via `SecretMasker`), replacing the previous `bool`-only return |
 | `FlowClient` | Pipeline I/O (Aliyun Flow) |
 | `IYunxiaoCredentialProvider` / `PatCredential` | PAT and organization ID credential source (the PAT is read from `connector:yunxiao:token`, with legacy-key `yunxiao_pat` compatibility; the organization ID from `yunxiao_organization_id`), no plain-text DB storage |
-| `YunxiaoMCPClient` / `YunxiaoToolDefinitions` | Wraps repository / pipeline capabilities as MCP tools for conversational use |
+| `YunxiaoMCPClient` / `YunxiaoToolDefinitions` | Wraps repository / pipeline capabilities as **10** MCP tools (Codeup: `codeup_search_repos` / `codeup_clone` / `codeup_create_repo` / `codeup_push` / `codeup_list_branches` / `codeup_create_group`; Flow: `flow_list_pipelines` / `flow_clone_pipeline` / `flow_update_pipeline` / `flow_run_pipeline`) for conversational use |
 
 **Response shapes**: a successful Yunxiao OpenAPI response is a **bare object / bare array** (no `{ result: ... }` envelope) and the list total is in the `x-total` response header; business errors use `{ code, errorCode, errorDescription, errorMessage, ... }` (`errorCode` is a string) and are mapped to `YunxiaoApiException` by `YunxiaoErrorMapper`.
 

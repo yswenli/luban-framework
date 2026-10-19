@@ -488,7 +488,7 @@ AI: [调用 WriteMcpServerAsync] 已创建 MCP 配置，正在连接...
 | `GitCommandResult` | 本地 Git 命令结果（`Success` / `ExitCode` / `StandardOutput` / `StandardError` / `TimedOut`）：失败时 `FailureSummary()` 给出 git 原始报错摘要（URL 内嵌凭据经 `SecretMasker` 脱敏），取代原先只回 `bool` 的做法 |
 | `FlowClient` | 流水线读写（云效 Flow） |
 | `IYunxiaoCredentialProvider` / `PatCredential` | PAT 与组织 ID 的凭据来源（PAT 读 `connector:yunxiao:token`，兼容旧键 `yunxiao_pat`；组织 ID 读 `yunxiao_organization_id`），不落明文 DB |
-| `YunxiaoMCPClient` / `YunxiaoToolDefinitions` | 把代码库 / 流水线能力包装成 MCP 工具，供对话式调用 |
+| `YunxiaoMCPClient` / `YunxiaoToolDefinitions` | 把代码库 / 流水线能力包装成 **10 个** MCP 工具（Codeup：`codeup_search_repos` / `codeup_clone` / `codeup_create_repo` / `codeup_push` / `codeup_list_branches` / `codeup_create_group`；Flow：`flow_list_pipelines` / `flow_clone_pipeline` / `flow_update_pipeline` / `flow_run_pipeline`），供对话式调用 |
 
 **响应形状**：云效 OpenAPI 成功响应是**裸对象 / 裸数组**（不套 `{ result: ... }` 信封），列表总数在响应头 `x-total`；业务错误体为 `{ code, errorCode, errorDescription, errorMessage, ... }`（`errorCode` 是字符串），由 `YunxiaoErrorMapper` 统一映射为 `YunxiaoApiException`。
 
