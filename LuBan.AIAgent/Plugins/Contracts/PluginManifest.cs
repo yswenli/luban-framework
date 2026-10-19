@@ -124,12 +124,12 @@ public sealed class PluginManifest
 /// </summary>
 /// <remarks>
 /// 连接器本身属框架共享集，<b>不在本字段声明</b>；此处仅声明「随插件启停的内置 MCP 服务」，
-/// 如 <c>{ "name": "yunxiao", "transport": "inproc", "enabled": true }</c>。
+/// 如 <c>{ "name": "myconnector", "transport": "inproc", "enabled": true }</c>。
 /// </remarks>
 public sealed class PluginMcpServerDeclaration
 {
     /// <summary>
-    /// 服务器名（如 <c>yunxiao</c>，宿主据此映射到内置客户端）。
+    /// 服务器名（如 <c>myconnector</c>，宿主据此映射到内置客户端）。
     /// </summary>
     [JsonPropertyName("name")]
     public string Name { get; set; } = string.Empty;

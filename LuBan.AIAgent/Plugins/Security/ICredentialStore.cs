@@ -23,7 +23,8 @@ namespace LuBan.AIAgent.Plugins.Security;
 /// <see cref="ConfigurationCredentialStore"/>，供最小宿主与测试使用。
 /// </para>
 /// <para>
-/// 键名按 <see cref="CredentialKeys.Normalize"/> 归一化（如 <c>codeup:pat</c> 与 <c>yunxiao_pat</c> 等价）。
+/// 键名按 <see cref="CredentialKeys.Normalize"/> 归一化；厂商历史拼写的等价关系由宿主注册的
+/// <see cref="ICredentialKeyAliases"/> 提供（默认无别名）。
 /// </para>
 /// </remarks>
 public interface ICredentialStore

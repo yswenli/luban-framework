@@ -28,12 +28,12 @@ namespace LuBan.AIAgent.Configuration;
 public class ConnectorConfig
 {
     /// <summary>
-    /// 连接器实例名（如 <c>yunxiao</c>）。凭据按此名取用。
+    /// 连接器实例名（如 <c>myconnector</c>）。凭据按此名取用。
     /// </summary>
     public string Name { get; set; } = "";
 
     /// <summary>
-    /// 提供方键（如 <c>aliyunDevOps</c>），决定用哪个连接器工厂实例化。
+    /// 提供方键（如 <c>myConnector</c>），决定用哪个连接器工厂实例化。
     /// </summary>
     public string Provider { get; set; } = "";
 

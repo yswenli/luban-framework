@@ -38,16 +38,26 @@ public sealed class PluginLoader
 
     private readonly ManifestValidator _validator;
     private readonly PluginFactory _factory;
+    private readonly PluginAssemblySharing _sharing;
 
     /// <summary>
     /// 创建插件加载器。
     /// </summary>
     /// <param name="validator">清单校验器。</param>
     /// <param name="factory">插件实例工厂。</param>
-    public PluginLoader(ManifestValidator validator, PluginFactory factory)
+    /// <param name="sharing">
+    /// 插件 ALC 共享程序集策略（可选）；为空时用
+    /// <see cref="PluginAssemblySharing.Default"/>（与框架历史硬编码集合一致）。
+    /// 宿主可用产品 / 厂商程序集前缀扩充。
+    /// </param>
+    public PluginLoader(
+        ManifestValidator validator,
+        PluginFactory factory,
+        PluginAssemblySharing? sharing = null)
     {
         _validator = validator ?? throw new ArgumentNullException(nameof(validator));
         _factory = factory ?? throw new ArgumentNullException(nameof(factory));
+        _sharing = sharing ?? PluginAssemblySharing.Default;
     }
 
     /// <summary>
@@ -120,7 +130,7 @@ public sealed class PluginLoader
             ?? throw new PluginLoadException($"入口程序集不存在：{manifest.EntryAssembly}", manifest.Id);
 
         // ALC 创建失败无需卸载，直接抛出。
-        var loadContext = new PluginLoadContext(manifest.Id, entryAssemblyPath, collectible: true);
+        var loadContext = new PluginLoadContext(manifest.Id, entryAssemblyPath, collectible: true, _sharing);
 
         try
         {

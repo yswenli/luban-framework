@@ -35,15 +35,20 @@ namespace LuBan.AIAgent.Plugins.Security;
 public sealed class PluginPermissionEvaluator
 {
     private readonly PluginSecurityOptions _options;
+    private readonly ICredentialKeyAliases _aliases;
 
     /// <summary>
     /// 创建判定器。
     /// </summary>
     /// <param name="options">白名单策略；为空时取默认白名单。</param>
-    public PluginPermissionEvaluator(PluginSecurityOptions? options = null)
+    /// <param name="aliases">凭据键别名来源（可选）；用于把历史拼写解析为规范键后比较。</param>
+    public PluginPermissionEvaluator(
+        PluginSecurityOptions? options = null,
+        ICredentialKeyAliases? aliases = null)
     {
+        _aliases = aliases ?? NullCredentialKeyAliases.Instance;
         _options = options ?? new PluginSecurityOptions();
-        _options.Normalize();
+        _options.Normalize(_aliases);
     }
 
     /// <summary>当前生效的白名单策略。</summary>
@@ -55,7 +60,7 @@ public sealed class PluginPermissionEvaluator
     /// 判定插件是否有权访问指定网络主机。
     /// </summary>
     /// <param name="permissions">插件声明的权限。</param>
-    /// <param name="host">目标主机（如 <c>codeup.aliyun.com</c>）。</param>
+    /// <param name="host">目标主机（如 <c>api.example.com</c>）。</param>
     /// <returns>允许时返回 <c>true</c>。</returns>
     public bool IsNetworkAllowed(PluginPermissions? permissions, string? host)
     {
@@ -95,21 +100,21 @@ public sealed class PluginPermissionEvaluator
     /// 判定插件是否有权读取指定凭据（PRD §3.7：未声明则无法读取）。
     /// </summary>
     /// <param name="permissions">插件声明的权限。</param>
-    /// <param name="key">凭据键（如 <c>yunxiao_pat</c>）。</param>
+    /// <param name="key">凭据键（如 <c>connector:myconnector:token</c>）。</param>
     /// <returns>允许时返回 <c>true</c>。</returns>
     public bool IsCredentialAllowed(PluginPermissions? permissions, string? key)
     {
         if (permissions is null || string.IsNullOrWhiteSpace(key))
             return false;
 
-        var normalized = CredentialKeys.Normalize(key);
+        var normalized = _aliases.Resolve(key);
         var scopes = permissions.GetScopes("credential");
 
         // 通配声明以宿主凭据目录为上限，而非直接放行
         return scopes.Any(scope => IsWildcard(scope)
             ? _options.CredentialCatalog.Any(allowed => IsWildcard(allowed) ||
-                                                        string.Equals(CredentialKeys.Normalize(allowed), normalized, StringComparison.OrdinalIgnoreCase))
-            : string.Equals(CredentialKeys.Normalize(scope), normalized, StringComparison.OrdinalIgnoreCase));
+                                                        string.Equals(_aliases.Resolve(allowed), normalized, StringComparison.OrdinalIgnoreCase))
+            : string.Equals(_aliases.Resolve(scope), normalized, StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>
@@ -217,9 +222,9 @@ public sealed class PluginPermissionEvaluator
                 break;
 
             case "credential":
-                var normalized = CredentialKeys.Normalize(scope);
+                var normalized = _aliases.Resolve(scope);
                 if (!_options.CredentialCatalog.Any(allowed => IsWildcard(allowed) ||
-                                                               string.Equals(CredentialKeys.Normalize(allowed), normalized, StringComparison.OrdinalIgnoreCase)))
+                                                               string.Equals(_aliases.Resolve(allowed), normalized, StringComparison.OrdinalIgnoreCase)))
                 {
                     result.Errors.Add(
                         $"{path}.credential 越界：{scope} 不在宿主凭据目录内（{Format(_options.CredentialCatalog)}）。");

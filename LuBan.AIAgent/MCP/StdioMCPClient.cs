@@ -33,6 +33,7 @@ namespace LuBan.AIAgent.MCP;
 public class StdioMCPClient : IMCPClient, IDisposable, IAsyncDisposable
 {
     private readonly Configuration.McpServerConfig _config;
+    private readonly IMcpConfigValueResolver _resolver;
     private readonly SemaphoreSlim _rpcLock = new(1, 1);
     private Process? _process;
     private int _nextId;
@@ -40,11 +41,22 @@ public class StdioMCPClient : IMCPClient, IDisposable, IAsyncDisposable
     private static readonly TimeSpan RpcTimeout = TimeSpan.FromSeconds(30);
 
     /// <summary>
-    /// 创建 StdioMCPClient 实例
+    /// 创建 StdioMCPClient 实例（不做凭据引用解析）
     /// </summary>
     public StdioMCPClient(Configuration.McpServerConfig config)
+        : this(config, NullMcpConfigValueResolver.Instance)
     {
-        _config = config;
+    }
+
+    /// <summary>
+    /// 创建 StdioMCPClient 实例
+    /// </summary>
+    /// <param name="config">MCP 服务器配置。</param>
+    /// <param name="resolver">配置值解析器（环境变量中的凭据引用）。</param>
+    public StdioMCPClient(Configuration.McpServerConfig config, IMcpConfigValueResolver? resolver)
+    {
+        _config = config ?? throw new ArgumentNullException(nameof(config));
+        _resolver = resolver ?? NullMcpConfigValueResolver.Instance;
     }
 
     /// <inheritdoc />
@@ -76,6 +88,10 @@ public class StdioMCPClient : IMCPClient, IDisposable, IAsyncDisposable
             {
                 psi.ArgumentList.Add(arg);
             }
+
+            if (!await ApplyEnvironmentAsync(psi, _config.Environment, _resolver, cancellationToken)
+                    .ConfigureAwait(false))
+                return false;
 
             _process = Process.Start(psi);
             if (_process == null) return false;
@@ -116,6 +132,41 @@ public class StdioMCPClient : IMCPClient, IDisposable, IAsyncDisposable
             await DisconnectAsync();
             return false;
         }
+    }
+
+    /// <summary>
+    /// 把配置中的环境变量解析并写入子进程启动信息（值可含 <c>$credential:</c> 引用）。
+    /// </summary>
+    /// <param name="psi">子进程启动信息。</param>
+    /// <param name="environment">配置中的环境变量（原始值）。</param>
+    /// <param name="resolver">配置值解析器。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>全部解析成功返回 <c>true</c>；任一引用缺失返回 <c>false</c>（应中止启动）。</returns>
+    internal static async Task<bool> ApplyEnvironmentAsync(
+        ProcessStartInfo psi,
+        IReadOnlyDictionary<string, string> environment,
+        IMcpConfigValueResolver resolver,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(psi);
+        ArgumentNullException.ThrowIfNull(environment);
+        ArgumentNullException.ThrowIfNull(resolver);
+
+        foreach (var (name, rawValue) in environment)
+        {
+            if (string.IsNullOrWhiteSpace(name)) continue;
+
+            var value = await resolver.ResolveAsync(rawValue, cancellationToken).ConfigureAwait(false);
+            if (value is null)
+            {
+                Logger.Warn($"MCP 环境变量 {name} 的值无法解析（凭据缺失？），启动取消。");
+                return false;
+            }
+
+            psi.Environment[name] = value;
+        }
+
+        return true;
     }
 
     /// <inheritdoc />

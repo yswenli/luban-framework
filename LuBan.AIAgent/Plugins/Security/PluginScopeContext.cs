@@ -20,8 +20,8 @@ namespace LuBan.AIAgent.Plugins.Security;
 /// </summary>
 /// <remarks>
 /// <para>
-/// 为何用环境上下文而非显式传参：出口位于框架连接器（<c>CodeupClient</c> / <c>FlowClient</c> /
-/// <c>YunxiaoMCPClient</c>），其调用方既可能是宿主也可能是插件代码，逐层透传会污染全部签名。
+/// 为何用环境上下文而非显式传参：出口位于连接器（如产品侧的 <c>MyConnectorClient</c> /
+/// <c>MyMCPClient</c>），其调用方既可能是宿主也可能是插件代码，逐层透传会污染全部签名。
 /// 环境上下文让出口以「当前是谁在调」这一事实做判定（PRD §3.7 宿主在网络出口处校验）。
 /// </para>
 /// <para>

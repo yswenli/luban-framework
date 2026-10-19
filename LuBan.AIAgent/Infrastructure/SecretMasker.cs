@@ -23,7 +23,7 @@ namespace LuBan.AIAgent.Infrastructure;
 /// </summary>
 /// <remarks>
 /// 背景（PRD §4.9.3 v0.15 补充）：Git 克隆/推送会把含 PAT 的完整 URL
-/// （<c>https://oauth2:&lt;PAT&gt;@codeup.aliyun.com/...</c>）放进工具确认弹窗的参数字典，
+/// （<c>https://oauth2:&lt;PAT&gt;@host/...</c>）放进工具确认弹窗的参数字典，
 /// 并随 <c>ToolResult.commandLine</c> 写入会话消息记录，导致明文令牌泄漏。
 /// 故凡对外暴露的命令行 / 参数 / 消息，统一经本类脱敏。
 /// </remarks>

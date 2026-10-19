@@ -39,19 +39,51 @@ public class McpServerConfig
     public string Description { get; set; } = "";
 
     /// <summary>
-    /// 传输方式（如 stdio）
+    /// 传输方式：<c>stdio</c>（默认）/ <c>sse</c>（旧 HTTP+SSE）/ <c>http</c>（Streamable HTTP）。
     /// </summary>
     public string Transport { get; set; } = "stdio";
 
     /// <summary>
-    /// 启动命令
+    /// 启动命令（<c>stdio</c>）。
     /// </summary>
     public string Command { get; set; } = "";
 
     /// <summary>
-    /// 命令参数列表
+    /// 命令参数列表（<c>stdio</c>）。
     /// </summary>
     public List<string> Args { get; set; } = new();
+
+    /// <summary>
+    /// HTTP/SSE 端点（<c>http</c> / <c>sse</c>）。
+    /// </summary>
+    /// <remarks>
+    /// 优先于历史写法「把 URL 塞进 <c>Args[0]</c> 或 <c>Command</c>」；两者都为空时视为未配置。
+    /// </remarks>
+    public string Url { get; set; } = "";
+
+    /// <summary>
+    /// HTTP 请求头（<c>http</c> / <c>sse</c>）。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 值支持<b>凭据引用</b>语法 <c>$credential:&lt;凭据键&gt;</c>，连接时经
+    /// <c>IMcpConfigValueResolver</c> 从 <c>ICredentialStore</c> 解析。
+    /// </para>
+    /// <para>
+    /// <b>严禁</b>在此写明文令牌（如 <c>Authorization: Bearer xxx</c>）——<c>McpManage</c> 写入工具会直接拒绝，
+    /// 请一律使用凭据引用。
+    /// </para>
+    /// </remarks>
+    public Dictionary<string, string> Headers { get; set; } = new();
+
+    /// <summary>
+    /// stdio 子进程环境变量。
+    /// </summary>
+    /// <remarks>
+    /// 值同样支持 <c>$credential:&lt;凭据键&gt;</c> 引用（如 <c>MY_ACCESS_TOKEN</c> 指向
+    /// <c>connector:myconnector:token</c>），<b>严禁</b>写明文令牌。
+    /// </remarks>
+    public Dictionary<string, string> Environment { get; set; } = new();
 
     /// <summary>
     /// 是否启用

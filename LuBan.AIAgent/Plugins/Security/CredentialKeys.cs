@@ -8,109 +8,112 @@
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2026/10/16
-*描述：已知凭据键目录与环境变量映射（PRD §3.7 / §4.9）
+*描述：凭据键约定（厂商无关）—— 连接器令牌/字段键的规范拼写
 *
 *****************************************************************************/
 namespace LuBan.AIAgent.Plugins.Security;
 
 /// <summary>
-/// 已知凭据键目录：插件 <c>credential</c> 声明与 <see cref="ICredentialStore"/> 的键约定。
+/// 凭据键约定：连接器令牌与字段键的规范拼写，以及通用环境变量映射。
 /// </summary>
 /// <remarks>
-/// PRD 中出现两种写法：§3.7 用 <c>yunxiao_pat</c>，§4.9 PAT 时序表用 <c>codeup:pat</c>。
-/// 二者视为同一凭据，统一由 <see cref="Normalize"/> 归一化为 <see cref="YunxiaoPat"/>，
-/// 避免「同一凭据两个键」导致声明与取用对不上。
+/// <para>
+/// 本类<b>只</b>提供通用约定，<b>不含任何厂商知识</b>：规范键由「连接器实例名 + 字段」拼出，
+/// 历史别名（如某个平台旧版的 <c>xxx_pat</c> 拼写）一律由宿主/产品实现
+/// <see cref="ICredentialKeyAliases"/> 提供，框架不做假设。
+/// </para>
+/// <para>
+/// 规范键形如 <c>connector:&lt;实例名&gt;:token</c>（令牌）或
+/// <c>connector:&lt;实例名&gt;:&lt;字段&gt;</c>（其它字段，如 <c>organizationid</c>）。
+/// </para>
 /// </remarks>
 public static class CredentialKeys
 {
-    /// <summary>
-    /// 云效个人访问令牌（PAT）的规范键名 —— 即 <c>connector:yunxiao:token</c>。
-    /// </summary>
-    /// <remarks>
-    /// 自 Q15 起连接器令牌统一泛化为 <c>connector:&lt;实例名&gt;:token</c>（见 <see cref="ForConnectorToken"/>）。
-    /// 常量名 <c>YunxiaoPat</c> 保留为<b>兼容别名</b>，旧键拼写（<c>yunxiao_pat</c> / <c>codeup:pat</c> 等）
-    /// 仍由 <see cref="Normalize"/> 归一化到本键，历史数据由 <see cref="GetLegacyKeyAliases"/> 支持回退读取。
-    /// </remarks>
-    public const string YunxiaoPat = "connector:yunxiao:token";
+    /// <summary>连接器键前缀。</summary>
+    public const string ConnectorPrefix = "connector:";
 
-    /// <summary>云效组织 ID（非敏感，但与会话/连接配置同源存放）。</summary>
-    public const string YunxiaoOrganizationId = "yunxiao_organization_id";
+    /// <summary>连接器令牌字段名。</summary>
+    public const string TokenField = "token";
 
     /// <summary>
-    /// 取连接器令牌凭据的规范键名（Q15 泛化约定）。
+    /// 取连接器令牌凭据的规范键名。
     /// </summary>
-    /// <param name="connectorName">连接器实例名（如 <c>yunxiao</c>）。</param>
+    /// <param name="connectorName">连接器实例名（如 <c>myconnector</c>）。</param>
     /// <returns>形如 <c>connector:&lt;实例名&gt;:token</c> 的键名（小写、去空白）。</returns>
     public static string ForConnectorToken(string connectorName)
-        => $"connector:{(connectorName ?? string.Empty).Trim().ToLowerInvariant()}:token";
+        => $"{ConnectorPrefix}{Norm(connectorName)}:{TokenField}";
 
     /// <summary>
-    /// 各规范键对应的<b>历史键拼写</b>表（仅用于旧数据回退读取与一次性迁移）。
+    /// 取连接器一般字段的规范键名。
     /// </summary>
-    private static readonly Dictionary<string, string[]> LegacyKeyAliases = new(StringComparer.OrdinalIgnoreCase)
-    {
-        [YunxiaoPat] = ["yunxiao_pat", "yunxiao:pat", "codeup_pat", "codeup:pat"],
-        [YunxiaoOrganizationId] = ["yunxiao_org_id", "yunxiao:org", "codeup_org_id", "codeup:org"]
-    };
+    /// <param name="connectorName">连接器实例名。</param>
+    /// <param name="field">字段名（如 <c>username</c> / <c>password</c> / <c>organizationid</c>）。</param>
+    /// <returns>形如 <c>connector:&lt;实例名&gt;:&lt;字段&gt;</c> 的键名（小写、去空白）。</returns>
+    public static string ForConnectorField(string connectorName, string field)
+        => $"{ConnectorPrefix}{Norm(connectorName)}:{Norm(field)}";
 
     /// <summary>
-    /// 取指定键（任意别名写法）对应的历史键拼写列表。
-    /// </summary>
-    /// <remarks>
-    /// 迁移后旧键仍被保留，回退读取保证「配置迁移未落盘（如只读文件）」时凭据不丢。
-    /// </remarks>
-    /// <param name="key">凭据键（任意别名写法）。</param>
-    /// <returns>历史键拼写；无别名时返回空集合。</returns>
-    public static IReadOnlyList<string> GetLegacyKeyAliases(string key)
-        => LegacyKeyAliases.TryGetValue(Normalize(key), out var aliases) ? aliases : Array.Empty<string>();
-
-    /// <summary>
-    /// 把别名键归一化为规范键名（忽略大小写与首尾空白）。
+    /// 键归一化：去首尾空白 + 转小写。
     /// </summary>
     /// <param name="key">原始键名。</param>
-    /// <returns>规范键名；未知键返回小写去空白后的原值。</returns>
-    public static string Normalize(string key)
-    {
-        var normalized = (key ?? string.Empty).Trim().ToLowerInvariant();
+    /// <returns>归一化后的键名。</returns>
+    /// <remarks>
+    /// <b>不</b>做别名映射：厂商历史拼写的归一化由 <see cref="ICredentialKeyAliases"/> 负责。
+    /// </remarks>
+    public static string Normalize(string key) => Norm(key);
 
-        return normalized switch
-        {
-            "yunxiao_pat" or "yunxiao:pat" or "codeup_pat" or "codeup:pat" => YunxiaoPat,
-            "yunxiao_org_id" or "yunxiao:org" or "codeup_org_id" or "codeup:org" => YunxiaoOrganizationId,
-            _ => normalized
-        };
+    /// <summary>
+    /// 解析连接器规范键。
+    /// </summary>
+    /// <param name="key">凭据键（任意大小写）。</param>
+    /// <param name="instanceName">连接器实例名。</param>
+    /// <param name="field">字段名。</param>
+    /// <returns>符合 <c>connector:&lt;实例名&gt;:&lt;字段&gt;</c> 约定时返回 <c>true</c>。</returns>
+    public static bool TryParseConnectorKey(string? key, out string instanceName, out string field)
+    {
+        instanceName = string.Empty;
+        field = string.Empty;
+
+        var normalized = Norm(key);
+        if (!normalized.StartsWith(ConnectorPrefix, StringComparison.Ordinal))
+            return false;
+
+        var remainder = normalized[ConnectorPrefix.Length..];
+        var separator = remainder.IndexOf(':');
+        if (separator <= 0 || separator >= remainder.Length - 1)
+            return false;
+
+        instanceName = remainder[..separator];
+        field = remainder[(separator + 1)..];
+        return true;
     }
 
     /// <summary>
-    /// 取凭据键对应的环境变量名（供默认存储兜底读取，PRD §4.9）。
+    /// 取凭据键对应的环境变量名（供默认存储兜底读取）。
     /// </summary>
     /// <param name="key">凭据键。</param>
-    /// <returns>环境变量名；无映射时返回 <c>null</c>。</returns>
-    public static string? GetEnvironmentVariableName(string key) => Normalize(key) switch
+    /// <returns>环境变量名。</returns>
+    /// <remarks>
+    /// 通用映射：<c>connector:&lt;实例名&gt;:&lt;字段&gt;</c> →
+    /// <c>LUBAN_CONNECTOR_&lt;实例名&gt;_&lt;字段&gt;</c>；其它键 → <c>LUBAN_&lt;键&gt;</c>
+    /// （非字母数字一律转下划线、转大写）。厂商历史变量名（如 <c>LUBAN_LEGACY_PAT</c>）
+    /// 由 <see cref="ICredentialKeyAliases.GetLegacyEnvironmentVariableName"/> 提供。
+    /// </remarks>
+    public static string GetEnvironmentVariableName(string key)
     {
-        YunxiaoPat => "LUBAN_YUNXIAO_PAT",
-        YunxiaoOrganizationId => "LUBAN_YUNXIAO_ORGANIZATION_ID",
-        _ => ConnectorTokenVariableOf(Normalize(key))
-    };
+        var normalized = Normalize(key);
 
-    /// <summary>
-    /// 把泛化连接器令牌键 <c>connector:&lt;实例名&gt;:token</c> 映射为
-    /// <c>LUBAN_CONNECTOR_&lt;实例名&gt;_TOKEN</c>。
-    /// </summary>
-    /// <remarks>仅用于<b>非默认实例</b>（默认实例已由 <see cref="YunxiaoPat"/> 映射到历史变量名）。</remarks>
-    /// <param name="normalizedKey">已归一化的凭据键。</param>
-    /// <returns>环境变量名；不符合泛化约定时返回 <c>null</c>。</returns>
-    private static string? ConnectorTokenVariableOf(string normalizedKey)
+        if (TryParseConnectorKey(normalized, out var instanceName, out var field))
+            return $"LUBAN_CONNECTOR_{Sanitize(instanceName)}_{Sanitize(field)}";
+
+        return $"LUBAN_{Sanitize(normalized)}";
+    }
+
+    private static string Norm(string? value) => (value ?? string.Empty).Trim().ToLowerInvariant();
+
+    private static string Sanitize(string value)
     {
-        const string prefix = "connector:";
-        const string suffix = ":token";
-
-        if (!normalizedKey.StartsWith(prefix, StringComparison.Ordinal) ||
-            !normalizedKey.EndsWith(suffix, StringComparison.Ordinal) ||
-            normalizedKey.Length <= prefix.Length + suffix.Length)
-            return null;
-
-        var name = normalizedKey[prefix.Length..^suffix.Length].Replace('-', '_').Replace('.', '_');
-        return string.IsNullOrWhiteSpace(name) ? null : $"LUBAN_CONNECTOR_{name.ToUpperInvariant()}_TOKEN";
+        var chars = value.Select(c => char.IsLetterOrDigit(c) ? char.ToUpperInvariant(c) : '_').ToArray();
+        return new string(chars);
     }
 }

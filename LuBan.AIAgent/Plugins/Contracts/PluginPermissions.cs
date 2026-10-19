@@ -24,7 +24,7 @@ namespace LuBan.AIAgent.Plugins;
 /// </summary>
 /// <remarks>
 /// 六个维度：<c>filesystem</c> / <c>network</c> / <c>git</c> / <c>database</c> / <c>process</c> / <c>credential</c>。
-/// 每个维度携带「范围」列表（scope），例如 <c>filesystem: ["workspace"]</c>、<c>network: ["codeup.aliyun.com"]</c>。
+/// 每个维度携带「范围」列表（scope），例如 <c>filesystem: ["workspace"]</c>、<c>network: ["api.example.com"]</c>。
 /// <para>
 /// 为兼容 <c>plugin.json</c> 的两种写法，本类型挂了
 /// <see cref="PluginPermissionsConverter"/>：
@@ -34,7 +34,7 @@ namespace LuBan.AIAgent.Plugins;
 /// <para>
 /// 通配 <c>"*"</c>（含数组简写的裸维度）表示「声明该维度、具体范围由宿主白名单决定」：
 /// 声明期放行（仅记警告），运行期以宿主白名单为上限判定访问是否越界（PRD §3.7）。
-/// 要精确限定范围，请写 <c>维度:范围</c>（如 <c>"network:codeup.aliyun.com"</c>）。
+/// 要精确限定范围，请写 <c>维度:范围</c>（如 <c>"network:api.example.com"</c>）。
 /// </para>
 /// </remarks>
 [JsonConverter(typeof(PluginPermissionsConverter))]

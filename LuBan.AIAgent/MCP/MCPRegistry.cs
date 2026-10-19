@@ -26,6 +26,7 @@ public class MCPRegistry
     private readonly Dictionary<string, (IMCPClient Client, string Fingerprint)> _workspace = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, (IMCPClient Client, string Fingerprint)> _config = new(StringComparer.OrdinalIgnoreCase);
     private readonly Configuration.IAppConfigReader? _configReader;
+    private readonly IMcpConfigValueResolver _resolver;
     private List<IMCPClient> _merged = new();
 
     /// <summary>
@@ -33,16 +34,39 @@ public class MCPRegistry
     /// </summary>
     /// <param name="clients">硬编码的内置 MCP 客户端集合</param>
     /// <param name="configReader">config.json 配置读取器，可选</param>
-    public MCPRegistry(IEnumerable<IMCPClient> clients, Configuration.IAppConfigReader? configReader = null)
+    /// <param name="resolver">配置值解析器（凭据引用），可选</param>
+    public MCPRegistry(
+        IEnumerable<IMCPClient> clients,
+        Configuration.IAppConfigReader? configReader = null,
+        IMcpConfigValueResolver? resolver = null)
     {
         _configReader = configReader;
+        _resolver = resolver ?? NullMcpConfigValueResolver.Instance;
         foreach (var client in clients)
             _hardcoded[client.Name] = client;
         LoadFromConfig();
     }
 
+    /// <summary>
+    /// 配置指纹：任一影响连接行为的字段变化都要重建客户端。
+    /// </summary>
+    /// <remarks>
+    /// 除 <c>Command</c>/<c>Args</c> 外，<c>Transport</c>（stdio/http/sse）、<c>Url</c> 与
+    /// <c>Headers</c>/<c>Environment</c> 也会改变连接语义，必须计入指纹，否则热重载会复用错误的客户端。
+    /// </remarks>
     private static string FingerprintOf(Configuration.McpServerConfig cfg)
-        => cfg.Command + "\0" + string.Join("\0", cfg.Args);
+    {
+        var headers = string.Join("\0", cfg.Headers.OrderBy(kv => kv.Key).Select(kv => $"{kv.Key}={kv.Value}"));
+        var environment = string.Join("\0", cfg.Environment.OrderBy(kv => kv.Key).Select(kv => $"{kv.Key}={kv.Value}"));
+
+        return string.Join("\0",
+            cfg.Transport ?? string.Empty,
+            cfg.Command ?? string.Empty,
+            string.Join("\0", cfg.Args),
+            cfg.Url ?? string.Empty,
+            headers,
+            environment);
+    }
 
     /// <summary>
     /// 从工作区目录加载 MCP 配置（.luban-agent/mcps 下的 *.json 文件）
@@ -66,7 +90,7 @@ public class MCPRegistry
                     var config = json.ToObject<Configuration.McpServerConfig>();
                     if (config != null && config.Enabled)
                     {
-                        var client = MCPClientFactory.Create(config);
+                        var client = MCPClientFactory.Create(config, _resolver);
                         temp[config.Name] = (client, FingerprintOf(config));
                     }
                 }
@@ -87,7 +111,7 @@ public class MCPRegistry
                     var config = json.ToObject<Configuration.McpServerConfig>();
                     if (config != null && config.Enabled)
                     {
-                        var client = MCPClientFactory.Create(config);
+                        var client = MCPClientFactory.Create(config, _resolver);
                         temp[config.Name] = (client, FingerprintOf(config));
                     }
                 }
@@ -142,7 +166,7 @@ public class MCPRegistry
             {
                 foreach (var cfg in _configReader.McpServers.Where(s => s.Enabled))
                 {
-                    var client = MCPClientFactory.Create(cfg);
+                    var client = MCPClientFactory.Create(cfg, _resolver);
                     temp[cfg.Name] = (client, FingerprintOf(cfg));
                 }
             }
@@ -258,8 +282,8 @@ public class MCPRegistry
     /// 注册一个进程内插件 MCP 客户端（不走 stdio/http 子进程通道）。
     /// </summary>
     /// <remarks>
-    /// 插件贡献的 MCP 客户端（如进程内 <c>YunxiaoMCPClient</c>）无法用文件式 <c>mcps/*.json</c>
-    /// 描述（<c>McpServerConfig.Command</c> 为必填，会强制外部进程，且 PAT 需明文落盘）。
+    /// 插件贡献的 MCP 客户端（如进程内的产品自研客户端 <c>MyConnectorMcpClient</c>）无法用文件式 <c>mcps/*.json</c>
+    /// 描述（<c>McpServerConfig.Command</c> 为必填，会强制外部进程，且凭据需明文落盘）。
     /// 故提供此实例注册口，随插件启用注入、禁用/卸载时经
     /// <see cref="UnregisterPluginClient"/> 显式注销——<b>注销必须先于 ALC 卸载</b>，
     /// 否则注册表持有的强引用会导致插件程序集无法回收。

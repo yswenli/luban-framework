@@ -47,7 +47,7 @@ public class PluginManagerLifecycleUnitTest
 
         var file = stateFile ?? NewStateFile();
         var manager = new PluginManager(
-            new PluginLoader(new ManifestValidator(), new PluginFactory()),
+            new PluginLoader(new ManifestValidator(new ManifestValidationOptions(), TestSecurity.Evaluator()), new PluginFactory()),
             new PluginDependencyResolver(),
             new BuiltinPluginCatalog(builtins ?? Array.Empty<IPlugin>()),
             new PluginStateRepository(file),

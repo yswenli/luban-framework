@@ -24,8 +24,12 @@ namespace LuBan.AIAgent.Plugins.Security;
 /// 桌面宿主应注册自己的可写实现（沿用其现有配置存储基线，PRD §4.9.3），本实现在被覆盖后不参与。
 /// </para>
 /// <para>
-/// 环境变量映射见 <see cref="CredentialKeys.GetEnvironmentVariableName"/>（如 <c>yunxiao_pat</c> →
-/// <c>LUBAN_YUNXIAO_PAT</c>）。
+/// 键归一化与历史别名回退（旧配置无需人工迁移）由 <see cref="ICredentialKeyAliases"/> 提供；
+/// 未注册时退化为纯通用归一化（<see cref="NullCredentialKeyAliases"/>）。
+/// </para>
+/// <para>
+/// 环境变量映射见 <see cref="CredentialKeys.GetEnvironmentVariableName"/>（通用约定），
+/// 厂商历史变量名由 <see cref="ICredentialKeyAliases.GetLegacyEnvironmentVariableName"/> 兜底。
 /// </para>
 /// </remarks>
 public sealed class ConfigurationCredentialStore : ICredentialStore
@@ -33,14 +37,19 @@ public sealed class ConfigurationCredentialStore : ICredentialStore
     private const string SectionName = "LuBanAgent:Credentials";
 
     private readonly IConfiguration _configuration;
+    private readonly ICredentialKeyAliases _aliases;
 
     /// <summary>
     /// 创建配置凭据存储。
     /// </summary>
     /// <param name="configuration">宿主配置。</param>
-    public ConfigurationCredentialStore(IConfiguration configuration)
+    /// <param name="aliases">凭据键别名来源（可选；不传则不做别名回退）。</param>
+    public ConfigurationCredentialStore(
+        IConfiguration configuration,
+        ICredentialKeyAliases? aliases = null)
     {
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+        _aliases = aliases ?? NullCredentialKeyAliases.Instance;
     }
 
     /// <inheritdoc />
@@ -65,14 +74,7 @@ public sealed class ConfigurationCredentialStore : ICredentialStore
             var keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var key in EnumerateKeys(_configuration.GetSection(SectionName)))
-                keys.Add(CredentialKeys.Normalize(key));
-
-            // 已知键若可通过环境变量获得，也视为可用
-            foreach (var known in PluginSecurityOptionsDefaults.KnownCredentialKeys)
-            {
-                if (!string.IsNullOrWhiteSpace(ReadEnvironment(known)))
-                    keys.Add(CredentialKeys.Normalize(known));
-            }
+                keys.Add(_aliases.Resolve(key));
 
             return keys;
         }
@@ -83,8 +85,8 @@ public sealed class ConfigurationCredentialStore : ICredentialStore
     /// </summary>
     /// <remarks>
     /// <c>IConfiguration</c> 以 <c>:</c> 为层级分隔符，而连接器令牌的规范键本身含冒号
-    /// （<c>connector:&lt;实例名&gt;:token</c>，Q15），故 <c>connector:yunxiao:token</c> 在配置树里
-    /// 是三层嵌套。直接取子节点短名只会得到 <c>connector</c> 这样的伪键，必须按路径拼回完整键。
+    /// （<c>connector:&lt;实例名&gt;:token</c>），故在配置树里是三层嵌套。直接取子节点短名只会得到
+    /// <c>connector</c> 这样的伪键，必须按路径拼回完整键。
     /// </remarks>
     /// <param name="section">配置节。</param>
     /// <returns>叶子节点的完整键路径。</returns>
@@ -110,34 +112,49 @@ public sealed class ConfigurationCredentialStore : ICredentialStore
 
     private string? Get(string key)
     {
-        var normalized = CredentialKeys.Normalize(key);
+        var canonical = _aliases.Resolve(key);
 
-        var configured = _configuration[$"{SectionName}:{normalized}"];
+        var configured = _configuration[$"{SectionName}:{canonical}"];
         if (!string.IsNullOrWhiteSpace(configured))
             return configured;
 
-        return ReadEnvironment(normalized);
+        var fromEnvironment = ReadEnvironment(canonical);
+        if (fromEnvironment is not null)
+            return fromEnvironment;
+
+        // 历史拼写回退（旧配置 / 旧环境变量）——保证迁移不需要人工干预
+        foreach (var legacy in _aliases.GetLegacyAliases(canonical))
+        {
+            var legacyKey = CredentialKeys.Normalize(legacy);
+
+            var legacyConfigured = _configuration[$"{SectionName}:{legacyKey}"];
+            if (!string.IsNullOrWhiteSpace(legacyConfigured))
+                return legacyConfigured;
+
+            var legacyEnvironment = ReadEnvironment(legacyKey);
+            if (legacyEnvironment is not null)
+                return legacyEnvironment;
+        }
+
+        return null;
     }
 
-    private static string? ReadEnvironment(string key)
+    private string? ReadEnvironment(string key)
     {
         var variable = CredentialKeys.GetEnvironmentVariableName(key);
+        var value = ReadVariable(variable);
+        if (value is not null)
+            return value;
+
+        return ReadVariable(_aliases.GetLegacyEnvironmentVariableName(key));
+    }
+
+    private static string? ReadVariable(string? variable)
+    {
         if (string.IsNullOrWhiteSpace(variable))
             return null;
 
         var value = Environment.GetEnvironmentVariable(variable);
         return string.IsNullOrWhiteSpace(value) ? null : value;
     }
-}
-
-/// <summary>
-/// 默认策略常量（供框架内部复用，避免多处硬编码）。
-/// </summary>
-internal static class PluginSecurityOptionsDefaults
-{
-    /// <summary>默认已知凭据键（与 <see cref="PluginSecurityOptions.CredentialCatalog"/> 默认值一致）。</summary>
-    public static readonly IReadOnlyList<string> KnownCredentialKeys = new[]
-    {
-        CredentialKeys.YunxiaoPat
-    };
 }

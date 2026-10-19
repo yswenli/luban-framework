@@ -20,7 +20,7 @@ namespace LuBan.AIAgent.Connectors;
 /// <para>
 /// 连接器<b>不</b>继承 <see cref="MCP.IMCPClient"/>：MCP 只是连接器对外暴露能力的一种形态，
 /// 由 <see cref="McpExposures"/> 派生。这样同一连接器可同时服务代码直调（如插件直接依赖
-/// <c>YunxiaoConnector</c>）与 MCP 工具通道，避免为两者各写一套声明。
+/// 具体连接器类型）与 MCP 工具通道，避免为两者各写一套声明。
 /// </para>
 /// <para>
 /// 生命周期：连接器实例由宿主以<b>宿主级单例</b>持有（见 <c>ConnectorInstanceHost</c>），
@@ -30,12 +30,12 @@ namespace LuBan.AIAgent.Connectors;
 public interface IConnector : IAsyncDisposable
 {
     /// <summary>
-    /// 提供方键（实现归属），如 <c>aliyunDevOps</c>。多个实例名可指向同一提供方。
+    /// 提供方键（实现归属），如 <c>myConnector</c>。多个实例名可指向同一提供方。
     /// </summary>
     string Key { get; }
 
     /// <summary>
-    /// 连接器实例名（配置中的 <c>name</c>），如 <c>yunxiao</c>。凭据按实例名取用。
+    /// 连接器实例名（配置中的 <c>name</c>），如 <c>myconnector</c>。凭据按实例名取用。
     /// </summary>
     string Name { get; }
 
@@ -65,7 +65,7 @@ public interface IConnector : IAsyncDisposable
 /// 工具 schema 由连接器实现以强类型代码定义（与 <see cref="IConnector"/> 的强类型方法一一对应），
 /// 本结构只负责「如何造客户端」，不支持用配置覆盖工具集。
 /// </remarks>
-/// <param name="Name">MCP 名（如 <c>yunxiao</c>），亦是工具名前缀来源（<c>mcp_&lt;name&gt;_*</c>）。
+/// <param name="Name">MCP 名（如 <c>myconnector</c>），亦是工具名前缀来源（<c>mcp_&lt;name&gt;_*</c>）。
 /// 约定：无特殊理由时应与所属连接器的 <see cref="IConnector.Name"/> 一致，宿主因此可「按声明实例名直接命中」，
 /// 无需为一次解析实例化全部已声明连接器。</param>
 /// <param name="Description">MCP 描述。</param>

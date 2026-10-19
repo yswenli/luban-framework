@@ -30,19 +30,20 @@ namespace LuBan.AIAgent.Plugins.Security;
 public sealed class PluginSecurityOptions
 {
     /// <summary>
-    /// 网络域名白名单（PRD §3.7：<c>codeup.aliyun.com</c>、<c>flow.aliyun.com</c>、<c>*.aliyuncs.com</c>）。
+    /// 网络域名白名单。
     /// </summary>
     /// <remarks>
-    /// 支持通配前缀 <c>*.</c>（如 <c>*.aliyuncs.com</c> 覆盖 <c>openapi-rdc.aliyuncs.com</c>）。
-    /// 插件<b>不得</b>声明此目录之外的具体主机；声明通配 <c>*</c>（含数组简写的裸维度 <c>"network"</c>）时，
-    /// 实际可访问范围以本白名单为上限（声明期放行并记警告，运行期按白名单判定）。
+    /// <para>
+    /// <b>默认空</b>（默认拒绝）：具体域名属厂商知识，由宿主 / 产品按需在
+    /// <c>LuBanAgent:Plugins:Security:NetworkWhitelist</c> 配置。
+    /// </para>
+    /// <para>
+    /// 支持通配前缀 <c>*.</c>（如 <c>*.example.com</c>）。插件<b>不得</b>声明此目录之外的具体主机；
+    /// 声明通配 <c>*</c>（含数组简写的裸维度 <c>"network"</c>）时，实际可访问范围以本白名单为上限
+    /// （声明期放行并记警告，运行期按白名单判定）。
+    /// </para>
     /// </remarks>
-    public List<string> NetworkWhitelist { get; set; } = new()
-    {
-        "codeup.aliyun.com",
-        "flow.aliyun.com",
-        "*.aliyuncs.com"
-    };
+    public List<string> NetworkWhitelist { get; set; } = new();
 
     /// <summary>
     /// 进程命令白名单（PRD §3.7：<c>dotnet</c>、<c>git</c>）。
@@ -55,16 +56,19 @@ public sealed class PluginSecurityOptions
     };
 
     /// <summary>
-    /// 已知凭据键目录（PRD §3.7：如 <c>yunxiao_pat</c>）。
+    /// 已知凭据键目录。
     /// </summary>
     /// <remarks>
+    /// <para>
     /// 插件 <c>credential</c> 声明必须落在目录内；未声明即无法读取（运行期默认拒绝）。
-    /// 键按 <see cref="CredentialKeys.Normalize"/> 归一化后比较。
+    /// </para>
+    /// <para>
+    /// <b>默认空</b>（默认拒绝）：具体凭据键属产品或厂商知识，由宿主按需在
+    /// <c>LuBanAgent:Plugins:Security:CredentialCatalog</c> 配置（如 <c>connector:myconnector:token</c>）。
+    /// 键按 <see cref="CredentialKeys.Normalize"/> 归一化（可经 <see cref="ICredentialKeyAliases"/> 解析历史拼写）后比较。
+    /// </para>
     /// </remarks>
-    public List<string> CredentialCatalog { get; set; } = new()
-    {
-        CredentialKeys.YunxiaoPat
-    };
+    public List<string> CredentialCatalog { get; set; } = new();
 
     /// <summary>
     /// Git 能力白名单（PRD §3.7：<c>clone_push</c>、<c>commit</c>、<c>inspect</c>）。
@@ -113,13 +117,21 @@ public sealed class PluginSecurityOptions
     /// <summary>
     /// 把各白名单项去重、去空白（忽略大小写）。
     /// </summary>
-    public void Normalize()
+    /// <param name="aliases">
+    /// 凭据键别名来源（可选）：用于把目录里的历史拼写解析为规范键。
+    /// 不传则仅做通用归一化。
+    /// </param>
+    public void Normalize(ICredentialKeyAliases? aliases = null)
     {
         NetworkWhitelist = NormalizeList(NetworkWhitelist);
         ProcessWhitelist = NormalizeList(ProcessWhitelist);
-        CredentialCatalog = NormalizeList(CredentialCatalog.Select(CredentialKeys.Normalize));
+        CredentialCatalog = NormalizeList(CredentialCatalog.Select(ResolveCredentialKey));
+
         GitWhitelist = NormalizeList(GitWhitelist);
         FilesystemWhitelist = NormalizeList(FilesystemWhitelist);
+
+        string ResolveCredentialKey(string key)
+            => aliases is null ? CredentialKeys.Normalize(key) : aliases.Resolve(key);
     }
 
     private static List<string> NormalizeList(IEnumerable<string> source) => source

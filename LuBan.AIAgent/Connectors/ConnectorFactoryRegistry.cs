@@ -16,7 +16,7 @@ namespace LuBan.AIAgent.Connectors;
 /// <summary>
 /// 连接器工厂注册项：把提供方键映射到「按上下文造连接器」的工厂。
 /// </summary>
-/// <param name="ProviderKey">提供方键（如 <c>aliyunDevOps</c>）。</param>
+/// <param name="ProviderKey">提供方键（如 <c>myConnector</c>）。</param>
 /// <param name="Factory">连接器工厂。</param>
 /// <param name="DisplayName">提供方显示名（可选）。</param>
 public sealed record ConnectorFactoryRegistration(

@@ -119,10 +119,10 @@ public interface IPluginHost
     /// 启用一项内置 MCP 服务器（对应 <c>plugin.json</c> 的 <c>mcpServers</c> 声明）。
     /// </summary>
     /// <remarks>
-    /// 宿主实现应把内置的进程内客户端（如 <c>YunxiaoMCPClient</c>）注册进 <see cref="MCP.MCPRegistry"/>；
+    /// 宿主实现应把内置的进程内客户端（如产品自研的 <c>MyMCPClient</c>）注册进 <see cref="MCP.MCPRegistry"/>；
     /// MCP 注册表持有该实例是阻止 ALC 卸载的唯一强引用，故注销须排在卸载流程第 3 步。
     /// </remarks>
-    /// <param name="name">MCP 服务器名（如 <c>yunxiao</c>）。</param>
+    /// <param name="name">MCP 服务器名（如 <c>myconnector</c>）。</param>
     void RegisterMcpServer(string name);
 
     /// <summary>

@@ -28,6 +28,10 @@ public class PluginScopeContextUnitTest
         MaxAuditRecords = maxRecords,
     };
 
+    /// <summary>判定器（示例宿主别名，便于用历史拼写验证凭据出口）。</summary>
+    private static PluginPermissionEvaluator Evaluator(PluginSecurityOptions options)
+        => new(options, TestSecurity.Aliases);
+
     private static PluginPermissions Network(params string[] scopes)
         => new() { Network = scopes.ToList() };
 
@@ -98,7 +102,7 @@ public class PluginScopeContextUnitTest
     [TestMethod]
     public void Guard_WithoutScope_AllowsEverything()
     {
-        var guard = new PluginPermissionGuard(new PluginPermissionEvaluator(GuardOptions()));
+        var guard = new PluginPermissionGuard(Evaluator(GuardOptions()));
 
         Assert.IsTrue(guard.IsNetworkAllowed("evil.example.com"));
         Assert.IsTrue(guard.IsProcessAllowed("curl"));
@@ -119,7 +123,7 @@ public class PluginScopeContextUnitTest
     [TestMethod]
     public void Guard_WithinDeclaration_Allows()
     {
-        var guard = new PluginPermissionGuard(new PluginPermissionEvaluator(GuardOptions()));
+        var guard = new PluginPermissionGuard(Evaluator(GuardOptions()));
 
         using (PluginScopeContext.Enter("com.demo.ok", Network("codeup.aliyun.com")))
         {
@@ -135,7 +139,7 @@ public class PluginScopeContextUnitTest
     [TestMethod]
     public void Guard_OutOfDeclaration_ThrowsAndRecords()
     {
-        var guard = new PluginPermissionGuard(new PluginPermissionEvaluator(GuardOptions()));
+        var guard = new PluginPermissionGuard(Evaluator(GuardOptions()));
 
         using (PluginScopeContext.Enter("com.demo.bad", Network("codeup.aliyun.com")))
         {
@@ -155,24 +159,24 @@ public class PluginScopeContextUnitTest
     [TestMethod]
     public void Guard_UndeclaredCredential_IsDenied()
     {
-        var guard = new PluginPermissionGuard(new PluginPermissionEvaluator(GuardOptions()));
+        var guard = new PluginPermissionGuard(Evaluator(GuardOptions()));
 
         // 声明了网络但未声明凭据 → 凭据出口仍被拒绝（PRD §3.7：未声明则无法读取）
         using (PluginScopeContext.Enter("com.demo.nocred", Network("codeup.aliyun.com")))
         {
             Assert.ThrowsExactly<PluginPermissionDeniedException>(
-                () => guard.RequireCredential(CredentialKeys.YunxiaoPat, "plugin-call"));
+                () => guard.RequireCredential(TestSecurity.DemoTokenKey, "plugin-call"));
         }
     }
 
     [TestMethod]
     public void Guard_DeclaredCredential_Allows()
     {
-        var guard = new PluginPermissionGuard(new PluginPermissionEvaluator(GuardOptions()));
+        var guard = new PluginPermissionGuard(Evaluator(GuardOptions()));
 
         using (PluginScopeContext.Enter("com.demo.cred", Credential("codeup:pat")))
         {
-            guard.RequireCredential(CredentialKeys.YunxiaoPat, "plugin-call");
+            guard.RequireCredential(TestSecurity.DemoTokenKey, "plugin-call");
         }
 
         Assert.AreEqual(0, guard.RecentDenials.Count);
@@ -184,7 +188,7 @@ public class PluginScopeContextUnitTest
     public void Guard_EnforceAtRuntimeFalse_RecordsButAllows()
     {
         var options = GuardOptions(enforce: false);
-        var guard = new PluginPermissionGuard(new PluginPermissionEvaluator(options));
+        var guard = new PluginPermissionGuard(Evaluator(options));
 
         using (PluginScopeContext.Enter("com.demo.audit", Network("codeup.aliyun.com")))
         {
@@ -200,7 +204,7 @@ public class PluginScopeContextUnitTest
     [TestMethod]
     public void RecentDenials_IsBoundedByMaxAuditRecords()
     {
-        var guard = new PluginPermissionGuard(new PluginPermissionEvaluator(GuardOptions(maxRecords: 2)));
+        var guard = new PluginPermissionGuard(Evaluator(GuardOptions(maxRecords: 2)));
 
         using (PluginScopeContext.Enter("com.demo.bounded", Network("codeup.aliyun.com")))
         {
@@ -226,7 +230,7 @@ public class PluginScopeContextUnitTest
     public void GuardOptions_EnforceAtRuntimeDisabled_MakesEvaluationPermissive()
     {
         var options = GuardOptions(enforce: false);
-        var guard = new PluginPermissionGuard(new PluginPermissionEvaluator(options));
+        var guard = new PluginPermissionGuard(Evaluator(options));
 
         using (PluginScopeContext.Enter("com.demo.permissive", new PluginPermissions()))
         {

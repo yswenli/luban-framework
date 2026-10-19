@@ -36,8 +36,9 @@ public class McpManageToolPlugin : ILuBanToolPlugin
     {
         var registry = sp.GetRequiredService<MCPRegistry>();
         var reloadTrigger = sp.GetService<IAgentReloadTrigger>();
+        var resolver = sp.GetService<IMcpConfigValueResolver>();
 
-        var toolGroup = new McpManageToolGroup(registry, _options, _mcpOptions, reloadTrigger);
+        var toolGroup = new McpManageToolGroup(registry, _options, _mcpOptions, reloadTrigger, resolver);
 
         Func<string?> workspaceRootProvider = () => _workspaceContext?.RootPath;
 

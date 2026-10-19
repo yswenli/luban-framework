@@ -35,7 +35,7 @@ public class PluginSecurityValidatorUnitTest
     };
 
     private static ManifestValidator Validator(PluginSecurityOptions? options = null)
-        => new(new ManifestValidationOptions(), new PluginPermissionEvaluator(options));
+        => new(new ManifestValidationOptions(), TestSecurity.Evaluator(options));
 
     [TestMethod]
     public void Valid_Manifest_WithCompliantPermissions_Passes()

@@ -240,7 +240,7 @@ public sealed class ConnectorRegistry
     /// <summary>
     /// 按 MCP 名派生一个 MCP 客户端（供插件清单声明解析；Q8 保持 <c>mcpServers</c> 语义不变）。
     /// </summary>
-    /// <param name="mcpName">MCP 名（如默认实例名 <c>yunxiao</c>，不区分大小写）。</param>
+    /// <param name="mcpName">MCP 名（如默认实例名 <c>myconnector</c>，不区分大小写）。</param>
     /// <param name="scope">显式权限环境；<c>null</c> 视为宿主自身调用。</param>
     /// <param name="workspaceRoot">工作区根路径（可选）。</param>
     /// <returns>MCP 客户端；无匹配（或提供方未注册）时返回 <c>null</c>。</returns>
@@ -265,7 +265,7 @@ public sealed class ConnectorRegistry
     /// 本方法只派发客户端、不登记到会话 MCP 注册表（是否登记由调用方决定）。
     /// </para>
     /// </remarks>
-    /// <param name="mcpName">MCP 名（如 <c>yunxiao</c>，不区分大小写）。</param>
+    /// <param name="mcpName">MCP 名（如 <c>myconnector</c>，不区分大小写）。</param>
     /// <param name="scope">显式权限环境；<c>null</c> 视为宿主自身调用。</param>
     /// <param name="workspaceRoot">工作区根路径（可选）。</param>
     /// <param name="cancellationToken">取消令牌。</param>

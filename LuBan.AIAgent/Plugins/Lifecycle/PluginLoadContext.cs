@@ -27,7 +27,8 @@ namespace LuBan.AIAgent.Plugins.Lifecycle;
 /// 关键约束：
 /// <list type="number">
 /// <item>共享框架集（契约、Avalonia、<c>LuBan.*</c>、<c>Microsoft.*</c>、<c>System.*</c>）一律回落默认 ALC，
-/// 否则同一类型在两处产生两个 <c>Type</c> 实例，会导致 <c>IPlugin</c> 转换失败；</item>
+/// 否则同一类型在两处产生两个 <c>Type</c> 实例，会导致 <c>IPlugin</c> 转换失败；
+/// 共享集由 <see cref="Configuration.PluginAssemblySharing"/> 描述，宿主可追加产品 / 厂商程序集前缀；</item>
 /// <item>插件私有依赖（<c>lib/</c> 内的第三方库）由 <see cref="AssemblyDependencyResolver"/>
 /// 解析进本 ALC，实现版本隔离；</item>
 /// <item><c>isCollectible: true</c> 是本 ALC 可卸载的前提；卸载可行性还要求外部不留强引用（见 §3.12）。</item>
@@ -37,40 +38,7 @@ namespace LuBan.AIAgent.Plugins.Lifecycle;
 public sealed class PluginLoadContext : AssemblyLoadContext
 {
     private readonly AssemblyDependencyResolver _resolver;
-
-    /// <summary>
-    /// 共享程序集前缀：命中则回落默认 ALC（禁止插件自带副本）。
-    /// </summary>
-    /// <remarks>
-    /// 「契约程序集置于默认 ALC，不随插件包分发」（PRD §3.3），此处以「总是共享」强制该约定。
-    /// </remarks>
-    private static readonly string[] SharedPrefixes =
-    {
-        "LuBan.",
-        "Microsoft.",
-        "System.",
-        "netstandard",
-        "mscorlib",
-        "Avalonia",
-        "WindowsBase",
-        "System.Runtime"
-    };
-
-    /// <summary>
-    /// 共享程序集精确名（无命名空间前缀或需显式列出的）。
-    /// </summary>
-    private static readonly HashSet<string> SharedExactNames = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "LuBan.AIAgent",
-        "LuBan.Common",
-        "LuBan.Logging",
-        "LuBan.DI",
-        "LuBan.Orm",
-        "LuBan.Threading",
-        "Avalonia",
-        "Telegram.Bot",
-        "CommunityToolkit.Mvvm"
-    };
+    private readonly Configuration.PluginAssemblySharing _sharing;
 
     /// <summary>
     /// 插件标识。
@@ -88,7 +56,15 @@ public sealed class PluginLoadContext : AssemblyLoadContext
     /// <param name="pluginId">插件标识。</param>
     /// <param name="mainAssemblyPath">入口程序集绝对路径（用于构造依赖解析器）。</param>
     /// <param name="collectible">是否可回收（默认 <c>true</c>）。</param>
-    public PluginLoadContext(string pluginId, string mainAssemblyPath, bool collectible = true)
+    /// <param name="sharing">
+    /// 共享程序集策略（可选）；为空时用 <see cref="Configuration.PluginAssemblySharing.Default"/>
+    /// （与框架历史硬编码集合一致）。宿主可用产品程序集前缀扩充（厂商连接器 / 宿主程序集必须共享）。
+    /// </param>
+    public PluginLoadContext(
+        string pluginId,
+        string mainAssemblyPath,
+        bool collectible = true,
+        Configuration.PluginAssemblySharing? sharing = null)
         : base($"Plugin:{pluginId}", isCollectible: collectible)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(pluginId);
@@ -97,6 +73,7 @@ public sealed class PluginLoadContext : AssemblyLoadContext
         PluginId = pluginId;
         PluginDirectory = Path.GetDirectoryName(mainAssemblyPath) ?? string.Empty;
         _resolver = new AssemblyDependencyResolver(mainAssemblyPath);
+        _sharing = sharing ?? Configuration.PluginAssemblySharing.Default;
     }
 
     /// <inheritdoc />
@@ -107,7 +84,7 @@ public sealed class PluginLoadContext : AssemblyLoadContext
             return null;
 
         // 共享集 → 返回 null 交由默认 ALC 处理，保证类型标识统一。
-        if (IsShared(name))
+        if (_sharing.IsShared(name))
             return null;
 
         var path = _resolver.ResolveAssemblyToPath(assemblyName);
@@ -119,24 +96,5 @@ public sealed class PluginLoadContext : AssemblyLoadContext
     {
         var path = _resolver.ResolveUnmanagedDllToPath(unmanagedDllName);
         return path is null ? IntPtr.Zero : LoadUnmanagedDllFromPath(path);
-    }
-
-    /// <summary>
-    /// 判断是否属于必须共享（回落默认 ALC）的程序集。
-    /// </summary>
-    /// <param name="assemblyName">程序集简单名。</param>
-    /// <returns>需要共享时返回 <c>true</c>。</returns>
-    private static bool IsShared(string assemblyName)
-    {
-        if (SharedExactNames.Contains(assemblyName))
-            return true;
-
-        foreach (var prefix in SharedPrefixes)
-        {
-            if (assemblyName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-                return true;
-        }
-
-        return false;
     }
 }

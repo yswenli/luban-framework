@@ -164,6 +164,14 @@ public static class LuBanAgentExtensions
         });
         services.AddSingleton<ManifestValidator>();
         services.AddSingleton<PluginFactory>();
+
+        // 插件 ALC 共享程序集策略：默认与历史硬编码集合一致；宿主可用
+        // LuBanAgent:Plugins:AssemblySharing 追加产品 / 厂商程序集前缀或精确名。
+        var assemblySharing = new PluginAssemblySharing();
+        configuration.GetSection("LuBanAgent:Plugins:AssemblySharing").Bind(assemblySharing);
+        assemblySharing.Normalize();
+        services.AddSingleton(assemblySharing);
+
         services.AddSingleton<PluginLoader>();
         services.AddSingleton<PluginDependencyResolver>();
         services.AddSingleton(new PluginManagerOptions
@@ -182,16 +190,28 @@ public static class LuBanAgentExtensions
         // 白名单策略 → 判定器 → 运行期出口门禁，三者均为单例且构造链无 Scoped 依赖。
         // 默认凭据存储为只读实现（配置节点 + 环境变量兜底），宿主可用可写实现覆盖：
         // 用 TryAdd 保证「宿主已注册」时不被本默认实现抢占。
-        var securityOptions = new PluginSecurityOptions();
-        configuration.GetSection("LuBanAgent:Plugins:Security").Bind(securityOptions);
-        securityOptions.Normalize();
+        services.TryAddSingleton<ICredentialKeyAliases>(_ => NullCredentialKeyAliases.Instance);
 
-        services.AddSingleton(securityOptions);
+        // 策略用工厂延迟构造：绑定时经 ICredentialKeyAliases 归一化目录内的历史拼写键，
+        // 故别名必须在归一化之前可解析（宿主可用产品别名实现 Replace 覆盖）。
+        services.AddSingleton(sp =>
+        {
+            var options = new PluginSecurityOptions();
+            configuration.GetSection("LuBanAgent:Plugins:Security").Bind(options);
+            options.Normalize(sp.GetService<ICredentialKeyAliases>());
+            return options;
+        });
+
         services.AddSingleton<PluginPermissionEvaluator>();
         services.AddSingleton<PluginPermissionGuard>();
-        services.TryAddSingleton<ICredentialStore>(_ => new ConfigurationCredentialStore(configuration));
+        services.TryAddSingleton<ICredentialStore>(sp =>
+            new ConfigurationCredentialStore(configuration, sp.GetService<ICredentialKeyAliases>()));
 
-        // ===== 云效连接器与进程内 MCP 客户端（PRD §3.10 / §4.11）=====
+        // MCP 配置值解析（$credential:<键> → ICredentialStore）：厂商无关，供外部 MCP 带凭据连接
+        services.TryAddSingleton<MCP.IMcpConfigValueResolver>(sp =>
+            new MCP.CredentialValueResolver(sp.GetRequiredService<ICredentialStore>()));
+
+        // ===== 连接器基础设施（连接器由宿主 / 产品 / 插件显式注册）=====
         services.AddBuiltinConnectors(configuration);
 
         return services;

@@ -45,7 +45,7 @@ public class PluginPermissionEvaluatorUnitTest
     private static ManifestValidationResult Validate(PluginPermissions? permissions, PluginSecurityOptions? options = null)
     {
         var result = new ManifestValidationResult();
-        new PluginPermissionEvaluator(options).ValidateDeclaration(permissions, "permissions", result);
+        TestSecurity.Evaluator(options).ValidateDeclaration(permissions, "permissions", result);
         return result;
     }
 
@@ -163,9 +163,11 @@ public class PluginPermissionEvaluatorUnitTest
     [TestMethod]
     public void Declaration_CredentialAlias_NormalizedAndAccepted()
     {
-        // codeup:pat 与 yunxiao_pat 视为同一凭据
+        // 框架默认凭据目录为空；此处用「示例宿主」策略（目录含 connector:demo:token）
+        // 验证宿主别名把历史拼写 codeup:pat / yunxiao_pat 归一化到同一规范键后仍落在目录内。
         AssertAccepted(Perms("credential", "codeup:pat"), "credential");
         AssertAccepted(Perms("credential", "yunxiao:pat"), "credential");
+        AssertAccepted(Perms("credential", TestSecurity.DemoTokenKey), "credential");
     }
 
     [TestMethod]
@@ -266,7 +268,7 @@ public class PluginPermissionEvaluatorUnitTest
     [TestMethod]
     public void Runtime_Network_UndeclaredIsDenied()
     {
-        var evaluator = new PluginPermissionEvaluator();
+        var evaluator = TestSecurity.Evaluator();
         Assert.IsFalse(evaluator.IsNetworkAllowed(null, "codeup.aliyun.com"));
         Assert.IsFalse(evaluator.IsNetworkAllowed(new PluginPermissions(), "codeup.aliyun.com"));
     }
@@ -274,7 +276,7 @@ public class PluginPermissionEvaluatorUnitTest
     [TestMethod]
     public void Runtime_Network_DeclaredHostIsAllowed_OthersDenied()
     {
-        var evaluator = new PluginPermissionEvaluator();
+        var evaluator = TestSecurity.Evaluator();
         var permissions = Perms("network", "codeup.aliyun.com");
 
         Assert.IsTrue(evaluator.IsNetworkAllowed(permissions, "codeup.aliyun.com"));
@@ -284,7 +286,7 @@ public class PluginPermissionEvaluatorUnitTest
     [TestMethod]
     public void Runtime_Network_WildcardMatchesSubdomainOnly()
     {
-        var evaluator = new PluginPermissionEvaluator();
+        var evaluator = TestSecurity.Evaluator();
         var permissions = Perms("network", "*.aliyuncs.com");
 
         Assert.IsTrue(evaluator.IsNetworkAllowed(permissions, "openapi-rdc.aliyuncs.com"));
@@ -295,7 +297,7 @@ public class PluginPermissionEvaluatorUnitTest
     [TestMethod]
     public void Runtime_Process_CommandPathIsNormalized()
     {
-        var evaluator = new PluginPermissionEvaluator();
+        var evaluator = TestSecurity.Evaluator();
         var permissions = Perms("process", "git");
 
         Assert.IsTrue(evaluator.IsProcessAllowed(permissions, @"C:\Program Files\Git\bin\git.exe"));
@@ -306,17 +308,17 @@ public class PluginPermissionEvaluatorUnitTest
     [TestMethod]
     public void Runtime_Credential_AliasAndCatalogKeyAreEquivalent()
     {
-        var evaluator = new PluginPermissionEvaluator();
+        var evaluator = TestSecurity.Evaluator();
         var permissions = Perms("credential", "codeup:pat");
 
-        Assert.IsTrue(evaluator.IsCredentialAllowed(permissions, CredentialKeys.YunxiaoPat));
+        Assert.IsTrue(evaluator.IsCredentialAllowed(permissions, TestSecurity.DemoTokenKey));
         Assert.IsFalse(evaluator.IsCredentialAllowed(permissions, "other_key"));
     }
 
     [TestMethod]
     public void Runtime_Git_ClonePush_CoversCloneAndPush()
     {
-        var evaluator = new PluginPermissionEvaluator();
+        var evaluator = TestSecurity.Evaluator();
         var permissions = Perms("git", "clone_push");
 
         Assert.IsTrue(evaluator.IsGitAllowed(permissions, "clone"));
@@ -328,7 +330,7 @@ public class PluginPermissionEvaluatorUnitTest
     public void Runtime_Git_ClonePush_DoesNotCoverLocalCommitOrInspect()
     {
         // 回归：Step 6 本地提交/检查（add/commit/rev-parse）不在 clone_push 覆盖内，必须单独声明
-        var evaluator = new PluginPermissionEvaluator();
+        var evaluator = TestSecurity.Evaluator();
         var permissions = Perms("git", "clone_push");
 
         Assert.IsFalse(evaluator.IsGitAllowed(permissions, "add"));
@@ -339,7 +341,7 @@ public class PluginPermissionEvaluatorUnitTest
     [TestMethod]
     public void Runtime_Git_CommitGroup_CoversAddAndCommit()
     {
-        var evaluator = new PluginPermissionEvaluator();
+        var evaluator = TestSecurity.Evaluator();
         var permissions = Perms("git", "commit");
 
         Assert.IsTrue(evaluator.IsGitAllowed(permissions, "add"));
@@ -351,7 +353,7 @@ public class PluginPermissionEvaluatorUnitTest
     [TestMethod]
     public void Runtime_Git_InspectGroup_CoversLocalReadOperations()
     {
-        var evaluator = new PluginPermissionEvaluator();
+        var evaluator = TestSecurity.Evaluator();
         var permissions = Perms("git", "inspect");
 
         Assert.IsTrue(evaluator.IsGitAllowed(permissions, "rev-parse"));
@@ -367,7 +369,7 @@ public class PluginPermissionEvaluatorUnitTest
     [TestMethod]
     public void Runtime_Filesystem_WorkspaceOnly()
     {
-        var evaluator = new PluginPermissionEvaluator();
+        var evaluator = TestSecurity.Evaluator();
         var permissions = Perms("filesystem", "workspace");
 
         Assert.IsTrue(evaluator.IsFilesystemAllowed(permissions, "workspace"));
@@ -379,7 +381,7 @@ public class PluginPermissionEvaluatorUnitTest
     [TestMethod]
     public void Runtime_Network_WildcardIsBoundedByHostWhitelist()
     {
-        var evaluator = new PluginPermissionEvaluator();
+        var evaluator = TestSecurity.Evaluator();
         var permissions = Perms("network", "*");
 
         // 白名单内的主机放行
@@ -395,7 +397,7 @@ public class PluginPermissionEvaluatorUnitTest
     public void Runtime_Network_WildcardIsBoundedByCustomWhitelist()
     {
         var options = new PluginSecurityOptions { NetworkWhitelist = new List<string> { "corp.internal" } };
-        var evaluator = new PluginPermissionEvaluator(options);
+        var evaluator = TestSecurity.Evaluator(options);
         var permissions = Perms("network", "*");
 
         Assert.IsTrue(evaluator.IsNetworkAllowed(permissions, "corp.internal"));
@@ -405,7 +407,7 @@ public class PluginPermissionEvaluatorUnitTest
     [TestMethod]
     public void Runtime_Process_WildcardIsBoundedByHostWhitelist()
     {
-        var evaluator = new PluginPermissionEvaluator();
+        var evaluator = TestSecurity.Evaluator();
         var permissions = Perms("process", "*");
 
         Assert.IsTrue(evaluator.IsProcessAllowed(permissions, @"C:\Program Files\Git\bin\git.exe"));
@@ -415,17 +417,17 @@ public class PluginPermissionEvaluatorUnitTest
     [TestMethod]
     public void Runtime_Credential_WildcardIsBoundedByHostCatalog()
     {
-        var evaluator = new PluginPermissionEvaluator();
+        var evaluator = TestSecurity.Evaluator();
         var permissions = Perms("credential", "*");
 
-        Assert.IsTrue(evaluator.IsCredentialAllowed(permissions, CredentialKeys.YunxiaoPat));
+        Assert.IsTrue(evaluator.IsCredentialAllowed(permissions, TestSecurity.DemoTokenKey));
         Assert.IsFalse(evaluator.IsCredentialAllowed(permissions, "other_key"));
     }
 
     [TestMethod]
     public void Runtime_Git_WildcardIsBoundedByHostWhitelist()
     {
-        var evaluator = new PluginPermissionEvaluator();
+        var evaluator = TestSecurity.Evaluator();
         var permissions = Perms("git", "*");
 
         Assert.IsTrue(evaluator.IsGitAllowed(permissions, "clone"));
@@ -436,7 +438,7 @@ public class PluginPermissionEvaluatorUnitTest
     [TestMethod]
     public void Runtime_Filesystem_WildcardIsBoundedByHostWhitelist()
     {
-        var evaluator = new PluginPermissionEvaluator();
+        var evaluator = TestSecurity.Evaluator();
         var permissions = Perms("filesystem", "*");
 
         Assert.IsTrue(evaluator.IsFilesystemAllowed(permissions, "workspace"));
@@ -460,23 +462,40 @@ public class PluginPermissionEvaluatorUnitTest
     // ---------------- 策略默认值 ----------------
 
     [TestMethod]
-    public void DefaultOptions_MatchPrdWhitelists()
+    public void DefaultOptions_HaveNoVendorWhitelists()
     {
+        // 框架去厂商化：网络域名与凭据目录<b>默认空</b>（默认拒绝），由宿主配置补齐
         var options = new PluginSecurityOptions();
         options.Normalize();
 
-        CollectionAssert.Contains(options.NetworkWhitelist.ToArray(), "codeup.aliyun.com");
-        CollectionAssert.Contains(options.NetworkWhitelist.ToArray(), "flow.aliyun.com");
-        CollectionAssert.Contains(options.NetworkWhitelist.ToArray(), "*.aliyuncs.com");
+        Assert.AreEqual(0, options.NetworkWhitelist.Count);
+        Assert.AreEqual(0, options.CredentialCatalog.Count);
+
+        // 通用维度仍有默认值（与厂商无关）
         CollectionAssert.Contains(options.ProcessWhitelist.ToArray(), "git");
         CollectionAssert.Contains(options.ProcessWhitelist.ToArray(), "dotnet");
-        CollectionAssert.Contains(options.CredentialCatalog.ToArray(), CredentialKeys.YunxiaoPat);
         CollectionAssert.Contains(options.GitWhitelist.ToArray(), "clone_push");
         CollectionAssert.Contains(options.GitWhitelist.ToArray(), "commit");
         CollectionAssert.Contains(options.GitWhitelist.ToArray(), "inspect");
         CollectionAssert.Contains(options.FilesystemWhitelist.ToArray(), "workspace");
         Assert.IsTrue(options.EnforceAtRuntime);
         Assert.IsTrue(options.AuditDenials);
+    }
+
+    [TestMethod]
+    public void HostConfiguredOptions_ProvideNetworkAndCredentialCatalog()
+    {
+        // 宿主（示例）配置后，声明期即可放行对应范围
+        var options = TestSecurity.Options();
+        options.Normalize(TestSecurity.Aliases);
+
+        CollectionAssert.Contains(options.NetworkWhitelist.ToArray(), "codeup.aliyun.com");
+        CollectionAssert.Contains(options.NetworkWhitelist.ToArray(), "flow.aliyun.com");
+        CollectionAssert.Contains(options.NetworkWhitelist.ToArray(), "*.aliyuncs.com");
+
+        // 目录内的历史拼写经别名归一化到规范键
+        CollectionAssert.Contains(options.CredentialCatalog.ToArray(), TestSecurity.DemoTokenKey);
+        CollectionAssert.DoesNotContain(options.CredentialCatalog.ToArray(), "codeup:pat");
     }
 
     [TestMethod]

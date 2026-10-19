@@ -67,7 +67,7 @@ public abstract class PluginBase : IPlugin
     /// </para>
     /// <code>
     /// using var _ = EnterPermissionScope();
-    /// await _connector.GetCodeupClient().CreateRepositoryAsync(request);
+    /// await _connector.GetClient().CallAsync(request);
     /// </code>
     /// <para>未进入权限环境时，连接器会视为「宿主自身调用」而放行，越界检查形同虚设。</para>
     /// </remarks>

@@ -33,13 +33,28 @@ public static class MCPClientFactory
     /// <returns>对应传输方式的 MCP 客户端实例。</returns>
     /// <exception cref="ArgumentNullException"><paramref name="config"/> 为 <c>null</c>。</exception>
     public static IMCPClient Create(Configuration.McpServerConfig config)
+        => Create(config, NullMcpConfigValueResolver.Instance);
+
+    /// <summary>
+    /// 按配置的传输方式创建 MCP 客户端，并注入配置值解析器（凭据引用）。
+    /// </summary>
+    /// <param name="config">外部 MCP 服务器配置。</param>
+    /// <param name="resolver">配置值解析器；<c>null</c> 视为不解析引用。</param>
+    /// <returns>对应传输方式的 MCP 客户端实例。</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="config"/> 为 <c>null</c>。</exception>
+    public static IMCPClient Create(
+        Configuration.McpServerConfig config,
+        IMcpConfigValueResolver? resolver)
     {
         ArgumentNullException.ThrowIfNull(config);
 
+        resolver ??= NullMcpConfigValueResolver.Instance;
+
         return config.Transport?.Trim().ToLowerInvariant() switch
         {
-            "http" or "sse" => new HttpMCPClient(config),
-            _ => new StdioMCPClient(config)
+            // http = Streamable HTTP（直连 Url）；sse = 旧「HTTP + SSE」（Url + /message）
+            "http" or "sse" => new HttpMCPClient(config, resolver),
+            _ => new StdioMCPClient(config, resolver)
         };
     }
 }
