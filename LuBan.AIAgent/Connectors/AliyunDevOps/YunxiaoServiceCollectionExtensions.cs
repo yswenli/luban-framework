@@ -71,11 +71,7 @@ public static class YunxiaoServiceCollectionExtensions
         services.TryAddSingleton<IYunxiaoCredentialProvider>(
             sp => new ConfigurationYunxiaoCredentialProvider(configuration, sp.GetService<ICredentialStore>()));
 
-        services.TryAddSingleton<YunxiaoConnector>(sp => new YunxiaoConnector(
-            sp.GetRequiredService<YunxiaoApiOptions>(),
-            sp.GetRequiredService<IYunxiaoCredentialProvider>(),
-            sp.GetService<ProcessRunner>(),
-            sp.GetService<PluginPermissionGuard>() ?? PluginPermissionGuard.Default));
+        services.TryAddSingleton<YunxiaoConnector>(sp => CreateConnector(sp));
 
         services.TryAddSingleton(sp => new CodeupClient(
             sp.GetRequiredService<YunxiaoApiOptions>(),
@@ -90,6 +86,27 @@ public static class YunxiaoServiceCollectionExtensions
 
         return services;
     }
+
+    /// <summary>
+    /// 按容器造一个云效连接器实例（供容器直接注入，亦供连接器实例宿主按实例名各造一个）。
+    /// </summary>
+    /// <remarks>
+    /// 连接器实例不是「共享单例」语义：<c>ConnectorInstanceHost</c> 按<b>实例名</b>各造一个并各自持有，
+    /// 故此处必须是「每次调用新造」的工厂；<c>YunxiaoConnector.Name</c> 只能由调用方设置到<b>自己的</b>
+    /// 实例上，绝不可改写容器内的单例（否则多实例互相覆盖，且暴露面名/凭据键全部串味）。
+    /// </remarks>
+    /// <param name="services">根容器。</param>
+    /// <returns>新的连接器实例。</returns>
+    internal static YunxiaoConnector CreateConnector(IServiceProvider services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        return new YunxiaoConnector(
+            services.GetRequiredService<YunxiaoApiOptions>(),
+            services.GetRequiredService<IYunxiaoCredentialProvider>(),
+            services.GetService<ProcessRunner>(),
+            services.GetService<PluginPermissionGuard>() ?? PluginPermissionGuard.Default);
+    }
 }
 
 /// <summary>
@@ -97,8 +114,10 @@ public static class YunxiaoServiceCollectionExtensions
 /// </summary>
 /// <remarks>
 /// <para>
-/// 依次尝试：① <see cref="ICredentialStore"/>（宿主可写凭据存储，PRD §3.7）；
-/// ② 配置节点 <c>LuBanAgent:Connectors:Yunxiao:AccessToken</c>。均未命中时返回 <c>null</c>，
+/// 依次尝试：① <see cref="ICredentialStore"/>（宿主可写凭据存储，PRD §3.7），键为
+/// <c>connector:&lt;实例名&gt;:token</c>（默认实例即 <see cref="CredentialKeys.YunxiaoPat"/>）；
+/// ② 配置节点 <c>LuBanAgent:Connectors:Yunxiao:AccessToken</c>（其它实例为
+/// <c>LuBanAgent:Connectors:&lt;实例名&gt;:AccessToken</c>）。均未命中时返回 <c>null</c>，
 /// 连接器会给出明确错误。<b>不缓存、不日志回显</b>明文 PAT（PRD §4.9.3）。
 /// </para>
 /// </remarks>
@@ -119,15 +138,28 @@ internal sealed class ConfigurationYunxiaoCredentialProvider : IYunxiaoCredentia
     }
 
     /// <inheritdoc />
-    public async Task<string?> GetPatAsync(CancellationToken cancellationToken = default)
+    public Task<string?> GetPatAsync(CancellationToken cancellationToken = default)
+        => GetPatAsync(null, cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<string?> GetPatAsync(string? connectorName, CancellationToken cancellationToken = default)
     {
+        var name = string.IsNullOrWhiteSpace(connectorName) ? YunxiaoConnector.DefaultName : connectorName.Trim();
+
         if (_credentialStore is not null)
         {
-            var stored = await _credentialStore.GetAsync(CredentialKeys.YunxiaoPat, cancellationToken).ConfigureAwait(false);
+            // Q15：凭据键按实例名泛化。默认实例即 CredentialKeys.YunxiaoPat，历史拼写键由存储层别名回退读取。
+            var stored = await _credentialStore.GetAsync(CredentialKeys.ForConnectorToken(name), cancellationToken)
+                .ConfigureAwait(false);
             if (!string.IsNullOrWhiteSpace(stored))
                 return stored;
         }
 
-        return _configuration[$"{YunxiaoServiceCollectionExtensions.ConfigurationSectionName}:AccessToken"];
+        // 配置节点兜底：默认实例沿用既有节名；其它实例按实例名取节
+        var section = string.Equals(name, YunxiaoConnector.DefaultName, StringComparison.OrdinalIgnoreCase)
+            ? YunxiaoServiceCollectionExtensions.ConfigurationSectionName
+            : $"LuBanAgent:Connectors:{name}";
+
+        return _configuration[$"{section}:AccessToken"];
     }
 }

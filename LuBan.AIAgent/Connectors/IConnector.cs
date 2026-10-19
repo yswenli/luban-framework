@@ -50,7 +50,9 @@ public interface IConnector : IAsyncDisposable
     IReadOnlyList<ConnectorMcpExposure> McpExposures { get; }
 
     /// <summary>
-    /// 初始化连接器（如回填持久化参数）。宿主在实例创建后调用一次。
+    /// 初始化连接器（如回填持久化参数）。宿主在实例创建后调用<b>一次</b>：启用注册
+    /// （<c>ConnectorRegistry.ApplyEnabledAsync</c>）与按 MCP 名派生（<c>CreateMcpClient</c>）
+    /// 共用同一门禁——每个实例名只初始化一次，初始化失败则不缓存、下次可重试。
     /// </summary>
     /// <param name="cancellationToken">取消令牌。</param>
     ValueTask InitializeAsync(CancellationToken cancellationToken = default);
@@ -63,7 +65,9 @@ public interface IConnector : IAsyncDisposable
 /// 工具 schema 由连接器实现以强类型代码定义（与 <see cref="IConnector"/> 的强类型方法一一对应），
 /// 本结构只负责「如何造客户端」，不支持用配置覆盖工具集。
 /// </remarks>
-/// <param name="Name">MCP 名（如 <c>yunxiao</c>），亦是工具名前缀来源（<c>mcp_&lt;name&gt;_*</c>）。</param>
+/// <param name="Name">MCP 名（如 <c>yunxiao</c>），亦是工具名前缀来源（<c>mcp_&lt;name&gt;_*</c>）。
+/// 约定：无特殊理由时应与所属连接器的 <see cref="IConnector.Name"/> 一致，宿主因此可「按声明实例名直接命中」，
+/// 无需为一次解析实例化全部已声明连接器。</param>
 /// <param name="Description">MCP 描述。</param>
 /// <param name="CreateClient">客户端工厂；第二参数为显式权限环境（<c>null</c> 视为宿主自身调用）。</param>
 public sealed record ConnectorMcpExposure(

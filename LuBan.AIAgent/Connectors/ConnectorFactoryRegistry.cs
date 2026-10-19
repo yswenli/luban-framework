@@ -88,6 +88,10 @@ public sealed class ConnectorFactoryRegistry
 /// 故不受会话 scope 影响；会话级 MCP 客户端只借用实例，不拥有其生命周期。
 /// </para>
 /// <para>
+/// 同一实例名<b>只构造一次</b>（<c>Lazy</c> 双检），构造失败不缓存以便重试；
+/// 实例按实例名各自独立持有，故同一提供方的多实例互不影响。
+/// </para>
+/// <para>
 /// 配置声明的<b>非敏感参数</b>按「工作区 &gt; config.json &gt; appsettings」合并后经
 /// <see cref="ConnectorBuildContext"/> 传入；同名的首建参数生效（后续声明变更不重建实例）。
 /// </para>
@@ -96,7 +100,7 @@ public sealed class ConnectorInstanceHost : IAsyncDisposable
 {
     private readonly IServiceProvider _root;
     private readonly ConnectorFactoryRegistry _factories;
-    private readonly ConcurrentDictionary<string, IConnector> _instances = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, Lazy<IConnector>> _instances = new(StringComparer.OrdinalIgnoreCase);
     private bool _disposed;
 
     /// <summary>
@@ -135,14 +139,29 @@ public sealed class ConnectorInstanceHost : IAsyncDisposable
 
         var key = name.Trim();
 
-        return _instances.GetOrAdd(key, _ => registration.Factory(new ConnectorBuildContext
+        // 用 Lazy 保证「同一实例名只构造一次」：ConcurrentDictionary.GetOrAdd 的值工厂在并发下
+        // 可能被调用多次，多造出来的实例无人持有、也不会被释放（见 O2）。
+        var lazy = _instances.GetOrAdd(key, instanceName => new Lazy<IConnector>(
+            () => registration.Factory(new ConnectorBuildContext
+            {
+                Name = instanceName,
+                ProviderKey = registration.ProviderKey,
+                Services = _root,
+                Settings = settings ?? ConnectorSettings.Empty,
+                Configuration = configuration
+            }),
+            LazyThreadSafetyMode.ExecutionAndPublication));
+
+        try
         {
-            Name = key,
-            ProviderKey = registration.ProviderKey,
-            Services = _root,
-            Settings = settings ?? ConnectorSettings.Empty,
-            Configuration = configuration
-        }));
+            return lazy.Value;
+        }
+        catch
+        {
+            // Lazy 会缓存异常，构造失败时移除条目以允许后续重试
+            _instances.TryRemove(new KeyValuePair<string, Lazy<IConnector>>(key, lazy));
+            throw;
+        }
     }
 
     /// <summary>
@@ -153,9 +172,11 @@ public sealed class ConnectorInstanceHost : IAsyncDisposable
     /// <returns>命中时返回 <c>true</c>。</returns>
     public bool TryGet(string name, out IConnector connector)
     {
-        if (!string.IsNullOrWhiteSpace(name) && _instances.TryGetValue(name.Trim(), out var found))
+        if (!string.IsNullOrWhiteSpace(name) &&
+            _instances.TryGetValue(name.Trim(), out var found) &&
+            found.IsValueCreated)
         {
-            connector = found;
+            connector = found.Value;
             return true;
         }
 
@@ -169,15 +190,18 @@ public sealed class ConnectorInstanceHost : IAsyncDisposable
         if (_disposed) return;
         _disposed = true;
 
-        foreach (var connector in _instances.Values)
+        foreach (var entry in _instances)
         {
+            // 只释放真正构造过的实例（未求值的 Lazy 从未执行工厂，无资源可释放）
+            if (!entry.Value.IsValueCreated) continue;
+
             try
             {
-                await connector.DisposeAsync().ConfigureAwait(false);
+                await entry.Value.Value.DisposeAsync().ConfigureAwait(false);
             }
             catch (Exception ex)
             {
-                Logger.Debug($"释放连接器实例失败: {connector.Name}", ex);
+                Logger.Debug($"释放连接器实例失败: {entry.Key}", ex);
             }
         }
 

@@ -33,6 +33,7 @@ public class CodeupClient : IDisposable
     private readonly IYunxiaoCredentialProvider _credentialProvider;
     private readonly ProcessRunner? _processRunner;
     private readonly PluginPermissionGuard _guard;
+    private readonly string? _connectorName;
     private bool _disposed;
 
     // 忽略 null 字段，避免把未设置的可见性/模板等参数以 null 发给云效
@@ -48,22 +49,30 @@ public class CodeupClient : IDisposable
     /// <param name="credentialProvider">凭据提供者</param>
     /// <param name="processRunner">进程执行器（用于 Git 操作，可选）</param>
     /// <param name="permissionGuard">插件权限门禁（可选；不传则用进程级兜底实例）。</param>
+    /// <param name="connectorName">所属连接器实例名（可选，Q15）；决定 PAT 凭据键，<c>null</c> 视为默认实例。</param>
     public CodeupClient(
         YunxiaoApiOptions options,
         IYunxiaoCredentialProvider credentialProvider,
         ProcessRunner? processRunner = null,
-        PluginPermissionGuard? permissionGuard = null)
+        PluginPermissionGuard? permissionGuard = null,
+        string? connectorName = null)
     {
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _credentialProvider = credentialProvider ?? throw new ArgumentNullException(nameof(credentialProvider));
         _processRunner = processRunner;
         _guard = permissionGuard ?? PluginPermissionGuard.Default;
+        _connectorName = connectorName;
 
         _httpClient = new HttpClient
         {
             Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds)
         };
     }
+
+    /// <summary>
+    /// 本实例的 PAT 凭据键（Q15 泛化：<c>connector:&lt;实例名&gt;:token</c>）。
+    /// </summary>
+    private string PatCredentialKey => CredentialKeys.ForConnectorToken(_connectorName ?? YunxiaoConnector.DefaultName);
 
     #region 仓库管理 API
 
@@ -412,9 +421,9 @@ public class CodeupClient : IDisposable
         _guard.RequireGit("clone", "CodeupClient.CloneToLocalAsync");
         _guard.RequireProcess("git", "CodeupClient.CloneToLocalAsync");
         _guard.RequireNetwork(ExtractHost(repositoryUrl), "CodeupClient.CloneToLocalAsync");
-        _guard.RequireCredential(CredentialKeys.YunxiaoPat, "CodeupClient.CloneToLocalAsync");
+        _guard.RequireCredential(PatCredentialKey, "CodeupClient.CloneToLocalAsync");
 
-        var pat = await _credentialProvider.GetPatAsync(cancellationToken);
+        var pat = await _credentialProvider.GetPatAsync(_connectorName, cancellationToken);
         if (string.IsNullOrWhiteSpace(pat))
             throw new InvalidOperationException("未配置 PAT，无法克隆仓库");
 
@@ -470,9 +479,9 @@ public class CodeupClient : IDisposable
         _guard.RequireGit("push", "CodeupClient.PushAsync");
         _guard.RequireProcess("git", "CodeupClient.PushAsync");
         _guard.RequireNetwork(ExtractHost(repositoryUrl), "CodeupClient.PushAsync");
-        _guard.RequireCredential(CredentialKeys.YunxiaoPat, "CodeupClient.PushAsync");
+        _guard.RequireCredential(PatCredentialKey, "CodeupClient.PushAsync");
 
-        var pat = await _credentialProvider.GetPatAsync(cancellationToken);
+        var pat = await _credentialProvider.GetPatAsync(_connectorName, cancellationToken);
         if (string.IsNullOrWhiteSpace(pat))
             throw new InvalidOperationException("未配置 PAT，无法推送仓库");
 
@@ -551,9 +560,9 @@ public class CodeupClient : IDisposable
     {
         // 出口门禁（PRD §3.7）：目标主机 + PAT 凭据
         _guard.RequireNetwork(_options.Endpoint, "CodeupClient.SendRawAsync");
-        _guard.RequireCredential(CredentialKeys.YunxiaoPat, "CodeupClient.SendRawAsync");
+        _guard.RequireCredential(PatCredentialKey, "CodeupClient.SendRawAsync");
 
-        var pat = await _credentialProvider.GetPatAsync(cancellationToken);
+        var pat = await _credentialProvider.GetPatAsync(_connectorName, cancellationToken);
         if (string.IsNullOrWhiteSpace(pat))
             throw new InvalidOperationException("未配置 PAT");
 

@@ -69,6 +69,12 @@ public sealed class ConnectorRegistry
     private readonly Dictionary<string, bool> _workspaceEnabled = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, string> _errors = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>已执行过初始化的连接器实例名（<c>InitializeAsync</c> 契约：每实例一次）。</summary>
+    private readonly HashSet<string> _initialized = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>已告警过的「工作区启用但宿主未声明」连接器名（避免每次解析都重复刷日志）。</summary>
+    private readonly HashSet<string> _warnedUndeclared = new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>本会话已注册的 MCP 客户端：MCP 名 → 客户端（用于注销，必须先于 ALC 卸载）。</summary>
     private readonly Dictionary<string, MCP.IMCPClient> _registered = new(StringComparer.OrdinalIgnoreCase);
 
@@ -140,6 +146,7 @@ public sealed class ConnectorRegistry
     public IReadOnlyList<ConnectorStatus> GetStates(string? workspaceRoot = null)
     {
         EnsureWorkspaceLoaded(workspaceRoot);
+        WarnUndeclaredWorkspaceConnectors();
 
         var declared = GetDeclared();
         var result = new List<ConnectorStatus>();
@@ -185,13 +192,14 @@ public sealed class ConnectorRegistry
     }
 
     /// <summary>
-    /// 取已启用的连接器实例（按需实例化，不注册 MCP）。
+    /// 取已启用的连接器实例（按需实例化，不注册 MCP，<b>不</b>执行初始化）。
     /// </summary>
     /// <param name="workspaceRoot">工作区根路径（可选）。</param>
     /// <returns>已启用的连接器实例列表。</returns>
     public IReadOnlyList<IConnector> GetEnabledConnectors(string? workspaceRoot = null)
     {
         EnsureWorkspaceLoaded(workspaceRoot);
+        WarnUndeclaredWorkspaceConnectors();
 
         var result = new List<IConnector>();
         foreach (var config in GetDeclared())
@@ -214,55 +222,80 @@ public sealed class ConnectorRegistry
     public async Task ApplyEnabledAsync(string? workspaceRoot = null, CancellationToken cancellationToken = default)
     {
         EnsureWorkspaceLoaded(workspaceRoot);
+        WarnUndeclaredWorkspaceConnectors();
 
         foreach (var config in GetDeclared())
         {
             if (string.IsNullOrWhiteSpace(config.Name) || !IsEnabled(config)) continue;
             if (!_factories.Has(config.Provider)) continue;
 
-            try
-            {
-                var connector = _host.GetOrCreate(config.Name, config.Provider, BuildSettings(config), _configuration);
-                if (connector is null) continue;
+            var connector = await GetInitializedConnectorAsync(config, cancellationToken).ConfigureAwait(false);
+            if (connector is null) continue;
 
-                await connector.InitializeAsync(cancellationToken).ConfigureAwait(false);
-
-                foreach (var exposure in connector.McpExposures)
-                    RegisterClient(exposure.Name, () => exposure.CreateClient(_host.Root, null));
-            }
-            catch (Exception ex)
-            {
-                _errors[config.Name] = $"初始化失败: {ex.Message}";
-                Logger.Error($"初始化连接器失败: {config.Name}", ex);
-            }
+            foreach (var exposure in connector.McpExposures)
+                RegisterClient(exposure.Name, () => exposure.CreateClient(_host.Root, null));
         }
     }
 
     /// <summary>
     /// 按 MCP 名派生一个 MCP 客户端（供插件清单声明解析；Q8 保持 <c>mcpServers</c> 语义不变）。
     /// </summary>
-    /// <param name="mcpName">MCP 名（如 <c>yunxiao</c>，不区分大小写）。</param>
+    /// <param name="mcpName">MCP 名（如默认实例名 <c>yunxiao</c>，不区分大小写）。</param>
     /// <param name="scope">显式权限环境；<c>null</c> 视为宿主自身调用。</param>
     /// <param name="workspaceRoot">工作区根路径（可选）。</param>
     /// <returns>MCP 客户端；无匹配（或提供方未注册）时返回 <c>null</c>。</returns>
+    /// <remarks>同步包装，等价于 <see cref="CreateMcpClientAsync"/>；异步宿主应优先用后者。</remarks>
     public MCP.IMCPClient? CreateMcpClient(
         string mcpName,
         Plugins.Security.PluginPermissionScope? scope = null,
         string? workspaceRoot = null)
+        => CreateMcpClientAsync(mcpName, scope, workspaceRoot).GetAwaiter().GetResult();
+
+    /// <summary>
+    /// 按 MCP 名派生一个 MCP 客户端（异步版本）。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 查找顺序：<b>优先</b>按「声明实例名 == MCP 名」匹配（实例名即暴露面名的命名约定），
+    /// 命中即返回，避免为一次解析实例化全部已声明连接器；未命中才依次探查其余连接器的暴露面。
+    /// </para>
+    /// <para>
+    /// 命中的连接器会被实例化，并执行一次 <see cref="IConnector.InitializeAsync"/>
+    /// （与 <see cref="ApplyEnabledAsync"/> 同口径：每实例一次，失败不缓存）。连接器实例归宿主所有，
+    /// 本方法只派发客户端、不登记到会话 MCP 注册表（是否登记由调用方决定）。
+    /// </para>
+    /// </remarks>
+    /// <param name="mcpName">MCP 名（如 <c>yunxiao</c>，不区分大小写）。</param>
+    /// <param name="scope">显式权限环境；<c>null</c> 视为宿主自身调用。</param>
+    /// <param name="workspaceRoot">工作区根路径（可选）。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>MCP 客户端；无匹配（或提供方未注册）时返回 <c>null</c>。</returns>
+    public async Task<MCP.IMCPClient?> CreateMcpClientAsync(
+        string mcpName,
+        Plugins.Security.PluginPermissionScope? scope = null,
+        string? workspaceRoot = null,
+        CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(mcpName)) return null;
+
         EnsureWorkspaceLoaded(workspaceRoot);
+        WarnUndeclaredWorkspaceConnectors();
 
-        foreach (var config in GetDeclared())
+        var target = mcpName.Trim();
+
+        var candidates = GetDeclared()
+            .Where(config => !string.IsNullOrWhiteSpace(config.Name) && _factories.Has(config.Provider))
+            .OrderByDescending(config => string.Equals(config.Name.Trim(), target, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        foreach (var config in candidates)
         {
-            if (string.IsNullOrWhiteSpace(config.Name) || !_factories.Has(config.Provider)) continue;
-
-            var connector = _host.GetOrCreate(config.Name, config.Provider, BuildSettings(config), _configuration);
+            var connector = await GetInitializedConnectorAsync(config, cancellationToken).ConfigureAwait(false);
             if (connector is null) continue;
 
             foreach (var exposure in connector.McpExposures)
             {
-                if (string.Equals(exposure.Name, mcpName.Trim(), StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(exposure.Name, target, StringComparison.OrdinalIgnoreCase))
                     return exposure.CreateClient(_host.Root, scope);
             }
         }
@@ -295,6 +328,57 @@ public sealed class ConnectorRegistry
     }
 
     #region 内部实现
+
+    /// <summary>
+    /// 取「已初始化」的连接器实例（<see cref="IConnector.InitializeAsync"/> 每实例只调一次；失败不缓存、可重试）。
+    /// </summary>
+    /// <remarks>实例化或初始化失败时记录到 <see cref="_errors"/>（供 <see cref="GetStates"/> 展示）并返回 <c>null</c>，不抛出。</remarks>
+    private async Task<IConnector?> GetInitializedConnectorAsync(ConnectorConfig config, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var connector = _host.GetOrCreate(config.Name, config.Provider, BuildSettings(config), _configuration);
+            if (connector is null) return null;
+
+            if (_initialized.Add(config.Name.Trim()))
+            {
+                try
+                {
+                    await connector.InitializeAsync(cancellationToken).ConfigureAwait(false);
+                }
+                catch
+                {
+                    _initialized.Remove(config.Name.Trim());
+                    throw;
+                }
+            }
+
+            return connector;
+        }
+        catch (Exception ex)
+        {
+            _errors[config.Name] = $"初始化失败: {ex.Message}";
+            Logger.Error($"初始化连接器失败: {config.Name}", ex);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// 工作区启用了宿主未声明的连接器：告警一次并按「未安装」处理（规范要求：告警 + 跳过，不中断）。
+    /// </summary>
+    private void WarnUndeclaredWorkspaceConnectors()
+    {
+        if (_workspaceEnabled.Count == 0) return;
+
+        var declared = GetDeclared();
+        foreach (var name in _workspaceEnabled.Keys)
+        {
+            if (!_warnedUndeclared.Add(name)) continue;
+            if (declared.Any(config => string.Equals(config?.Name?.Trim(), name, StringComparison.OrdinalIgnoreCase))) continue;
+
+            Logger.Warn($"工作区启用了宿主未声明的连接器 '{name}'，按未安装处理（请在 config.json:Connectors 内声明）。");
+        }
+    }
 
     private void RegisterClient(string name, Func<MCP.IMCPClient> factory)
     {

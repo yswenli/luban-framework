@@ -33,9 +33,9 @@ public class YunxiaoMCPClient : MCPClientBase, IDisposable
     private bool _disposed;
 
     /// <summary>
-    /// 服务器名称
+    /// 服务器名称（<b>跟随连接器实例名</b>，默认实例为 <c>yunxiao</c>）。
     /// </summary>
-    public override string Name => "yunxiao";
+    public override string Name => string.IsNullOrWhiteSpace(_connector.Name) ? YunxiaoConnector.DefaultName : _connector.Name;
 
     /// <summary>
     /// 服务器描述

@@ -90,6 +90,27 @@ public static class CredentialKeys
     {
         YunxiaoPat => "LUBAN_YUNXIAO_PAT",
         YunxiaoOrganizationId => "LUBAN_YUNXIAO_ORGANIZATION_ID",
-        _ => null
+        _ => ConnectorTokenVariableOf(Normalize(key))
     };
+
+    /// <summary>
+    /// 把泛化连接器令牌键 <c>connector:&lt;实例名&gt;:token</c> 映射为
+    /// <c>LUBAN_CONNECTOR_&lt;实例名&gt;_TOKEN</c>。
+    /// </summary>
+    /// <remarks>仅用于<b>非默认实例</b>（默认实例已由 <see cref="YunxiaoPat"/> 映射到历史变量名）。</remarks>
+    /// <param name="normalizedKey">已归一化的凭据键。</param>
+    /// <returns>环境变量名；不符合泛化约定时返回 <c>null</c>。</returns>
+    private static string? ConnectorTokenVariableOf(string normalizedKey)
+    {
+        const string prefix = "connector:";
+        const string suffix = ":token";
+
+        if (!normalizedKey.StartsWith(prefix, StringComparison.Ordinal) ||
+            !normalizedKey.EndsWith(suffix, StringComparison.Ordinal) ||
+            normalizedKey.Length <= prefix.Length + suffix.Length)
+            return null;
+
+        var name = normalizedKey[prefix.Length..^suffix.Length].Replace('-', '_').Replace('.', '_');
+        return string.IsNullOrWhiteSpace(name) ? null : $"LUBAN_CONNECTOR_{name.ToUpperInvariant()}_TOKEN";
+    }
 }

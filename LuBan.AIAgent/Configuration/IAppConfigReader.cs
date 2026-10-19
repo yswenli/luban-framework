@@ -49,7 +49,10 @@ public interface IAppConfigReader
     /// <summary>
     /// 连接器声明列表（可用性 + 非敏感参数；启用状态另由工作区决定）
     /// </summary>
-    List<ConnectorConfig> Connectors { get; }
+    /// <remarks>
+    /// 连接器属可选能力，默认实现返回空集合，便于既有第三方实现者平滑升级接口。
+    /// </remarks>
+    List<ConnectorConfig> Connectors => new();
 
     /// <summary>
     /// 禁用的内置技能列表

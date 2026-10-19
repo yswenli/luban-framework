@@ -80,7 +80,8 @@ public static class ConnectorServiceCollectionExtensions
             AliyunDevOps.YunxiaoConnector.ProviderKey,
             context =>
             {
-                var connector = context.Services.GetRequiredService<AliyunDevOps.YunxiaoConnector>();
+                // 每个实例名各造一个独立连接器（不复用容器单例，否则多实例的 Name/暴露面/凭据键互相覆盖）
+                var connector = AliyunDevOps.YunxiaoServiceCollectionExtensions.CreateConnector(context.Services);
                 connector.Name = context.Name;
                 return connector;
             });

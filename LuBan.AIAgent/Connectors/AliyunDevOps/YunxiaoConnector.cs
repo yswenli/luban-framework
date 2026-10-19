@@ -22,7 +22,7 @@ namespace LuBan.AIAgent.Connectors.AliyunDevOps;
 /// </summary>
 /// <remarks>
 /// 实现 <see cref="IConnector"/>：连接器是<b>唯一声明单元</b>，其 MCP 暴露面
-/// （<c>yunxiao</c>）由 <see cref="McpExposures"/> 派生，供宿主按配置决定是否注册。
+/// （默认实例为 <c>yunxiao</c>）由 <see cref="McpExposures"/> 派生，供宿主按配置决定是否注册。
 /// </remarks>
 public class YunxiaoConnector : IConnector, IDisposable
 {
@@ -58,14 +58,6 @@ public class YunxiaoConnector : IConnector, IDisposable
         _credentialProvider = credentialProvider ?? throw new ArgumentNullException(nameof(credentialProvider));
         _processRunner = processRunner;
         _guard = permissionGuard ?? PluginPermissionGuard.Default;
-
-        McpExposures = new[]
-        {
-            new ConnectorMcpExposure(
-                DefaultName,
-                "云效代码管理与流水线工具",
-                (_, scope) => new Mcp.YunxiaoMCPClient(this) { PermissionScope = scope })
-        };
     }
 
     /// <inheritdoc />
@@ -79,7 +71,17 @@ public class YunxiaoConnector : IConnector, IDisposable
     public string DisplayName => "云效（阿里云 DevOps）";
 
     /// <inheritdoc />
-    public IReadOnlyList<ConnectorMcpExposure> McpExposures { get; }
+    /// <remarks>
+    /// MCP 名<b>跟随实例名</b>：默认实例即 <c>yunxiao</c>（与历史行为一致）；同一提供方的多实例
+    /// 因此各自暴露独立 MCP 名与独立凭据键，互不覆盖。
+    /// </remarks>
+    public IReadOnlyList<ConnectorMcpExposure> McpExposures => new[]
+    {
+        new ConnectorMcpExposure(
+            Name,
+            "云效代码管理与流水线工具",
+            (_, scope) => new Mcp.YunxiaoMCPClient(this) { PermissionScope = scope })
+    };
 
     /// <inheritdoc />
     public ValueTask InitializeAsync(CancellationToken cancellationToken = default) => ValueTask.CompletedTask;
@@ -92,7 +94,7 @@ public class YunxiaoConnector : IConnector, IDisposable
         if (_disposed)
             throw new ObjectDisposedException(nameof(YunxiaoConnector));
 
-        return _codeupClient ??= new CodeupClient(_options, _credentialProvider, _processRunner, _guard);
+        return _codeupClient ??= new CodeupClient(_options, _credentialProvider, _processRunner, _guard, Name);
     }
 
     /// <summary>
@@ -103,7 +105,7 @@ public class YunxiaoConnector : IConnector, IDisposable
         if (_disposed)
             throw new ObjectDisposedException(nameof(YunxiaoConnector));
 
-        return _flowClient ??= new FlowClient(_options, _credentialProvider, _guard);
+        return _flowClient ??= new FlowClient(_options, _credentialProvider, _guard, Name);
     }
 
     /// <summary>
