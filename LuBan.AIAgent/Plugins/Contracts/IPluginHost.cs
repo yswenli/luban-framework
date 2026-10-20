@@ -132,6 +132,28 @@ public interface IPluginHost
     void UnregisterMcpServer(string name);
 
     /// <summary>
+    /// 贡献一个连接器提供方工厂（PRD §4.12：插件可携带自己的连接器实现）。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 宿主实现应把注册项落到单例 <see cref="Connectors.ConnectorFactoryRegistry"/>
+    /// （<c>AddOrUpdate</c>）；同一提供方键重复注册时后者覆盖前者。
+    /// </para>
+    /// <para>
+    /// 工厂委托会捕获插件程序集类型，故卸载流程第 3 步必须先
+    /// <see cref="UnregisterConnector"/> 注销，再卸载 ALC（PRD §3.12），否则弱引用验证永不通过。
+    /// </para>
+    /// </remarks>
+    /// <param name="registration">提供方键 → 工厂的注册项。</param>
+    void RegisterConnector(Connectors.ConnectorFactoryRegistration registration);
+
+    /// <summary>
+    /// 注销一个由插件贡献的连接器提供方工厂（卸载流程第 3 步，须早于 ALC 卸载）。
+    /// </summary>
+    /// <param name="providerKey">提供方键。</param>
+    void UnregisterConnector(string providerKey);
+
+    /// <summary>
     /// 把回调原样投递到 UI 线程（宿主实现，通常是 <c>Dispatcher.UIThread.Post</c>）。
     /// </summary>
     /// <remarks>

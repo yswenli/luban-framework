@@ -105,6 +105,24 @@
       }
     },
     "permissions": { "$ref": "#/$defs/permissions" },
+    "connectors": {
+      "type": "array",
+      "description": "插件贡献的连接器提供方声明（见 PRD §4.12）。元素为提供方键字符串，或对象 { providerKey, displayName }。声明项必须落在 permissions.connectors 之内。",
+      "items": {
+        "oneOf": [
+          { "type": "string", "minLength": 1 },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["providerKey"],
+            "properties": {
+              "providerKey": { "type": "string", "minLength": 1, "description": "提供方键，如 aliyunDevOps。" },
+              "displayName": { "type": "string", "description": "提供方显示名。" }
+            }
+          }
+        ]
+      }
+    },
     "dependencies": {
       "type": "array",
       "description": "依赖插件 id 列表（仅校验存在性）。",
@@ -124,7 +142,8 @@
             "git": { "$ref": "#/$defs/scopeList" },
             "database": { "$ref": "#/$defs/scopeList" },
             "process": { "$ref": "#/$defs/scopeList" },
-            "credential": { "$ref": "#/$defs/scopeList" }
+            "credential": { "$ref": "#/$defs/scopeList" },
+            "connectors": { "$ref": "#/$defs/scopeList" }
           }
         },
         {
@@ -132,7 +151,7 @@
           "items": {
             "type": "string",
             "description": "维度名，或 维度:范围，如 filesystem:workspace。",
-            "pattern": "^(filesystem|network|git|database|process|credential)(:.+)?$"
+            "pattern": "^(filesystem|network|git|database|process|credential|connectors)(:.+)?$"
           }
         }
       ]

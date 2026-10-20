@@ -23,7 +23,8 @@ namespace LuBan.AIAgent.Plugins;
 /// 插件权限声明（PRD §3.2 <c>permissions</c> 字段、§4.7 权限模型）。
 /// </summary>
 /// <remarks>
-/// 六个维度：<c>filesystem</c> / <c>network</c> / <c>git</c> / <c>database</c> / <c>process</c> / <c>credential</c>。
+/// 七个维度：<c>filesystem</c> / <c>network</c> / <c>git</c> / <c>database</c> / <c>process</c> /
+/// <c>credential</c> / <c>connectors</c>。
 /// 每个维度携带「范围」列表（scope），例如 <c>filesystem: ["workspace"]</c>、<c>network: ["api.example.com"]</c>。
 /// <para>
 /// 为兼容 <c>plugin.json</c> 的两种写法，本类型挂了
@@ -58,12 +59,15 @@ public sealed class PluginPermissions
     /// <summary>凭据维度范围。</summary>
     public List<string> Credential { get; set; } = new();
 
+    /// <summary>连接器维度范围（提供方键，如 <c>aliyunDevOps</c>）。</summary>
+    public List<string> Connectors { get; set; } = new();
+
     /// <summary>
     /// 全部已知维度名（顺序与文档一致）。
     /// </summary>
     public static readonly IReadOnlyList<string> KnownDimensions = new[]
     {
-        "filesystem", "network", "git", "database", "process", "credential"
+        "filesystem", "network", "git", "database", "process", "credential", "connectors"
     };
 
     /// <summary>
@@ -71,7 +75,8 @@ public sealed class PluginPermissions
     /// </summary>
     public bool IsEmpty =>
         Filesystem.Count == 0 && Network.Count == 0 && Git.Count == 0 &&
-        Database.Count == 0 && Process.Count == 0 && Credential.Count == 0;
+        Database.Count == 0 && Process.Count == 0 && Credential.Count == 0 &&
+        Connectors.Count == 0;
 
     /// <summary>
     /// 已声明的维度名集合。
@@ -86,6 +91,7 @@ public sealed class PluginPermissions
             if (Database.Count > 0) yield return "database";
             if (Process.Count > 0) yield return "process";
             if (Credential.Count > 0) yield return "credential";
+            if (Connectors.Count > 0) yield return "connectors";
         }
     }
 
@@ -109,6 +115,7 @@ public sealed class PluginPermissions
         "database" => Database,
         "process" => Process,
         "credential" => Credential,
+        "connectors" => Connectors,
         _ => Array.Empty<string>()
     };
 
@@ -125,6 +132,7 @@ public sealed class PluginPermissions
         "database" => Database,
         "process" => Process,
         "credential" => Credential,
+        "connectors" => Connectors,
         _ => null
     };
 

@@ -90,6 +90,16 @@ public sealed class PluginManifest
     public List<PluginMcpServerDeclaration> McpServers { get; set; } = new();
 
     /// <summary>
+    /// 插件贡献的连接器提供方声明（PRD §4.12）。
+    /// </summary>
+    /// <remarks>
+    /// 运行期实际注册由插件代码调用 <c>IPluginHost.RegisterConnector</c> 完成；本字段是<b>声明性</b>的，
+    /// 供宿主人机界面展示，并在启用前做「是否在 <c>permissions.connectors</c> 声明之内」的合规校验。
+    /// </remarks>
+    [JsonPropertyName("connectors")]
+    public List<PluginConnectorDeclaration> Connectors { get; set; } = new();
+
+    /// <summary>
     /// 权限声明。
     /// </summary>
     /// <remarks>
@@ -145,4 +155,97 @@ public sealed class PluginMcpServerDeclaration
     /// </summary>
     [JsonPropertyName("enabled")]
     public bool Enabled { get; set; } = true;
+}
+
+/// <summary>
+/// 插件贡献的连接器提供方声明（<c>plugin.json</c> 的 <c>connectors</c> 元素、PRD §4.12）。
+/// </summary>
+/// <remarks>
+/// <para>
+/// 支持两种写法：字符串简写 <c>"aliyunDevOps"</c>，或对象详写
+/// <c>{ "providerKey": "aliyunDevOps", "displayName": "阿里云云效" }</c>。
+/// </para>
+/// <para>
+/// 声明项必须在插件 <c>permissions.connectors</c> 之内，且被宿主 <c>ConnectorWhitelist</c> 覆盖，
+/// 否则插件在启用前被判 <c>Disabled</c>（PRD §3.7）。
+/// </para>
+/// </remarks>
+[JsonConverter(typeof(PluginConnectorDeclarationConverter))]
+public sealed class PluginConnectorDeclaration
+{
+    /// <summary>
+    /// 提供方键（如 <c>aliyunDevOps</c>），对应 <c>ConnectorFactoryRegistration.ProviderKey</c>。
+    /// </summary>
+    [JsonPropertyName("providerKey")]
+    public string ProviderKey { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 提供方显示名（可选，供插件管理器展示）。
+    /// </summary>
+    [JsonPropertyName("displayName")]
+    public string? DisplayName { get; set; }
+}
+
+/// <summary>
+/// <see cref="PluginConnectorDeclaration"/> 的 JSON 转换器：兼容字符串简写与对象详写。
+/// </summary>
+public sealed class PluginConnectorDeclarationConverter : JsonConverter<PluginConnectorDeclaration>
+{
+    /// <summary>
+    /// <c>null</c> 令牌也交给本转换器处理（归一化为空声明）。
+    /// </summary>
+    public override bool HandleNull => true;
+
+    /// <inheritdoc />
+    public override PluginConnectorDeclaration Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        switch (reader.TokenType)
+        {
+            case JsonTokenType.Null:
+                return new PluginConnectorDeclaration();
+
+            case JsonTokenType.String:
+                return new PluginConnectorDeclaration { ProviderKey = reader.GetString() ?? string.Empty };
+
+            case JsonTokenType.StartObject:
+                var declaration = new PluginConnectorDeclaration();
+                while (reader.Read())
+                {
+                    if (reader.TokenType == JsonTokenType.EndObject)
+                        return declaration;
+
+                    if (reader.TokenType != JsonTokenType.PropertyName)
+                        throw new JsonException("connectors 元素结构非法");
+
+                    var property = reader.GetString();
+                    reader.Read();
+
+                    if (string.Equals(property, "providerKey", StringComparison.OrdinalIgnoreCase))
+                        declaration.ProviderKey = reader.TokenType == JsonTokenType.String ? reader.GetString() ?? string.Empty : string.Empty;
+                    else if (string.Equals(property, "displayName", StringComparison.OrdinalIgnoreCase))
+                        declaration.DisplayName = reader.TokenType == JsonTokenType.String ? reader.GetString() : null;
+                    else
+                        reader.Skip();
+                }
+                return declaration;
+
+            default:
+                throw new JsonException($"connectors 元素格式非法：{reader.TokenType}");
+        }
+    }
+
+    /// <inheritdoc />
+    public override void Write(Utf8JsonWriter writer, PluginConnectorDeclaration value, JsonSerializerOptions options)
+    {
+        if (value is null || string.IsNullOrWhiteSpace(value.DisplayName))
+        {
+            writer.WriteStringValue(value?.ProviderKey ?? string.Empty);
+            return;
+        }
+
+        writer.WriteStartObject();
+        writer.WriteString("providerKey", value.ProviderKey);
+        writer.WriteString("displayName", value.DisplayName);
+        writer.WriteEndObject();
+    }
 }

@@ -71,6 +71,20 @@ public sealed class PluginSecurityOptions
     public List<string> CredentialCatalog { get; set; } = new();
 
     /// <summary>
+    /// 连接器提供方白名单（PRD §3.7：插件可注册 / 使用的 <c>connectors</c> 提供方键）。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>默认空</b>（默认拒绝）：具体提供方键属产品 / 插件知识，由宿主按需在
+    /// <c>LuBanAgent:Plugins:Security:Connectors</c> 配置（如 <c>aliyunDevOps</c>）。
+    /// </para>
+    /// <para>
+    /// 插件 <c>permissions.connectors</c> 声明必须落在目录内；未声明即无法注册 / 使用（运行期默认拒绝）。
+    /// </para>
+    /// </remarks>
+    public List<string> ConnectorWhitelist { get; set; } = new();
+
+    /// <summary>
     /// Git 能力白名单（PRD §3.7：<c>clone_push</c>、<c>commit</c>、<c>inspect</c>）。
     /// </summary>
     /// <remarks>
@@ -129,6 +143,7 @@ public sealed class PluginSecurityOptions
 
         GitWhitelist = NormalizeList(GitWhitelist);
         FilesystemWhitelist = NormalizeList(FilesystemWhitelist);
+        ConnectorWhitelist = NormalizeList(ConnectorWhitelist);
 
         string ResolveCredentialKey(string key)
             => aliases is null ? CredentialKeys.Normalize(key) : aliases.Resolve(key);

@@ -93,4 +93,9 @@ public class ToolGroupOptions
     /// MCP 管理工具组配置。
     /// </summary>
     public McpManageToolOptions McpManage { get; set; } = new();
+
+    /// <summary>
+    /// 连接器管理工具组配置。
+    /// </summary>
+    public ConnectorManageToolOptions ConnectorManage { get; set; } = new();
 }

@@ -443,6 +443,7 @@ public sealed class PluginManager
             entry.RegisteredSidebarEntries.Clear();
             entry.RegisteredSkillIds.Clear();
             entry.RegisteredMcpServers.Clear();
+            entry.RegisteredConnectorKeys.Clear();
 
             await PersistAsync(entry, cancellationToken).ConfigureAwait(false);
         }
@@ -674,6 +675,9 @@ public sealed class PluginManager
 
         foreach (var serverName in scope.RegisteredMcpServers)
             entry.RegisteredMcpServers.Add(serverName);
+
+        foreach (var providerKey in scope.RegisteredConnectorKeys)
+            entry.RegisteredConnectorKeys.Add(providerKey);
     }
 
     /// <summary>
@@ -921,8 +925,12 @@ public sealed class PluginManager
     }
 
     /// <summary>
-    /// 反注册插件贡献的 Skill 与 MCP 服务器。
+    /// 反注册插件贡献的 Skill、MCP 服务器与连接器提供方。
     /// </summary>
+    /// <remarks>
+    /// 三者都可能在宿主侧持有插件程序集强引用（技能定义 / MCP 客户端 / 连接器工厂委托），
+    /// 故<b>必须</b>在 ALC 卸载（第 5 步）之前完成反注册（PRD §3.12 第 3 步）。
+    /// </remarks>
     private static void UnregisterContributions(PluginEntry entry, IPluginHost scope)
     {
         foreach (var skillId in entry.RegisteredSkillIds.ToList())
@@ -936,6 +944,12 @@ public sealed class PluginManager
             SafeHostAction(() => scope.UnregisterMcpServer(serverName), entry.Id, $"注销 MCP {serverName}");
         }
         entry.RegisteredMcpServers.Clear();
+
+        foreach (var providerKey in entry.RegisteredConnectorKeys.ToList())
+        {
+            SafeHostAction(() => scope.UnregisterConnector(providerKey), entry.Id, $"注销连接器 {providerKey}");
+        }
+        entry.RegisteredConnectorKeys.Clear();
     }
 
     /// <summary>
@@ -1184,6 +1198,7 @@ public sealed class PluginManager
         public HashSet<string> RegisteredSidebarEntries { get; } = new(StringComparer.OrdinalIgnoreCase);
         public HashSet<string> RegisteredSkillIds { get; } = new(StringComparer.OrdinalIgnoreCase);
         public HashSet<string> RegisteredMcpServers { get; } = new(StringComparer.OrdinalIgnoreCase);
+        public HashSet<string> RegisteredConnectorKeys { get; } = new(StringComparer.OrdinalIgnoreCase);
 
         public PluginDescriptor ToDescriptor() => new()
         {

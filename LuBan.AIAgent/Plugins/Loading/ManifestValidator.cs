@@ -187,6 +187,9 @@ public sealed class ManifestValidator
         // 权限（插件级 + 技能级）
         ValidatePermissionsOf(manifest, result);
 
+        // 连接器提供方声明（PRD §4.12）：非空 / 去重，且必须落在 permissions.connectors 之内
+        ValidateConnectorDeclarations(manifest, result);
+
         // 依赖：自引用非法
         foreach (var dependency in manifest.Dependencies)
         {
@@ -252,6 +255,40 @@ public sealed class ManifestValidator
         PluginPermissions? permissions,
         string path)
         => _permissions.ValidateDeclaration(permissions, path, result);
+
+    /// <summary>
+    /// 校验插件贡献的连接器提供方声明（PRD §4.12）。
+    /// </summary>
+    /// <remarks>
+    /// 两个约束：① 提供方键非空且去重；② 每个提供方键都必须被 <c>permissions.connectors</c> 覆盖
+    /// （即插件须先在权限里声明要注册的提供方，否则启用前判 <c>Disabled</c>，与 <c>credential</c> 同口径）。
+    /// </remarks>
+    private void ValidateConnectorDeclarations(PluginManifest manifest, ManifestValidationResult result)
+    {
+        var providerKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var index = 0;
+
+        foreach (var declaration in manifest.Connectors)
+        {
+            var path = $"connectors[{index++}]";
+
+            if (declaration is null || string.IsNullOrWhiteSpace(declaration.ProviderKey))
+            {
+                result.Errors.Add($"{path} 缺少 providerKey。");
+                continue;
+            }
+
+            var providerKey = declaration.ProviderKey.Trim();
+            if (!providerKeys.Add(providerKey))
+                result.Errors.Add($"connectors 存在重复 providerKey：{providerKey}");
+
+            if (!_permissions.IsConnectorAllowed(manifest.Permissions, providerKey))
+            {
+                result.Errors.Add(
+                    $"{path}.providerKey 越界：{providerKey} 未在 permissions.connectors 内声明（或不在宿主连接器白名单内）。");
+            }
+        }
+    }
 
     /// <summary>
     /// 必填字段校验。

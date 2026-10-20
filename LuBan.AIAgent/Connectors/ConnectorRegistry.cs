@@ -66,7 +66,7 @@ public sealed class ConnectorRegistry
     private readonly IAppConfigReader? _configReader;
     private readonly IConfiguration? _configuration;
 
-    private readonly Dictionary<string, bool> _workspaceEnabled = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, ConnectorWorkspaceEntry> _workspaceEntries = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, string> _errors = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>已执行过初始化的连接器实例名（<c>InitializeAsync</c> 契约：每实例一次）。</summary>
@@ -103,14 +103,25 @@ public sealed class ConnectorRegistry
     }
 
     /// <summary>
-    /// 从工作区加载连接器启用状态（<c>.luban-agent/connectors/*.json</c>，文件名为实例名）。
+    /// 从工作区加载连接器声明（<c>.luban-agent/connectors/*.json</c>，文件名为实例名）。
     /// </summary>
     /// <param name="workspaceDir">工作区目录。</param>
+    /// <remarks>
+    /// <para>
+    /// 文件可只写 <c>{ "enabled": true }</c>（仅覆盖启用状态），也可写完整声明
+    /// <c>{ "name", "provider", "settings", "enabled" }</c>（对话生成连接器的落点）。
+    /// 完整声明会并入宿主 <c>config.json:connectors</c>：<b>工作区覆盖 config.json</b>，
+    /// <c>settings</c> 逐键合并。
+    /// </para>
+    /// <para>
+    /// <b>严禁</b>在此文件写入 PAT 等凭据（属工作区明文落盘）；凭据一律走 <c>ICredentialStore</c>。
+    /// </para>
+    /// </remarks>
     [UnconditionalSuppressMessage("Trimming", "IL2026",
         Justification = "JSON 反序列化仅用于简单配置类型，已通过 JsonSerializerOptions 处理")]
     public void LoadFromWorkspace(string workspaceDir)
     {
-        _workspaceEnabled.Clear();
+        _workspaceEntries.Clear();
         _workspaceLoaded = true;
 
         if (string.IsNullOrWhiteSpace(workspaceDir))
@@ -128,8 +139,10 @@ public sealed class ConnectorRegistry
             try
             {
                 var json = File.ReadAllText(jsonFile);
-                var entry = json.ToObject<WorkspaceConnectorEntry>();
-                _workspaceEnabled[name.Trim()] = entry?.Enabled ?? true;
+                var entry = json.ToObject<ConnectorWorkspaceEntry>();
+                if (entry is null) continue;
+
+                _workspaceEntries[entry.ResolveName(name.Trim())] = entry;
             }
             catch (Exception ex)
             {
@@ -175,7 +188,7 @@ public sealed class ConnectorRegistry
                 : new ConnectorStatus(config.Name, config.Provider, ConnectorState.Declared, "宿主已声明，当前工作区未启用。"));
         }
 
-        foreach (var name in _workspaceEnabled.Keys.Where(k => !declaredNames.Contains(k)))
+        foreach (var name in _workspaceEntries.Keys.Where(k => !declaredNames.Contains(k)))
         {
             result.Add(new ConnectorStatus(name, string.Empty, ConnectorState.Unavailable,
                 "工作区启用了宿主未声明的连接器，按未安装处理。"));
@@ -368,15 +381,18 @@ public sealed class ConnectorRegistry
     /// </summary>
     private void WarnUndeclaredWorkspaceConnectors()
     {
-        if (_workspaceEnabled.Count == 0) return;
+        if (_workspaceEntries.Count == 0) return;
 
         var declared = GetDeclared();
-        foreach (var name in _workspaceEnabled.Keys)
+        foreach (var kvp in _workspaceEntries)
         {
-            if (!_warnedUndeclared.Add(name)) continue;
-            if (declared.Any(config => string.Equals(config?.Name?.Trim(), name, StringComparison.OrdinalIgnoreCase))) continue;
+            // 承载了 provider 的完整声明自身即可用，只有「仅覆盖启用状态」的条目才需宿主声明
+            if (!kvp.Value.IsEnableOnly) continue;
 
-            Logger.Warn($"工作区启用了宿主未声明的连接器 '{name}'，按未安装处理（请在 config.json:Connectors 内声明）。");
+            if (!_warnedUndeclared.Add(kvp.Key)) continue;
+            if (declared.Any(config => string.Equals(config?.Name?.Trim(), kvp.Key, StringComparison.OrdinalIgnoreCase))) continue;
+
+            Logger.Warn($"工作区启用了宿主未声明的连接器 '{kvp.Key}'，按未安装处理（请在 config.json:Connectors 内声明）。");
         }
     }
 
@@ -404,21 +420,85 @@ public sealed class ConnectorRegistry
         LoadFromWorkspace(workspaceRoot!);
     }
 
+    /// <summary>
+    /// 取有效连接器声明：宿主 <c>config.json</c> 声明为基，工作区完整声明覆盖 / 补齐。
+    /// </summary>
     private List<ConnectorConfig> GetDeclared()
     {
+        List<ConnectorConfig> declared;
         try
         {
-            return _configReader?.Connectors ?? new List<ConnectorConfig>();
+            declared = _configReader?.Connectors ?? new List<ConnectorConfig>();
         }
         catch (Exception ex)
         {
             Logger.Error("读取 config.json 连接器声明失败", ex);
-            return new List<ConnectorConfig>();
+            declared = new List<ConnectorConfig>();
         }
+
+        if (_workspaceEntries.Count == 0)
+            return declared;
+
+        var result = new List<ConnectorConfig>(declared.Count + _workspaceEntries.Count);
+        var covered = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var config in declared)
+        {
+            if (config is null || string.IsNullOrWhiteSpace(config.Name))
+            {
+                if (config is not null) result.Add(config);
+                continue;
+            }
+
+            var name = config.Name.Trim();
+            if (!_workspaceEntries.TryGetValue(name, out var entry))
+            {
+                result.Add(config);
+                continue;
+            }
+
+            covered.Add(name);
+            result.Add(MergeWorkspaceDeclaration(config, entry, name));
+        }
+
+        // 工作区自带的完整声明（config.json 未声明）：作为独立声明补齐
+        foreach (var kvp in _workspaceEntries)
+        {
+            if (covered.Contains(kvp.Key) || kvp.Value.IsEnableOnly) continue;
+            result.Add(kvp.Value.ToConnectorConfig(kvp.Key));
+        }
+
+        return result;
+    }
+
+    /// <summary>把工作区条目并入 config.json 声明（工作区覆盖 provider / enabled，settings 逐键合并）。</summary>
+    private static ConnectorConfig MergeWorkspaceDeclaration(
+        ConnectorConfig config,
+        ConnectorWorkspaceEntry entry,
+        string name)
+    {
+        var settings = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var kvp in config.Settings ?? new Dictionary<string, string?>())
+            settings[kvp.Key] = kvp.Value;
+
+        if (entry.Settings is not null)
+        {
+            foreach (var kvp in entry.Settings)
+                settings[kvp.Key] = kvp.Value;
+        }
+
+        return new ConnectorConfig
+        {
+            Name = name,
+            Provider = string.IsNullOrWhiteSpace(entry.Provider) ? config.Provider : entry.Provider!.Trim(),
+            Enabled = entry.Enabled,
+            Settings = settings
+        };
     }
 
     private bool IsEnabled(ConnectorConfig config)
-        => _workspaceEnabled.TryGetValue(config.Name.Trim(), out var enabled) ? enabled : config.Enabled;
+        => _workspaceEntries.TryGetValue(config.Name.Trim(), out var entry) ? entry.Enabled : config.Enabled;
 
     /// <summary>合并非敏感参数：config.json 为基，appsettings <c>LuBanAgent:Connectors:&lt;实例名&gt;</c> 覆盖。</summary>
     private ConnectorSettings BuildSettings(ConnectorConfig config)
@@ -440,12 +520,6 @@ public sealed class ConnectorRegistry
         }
 
         return new ConnectorSettings(values);
-    }
-
-    /// <summary>工作区连接器启用文件（<c>.luban-agent/connectors/&lt;name&gt;.json</c>）。</summary>
-    private sealed class WorkspaceConnectorEntry
-    {
-        public bool Enabled { get; set; } = true;
     }
 
     #endregion

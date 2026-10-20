@@ -78,6 +78,10 @@ public static class ConnectorServiceCollectionExtensions
         services.AddSingleton<ConnectorInstanceHost>();
         services.TryAddScoped<ConnectorRegistry>();
 
+        // 连接器配置写入器：默认写工作区 .luban-agent/connectors/<name>.json；
+        // 产品可注册自定义实现覆盖（TryAdd 保证不覆盖已注册实现）。
+        services.TryAddScoped<IConnectorConfigWriter, WorkspaceConnectorConfigWriter>();
+
         // 说明：内置连接器（厂商实现）不在此登记——
         // 框架只保留「抽象基本连接器 + 连接器管理」，厂商连接器由宿主 / 产品 / 插件
         // 经 AddConnector 显式注册（硬编码或配置驱动）。

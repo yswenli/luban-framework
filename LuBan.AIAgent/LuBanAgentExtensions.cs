@@ -60,6 +60,7 @@ public static class LuBanAgentExtensions
         services.AddScoped<ILuBanToolPlugin, Tools.Skill.SkillToolPlugin>();
         services.AddScoped<ILuBanToolPlugin, Tools.SkillManage.SkillManageToolPlugin>();
         services.AddScoped<ILuBanToolPlugin, Tools.McpManage.McpManageToolPlugin>();
+        services.AddScoped<ILuBanToolPlugin, Tools.ConnectorManage.ConnectorManageToolPlugin>();
 
         LoadExternalPlugins(services, configuration);
 

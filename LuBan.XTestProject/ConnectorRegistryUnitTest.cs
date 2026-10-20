@@ -337,4 +337,130 @@ public class ConnectorRegistryUnitTest
         Assert.AreEqual(1, spy.InitializeCount, "InitializeAsync 每个实例只能执行一次");
         Assert.AreEqual(0, otherCreated, "命中的是实例名精确匹配者，其它已声明连接器不应被实例化");
     }
+
+    /// <summary>
+    /// 工作区完整声明（<c>{name, provider, settings, enabled}</c>）：为 config.json 未声明的连接器补齐
+    /// 提供方并可启用（对话生成连接器落点）。
+    /// </summary>
+    [TestMethod]
+    public void LoadFromWorkspace_FullDeclaration_AddsUndeclaredConnector()
+    {
+        using var root = BuildRoot();
+        var (registry, _) = CreateRegistry(root);
+
+        var workspace = NewWorkspace();
+        try
+        {
+            WriteConnectorFile(workspace, "generated",
+                """{"name":"generated","provider":"demo","settings":{"endpoint":"https://example.test"},"enabled":true}""");
+
+            var states = registry.GetStates(workspace);
+
+            var generated = states.Single(s => s.Name == "generated");
+            Assert.AreEqual(DemoProviderKey, generated.ProviderKey);
+            Assert.AreEqual(ConnectorState.Enabled, generated.State);
+            Assert.IsFalse(
+                states.Any(s => s.State == ConnectorState.Unavailable && s.Name == "generated"),
+                "工作区自带 provider 的完整声明不应被判为「未声明」");
+        }
+        finally
+        {
+            Directory.Delete(workspace, recursive: true);
+        }
+    }
+
+    /// <summary>
+    /// 工作区完整声明覆盖 config.json：provider / enabled 以工作区为准，settings 逐键合并。
+    /// </summary>
+    [TestMethod]
+    public void LoadFromWorkspace_OverridesDeclaration_AndMergesSettings()
+    {
+        Captured = new Dictionary<string, IReadOnlyDictionary<string, string?>>(StringComparer.OrdinalIgnoreCase);
+
+        var services = new ServiceCollection();
+        services.AddConnector<SettingsCapturingConnector>("demo",
+            ctx => { Captured[ctx.Name] = ctx.Settings.Values; return new SettingsCapturingConnector(ctx); });
+
+        using var root = services.BuildServiceProvider();
+        var factories = new ConnectorFactoryRegistry(root.GetServices<ConnectorFactoryRegistration>());
+        var host = new ConnectorInstanceHost(root, factories);
+        var reader = new FakeConfigReader();
+        var registry = new ConnectorRegistry(host, factories, null, reader, new ConfigurationBuilder().Build());
+
+        reader.Connectors.Add(new ConnectorConfig
+        {
+            Name = "primary",
+            Provider = "spare",
+            Enabled = false,
+            Settings = new Dictionary<string, string?> { ["endpoint"] = "https://old.test", ["keep"] = "yes" }
+        });
+
+        var workspace = NewWorkspace();
+        try
+        {
+            WriteConnectorFile(workspace, "primary",
+                """{"provider":"demo","settings":{"endpoint":"https://new.test"},"enabled":true}""");
+
+            Assert.AreEqual(1, registry.GetEnabledConnectors(workspace).Count, "工作区 enabled=true 应使连接器被启用");
+
+            var values = Captured["primary"];
+            Assert.AreEqual("https://new.test", values["endpoint"], "工作区 settings 覆盖同键");
+            Assert.AreEqual("yes", values["keep"], "config.json 独有键应保留（逐键合并）");
+        }
+        finally
+        {
+            Directory.Delete(workspace, recursive: true);
+        }
+    }
+
+    /// <summary>捕获工厂收到的非敏感参数（验证 settings 合并结果）。</summary>
+    private static Dictionary<string, IReadOnlyDictionary<string, string?>> Captured = new(StringComparer.OrdinalIgnoreCase);
+
+    private sealed class SettingsCapturingConnector : ConnectorBase
+    {
+        public SettingsCapturingConnector(ConnectorBuildContext ctx)
+        {
+            Name = ctx.Name;
+            Key = ctx.ProviderKey;
+        }
+
+        public override string Key { get; }
+
+        public override IReadOnlyList<ConnectorMcpExposure> McpExposures => Array.Empty<ConnectorMcpExposure>();
+    }
+
+    /// <summary>
+    /// 旧格式（只写 <c>enabled</c>）仍按「只覆盖启用状态」处理（向后兼容）。
+    /// </summary>
+    [TestMethod]
+    public void LoadFromWorkspace_EnableOnly_StillOverridesEnabledFlag()
+    {
+        using var root = BuildRoot();
+        var (registry, reader) = CreateRegistry(root);
+
+        reader.Connectors.Add(new ConnectorConfig { Name = "primary", Provider = DemoProviderKey, Enabled = false });
+
+        var workspace = NewWorkspace();
+        try
+        {
+            WriteConnectorFile(workspace, "primary", """{"enabled":true}""");
+
+            var states = registry.GetStates(workspace);
+            Assert.AreEqual(ConnectorState.Enabled, states.Single(s => s.Name == "primary").State);
+        }
+        finally
+        {
+            Directory.Delete(workspace, recursive: true);
+        }
+    }
+
+    private static string NewWorkspace()
+    {
+        var workspace = Path.Combine(Path.GetTempPath(), "luban-connectors-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(workspace, ".luban-agent", "connectors"));
+        return workspace;
+    }
+
+    private static void WriteConnectorFile(string workspace, string name, string json)
+        => File.WriteAllText(Path.Combine(workspace, ".luban-agent", "connectors", $"{name}.json"), json);
 }

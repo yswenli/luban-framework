@@ -33,6 +33,7 @@ internal sealed class PluginHostScope : IPluginHost
     private readonly HashSet<string> _sidebarEntries = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _skills = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _mcpServers = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _connectors = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// 创建插件专属宿主包装。
@@ -65,6 +66,11 @@ internal sealed class PluginHostScope : IPluginHost
     /// 本插件经本包装注册的 MCP 服务器名（供卸载流程第 3 步精确反注册）。
     /// </summary>
     public IReadOnlyCollection<string> RegisteredMcpServers => _mcpServers;
+
+    /// <summary>
+    /// 本插件经本包装注册的连接器提供方键（供卸载流程第 3 步精确反注册）。
+    /// </summary>
+    public IReadOnlyCollection<string> RegisteredConnectorKeys => _connectors;
 
     /// <inheritdoc />
     public string PluginId { get; }
@@ -151,6 +157,30 @@ internal sealed class PluginHostScope : IPluginHost
     {
         _inner.UnregisterMcpServer(name);
         _mcpServers.Remove(name);
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// 进入本插件权限环境后再委派：宿主实现据此把工厂登记到插件身份下（供审计 / 运行期越界判定）。
+    /// </remarks>
+    public void RegisterConnector(ConnectorFactoryRegistration registration)
+    {
+        ArgumentNullException.ThrowIfNull(registration);
+
+        using (PluginScopeContext.Enter(PluginId, Permissions))
+            _inner.RegisterConnector(registration);
+
+        if (!string.IsNullOrWhiteSpace(registration.ProviderKey))
+            _connectors.Add(registration.ProviderKey.Trim());
+    }
+
+    /// <inheritdoc />
+    public void UnregisterConnector(string providerKey)
+    {
+        _inner.UnregisterConnector(providerKey);
+
+        if (!string.IsNullOrWhiteSpace(providerKey))
+            _connectors.Remove(providerKey.Trim());
     }
 
     /// <inheritdoc />

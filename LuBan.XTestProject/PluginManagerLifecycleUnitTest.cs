@@ -6,6 +6,7 @@
 *描述：验证 PluginManager 的扫描/启用/禁用/安装/卸载与「插件自行注册的贡献也必须被注销」的记账逻辑
 *
 *****************************************************************************/
+using LuBan.AIAgent.Connectors;
 using LuBan.AIAgent.Plugins;
 using LuBan.AIAgent.Plugins.Base;
 using LuBan.AIAgent.Plugins.Lifecycle;
@@ -112,6 +113,9 @@ public class PluginManagerLifecycleUnitTest
             CollectionAssert.AreEquivalent(
                 new[] { RecordingPlugin.RuntimeMcpName },
                 context.Host.McpServers.ToArray());
+            CollectionAssert.AreEquivalent(
+                new[] { RecordingPlugin.RuntimeConnectorKey },
+                context.Host.Connectors.ToArray());
         }
         finally
         {
@@ -139,6 +143,8 @@ public class PluginManagerLifecycleUnitTest
             Assert.AreEqual(0, context.Host.SidebarEntries.Count);
             Assert.AreEqual(0, context.Host.Skills.Count);
             Assert.AreEqual(0, context.Host.McpServers.Count);
+            Assert.AreEqual(0, context.Host.Connectors.Count,
+                "插件运行期注册的连接器工厂必须随插件卸载被注销（否则工厂委托钉住插件 ALC）");
         }
         finally
         {
@@ -623,6 +629,8 @@ public class PluginManagerLifecycleUnitTest
 
         public HashSet<string> McpServers { get; } = new(StringComparer.OrdinalIgnoreCase);
 
+        public HashSet<string> Connectors { get; } = new(StringComparer.OrdinalIgnoreCase);
+
         public void Log(string message) => Logs.Add(message);
 
         public void LogError(string message, Exception? exception = null) => Logs.Add("[ERROR] " + message);
@@ -653,6 +661,11 @@ public class PluginManagerLifecycleUnitTest
 
         public void UnregisterMcpServer(string name) => McpServers.Remove(name);
 
+        public void RegisterConnector(ConnectorFactoryRegistration registration)
+            => Connectors.Add(registration.ProviderKey);
+
+        public void UnregisterConnector(string providerKey) => Connectors.Remove(providerKey);
+
         public void PostToUi(Action action)
         {
         }
@@ -670,6 +683,7 @@ public class PluginManagerLifecycleUnitTest
         public const string RuntimeSkillId = "runtime-skill";
         public const string ContributedSkillId = "contributed-skill";
         public const string RuntimeMcpName = "runtime-mcp";
+        public const string RuntimeConnectorKey = "runtime-connector";
         public const string SidebarEntryId = "runtime-entry";
 
         public RecordingPlugin(string id, string? name = null)
@@ -697,6 +711,9 @@ public class PluginManagerLifecycleUnitTest
             host.RegisterSidebarEntry(new PluginSidebarEntry { Id = SidebarEntryId, Label = "运行时入口" });
             host.RegisterSkill(new SkillDefinition { Id = RuntimeSkillId, Name = "运行时技能" });
             host.RegisterMcpServer(RuntimeMcpName);
+            host.RegisterConnector(new ConnectorFactoryRegistration(
+                RuntimeConnectorKey,
+                ctx => new RecordingConnector(ctx.Name, ctx.ProviderKey)));
 
             return Task.CompletedTask;
         }
@@ -711,5 +728,19 @@ public class PluginManagerLifecycleUnitTest
         {
             yield return new SkillDefinition { Id = ContributedSkillId, Name = "声明技能" };
         }
+    }
+
+    /// <summary>记账用连接器：只用于验证插件连接器工厂的登记/注销编排。</summary>
+    private sealed class RecordingConnector : ConnectorBase
+    {
+        public RecordingConnector(string name, string providerKey)
+        {
+            Name = name;
+            Key = providerKey;
+        }
+
+        public override string Key { get; }
+
+        public override IReadOnlyList<ConnectorMcpExposure> McpExposures => Array.Empty<ConnectorMcpExposure>();
     }
 }

@@ -39,7 +39,8 @@ internal static class TestSecurity
         ProcessWhitelist = new List<string> { "dotnet", "git" },
         CredentialCatalog = new List<string> { DemoTokenKey, DemoOrgKey },
         GitWhitelist = new List<string> { "clone_push", "commit", "inspect" },
-        FilesystemWhitelist = new List<string> { "workspace" }
+        FilesystemWhitelist = new List<string> { "workspace" },
+        ConnectorWhitelist = new List<string> { "demo", "aliyunDevOps" }
     };
 
     /// <summary>构造判定器（示例宿主策略 + 示例别名）。</summary>

@@ -157,6 +157,27 @@ public sealed class PluginPermissionEvaluator
             : string.Equals(item.Trim(), scope.Trim(), StringComparison.OrdinalIgnoreCase));
     }
 
+    /// <summary>
+    /// 判定插件是否有权注册 / 使用指定连接器提供方（PRD §3.7：未声明则无法注册）。
+    /// </summary>
+    /// <param name="permissions">插件声明的权限。</param>
+    /// <param name="providerKey">连接器提供方键（如 <c>aliyunDevOps</c>）。</param>
+    /// <returns>允许时返回 <c>true</c>。</returns>
+    public bool IsConnectorAllowed(PluginPermissions? permissions, string? providerKey)
+    {
+        if (permissions is null || string.IsNullOrWhiteSpace(providerKey))
+            return false;
+
+        var key = providerKey.Trim();
+        var scopes = permissions.GetScopes("connectors");
+
+        // 通配声明以宿主连接器白名单为上限，而非直接放行
+        return scopes.Any(scope => IsWildcard(scope)
+            ? _options.ConnectorWhitelist.Any(allowed => IsWildcard(allowed) ||
+                                                        string.Equals(allowed.Trim(), key, StringComparison.OrdinalIgnoreCase))
+            : string.Equals(scope.Trim(), key, StringComparison.OrdinalIgnoreCase));
+    }
+
     // ---------------- 声明期校验 ----------------
 
     /// <summary>
@@ -245,6 +266,15 @@ public sealed class PluginPermissionEvaluator
                 {
                     result.Errors.Add(
                         $"{path}.filesystem 越界：{scope} 不在宿主文件系统白名单内（{Format(_options.FilesystemWhitelist)}）。");
+                }
+                break;
+
+            case "connectors":
+                if (!_options.ConnectorWhitelist.Any(allowed => IsWildcard(allowed) ||
+                                                               string.Equals(allowed.Trim(), scope, StringComparison.OrdinalIgnoreCase)))
+                {
+                    result.Errors.Add(
+                        $"{path}.connectors 越界：{scope} 不在宿主连接器白名单内（{Format(_options.ConnectorWhitelist)}）。");
                 }
                 break;
 
@@ -382,6 +412,7 @@ public sealed class PluginPermissionEvaluator
         "credential" => Format(_options.CredentialCatalog),
         "git" => Format(_options.GitWhitelist),
         "filesystem" => Format(_options.FilesystemWhitelist),
+        "connectors" => Format(_options.ConnectorWhitelist),
         _ => "宿主策略"
     };
 }

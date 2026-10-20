@@ -25,15 +25,22 @@ public sealed record ConnectorFactoryRegistration(
     string? DisplayName = null);
 
 /// <summary>
-/// 连接器工厂表（<b>单例</b>）：由 DI 在构建期收集，运行期只读查询。
+/// 连接器工厂表（<b>单例</b>）：DI 在构建期收集宿主 / 产品硬编码的注册项；运行期允许插件
+/// 经 <see cref="Plugins.Contracts.IPluginHost.RegisterConnector"/> 动态追加（线程安全）。
 /// </summary>
 /// <remarks>
+/// <para>
 /// 只登记「有哪些提供方可用」，不代表已启用；启用由
 /// <see cref="ConnectorRegistry"/> 结合配置判定（PRD §3.10 连接器配置化）。
+/// </para>
+/// <para>
+/// 插件注册的工厂会捕获插件程序集类型，故卸载流程第 3 步必须先
+/// <see cref="TryRemove"/> 注销，再卸载 ALC，否则弱引用验证永不通过（PRD §3.12）。
+/// </para>
 /// </remarks>
 public sealed class ConnectorFactoryRegistry
 {
-    private readonly Dictionary<string, ConnectorFactoryRegistration> _registrations;
+    private readonly ConcurrentDictionary<string, ConnectorFactoryRegistration> _registrations;
 
     /// <summary>
     /// 创建工厂表。
@@ -41,7 +48,7 @@ public sealed class ConnectorFactoryRegistry
     /// <param name="registrations">DI 收集到的全部工厂注册项（同名时后者覆盖前者）。</param>
     public ConnectorFactoryRegistry(IEnumerable<ConnectorFactoryRegistration> registrations)
     {
-        _registrations = new Dictionary<string, ConnectorFactoryRegistration>(StringComparer.OrdinalIgnoreCase);
+        _registrations = new ConcurrentDictionary<string, ConnectorFactoryRegistration>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var registration in registrations ?? Enumerable.Empty<ConnectorFactoryRegistration>())
         {
@@ -51,7 +58,7 @@ public sealed class ConnectorFactoryRegistry
     }
 
     /// <summary>已注册的提供方键集合。</summary>
-    public IReadOnlyCollection<string> ProviderKeys => _registrations.Keys;
+    public IReadOnlyCollection<string> ProviderKeys => _registrations.Keys.ToArray();
 
     /// <summary>
     /// 是否存在该提供方的工厂。
@@ -77,6 +84,38 @@ public sealed class ConnectorFactoryRegistry
 
         return _registrations.TryGetValue(providerKey.Trim(), out registration!);
     }
+
+    /// <summary>
+    /// 追加 / 覆盖一个提供方工厂（插件运行期注册入口）。
+    /// </summary>
+    /// <param name="registration">注册项。</param>
+    /// <returns>覆盖了既有注册返回 <c>true</c>；新增返回 <c>false</c>。</returns>
+    /// <remarks>提供方键为空时抛 <see cref="ArgumentException"/>。</remarks>
+    public bool AddOrUpdate(ConnectorFactoryRegistration registration)
+    {
+        ArgumentNullException.ThrowIfNull(registration);
+
+        if (string.IsNullOrWhiteSpace(registration.ProviderKey))
+            throw new ArgumentException("提供方键不能为空。", nameof(registration));
+
+        var key = registration.ProviderKey.Trim();
+        var replaced = false;
+
+        _registrations.AddOrUpdate(
+            key,
+            _ => { replaced = false; return registration; },
+            (_, _) => { replaced = true; return registration; });
+
+        return replaced;
+    }
+
+    /// <summary>
+    /// 注销一个提供方工厂（插件卸载流程第 3 步，须早于 ALC 卸载）。
+    /// </summary>
+    /// <param name="providerKey">提供方键。</param>
+    /// <returns>命中并移除返回 <c>true</c>。</returns>
+    public bool TryRemove(string providerKey)
+        => !string.IsNullOrWhiteSpace(providerKey) && _registrations.TryRemove(providerKey.Trim(), out _);
 }
 
 /// <summary>
