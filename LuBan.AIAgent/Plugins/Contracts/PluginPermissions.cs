@@ -59,7 +59,7 @@ public sealed class PluginPermissions
     /// <summary>凭据维度范围。</summary>
     public List<string> Credential { get; set; } = new();
 
-    /// <summary>连接器维度范围（提供方键，如 <c>aliyunDevOps</c>）。</summary>
+    /// <summary>连接器维度范围（提供方键，如 <c>myVendor</c>）。</summary>
     public List<string> Connectors { get; set; } = new();
 
     /// <summary>

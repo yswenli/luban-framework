@@ -268,6 +268,9 @@ category: custom
 | 创建 MCP | `WriteMcpServerAsync` | 创建或覆盖工作区级 MCP 服务器配置，生成 JSON 配置文件 |
 | 删除 MCP | `DeleteMcpServerAsync` | 删除工作区级 MCP 配置 |
 | 测试 MCP | `TestMcpServerAsync` | 测试 MCP 服务器连接，不持久化配置 |
+| 列出连接器 | `ListConnectors` | 列出已声明连接器的提供方与「可用 / 启用 / 未声明」状态 |
+| 创建连接器 | `WriteConnectorAsync` | 创建或覆盖工作区级连接器声明（`.luban-agent/connectors/<name>.json`）；提供方必须已注册 |
+| 删除连接器 | `DeleteConnectorAsync` | 删除工作区级连接器声明 |
 
 **使用示例**（自然语言对话）：
 
@@ -280,13 +283,20 @@ AI: [调用 WriteSkillAsync] 已创建 Skill 'code-review-v2'，下一轮对话�
 
 用户: "添加一个 MCP 服务器，名称是 weather-api，命令是 node，参数是 weather-server.js"
 AI: [调用 WriteMcpServerAsync] 已创建 MCP 配置，正在连接...
+
+用户: "启用 myVendor 连接器，接口地址 https://api.example.com"
+AI: [调用 WriteConnectorAsync] 已创建连接器声明，凭据请到设置页保存（配置里只写 $credential: 引用）
 ```
+
+> 两个 MCP 工具组在写配置时都会做**明文凭据门禁**：`mcps/*.json` 与 `connectors/*.json` 里疑似令牌的字段必须写 `$credential:<键>`，否则直接拒写。
 
 **安全保护**：
 
 - 内置 Skill/MCP 不可覆盖或删除
 - Skill ID 必须符合 `^[a-z0-9][a-z0-9_-]{0,63}$` 格式
 - 单个 SKILL.md 文件大小限制 256KB
+- MCP / 连接器配置拒绝明文凭据（须写 `$credential:<键>` 引用）
+- 连接器提供方必须已由宿主 / 产品 / 插件注册，工具组只做「配置驱动」，不含厂商硬编码
 - 写入/删除操作需用户确认（Plan 模式下记录为计划项）
 - 修改后下一轮对话生效（延迟重载机制）
 
@@ -294,6 +304,7 @@ AI: [调用 WriteMcpServerAsync] 已创建 MCP 配置，正在连接...
 
 - Skill: `<workspace>/.luban-agent/skills/<skill-id>/SKILL.md`
 - MCP: `<workspace>/.luban-agent/mcps/<mcp-name>.json`
+- Connector: `<workspace>/.luban-agent/connectors/<name>.json`
 
 **配置选项**：
 
@@ -311,6 +322,9 @@ AI: [调用 WriteMcpServerAsync] 已创建 MCP 配置，正在连接...
         "MaxSkillFileBytes": 262144
       },
       "McpManage": {
+        "Enabled": true
+      },
+      "ConnectorManage": {
         "Enabled": true
       }
     },
@@ -338,11 +352,17 @@ AI: [调用 WriteMcpServerAsync] 已创建 MCP 配置，正在连接...
 | 组件 | 说明 |
 |------|------|
 | `IMCPClient` | MCP 客户端接口，与 MCP 服务器交互 |
-| `StdioMCPClient` | 基于 stdio JSON-RPC 的外部 MCP 客户端 |
-| `MCPRegistry` | MCP 注册表，管理内置和外部客户端（工作区文件 / config.json / 进程内三层合并） |
+| `McpServerConfig` | 外部 MCP 服务器配置：`transport` / `command` / `args` / `env` / `url` / `headers` / `environment` / `enabled` |
+| `StdioMCPClient` | 基于 stdio JSON-RPC 的外部 MCP 客户端（启动前经值解析器注入 `environment`） |
+| `HttpMCPClient` | HTTP 外部 MCP 客户端：`sse` 走 SSE 事件流 + `/message` 回传，`http` 走 **Streamable HTTP**（直连 `url`） |
 | `MCPClientFactory` | 按 `McpServerConfig.Transport` 创建外部客户端（stdio / http / sse 分派收敛于一处） |
+| `IMcpConfigValueResolver` / `CredentialValueResolver` | 配置值解析契约与默认实现：把 `$credential:<键>` **内联替换**为 `ICredentialStore` 中的凭据（键读到空白符为止），可用于 `url` / `headers` / `environment` / `args` |
+| `McpConfigSecurityValidator` | 外部 MCP 配置写入门禁：疑似令牌必须走 `$credential:` 引用，**拒绝明文落盘** |
+| `MCPRegistry` | MCP 注册表，管理内置和外部客户端（工作区文件 / config.json / 进程内三层合并） |
 | `MCPToolPlugin` | MCP 工具插件，将 MCP 工具暴露给 Agent |
 | `FileSystemMCPClient` | 内置文件系统 MCP 客户端 |
+
+> 配置驱动的**外部 MCP**（含 Streamable HTTP 与 `$credential:` 引用）是「带凭据地连接外部系统」的通用手段，与「连接器」互补：MCP 直接暴露远端工具，连接器则把外部系统读写收敛为宿主内的可配置单元。示例：`docs/examples/mcps/`（产品仓库）。
 
 ### 会话系统
 
@@ -420,7 +440,7 @@ AI: [调用 WriteMcpServerAsync] 已创建 MCP 配置，正在连接...
 | `BuiltinPluginCatalog` | 内置插件目录：登记宿主随包发布的进程内 `IPlugin`（必须注册为 Singleton） |
 | `PluginHostScope` / `PluginDescriptor` / `PluginChangedEventArgs` | 插件身份回填与贡献记账、管理器界面用的只读描述、状态变更事件载荷 |
 
-目录语义：**插件只有应用级**（`<AppContext.BaseDirectory>/plugins/<plugin-id>/`）；插件**贡献的** Skill / MCP 则落工作区级（`.luban-agent/skills`、`.luban-agent/mcps`），随卸载被显式删除。
+目录语义：**插件只有应用级**（`<AppContext.BaseDirectory>/plugins/<plugin-id>/`）；插件**贡献的** Skill / MCP 则落工作区级（`.luban-agent/skills`、`.luban-agent/mcps`），随卸载被显式删除。插件还可**贡献连接器工厂**（经 `IPluginHost.RegisterConnector`），框架在 ALC 卸载前自动反注册。
 
 ### 插件权限与凭据安全
 
@@ -428,16 +448,17 @@ AI: [调用 WriteMcpServerAsync] 已创建 MCP 配置，正在连接...
 
 | 组件 | 说明 |
 |------|------|
-| `PluginSecurityOptions` | 白名单策略（`NetworkWhitelist` / `ProcessWhitelist` / `GitWhitelist` / `FilesystemWhitelist` / `CredentialCatalog` / `EnforceAtRuntime` / `AuditDenials` / `MaxAuditRecords`），可从配置节点 `LuBanAgent:Plugins:Security` 覆盖（集合项为**追加**语义）；默认网络白名单为 `codeup.aliyun.com` / `flow.aliyun.com` / `*.aliyuncs.com`，进程白名单为 `dotnet` / `git`，**Git 能力白名单为能力组 `clone_push`（`clone` / `push`）/ `commit`（`add` / `commit`）/ `inspect`（`rev-parse` / `status` / `diff` / `branch` / `config` / `checkout`）**，凭据目录为 `connector:yunxiao:token`（旧拼写 `yunxiao_pat` 归一化兼容） |
-| `PluginPermissionEvaluator` | 判定引擎：`ValidateDeclaration` 做声明期覆盖校验（具体范围越界写入 `ManifestValidationResult.Errors`，通配 `*` 写入 `Warnings`）；`IsNetworkAllowed` / `IsProcessAllowed` / `IsCredentialAllowed` / `IsGitAllowed` / `IsFilesystemAllowed` 做运行期越界判定（通配声明以宿主白名单为上限；只读、不抛异常） |
+| `PluginSecurityOptions` | 白名单策略（`NetworkWhitelist` / `ProcessWhitelist` / `GitWhitelist` / `FilesystemWhitelist` / `CredentialCatalog` / `ConnectorWhitelist` / `EnforceAtRuntime` / `AuditDenials` / `MaxAuditRecords`），可从配置节点 `LuBanAgent:Plugins:Security` 覆盖（集合项为**追加**语义）。**框架不含任何厂商知识**：`NetworkWhitelist` / `CredentialCatalog` / `ConnectorWhitelist` 默认**空**（默认拒绝），厂商域名、凭据键与连接器提供方键一律由宿主配置补齐；进程白名单为 `dotnet` / `git`，**Git 能力白名单为能力组 `clone_push`（`clone` / `push`）/ `commit`（`add` / `commit`）/ `inspect`（`rev-parse` / `status` / `diff` / `branch` / `config` / `checkout`）**，文件系统白名单为 `workspace` |
+| `PluginPermissionEvaluator` | 判定引擎：`ValidateDeclaration` 做声明期覆盖校验（具体范围越界写入 `ManifestValidationResult.Errors`，通配 `*` 写入 `Warnings`）；`IsNetworkAllowed` / `IsProcessAllowed` / `IsCredentialAllowed` / `IsGitAllowed` / `IsFilesystemAllowed` / `IsConnectorAllowed` 做运行期越界判定（通配声明以宿主白名单为上限；只读、不抛异常） |
 | `PluginScopeContext` | 权限环境（`AsyncLocal`）：`Enter(pluginId, permissions)` 声明「当前调用以哪个插件身份发起」，可嵌套；`Current == null` 表示宿主自身调用，一律放行 |
 | `PluginPermissionGuard` | 运行期出口门禁：`RequireNetwork` / `RequireProcess` / `RequireCredential` / `RequireGit` 越界即抛 `PluginPermissionDeniedException` 并写入有界的 `RecentDenials` 审计；`PluginPermissionGuard.Default` 为无 DI 场景的兜底实例 |
-| `ICredentialStore` / `ConfigurationCredentialStore` | 凭据读写契约 + 默认「配置节点 `LuBanAgent:Credentials:<key>` + 环境变量兜底」只读实现（`SetAsync` 抛 `NotSupportedException`）；桌面宿主宜注册自己的可写实现替换它。规范键含冒号（`connector:yunxiao:token`）在 `IConfiguration` 中是三层嵌套节点，`Keys` 按路径展平还原，勿依赖子节点短名 |
-| `CredentialKeys` | 凭据键目录与归一化：连接器令牌统一为 `connector:<实例名>:token`（如 `connector:yunxiao:token`，见 `ForConnectorToken`），旧拼写 `codeup:pat` / `codeup_pat` / `yunxiao:pat` / `yunxiao_pat` 均归一化到同一规范键；组织 ID → `yunxiao_organization_id`；环境变量映射 `LUBAN_YUNXIAO_PAT` / `LUBAN_YUNXIAO_ORGANIZATION_ID`；`GetLegacyKeyAliases` 供旧键回退读取（Q15 泛化） |
+| `ICredentialStore` / `ConfigurationCredentialStore` | 凭据读写契约 + 默认「配置节点 `LuBanAgent:Credentials:<key>` + 环境变量兜底」只读实现（`SetAsync` 抛 `NotSupportedException`）；桌面宿主宜注册自己的可写实现替换它。规范键含冒号（`connector:<实例名>:token`）在 `IConfiguration` 中是三层嵌套节点，`Keys` 按路径展平还原，勿依赖子节点短名 |
+| `CredentialKeys` | 凭据键目录与归一化：连接器令牌统一为 `connector:<实例名>:token`（如 `connector:my-vendor:token`，见 `ForConnectorToken`）；`Normalize` 只做「大小写与分隔符」的规范化，**不做任何厂商历史拼写映射** |
+| `ICredentialKeyAliases` | 由**宿主**提供的别名表（`Aliases` / `EnvironmentVariableNames` / `GetLegacyEnvironmentVariableName`）：把厂商历史键（如 `myvendor_pat`）与环境变量名映射到规范键，供 `CredentialKeys.Normalize`、`ConfigurationCredentialStore` 与 `CredentialValueResolver` 回退读取；未注册别名的宿主按字面键处理 |
 
 要点：
 
-- **白名单是「覆盖」语义，不是「包含」语义**：插件写明的每个**具体范围**都必须被白名单里的某条规则覆盖。通配 `*`（含数组简写的裸维度，如 `["filesystem", "network"]`）表示「声明该维度、具体范围由宿主白名单决定」——声明期放行并记警告，运行期以白名单为**上限**判定，因此不会绕过白名单；`*.aliyuncs.com` 覆盖 `openapi-rdc.aliyuncs.com`，但不覆盖裸域 `aliyuncs.com`。
+- **白名单是「覆盖」语义，不是「包含」语义**：插件写明的每个**具体范围**都必须被白名单里的某条规则覆盖。通配 `*`（含数组简写的裸维度，如 `["filesystem", "network"]`）表示「声明该维度、具体范围由宿主白名单决定」——声明期放行并记警告，运行期以白名单为**上限**判定，因此不会绕过白名单；`*.example.com` 覆盖 `api.example.com`，但不覆盖裸域 `example.com`。
 - **Git 能力按「组」声明、按「操作名」判定**：白名单项是能力组，声明组即获得其全部子操作——`clone_push` → `clone` / `push`（远端读写）、`commit` → `add` / `commit`（本地暂存与提交）、`inspect` → `rev-parse` / `status` / `diff` / `branch` / `config` / `checkout`（本地只读检查与切分支）；也可直接声明具体操作名（如 `git:push`，被 `clone_push` 覆盖后声明亦合规）。宿主出口按**操作名**判定，插件自行拉起 git 进程时传子命令名（如 `add`）——只声明 `clone_push` 的插件执行本地 `add` / `commit` 会被判越界。
 - **`Disabled` 与 `Error` 的语义区别**：权限 / 凭据声明不合规 = 宿主策略不允许启用 → `Disabled`；清单格式问题（缺 `id`、`id` 非法、入口程序集缺失等）= 插件自身不可用 → 激活阶段判 `Error`。管家界面因此仍能列出格式有问题的插件并给出可诊断错误。
 - `PluginSecurityOptions.EnforceAtRuntime = false` 时只审计不拦截，仅供排查兼容性问题；生产应保持 `true`。
@@ -445,52 +466,60 @@ AI: [调用 WriteMcpServerAsync] 已创建 MCP 配置，正在连接...
 
 ### 连接器体系（Connectors）
 
-连接器把「外部系统读写 + 权限门禁 + MCP 暴露面」收敛为一个可配置单元：**抽象与内置实现在框架**，**宿主只按配置装配**——不再按名称硬编码 `switch`（PRD §3.10）。
+连接器把「外部系统读写 + 权限门禁 + MCP 暴露面」收敛为一个可配置单元：**框架只提供抽象基类与连接器管理，不含任何厂商实现**；厂商连接器（如云效）一律由**产品程序集或插件**提供并按配置装配——不按名称硬编码 `switch`（PRD §3.10）。
 
 | 组件 | 说明 |
 |------|------|
 | `IConnector` | 连接器契约：`Key` / `Name` / `DisplayName` / `McpExposures` / `InitializeAsync`，实现 `IAsyncDisposable` |
+| `ConnectorBase` | 连接器抽象基类（厂商无关）：提供幂等初始化（每个实例只成功初始化一次、失败不置位可重试）、释放与实例名的通用骨架；派生类只给 `Key` 与 `McpExposures` |
 | `ConnectorMcpExposure` | 连接器暴露的 MCP 面：`Name` / `Description` / `CreateClient(services, scope)`（进程内客户端只**借用**连接器，`Dispose` 不释放连接器） |
 | `ConnectorBuildContext` / `ConnectorSettings` | 工厂入参（实例名 / 提供方键 / 服务 / 设置 / `IConfiguration`）与设置袋子 |
-| `AddConnector<T>` / `AddBuiltinConnectors` | 注册连接器**工厂**（内置连接器只注册不启用）；`AddLuBanAgent` 已内置调用，最小宿主可显式调用 |
+| `AddConnector<T>` / `AddBuiltinConnectors` | 注册连接器**工厂**（只注册不启用）；框架的 `AddBuiltinConnectors` 只注册基础设施，**厂商连接器由产品 / 插件显式注册** |
+| `ConnectorFactoryRegistry` / `ConnectorInstanceHost` | 工厂表（线程安全，支持插件运行期增删）+ 宿主级**单例**实例缓存（连接器由 DI 持有，会话级 MCP 客户端按名派生） |
 | `ConnectorRegistry`（scoped） | 解析器：`LoadFromWorkspace` / `GetStates`（四态目录）/ `ApplyEnabledAsync` / `CreateMcpClient(mcpName, scope)` / `UnregisterAll` |
-| `ConnectorFactoryRegistry` / `ConnectorInstanceHost` | 工厂表 + 宿主级**单例**实例缓存（连接器由 DI 持有，会话级 MCP 客户端按名派生） |
 | `ConnectorConfig` | `config.json` 的 `connectors[]` 项：`name` / `provider` / `enabled` / `settings` |
+| `ConnectorWorkspaceEntry` | 工作区 `.luban-agent/connectors/<name>.json` 的对象模型：`name` / `provider` / `settings` / `enabled`（兼容只写 `{ "enabled": true }` 的旧格式） |
+| `IConnectorConfigWriter` / `WorkspaceConnectorConfigWriter` | 连接器声明写入契约 + 框架默认实现（写工作区文件、拒明文凭据、文件名防穿越）；产品 / 桌面宿主可注册自己的实现以统一缓存失效与通知链路 |
+| `ConnectorSettingsSecurityValidator` | 写入门禁：疑似令牌键（`token` / `secret` / `password` / `pat` / `apiKey` / `accessKey` / `credential` 等）必须写 `$credential:<键>` 引用，**拒绝明文落盘** |
 
 **可用性三级（配置驱动）**：
 
 | 级别 | 来源 | 作用 |
 |------|------|------|
-| 声明 | `config.json:connectors`（经 `IAppConfigReader.Connectors`） | 该提供方是否**可用**（未声明/未注册 = `Unavailable`，只告警跳过，不 fail-fast） |
-| 启用 | `.luban-agent/connectors/<name>.json` | 该连接器在本**工作区**是否启用（工作区启用未声明者视为未安装） |
-| 暴露 | 插件清单 `mcpServers: ["<name>"]` | 按名解析连接器的 MCP 暴露面，注入插件权限环境 |
+| 声明 | `config.json:connectors`（经 `IAppConfigReader.Connectors`）+ 工作区完整声明 | 该提供方是否**可用**（未声明/未注册 = `Unavailable`，只告警跳过，不 fail-fast） |
+| 启用 | `.luban-agent/connectors/<name>.json` | 该连接器在本**工作区**是否启用；文件可只写 `enabled`，也可自带 `provider` / `settings` 作**完整声明**（工作区覆盖 `config.json`，`settings` 逐键合并，未在 `config.json` 声明者按工作区声明补齐） |
+| 暴露 | 插件清单 `mcpServers: ["<name>"]` / 插件贡献的连接器 | 按名解析连接器的 MCP 暴露面，注入插件权限环境 |
 
 ```json
-// config.json（宿主 per-user 文件）
-{ "connectors": [ { "name": "yunxiao", "provider": "aliyunDevOps", "enabled": false } ] }
+// config.json（宿主 per-user 文件）—— 宿主声明「有哪些提供方可用」；框架不内置任何厂商项
+{ "connectors": [ { "name": "my-vendor", "provider": "myVendor", "enabled": false } ] }
 ```
 
 ```json
-// appsettings.json（非敏感参数覆盖；PAT 绝不落此节点）
-{ "LuBanAgent": { "Connectors": { "Yunxiao": { "OrganizationId": "your-org-id" } } } }
+// appsettings.json（非敏感参数覆盖；PAT 等凭据绝不落此节点）
+{ "LuBanAgent": { "Connectors": { "MyVendor": { "Endpoint": "https://api.example.com" } } } }
 ```
 
-> 凭据键按实例名泛化为 `connector:<实例名>:token`（见 `CredentialKeys`），PAT 只经 `ICredentialStore` 流转，**绝不**明文写入 `.luban-agent/mcps/*.json`。
+**插件贡献连接器**：插件可在 `plugin.json` 声明 `connectors: [{ "providerKey": "myVendor" }]`（或字符串数组简写），并在 `InitializeAsync` 里经 `IPluginHost.RegisterConnector(registration)` 把工厂登记进 `ConnectorFactoryRegistry`；宿主在卸载插件时会在 ALC `Unload()` **之前**自动调用 `UnregisterConnector` 反注册，避免工厂委托钉住插件 ALC。清单声明必须被 `permissions.connectors` 覆盖，且其**具体范围**须落在宿主 `PluginSecurityOptions.ConnectorWhitelist` 内（默认空 = 默认拒绝）。
 
-### 云效连接器（Aliyun DevOps / Codeup）
+> 凭据键按实例名泛化为 `connector:<实例名>:token`（见 `CredentialKeys`），PAT 只经 `ICredentialStore` 流转，**绝不**明文写入 `.luban-agent/mcps/*.json` 或 `.luban-agent/connectors/*.json`；需要在配置里引用凭据时写 `$credential:<键>`，由 `IMcpConfigValueResolver` / `CredentialValueResolver` 在装配时内联替换。
 
-面向云效（Aliyun DevOps，旧称 Codeup / Flow）的代码库与流水线读写，位于 `Connectors/AliyunDevOps/`；实现 `IConnector`（`ProviderKey = "aliyunDevOps"`，默认实例名 `yunxiao`），由 `AddBuiltinConnectors` 注册工厂并按配置装配，所有出口调用都要过 `PluginPermissionGuard`。
+**厂商连接器怎么写（宿主侧，不在框架内）**：一个 `ConnectorBase` 派生类 + 一行注册扩展即可，框架代码里不出现任何厂商名：
 
-| 组件 | 说明 |
-|------|------|
-| `YunxiaoApiOptions` / `YunxiaoConnector` | 组织 ID、域名、超时与统一 `HttpClient` 出口 |
-| `CodeupClient` | 代码库读写：`SearchRepositoriesAsync` / `GetRepositoryAsync` / `CreateRepositoryAsync` / `UpdateRepositoryAsync`（建库支持 `namespaceId` 归属代码组与 `templateProject` 模板同步）、`ListBranchesAsync` / `ListTemplateRepositoriesAsync`（模板库定位与实时解析 pin）、`ListNamespacesAsync` / `CreateNamespaceAsync`（代码组先查后建）、`CloneToLocalAsync` / `PushAsync`（均返回 `GitCommandResult`） |
-| `GitCommandResult` | 本地 Git 命令结果（`Success` / `ExitCode` / `StandardOutput` / `StandardError` / `TimedOut`）：失败时 `FailureSummary()` 给出 git 原始报错摘要（URL 内嵌凭据经 `SecretMasker` 脱敏），取代原先只回 `bool` 的做法 |
-| `FlowClient` | 流水线读写（云效 Flow） |
-| `IYunxiaoCredentialProvider` / `PatCredential` | PAT 与组织 ID 的凭据来源（PAT 读 `connector:yunxiao:token`，兼容旧键 `yunxiao_pat`；组织 ID 读 `yunxiao_organization_id`），不落明文 DB |
-| `YunxiaoMCPClient` / `YunxiaoToolDefinitions` | 把代码库 / 流水线能力包装成 **10 个** MCP 工具（Codeup：`codeup_search_repos` / `codeup_clone` / `codeup_create_repo` / `codeup_push` / `codeup_list_branches` / `codeup_create_group`；Flow：`flow_list_pipelines` / `flow_clone_pipeline` / `flow_update_pipeline` / `flow_run_pipeline`），供对话式调用 |
+```csharp
+// 产品程序集或插件内（ProviderKey = "myVendor"，默认实例名 "myVendor"）
+public sealed class MyVendorConnector : ConnectorBase
+{
+    public MyVendorConnector(ConnectorBuildContext ctx) => Name = ctx.Name;
 
-**响应形状**：云效 OpenAPI 成功响应是**裸对象 / 裸数组**（不套 `{ result: ... }` 信封），列表总数在响应头 `x-total`；业务错误体为 `{ code, errorCode, errorDescription, errorMessage, ... }`（`errorCode` 是字符串），由 `YunxiaoErrorMapper` 统一映射为 `YunxiaoApiException`。
+    public override string Key => "myVendor";
+
+    public override IReadOnlyList<ConnectorMcpExposure> McpExposures => [ /* 暴露面（可选） */ ];
+}
+
+// 装配（宿主 appsettings 里补 Plugins:Security:NetworkWhitelist / CredentialCatalog / ConnectorWhitelist）
+services.AddConnector<MyVendorConnector>("myVendor", ctx => new MyVendorConnector(ctx));
+```
 
 ## 使用指南
 
@@ -514,7 +543,7 @@ AI: [调用 WriteMcpServerAsync] 已创建 MCP 配置，正在连接...
 // 注册服务
 services.AddSingleton<IAppConfigReader>(myConfigManager);
 services.AddSingleton<IProviderRouter>(myProviderRouter);
-services.AddLuBanAgent(configuration);   // 已内置 AddBuiltinConnectors：注册内置连接器工厂（只注册不启用）
+services.AddLuBanAgent(configuration);   // 已内置 AddBuiltinConnectors：只注册连接器基础设施（不注册任何厂商连接器）
 ```
 
 > 连接器是否可用由 `IAppConfigReader.Connectors`（`config.json:connectors`）声明，是否启用由工作区 `.luban-agent/connectors/<name>.json` 决定，详见「连接器体系」。
@@ -884,7 +913,8 @@ services.AddSingleton<IPluginHost, MyPluginHost>();   // 宿主自己实现：�
   "uiContributions": [{ "id": "demo-entry", "label": "Demo", "panelType": "demo-panel" }],
   "skills": [{ "id": "demo-skill", "name": "Demo 技能" }],
   "mcpServers": [{ "name": "demo-mcp", "transport": "inproc", "enabled": true }],
-  "permissions": { "filesystem": ["workspace"], "network": ["codeup.aliyun.com", "*.aliyuncs.com"], "credential": ["yunxiao_pat"] },
+  "connectors": [{ "providerKey": "myVendor" }],
+  "permissions": { "filesystem": ["workspace"], "network": ["api.example.com"], "credential": ["connector:my-vendor:token"], "connectors": ["myVendor"] },
   "dependencies": ["com.tjc.base"]
 }
 ```
@@ -897,7 +927,8 @@ services.AddSingleton<IPluginHost, MyPluginHost>();   // 宿主自己实现：�
 | `name` / `version` / `entryAssembly` | 必填；版本形如 `1.0.0` 或 `1.0.0-beta.1` |
 | `skills[].id` | 不含点号（与 Skill 注册表约定一致） |
 | `mcpServers[].transport` | 目前仅支持 `inproc`（进程内 MCP 客户端） |
-| `permissions` | 6 个维度 `filesystem` / `network` / `git` / `database` / `process` / `credential`；可写数组简写 `["filesystem:workspace"]`（裸维度如 `"network"` 等价于该维度通配 `"*"`），未声明的维度等价于不声明，`"permissions": null` 归一化为空权限。**具体范围**须被宿主白名单**覆盖**，越界即 `Disabled`；通配 `*` 声明期放行、运行期以白名单为上限（见下方「权限声明如何生效」） |
+| `connectors[]` | 可选。插件贡献的连接器提供方：`{ "providerKey": "myVendor", "displayName": "..." }` 或字符串简写 `"myVendor"`；`providerKey` 必填且不得重复，且必须被 `permissions.connectors` 覆盖、落在宿主 `ConnectorWhitelist` 内 |
+| `permissions` | 7 个维度 `filesystem` / `network` / `git` / `database` / `process` / `credential` / `connectors`；可写数组简写 `["filesystem:workspace"]`（裸维度如 `"network"` 等价于该维度通配 `"*"`），未声明的维度等价于不声明，`"permissions": null` 归一化为空权限。**具体范围**须被宿主白名单**覆盖**，越界即 `Disabled`；通配 `*` 声明期放行、运行期以白名单为上限（见下方「权限声明如何生效」） |
 | `dependencies` | 仅校验依赖插件是否存在且已启用，不允许自引用 |
 
 `plugin.json` 的 JSON Schema 随包发布（`Plugins/Schemas/plugin.schema.json`），编辑器可据此补全与校验。
@@ -906,15 +937,15 @@ services.AddSingleton<IPluginHost, MyPluginHost>();   // 宿主自己实现：�
 
 清单里的 `permissions` 不是「告知」，而是一份**受宿主白名单审核的申请**（PRD §3.7：目录白名单 + 默认拒绝）：
 
-1. **声明期**：`EnableAsync` 先调 `PluginLoader.ValidatePermissions`（插件级 + 技能级），逐维度检查**具体范围**是否被 `PluginSecurityOptions` 白名单覆盖；任一越界即判 **`Disabled`**（`LastError` 写明越界项）。通配 `*`（含数组简写的裸维度，如 `["filesystem", "network"]`）不算越界，计入警告，运行期以白名单为**上限**；`*.aliyuncs.com` 覆盖 `openapi-rdc.aliyuncs.com`，但不覆盖裸域 `aliyuncs.com`。
-2. **运行期**：框架连接器（`CodeupClient` / `FlowClient` / `YunxiaoMCPClient` 等）在真正发起网络 / 进程 / 凭据 / Git 访问前调用 `PluginPermissionGuard` 判定。宿主在调用插件代码前用 `PluginScopeContext.Enter(pluginId, permissions)` 包裹；插件在宿主包裹不到的回调（UI 事件）里可自行 `PluginBase.EnterPermissionScope()`。**未声明即拒绝**；声明为通配 `*` 的维度以宿主白名单为上限判定；权限环境为空表示宿主自身调用，一律放行。
+1. **声明期**：`EnableAsync` 先调 `PluginLoader.ValidatePermissions`（插件级 + 技能级），逐维度检查**具体范围**是否被 `PluginSecurityOptions` 白名单覆盖；任一越界即判 **`Disabled`**（`LastError` 写明越界项）。通配 `*`（含数组简写的裸维度，如 `["filesystem", "network"]`）不算越界，计入警告，运行期以白名单为**上限**；`*.example.com` 覆盖 `api.example.com`，但不覆盖裸域 `example.com`。清单里的 `connectors[].providerKey` 同样要过这一关（维度 `connectors`，上限是 `ConnectorWhitelist`）。
+2. **运行期**：宿主 / 产品 / 插件提供的连接器与内置出口组件在真正发起网络 / 进程 / 凭据 / Git 访问前调用 `PluginPermissionGuard` 判定。宿主在调用插件代码前用 `PluginScopeContext.Enter(pluginId, permissions)` 包裹；插件在宿主包裹不到的回调（UI 事件）里可自行 `PluginBase.EnterPermissionScope()`。**未声明即拒绝**；声明为通配 `*` 的维度以宿主白名单为上限判定；权限环境为空表示宿主自身调用，一律放行。
 3. **凭据取用**：插件不能直接读凭据，须声明 `credential` 后由宿主经 `ICredentialStore` 代取；`EnforceAtRuntime = false` 时只审计不拦截（仅供排查兼容性问题，生产应保持 `true`）。
 
 **生命周期与卸载语义**
 
 - 状态：`Installed` → `Enabled` → `Disabled`（`Error` 为异常分支），持久化后跨重启恢复：`ScanAsync` 恢复记忆（上次 `Enabled` 的插件标记为待启用），`RestoreEnabledAsync` 再实际启用它们。
-- 禁用/卸载严格按 **7 步**：① `ShutdownAsync` → ② 注销 UI 贡献 → ③ 注销 Skill / MCP（**必须先于 ALC 卸载**，否则注册表里的实例会变成残留强引用、卸载必然失败）→ ④ 删除落盘的工作区文件式 Skill / MCP → ⑤ `AssemblyLoadContext.Unload()` → ⑥ 多轮 `GC.Collect` + 弱引用验证 → ⑦ 未通过则**降级**为 `Disabled` 并置 `RequiresRestart = true`，提示用户重启、同时把引用链路写进诊断日志。
-- 插件在 `InitializeAsync` 中**自行注册**（而非清单声明）的侧栏条目 / Skill / MCP 同样被记账，卸载时一并精确注销，避免"插件已卸载、入口仍在"的幽灵状态。
+- 禁用/卸载严格按 **7 步**：① `ShutdownAsync` → ② 注销 UI 贡献 → ③ 注销 Skill / MCP / **连接器工厂**（**必须先于 ALC 卸载**，否则注册表里的实例与工厂委托会变成残留强引用、卸载必然失败）→ ④ 删除落盘的工作区文件式 Skill / MCP → ⑤ `AssemblyLoadContext.Unload()` → ⑥ 多轮 `GC.Collect` + 弱引用验证 → ⑦ 未通过则**降级**为 `Disabled` 并置 `RequiresRestart = true`，提示用户重启、同时把引用链路写进诊断日志。
+- 插件在 `InitializeAsync` 中**自行注册**（而非清单声明）的侧栏条目 / Skill / MCP / 连接器工厂同样被记账，卸载时一并精确注销，避免"插件已卸载、入口仍在"的幽灵状态。
 - `UpgradeAsync` 热替换：先对旧版本走完整卸载流程，**卸载验证通过才**复制新包并重新启用；验证未通过则中止升级（否则每升级一次就多泄漏一份程序集）。
 - `IPluginHost` 注册的 Skill / MCP 落到**工作区级**文件，因此卸载必须显式删除，否则宿主的 `LoadFromWorkspace()` 会把它们重新加载回来。
 - **插件内的 JSON 读写不得走反射式序列化器**：`JsonSerializer.Deserialize<T>` / `Serialize<T>`（`T` 为插件自身类型）会在**默认 ALC** 里按「插件类型」缓存反射元数据（`JsonTypeInfo` / 成员访问委托），把插件 ALC 永久钉住，使第 ⑥ 步的弱引用验证必然失败。请改用 `System.Text.Json` **源生成**（`JsonSerializerContext` + `[JsonSerializable]`）或 DOM API（`JsonDocument` / `Utf8JsonWriter`）；插件内自建 `JsonSerializerOptions` 同样应避免（实测：反射路径钉住 ALC，源生成与 DOM 均可回收）。
@@ -960,8 +991,11 @@ LuBan.AIAgent/
 │   ├── IProviderRouter.cs             # Provider 路由接口
 │   ├── CustomSkillConfig.cs           # 自定义 Skill 配置
 │   ├── CustomRuleConfig.cs            # 自定义规则配置
-│   ├── McpServerConfig.cs             # 外部 MCP 服务器配置
+│   ├── McpServerConfig.cs             # 外部 MCP 服务器配置（stdio/http/sse + url/headers/environment）
+│   ├── McpManageToolOptions.cs        # MCP 管理工具组选项
 │   ├── ConnectorConfig.cs             # 连接器声明配置（config.json connectors[]）
+│   ├── ConnectorManageToolOptions.cs  # 连接器管理工具组选项
+│   ├── PluginAssemblySharing.cs       # 插件 ALC 共享程序集配置（必备集只读 + 追加列表）
 │   ├── LuBanAgentOptions.cs           # Agent 配置选项
 │   ├── BrowserToolOptions.cs          # 浏览器工具选项
 │   ├── FileSystemToolOptions.cs       # 文件系统工具选项
@@ -995,9 +1029,12 @@ LuBan.AIAgent/
 │   ├── Wiki/                          # LLM Wiki 知识库工具
 │   │   ├── WikiToolPlugin.cs          # wiki 工具插件（opt-in）
 │   │   └── WikiToolGroup.cs           # wiki 工具实现
-│   └── Orchestration/                 # 编排工具
-│       ├── OrchestrationToolPlugin.cs # 编排工具插件
-│       └── OrchestrationToolGroup.cs  # 编排工具组
+│   ├── Orchestration/                 # 编排工具
+│   │   ├── OrchestrationToolPlugin.cs # 编排工具插件
+│   │   └── OrchestrationToolGroup.cs  # 编排工具组
+│   └── ConnectorManage/               # 连接器管理工具（配置驱动，厂商无关）
+│       ├── ConnectorManageToolPlugin.cs # 连接器管理工具组插件
+│       └── ConnectorManageToolGroup.cs  # 列表/新增/删除连接器声明
 ├── Skills/
 │   ├── ISkill.cs                      # Skill 接口（含 PromptTemplate）
 │   ├── SkillBase.cs                   # Skill 基类
@@ -1027,30 +1064,26 @@ LuBan.AIAgent/
 ├── MCP/
 │   ├── IMCPClient.cs                  # MCP 客户端接口
 │   ├── MCPClientBase.cs               # 客户端基类
-│   ├── StdioMCPClient.cs              # stdio JSON-RPC 客户端
-│   ├── HttpMCPClient.cs               # http / sse 客户端
+│   ├── StdioMCPClient.cs              # stdio JSON-RPC 客户端（启动前注入 environment）
+│   ├── HttpMCPClient.cs               # http（Streamable HTTP） / sse 客户端
 │   ├── MCPClientFactory.cs            # 外部客户端工厂（stdio/http/sse 分派收敛）
+│   ├── IMcpConfigValueResolver.cs     # 配置值解析契约（$credential: 引用替换）
+│   ├── CredentialValueResolver.cs     # 默认解析实现（内联替换凭据引用）
+│   ├── McpConfigSecurityValidator.cs  # 外部 MCP 配置明文凭据门禁
 │   ├── MCPRegistry.cs                 # MCP 注册表
 │   ├── MCPToolPlugin.cs               # MCP 工具插件
 │   └── BuiltIn/
 │       └── FileSystemMCPClient.cs     # 文件系统 MCP 客户端
-├── Connectors/                        # 连接器体系（抽象在框架、按配置装配，不硬编码 switch）
+├── Connectors/                        # 连接器体系（框架只含抽象与管理；厂商实现由产品/插件提供）
 │   ├── IConnector.cs                  # 连接器契约 + MCP 暴露面 + 工厂入参/设置
-│   ├── ConnectorFactoryRegistry.cs    # 连接器工厂表 + 宿主级单例实例缓存
-│   ├── ConnectorRegistry.cs           # 会话级解析：声明/启用/四态目录/MCP 派生
-│   ├── ConnectorServiceCollectionExtensions.cs # AddConnector / AddBuiltinConnectors
-│   └── AliyunDevOps/                  # 云效连接器（ProviderKey: aliyunDevOps，实例名 yunxiao）
-│       ├── YunxiaoConnector.cs        # IConnector 实现 + MCP 暴露面
-│       ├── YunxiaoApiOptions.cs       # 组织 ID / 域名 / 超时
-│       ├── YunxiaoServiceCollectionExtensions.cs # 连接器 DI 注册扩展
-│       ├── IYunxiaoCredentialProvider.cs / PatCredential.cs # 凭据来源
-│       ├── CodeupClient.cs            # 代码库读写
-│       ├── FlowClient.cs              # 流水线读写
-│       ├── YunxiaoErrorMapper.cs / YunxiaoModels.cs # 错误映射与数据模型
-│       └── Mcp/                       # 进程内 MCP 客户端与工具定义
-│           ├── YunxiaoMCPClient.cs    # 云效 MCP 客户端（借用连接器，不释放）
-│           ├── YunxiaoToolDefinitions.cs # 工具 schema（代码定义）
-│           └── MCPRegistryExtensions.cs  # 注册/注销语义别名（透传）
+│   ├── ConnectorBase.cs               # 连接器抽象基类（幂等初始化 + 释放骨架，厂商无关）
+│   ├── ConnectorFactoryRegistry.cs    # 连接器工厂表（线程安全）+ 宿主级单例实例缓存
+│   ├── ConnectorRegistry.cs           # 会话级解析：声明/启用/四态目录/MCP 派生/工作区完整声明合并
+│   ├── ConnectorWorkspaceEntry.cs     # 工作区连接器条目（name/provider/settings/enabled，兼容旧 {enabled}）
+│   ├── IConnectorConfigWriter.cs      # 连接器声明写入契约
+│   ├── WorkspaceConnectorConfigWriter.cs # 默认写入实现（工作区文件 + 防穿越 + 凭据门禁）
+│   ├── ConnectorSettingsSecurityValidator.cs # 写入明文凭据门禁（$credential: 引用）
+│   └── ConnectorServiceCollectionExtensions.cs # AddConnector / AddBuiltinConnectors
 ├── Attachments/
 │   ├── IAttachmentProcessor.cs        # 附件处理器接口
 │   ├── DefaultAttachmentProcessor.cs  # 默认实现（图片/文本）
@@ -1124,7 +1157,7 @@ LuBan.AIAgent/
 │   │   ├── IPluginPanel.cs            # 插件面板契约（UI 无关）
 │   │   ├── IPluginStateRepository.cs  # 状态持久化契约
 │   │   ├── PluginManifest.cs          # plugin.json 清单模型
-│   │   ├── PluginPermissions.cs       # 权限声明（6 维度 + 数组/对象双形态 JSON 转换器）
+│   │   ├── PluginPermissions.cs       # 权限声明（7 维度含 connectors + 数组/对象双形态 JSON 转换器）
 │   │   ├── PluginSidebarEntry.cs      # 侧栏条目声明
 │   │   ├── PluginCommandDescriptor.cs # 命令声明
 │   │   ├── SkillDefinition.cs         # 插件贡献的 Skill 声明
@@ -1137,15 +1170,16 @@ LuBan.AIAgent/
 │   │   └── PluginDependencyResolver.cs# 依赖拓扑与环检测
 │   ├── Lifecycle/
 │   │   ├── PluginManager.cs           # 扫描/启用/禁用/安装/升级/卸载编排 + 7 步卸载与 GC 验证
-│   │   ├── PluginLoadContext.cs       # 可回收 AssemblyLoadContext（lib/ 优先，根部回退）
+│   │   ├── PluginLoadContext.cs       # 可回收 AssemblyLoadContext（lib/ 优先，根部回退；共享集可配置）
 │   │   ├── PluginHostScope.cs         # 宿主能力代理 + 贡献记账
 │   │   └── PluginStateRepository.cs   # 状态仓储 JSON 默认实现
 │   ├── Security/
-│   │   ├── PluginSecurityOptions.cs   # 权限白名单策略（网络/进程/Git/文件系统/凭据目录）
+│   │   ├── PluginSecurityOptions.cs   # 权限白名单策略（网络/进程/Git/文件系统/凭据目录/连接器提供方）
 │   │   ├── PluginPermissionEvaluator.cs # 声明期覆盖校验 + 运行期越界判定
 │   │   ├── PluginPermissionGuard.cs   # 运行期出口门禁 + 有界越界审计
 │   │   ├── PluginScopeContext.cs      # 权限环境（AsyncLocal）传递
-│   │   ├── CredentialKeys.cs          # 凭据键归一化与环境变量映射
+│   │   ├── CredentialKeys.cs          # 凭据键归一化（框架无厂商拼写表）
+│   │   ├── ICredentialKeyAliases.cs   # 宿主提供的厂商键别名表（规范键/环境变量名）
 │   │   ├── ICredentialStore.cs        # 凭据存储契约
 │   │   └── ConfigurationCredentialStore.cs # 默认「配置 + 环境变量」只读实现
 │   └── Schemas/

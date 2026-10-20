@@ -269,6 +269,9 @@ Create, use, and manage Skills and MCP servers through natural language conversa
 | Create MCP | `WriteMcpServerAsync` | Create or overwrite a workspace-level MCP server config, generating JSON file |
 | Delete MCP | `DeleteMcpServerAsync` | Delete a workspace-level MCP config |
 | Test MCP | `TestMcpServerAsync` | Test MCP server connection, without persisting the configuration |
+| List Connectors | `ListConnectors` | List declared connectors with their provider and available / enabled / undeclared state |
+| Create Connector | `WriteConnectorAsync` | Create or overwrite a workspace-level connector declaration (`.luban-agent/connectors/<name>.json`); the provider must already be registered |
+| Delete Connector | `DeleteConnectorAsync` | Delete a workspace-level connector declaration |
 
 **Usage Examples** (natural language conversation):
 
@@ -281,13 +284,20 @@ AI: [calls WriteSkillAsync] Created Skill 'code-review-v2', available in the nex
 
 User: "Add an MCP server named weather-api, command is node, arguments are weather-server.js"
 AI: [calls WriteMcpServerAsync] Created MCP configuration, connecting...
+
+User: "Enable the myVendor connector at https://api.example.com"
+AI: [calls WriteConnectorAsync] Created the connector declaration; save the credential on the settings page (the config only holds a $credential: reference)
 ```
+
+> Both MCP tool groups enforce a **plain-text credential gate** when writing config: fields that look like tokens in `mcps/*.json` and `connectors/*.json` must be `$credential:<key>` references, otherwise the write is rejected outright.
 
 **Security Protections**:
 
 - Built-in Skills/MCPs cannot be overwritten or deleted
 - Skill IDs must match `^[a-z0-9][a-z0-9_-]{0,63}$` format
 - Single SKILL.md file size limit: 256KB
+- MCP / connector configuration rejects plain-text credentials (a `$credential:<key>` reference is required)
+- Connector providers must already be registered by the host / product / plugin; the tool group is purely "configuration-driven" and contains no vendor hard-coding
 - Write/delete operations require user confirmation (recorded as plan items in Plan mode)
 - Changes take effect in the next conversation turn (delayed reload mechanism)
 
@@ -295,6 +305,7 @@ AI: [calls WriteMcpServerAsync] Created MCP configuration, connecting...
 
 - Skill: `<workspace>/.luban-agent/skills/<skill-id>/SKILL.md`
 - MCP: `<workspace>/.luban-agent/mcps/<mcp-name>.json`
+- Connector: `<workspace>/.luban-agent/connectors/<name>.json`
 
 **Configuration Options**:
 
@@ -312,6 +323,9 @@ AI: [calls WriteMcpServerAsync] Created MCP configuration, connecting...
         "MaxSkillFileBytes": 262144
       },
       "McpManage": {
+        "Enabled": true
+      },
+      "ConnectorManage": {
         "Enabled": true
       }
     },
@@ -339,11 +353,17 @@ AI: [calls WriteMcpServerAsync] Created MCP configuration, connecting...
 | Component | Description |
 |-----------|-------------|
 | `IMCPClient` | MCP client interface, interacts with MCP servers |
-| `StdioMCPClient` | stdio JSON-RPC based external MCP client |
-| `MCPRegistry` | MCP registry, manages built-in and external clients (workspace files / config.json / in-process, three-tier merge) |
+| `McpServerConfig` | External MCP server configuration: `transport` / `command` / `args` / `env` / `url` / `headers` / `environment` / `enabled` |
+| `StdioMCPClient` | stdio JSON-RPC based external MCP client (injects `environment` via the value resolver before launch) |
+| `HttpMCPClient` | HTTP external MCP client: `sse` uses the SSE event stream plus `/message`, `http` uses **Streamable HTTP** (direct to `url`) |
 | `MCPClientFactory` | Builds external clients from `McpServerConfig.Transport` (the stdio / http / sse dispatch lives in one place) |
+| `IMcpConfigValueResolver` / `CredentialValueResolver` | Value-resolution contract plus the default implementation: **inline-substitutes** `$credential:<key>` with credentials from `ICredentialStore` (the key is read up to whitespace) in `url` / `headers` / `environment` / `args` |
+| `McpConfigSecurityValidator` | Write-time gate for external MCP configuration: anything that looks like a token must use a `$credential:` reference, so **plain text is rejected** |
+| `MCPRegistry` | MCP registry, manages built-in and external clients (workspace files / config.json / in-process, three-tier merge) |
 | `MCPToolPlugin` | MCP tool plugin, exposes MCP tools to Agent |
 | `FileSystemMCPClient` | Built-in file system MCP client |
+
+> **Configuration-driven external MCP** (Streamable HTTP plus `$credential:` references) is the general way to "connect to an external system with credentials", and it complements connectors: MCP exposes remote tools directly, whereas a connector funnels external-system I/O into a configurable host-side unit. Examples: `docs/examples/mcps/` (product repo).
 
 ### Session System
 
@@ -411,7 +431,7 @@ A plugin is an **application-level** install unit (`plugins/<id>/` directory plu
 |------|------|
 | `IPlugin` | Plugin contract: `Id` / `Name` / `Version` / `Description` / `InitializeAsync` / `ShutdownAsync` / `ContributeSkills` |
 | `PluginBase` | Plugin base class (namespace `LuBan.AIAgent.Plugins.Base`), providing `Host` / `SafeLog` / `PostToUi` (wrapped in an invalidation token, plugins must never post to the UI thread directly) and `OnInitializeAsync` / `OnShutdownAsync` hooks |
-| `IPluginHost` | Host capability contract: register/unregister sidebar entries and panels, register/unregister Skills and MCP servers, `PostToUi`, `GetConfig`, plugin logging |
+| `IPluginHost` | Host capability contract: register/unregister sidebar entries and panels, register/unregister Skills and MCP servers, `RegisterConnector` / `UnregisterConnector`, `PostToUi`, `GetConfig`, plugin logging |
 | `PluginManager` | Singleton manager: `ScanAsync` / `RestoreEnabledAsync` / `GetPlugins` / `EnableAsync` / `DisableAsync` / `InstallAsync` / `UpgradeAsync` / `UninstallAsync`, plus the `Changed` event |
 | `PluginLoader` / `ManifestValidator` | Manifest reading and validation: required fields, id/version regexes, entry assembly existence, `minHostVersion` / `targetApp`, duplicates, `transport`, dependency self-reference; `ValidatePermissions` performs the permission/credential coverage check on its own (used by the pre-load gate, separate from the whole-manifest validation that yields `Error`) |
 | `PluginDependencyResolver` | Dependency topology and cycle detection (validates existence only, never auto-enables) |
@@ -420,7 +440,7 @@ A plugin is an **application-level** install unit (`plugins/<id>/` directory plu
 | `BuiltinPluginCatalog` | Built-in plugin catalog that registers in-process `IPlugin` instances shipped with the host (must be registered as Singleton) |
 | `PluginHostScope` / `PluginDescriptor` / `PluginChangedEventArgs` | Plugin identity backfill and contribution bookkeeping, read-only descriptor for manager UIs, state-change event payload |
 
-Directory semantics: **plugins exist at application level only** (`<AppContext.BaseDirectory>/plugins/<plugin-id>/`); the Skills / MCP servers a plugin **contributes** land at workspace level (`.luban-agent/skills`, `.luban-agent/mcps`) and are explicitly deleted on uninstall.
+Directory semantics: **plugins exist at application level only** (`<AppContext.BaseDirectory>/plugins/<plugin-id>/`); the Skills / MCP servers a plugin **contributes** land at workspace level (`.luban-agent/skills`, `.luban-agent/mcps`) and are explicitly deleted on uninstall. A plugin may also **contribute connector factories** (via `IPluginHost.RegisterConnector`), which the framework unregisters before the ALC unload.
 
 ### Plugin Permissions & Credential Security
 
@@ -428,16 +448,17 @@ Plugins are third-party code, so the host constrains their access with **directo
 
 | Component | Description |
 |------|------|
-| `PluginSecurityOptions` | Whitelist policy (`NetworkWhitelist` / `ProcessWhitelist` / `GitWhitelist` / `FilesystemWhitelist` / `CredentialCatalog` / `EnforceAtRuntime` / `AuditDenials` / `MaxAuditRecords`), overridable from the `LuBanAgent:Plugins:Security` configuration node (collection entries are **additive**); the default network whitelist is `codeup.aliyun.com` / `flow.aliyun.com` / `*.aliyuncs.com`, the process whitelist is `dotnet` / `git`, **the Git capability whitelist is the groups `clone_push` (`clone` / `push`) / `commit` (`add` / `commit`) / `inspect` (`rev-parse` / `status` / `diff` / `branch` / `config` / `checkout`)**, and the credential catalog is `connector:yunxiao:token` (the legacy spelling `yunxiao_pat` still normalizes) |
-| `PluginPermissionEvaluator` | The decision engine: `ValidateDeclaration` performs the declaration-time coverage check (concrete out-of-range scopes go into `ManifestValidationResult.Errors`; a wildcard `*` goes into `Warnings`); `IsNetworkAllowed` / `IsProcessAllowed` / `IsCredentialAllowed` / `IsGitAllowed` / `IsFilesystemAllowed` perform read-only runtime boundary decisions (a wildcard declaration is bounded by the host whitelist; they never throw) |
+| `PluginSecurityOptions` | Whitelist policy (`NetworkWhitelist` / `ProcessWhitelist` / `GitWhitelist` / `FilesystemWhitelist` / `CredentialCatalog` / `ConnectorWhitelist` / `EnforceAtRuntime` / `AuditDenials` / `MaxAuditRecords`), overridable from the `LuBanAgent:Plugins:Security` configuration node (collection entries are **additive**). **The framework contains no vendor knowledge**: `NetworkWhitelist` / `CredentialCatalog` / `ConnectorWhitelist` default to **empty** (deny by default), and vendor domains, credential keys, and connector provider keys are always supplied by host configuration; the process whitelist is `dotnet` / `git`, **the Git capability whitelist is the groups `clone_push` (`clone` / `push`) / `commit` (`add` / `commit`) / `inspect` (`rev-parse` / `status` / `diff` / `branch` / `config` / `checkout`)**, and the filesystem whitelist is `workspace` |
+| `PluginPermissionEvaluator` | The decision engine: `ValidateDeclaration` performs the declaration-time coverage check (concrete out-of-range scopes go into `ManifestValidationResult.Errors`; a wildcard `*` goes into `Warnings`); `IsNetworkAllowed` / `IsProcessAllowed` / `IsCredentialAllowed` / `IsGitAllowed` / `IsFilesystemAllowed` / `IsConnectorAllowed` perform read-only runtime boundary decisions (a wildcard declaration is bounded by the host whitelist; they never throw) |
 | `PluginScopeContext` | The permission environment (`AsyncLocal`): `Enter(pluginId, permissions)` declares "which plugin identity the current call belongs to", and it nests; `Current == null` means a host-originated call and is always allowed |
 | `PluginPermissionGuard` | The runtime egress guard: `RequireNetwork` / `RequireProcess` / `RequireCredential` / `RequireGit` throw `PluginPermissionDeniedException` on a boundary violation and append to the bounded `RecentDenials` audit; `PluginPermissionGuard.Default` is the fallback instance for non-DI scenarios |
-| `ICredentialStore` / `ConfigurationCredentialStore` | Credential read/write contract plus the default read-only "configuration node `LuBanAgent:Credentials:<key>` + environment-variable fallback" implementation (`SetAsync` throws `NotSupportedException`); desktop hosts should register their own writable implementation to replace it. A canonical key contains colons (`connector:yunxiao:token`), which is a three-level nested node in `IConfiguration`, so `Keys` flattens paths back to full keys — do not rely on short child names |
-| `CredentialKeys` | Credential key catalog and normalization: connector tokens are uniformly `connector:<instanceName>:token` (e.g. `connector:yunxiao:token`, see `ForConnectorToken`), and the legacy spellings `codeup:pat` / `codeup_pat` / `yunxiao:pat` / `yunxiao_pat` all normalize to the same canonical key; organization ID → `yunxiao_organization_id`; environment-variable mapping `LUBAN_YUNXIAO_PAT` / `LUBAN_YUNXIAO_ORGANIZATION_ID`; `GetLegacyKeyAliases` supports legacy-key fallback reads (the Q15 generalization) |
+| `ICredentialStore` / `ConfigurationCredentialStore` | Credential read/write contract plus the default read-only "configuration node `LuBanAgent:Credentials:<key>` + environment-variable fallback" implementation (`SetAsync` throws `NotSupportedException`); desktop hosts should register their own writable implementation to replace it. A canonical key contains colons (`connector:<instanceName>:token`), which is a three-level nested node in `IConfiguration`, so `Keys` flattens paths back to full keys — do not rely on short child names |
+| `CredentialKeys` | Credential key catalog and normalization: connector tokens are uniformly `connector:<instanceName>:token` (e.g. `connector:my-vendor:token`, see `ForConnectorToken`); `Normalize` only normalizes case and separators and carries **no vendor legacy-spelling table** |
+| `ICredentialKeyAliases` | A **host-supplied** alias table (`Aliases` / `EnvironmentVariableNames` / `GetLegacyEnvironmentVariableName`) mapping vendor legacy keys (e.g. `myvendor_pat`) and environment-variable names to canonical keys, used for fallback reads by `CredentialKeys.Normalize`, `ConfigurationCredentialStore`, and `CredentialValueResolver`; a host that registers no aliases falls back to literal keys |
 
 Key points:
 
-- **The whitelist uses "coverage" semantics, not "containment"**: every **concrete scope** a plugin declares must be covered by some whitelist rule. A wildcard `*` (including the bare-dimension array shorthand, e.g. `["filesystem", "network"]`) means "declare this dimension; the concrete scope is decided by the host whitelist" — it is accepted at declaration time with a warning and bounded by the whitelist at runtime, so it cannot bypass the whitelist. `*.aliyuncs.com` covers `openapi-rdc.aliyuncs.com` but not the bare domain `aliyuncs.com`.
+- **The whitelist uses "coverage" semantics, not "containment"**: every **concrete scope** a plugin declares must be covered by some whitelist rule. A wildcard `*` (including the bare-dimension array shorthand, e.g. `["filesystem", "network"]`) means "declare this dimension; the concrete scope is decided by the host whitelist" — it is accepted at declaration time with a warning and bounded by the whitelist at runtime, so it cannot bypass the whitelist. `*.example.com` covers `api.example.com` but not the bare domain `example.com`.
 - **Git capabilities are declared by "group" and decided by "operation name"**: each whitelist entry is a capability group, and declaring the group grants all of its sub-operations — `clone_push` → `clone` / `push` (remote read/write), `commit` → `add` / `commit` (local staging and committing), `inspect` → `rev-parse` / `status` / `diff` / `branch` / `config` / `checkout` (local read-only inspection and branch switching). A concrete operation name may also be declared directly (e.g. `git:push`, which is also valid once covered by `clone_push`). The host decides on the **operation name**, and a plugin that shells out to git itself passes the subcommand name (e.g. `add`) — a plugin declaring only `clone_push` is denied when it runs a local `add` / `commit`.
 - **`Disabled` vs `Error`**: a non-compliant permission/credential declaration means "host policy forbids enabling" → `Disabled`; a manifest format problem (missing `id`, invalid `id`, missing entry assembly, ...) means "the plugin itself is unusable" → `Error` at the activation stage. Manager UIs can therefore still list malformed plugins and surface a diagnosable error.
 - Setting `PluginSecurityOptions.EnforceAtRuntime = false` audits without blocking, purely for compatibility debugging; production should keep it `true`.
@@ -445,52 +466,60 @@ Key points:
 
 ### Connector System (Connectors)
 
-A connector bundles "external-system I/O + permission gate + MCP exposure" into one configurable unit: **the abstraction and built-in implementations live in the framework**, and **the host only assembles them from configuration** — no name-based `switch` (PRD §3.10).
+A connector bundles "external-system I/O + permission gate + MCP exposure" into one configurable unit: **the framework only provides the abstract base class and connector management, and contains no vendor implementation**; vendor connectors (e.g. Yunxiao) are always supplied by a **product assembly or plugin** and assembled from configuration — no name-based `switch` (PRD §3.10).
 
 | Component | Description |
 |-----------|-------------|
 | `IConnector` | Connector contract: `Key` / `Name` / `DisplayName` / `McpExposures` / `InitializeAsync`, implements `IAsyncDisposable` |
+| `ConnectorBase` | Vendor-neutral connector base class: idempotent initialization (each instance initializes successfully only once; a failure does not latch, so it can be retried), disposal, and instance-name skeleton; a derived type only supplies `Key` and `McpExposures` |
 | `ConnectorMcpExposure` | An MCP surface exposed by a connector: `Name` / `Description` / `CreateClient(services, scope)` (the in-process client only **borrows** the connector; `Dispose` never disposes the connector) |
 | `ConnectorBuildContext` / `ConnectorSettings` | Factory inputs (instance name / provider key / services / settings / `IConfiguration`) and the settings bag |
-| `AddConnector<T>` / `AddBuiltinConnectors` | Registers connector **factories** (built-ins are registered, not enabled); `AddLuBanAgent` already calls this, minimal hosts may call it explicitly |
+| `AddConnector<T>` / `AddBuiltinConnectors` | Registers connector **factories** (registered, not enabled); the framework's `AddBuiltinConnectors` only registers infrastructure — **vendor connectors are registered explicitly by the product / plugin** |
+| `ConnectorFactoryRegistry` / `ConnectorInstanceHost` | Factory table (thread-safe, plugins may add/remove at runtime) plus the host-level **singleton** instance cache (connectors are owned by DI; session-scoped MCP clients are derived by name) |
 | `ConnectorRegistry` (scoped) | Resolver: `LoadFromWorkspace` / `GetStates` (4-state catalog) / `ApplyEnabledAsync` / `CreateMcpClient(mcpName, scope)` / `UnregisterAll` |
-| `ConnectorFactoryRegistry` / `ConnectorInstanceHost` | Factory table plus the host-level **singleton** instance cache (connectors are owned by DI; session-scoped MCP clients are derived by name) |
 | `ConnectorConfig` | A `config.json` `connectors[]` item: `name` / `provider` / `enabled` / `settings` |
+| `ConnectorWorkspaceEntry` | Object model of `.luban-agent/connectors/<name>.json`: `name` / `provider` / `settings` / `enabled` (the legacy `{ "enabled": true }`-only shape is still supported) |
+| `IConnectorConfigWriter` / `WorkspaceConnectorConfigWriter` | Connector-declaration write contract plus the framework default (writes the workspace file, rejects plain-text credentials, blocks path traversal); products / desktop hosts may register their own implementation to unify cache invalidation and notification |
+| `ConnectorSettingsSecurityValidator` | Write-time gate: fields that look like tokens (`token` / `secret` / `password` / `pat` / `apiKey` / `accessKey` / `credential`, ...) must be `$credential:<key>` references — **plain text is rejected** |
 
 **Three-level availability (configuration-driven)**:
 
 | Level | Source | Effect |
 |-------|--------|--------|
-| Declared | `config.json:connectors` (via `IAppConfigReader.Connectors`) | Whether the provider is **available** (undeclared / unregistered = `Unavailable`, warn and skip, never fail-fast) |
-| Enabled | `.luban-agent/connectors/<name>.json` | Whether the connector is enabled in this **workspace** (enabling an undeclared connector counts as not installed) |
-| Exposed | Plugin manifest `mcpServers: ["<name>"]` | Resolves the connector's MCP surface by name and injects the plugin permission scope |
+| Declared | `config.json:connectors` (via `IAppConfigReader.Connectors`) plus full workspace declarations | Whether the provider is **available** (undeclared / unregistered = `Unavailable`, warn and skip, never fail-fast) |
+| Enabled | `.luban-agent/connectors/<name>.json` | Whether the connector is enabled in this **workspace**; the file may carry only `enabled`, or full `provider` / `settings` as a **complete declaration** (workspace overrides `config.json`, `settings` merges key by key, and connectors undeclared in `config.json` are supplied from the workspace declaration) |
+| Exposed | Plugin manifest `mcpServers: ["<name>"]` / connector contributed by a plugin | Resolves the connector's MCP surface by name and injects the plugin permission scope |
 
 ```json
-// config.json (host per-user file)
-{ "connectors": [ { "name": "yunxiao", "provider": "aliyunDevOps", "enabled": false } ] }
+// config.json (host per-user file) — the host declares which providers are available; the framework ships no vendor entry
+{ "connectors": [ { "name": "my-vendor", "provider": "myVendor", "enabled": false } ] }
 ```
 
 ```json
-// appsettings.json (non-secret parameter overrides; the PAT never lands here)
-{ "LuBanAgent": { "Connectors": { "Yunxiao": { "OrganizationId": "your-org-id" } } } }
+// appsettings.json (non-secret parameter overrides; credentials such as a PAT never land here)
+{ "LuBanAgent": { "Connectors": { "MyVendor": { "Endpoint": "https://api.example.com" } } } }
 ```
 
-> Credential keys are generalized per instance name to `connector:<instanceName>:token` (see `CredentialKeys`); the PAT flows only through `ICredentialStore` and is **never** written in plain text into `.luban-agent/mcps/*.json`.
+**Plugin-contributed connectors**: a plugin may declare `connectors: [{ "providerKey": "myVendor" }]` (or the string-array shorthand) in `plugin.json` and register its factory into `ConnectorFactoryRegistry` via `IPluginHost.RegisterConnector(registration)` inside `InitializeAsync`; when the host unloads the plugin it calls `UnregisterConnector` **before** the ALC `Unload()`, so factory delegates never pin the plugin ALC. The manifest declaration must be covered by `permissions.connectors`, and its **concrete scope** must fall inside the host's `PluginSecurityOptions.ConnectorWhitelist` (empty by default = deny by default).
 
-### Aliyun DevOps Connector (Codeup / Yunxiao)
+> Credential keys are generalized per instance name to `connector:<instanceName>:token` (see `CredentialKeys`); the PAT flows only through `ICredentialStore` and is **never** written in plain text into `.luban-agent/mcps/*.json` or `.luban-agent/connectors/*.json`; to reference a credential from configuration, write `$credential:<key>` and let `IMcpConfigValueResolver` / `CredentialValueResolver` inline-substitute it during assembly.
 
-Code repository and pipeline access for Aliyun DevOps (formerly Codeup / Flow) lives in `Connectors/AliyunDevOps/`; it implements `IConnector` (`ProviderKey = "aliyunDevOps"`, default instance name `yunxiao`), registers its factory through `AddBuiltinConnectors` and is assembled from configuration, and every outbound call passes through `PluginPermissionGuard`.
+**Writing a vendor connector (host side, outside the framework)**: one `ConnectorBase` derived type plus a one-line registration extension — no vendor name ever appears in framework code:
 
-| Component | Description |
-|-----------|-------------|
-| `YunxiaoApiOptions` / `YunxiaoConnector` | Organization ID, domain, timeout, and the shared `HttpClient` egress |
-| `CodeupClient` | Repository I/O: `SearchRepositoriesAsync` / `GetRepositoryAsync` / `CreateRepositoryAsync` / `UpdateRepositoryAsync` (creation supports `namespaceId` for a code group and `templateProject` for template sync), `ListBranchesAsync` / `ListTemplateRepositoriesAsync` (template-library lookup and runtime pin resolution), `ListNamespacesAsync` / `CreateNamespaceAsync` (find-or-create code groups), `CloneToLocalAsync` / `PushAsync` (both return `GitCommandResult`) |
-| `GitCommandResult` | Local Git command result (`Success` / `ExitCode` / `StandardOutput` / `StandardError` / `TimedOut`): on failure `FailureSummary()` surfaces the raw git error summary (URL-embedded credentials masked via `SecretMasker`), replacing the previous `bool`-only return |
-| `FlowClient` | Pipeline I/O (Aliyun Flow) |
-| `IYunxiaoCredentialProvider` / `PatCredential` | PAT and organization ID credential source (the PAT is read from `connector:yunxiao:token`, with legacy-key `yunxiao_pat` compatibility; the organization ID from `yunxiao_organization_id`), no plain-text DB storage |
-| `YunxiaoMCPClient` / `YunxiaoToolDefinitions` | Wraps repository / pipeline capabilities as **10** MCP tools (Codeup: `codeup_search_repos` / `codeup_clone` / `codeup_create_repo` / `codeup_push` / `codeup_list_branches` / `codeup_create_group`; Flow: `flow_list_pipelines` / `flow_clone_pipeline` / `flow_update_pipeline` / `flow_run_pipeline`) for conversational use |
+```csharp
+// Inside a product assembly or plugin (ProviderKey = "myVendor", default instance name "myVendor")
+public sealed class MyVendorConnector : ConnectorBase
+{
+    public MyVendorConnector(ConnectorBuildContext ctx) => Name = ctx.Name;
 
-**Response shapes**: a successful Yunxiao OpenAPI response is a **bare object / bare array** (no `{ result: ... }` envelope) and the list total is in the `x-total` response header; business errors use `{ code, errorCode, errorDescription, errorMessage, ... }` (`errorCode` is a string) and are mapped to `YunxiaoApiException` by `YunxiaoErrorMapper`.
+    public override string Key => "myVendor";
+
+    public override IReadOnlyList<ConnectorMcpExposure> McpExposures => [ /* optional surfaces */ ];
+}
+
+// Assembly (host appsettings supplies Plugins:Security:NetworkWhitelist / CredentialCatalog / ConnectorWhitelist)
+services.AddConnector<MyVendorConnector>("myVendor", ctx => new MyVendorConnector(ctx));
+```
 
 ## Usage Guide
 
@@ -514,7 +543,7 @@ Code repository and pipeline access for Aliyun DevOps (formerly Codeup / Flow) l
 // Register services
 services.AddSingleton<IAppConfigReader>(myConfigManager);
 services.AddSingleton<IProviderRouter>(myProviderRouter);
-services.AddLuBanAgent(configuration);   // already calls AddBuiltinConnectors: registers built-in connector factories (registered, not enabled)
+services.AddLuBanAgent(configuration);   // already calls AddBuiltinConnectors: registers connector infrastructure only (no vendor connectors)
 ```
 
 > Whether a connector is available is declared by `IAppConfigReader.Connectors` (`config.json:connectors`), and whether it is enabled is decided by the workspace file `.luban-agent/connectors/<name>.json` — see the "Connector System" section.
@@ -887,7 +916,8 @@ services.AddSingleton<IPluginHost, MyPluginHost>();   // host-supplied: wires in
   "uiContributions": [{ "id": "demo-entry", "label": "Demo", "panelType": "demo-panel" }],
   "skills": [{ "id": "demo-skill", "name": "Demo Skill" }],
   "mcpServers": [{ "name": "demo-mcp", "transport": "inproc", "enabled": true }],
-  "permissions": { "filesystem": ["workspace"], "network": ["codeup.aliyun.com", "*.aliyuncs.com"], "credential": ["yunxiao_pat"] },
+  "connectors": [{ "providerKey": "myVendor" }],
+  "permissions": { "filesystem": ["workspace"], "network": ["api.example.com"], "credential": ["connector:my-vendor:token"], "connectors": ["myVendor"] },
   "dependencies": ["com.tjc.base"]
 }
 ```
@@ -900,7 +930,8 @@ Manifest conventions:
 | `name` / `version` / `entryAssembly` | Required; version looks like `1.0.0` or `1.0.0-beta.1` |
 | `skills[].id` | Must not contain dots (matches the Skill registry convention) |
 | `mcpServers[].transport` | Only `inproc` is supported for now (in-process MCP client) |
-| `permissions` | Six dimensions `filesystem` / `network` / `git` / `database` / `process` / `credential`; the array shorthand `["filesystem:workspace"]` is accepted (a bare dimension such as `"network"` equals the wildcard `"*"` for that dimension), an omitted dimension is equivalent to undeclared, and `"permissions": null` normalizes to empty permissions. A **concrete scope** must be **covered** by the host whitelist, and a boundary violation means `Disabled`; a wildcard `*` passes declaration time and is bounded by the whitelist at runtime (see "How a permission declaration takes effect" below) |
+| `connectors[]` | Optional. Connector providers contributed by the plugin: `{ "providerKey": "myVendor", "displayName": "..." }` or the string shorthand `"myVendor"`; `providerKey` is required and must be unique, and it must be covered by `permissions.connectors` and fall inside the host `ConnectorWhitelist` |
+| `permissions` | Seven dimensions `filesystem` / `network` / `git` / `database` / `process` / `credential` / `connectors`; the array shorthand `["filesystem:workspace"]` is accepted (a bare dimension such as `"network"` equals the wildcard `"*"` for that dimension), an omitted dimension is equivalent to undeclared, and `"permissions": null` normalizes to empty permissions. A **concrete scope** must be **covered** by the host whitelist, and a boundary violation means `Disabled`; a wildcard `*` passes declaration time and is bounded by the whitelist at runtime (see "How a permission declaration takes effect" below) |
 | `dependencies` | Only verifies that the dependency plugin exists and is enabled; self-reference is rejected |
 
 A JSON Schema for `plugin.json` ships with the package (`Plugins/Schemas/plugin.schema.json`) so editors can complete and validate it.
@@ -909,15 +940,15 @@ A JSON Schema for `plugin.json` ships with the package (`Plugins/Schemas/plugin.
 
 The `permissions` in a manifest is not a notification — it is an **application reviewed against the host whitelist** (PRD §3.7: directory whitelist + default deny):
 
-1. **Declaration time**: `EnableAsync` first calls `PluginLoader.ValidatePermissions` (plugin-level plus skill-level) and checks every **concrete scope** against `PluginSecurityOptions`; any violation marks the plugin **`Disabled`** (with the offending scope in `LastError`). A wildcard `*` (including the bare-dimension array shorthand, e.g. `["filesystem", "network"]`) is not a violation: it is recorded as a warning and bounded by the whitelist at runtime. `*.aliyuncs.com` covers `openapi-rdc.aliyuncs.com` but not the bare domain `aliyuncs.com`.
-2. **Runtime**: framework connectors (`CodeupClient` / `FlowClient` / `YunxiaoMCPClient`, ...) consult `PluginPermissionGuard` right before any network / process / credential / Git call. The host wraps plugin calls with `PluginScopeContext.Enter(pluginId, permissions)`; plugins can call `PluginBase.EnterPermissionScope()` themselves in callbacks the host cannot wrap (UI events). **Undeclared means denied**; a dimension declared as wildcard `*` is bounded by the host whitelist; an empty permission environment denotes a host-originated call and is always allowed.
+1. **Declaration time**: `EnableAsync` first calls `PluginLoader.ValidatePermissions` (plugin-level plus skill-level) and checks every **concrete scope** against `PluginSecurityOptions`; any violation marks the plugin **`Disabled`** (with the offending scope in `LastError`). A wildcard `*` (including the bare-dimension array shorthand, e.g. `["filesystem", "network"]`) is not a violation: it is recorded as a warning and bounded by the whitelist at runtime. `*.example.com` covers `api.example.com` but not the bare domain `example.com`. A `connectors[].providerKey` in the manifest must pass this same gate (dimension `connectors`, bounded by `ConnectorWhitelist`).
+2. **Runtime**: connectors and built-in egress components supplied by the host / product / plugin consult `PluginPermissionGuard` right before any network / process / credential / Git call. The host wraps plugin calls with `PluginScopeContext.Enter(pluginId, permissions)`; plugins can call `PluginBase.EnterPermissionScope()` themselves in callbacks the host cannot wrap (UI events). **Undeclared means denied**; a dimension declared as wildcard `*` is bounded by the host whitelist; an empty permission environment denotes a host-originated call and is always allowed.
 3. **Credential access**: plugins cannot read credentials directly; they declare `credential` and the host fetches on their behalf through `ICredentialStore`. With `EnforceAtRuntime = false` the guard only audits instead of blocking (compatibility debugging only; production should keep it `true`).
 
 **Lifecycle and unload semantics**
 
 - States: `Installed` → `Enabled` → `Disabled` (with `Error` as the exception branch), persisted across restarts: `ScanAsync` restores the memory (plugins last left `Enabled` are marked for startup), and `RestoreEnabledAsync` actually enables them.
-- Disable/uninstall always follows **7 steps**: ① `ShutdownAsync` → ② unregister UI contributions → ③ unregister Skills / MCP servers (**must happen before the ALC unload**, otherwise registry-held instances become lingering strong references and unload inevitably fails) → ④ delete the workspace file-based Skills / MCP servers → ⑤ `AssemblyLoadContext.Unload()` → ⑥ several rounds of `GC.Collect` plus weak-reference verification → ⑦ on failure, **degrade** to `Disabled` with `RequiresRestart = true`, tell the user to restart, and write the reference chain to the diagnostic log.
-- Entries a plugin **registers itself** during `InitializeAsync` (rather than declaring in the manifest) are tracked too, and are unregistered precisely on unload, preventing "plugin uninstalled but entry still visible" ghost states.
+- Disable/uninstall always follows **7 steps**: ① `ShutdownAsync` → ② unregister UI contributions → ③ unregister Skills / MCP servers / **connector factories** (**must happen before the ALC unload**, otherwise registry-held instances and factory delegates become lingering strong references and unload inevitably fails) → ④ delete the workspace file-based Skills / MCP servers → ⑤ `AssemblyLoadContext.Unload()` → ⑥ several rounds of `GC.Collect` plus weak-reference verification → ⑦ on failure, **degrade** to `Disabled` with `RequiresRestart = true`, tell the user to restart, and write the reference chain to the diagnostic log.
+- Entries a plugin **registers itself** during `InitializeAsync` (rather than declaring in the manifest) are also tracked — sidebar entries / Skills / MCP servers / connector factories — and are unregistered precisely on unload, preventing "plugin uninstalled but entry still visible" ghost states.
 - `UpgradeAsync` (hot replacement): runs the full unload flow on the old version and **only copies the new package when unload verification passed**, then re-enables it; otherwise the upgrade is aborted (otherwise every upgrade would leak another assembly).
 - Skills / MCP servers registered through `IPluginHost` land as **workspace-level** files, so uninstall must delete them explicitly; otherwise the host's `LoadFromWorkspace()` will simply load them back.
 - **Plugins must not use the reflection-based JSON serializer**: `JsonSerializer.Deserialize<T>` / `Serialize<T>` (with `T` being a plugin-owned type) caches reflection metadata (`JsonTypeInfo` / member accessors) keyed by that plugin type **inside the default ALC**, pinning the plugin ALC forever so the step-⑥ weak-reference verification always fails. Use `System.Text.Json` **source generation** (`JsonSerializerContext` + `[JsonSerializable]`) or the DOM APIs (`JsonDocument` / `Utf8JsonWriter`) instead; plugins should also avoid creating their own `JsonSerializerOptions` (measured: the reflection path pins the ALC, while source generation and DOM both collect).
@@ -963,8 +994,11 @@ LuBan.AIAgent/
 │   ├── IProviderRouter.cs             # Provider routing interface
 │   ├── CustomSkillConfig.cs           # Custom skill configuration
 │   ├── CustomRuleConfig.cs            # Custom rule configuration
-│   ├── McpServerConfig.cs             # External MCP server config
+│   ├── McpServerConfig.cs             # External MCP server config (stdio/http/sse + url/headers/environment)
+│   ├── McpManageToolOptions.cs        # MCP management tool-group options
 │   ├── ConnectorConfig.cs             # Connector declaration config (config.json connectors[])
+│   ├── ConnectorManageToolOptions.cs  # Connector management tool-group options
+│   ├── PluginAssemblySharing.cs       # Plugin ALC assembly sharing (read-only required set + additive list)
 │   ├── LuBanAgentOptions.cs           # Agent configuration options
 │   ├── BrowserToolOptions.cs          # Browser tool options
 │   ├── FileSystemToolOptions.cs       # File system tool options
@@ -998,9 +1032,12 @@ LuBan.AIAgent/
 │   ├── Wiki/                          # LLM Wiki knowledge base tools
 │   │   ├── WikiToolPlugin.cs          # wiki tool plugin (opt-in)
 │   │   └── WikiToolGroup.cs           # wiki tool implementation
-│   └── Orchestration/                 # Orchestration tools
-│       ├── OrchestrationToolPlugin.cs # Orchestration tool plugin
-│       └── OrchestrationToolGroup.cs  # Orchestration tool group
+│   ├── Orchestration/                 # Orchestration tools
+│   │   ├── OrchestrationToolPlugin.cs # Orchestration tool plugin
+│   │   └── OrchestrationToolGroup.cs  # Orchestration tool group
+│   └── ConnectorManage/               # Connector management tools (configuration-driven, vendor-neutral)
+│       ├── ConnectorManageToolPlugin.cs # Connector management tool-group plugin
+│       └── ConnectorManageToolGroup.cs  # List/create/delete connector declarations
 ├── Skills/
 │   ├── ISkill.cs                      # Skill interface (with PromptTemplate)
 │   ├── SkillBase.cs                   # Skill base class
@@ -1030,30 +1067,26 @@ LuBan.AIAgent/
 ├── MCP/
 │   ├── IMCPClient.cs                  # MCP client interface
 │   ├── MCPClientBase.cs               # Client base class
-│   ├── StdioMCPClient.cs              # stdio JSON-RPC client
-│   ├── HttpMCPClient.cs               # http / sse client
+│   ├── StdioMCPClient.cs              # stdio JSON-RPC client (injects environment before launch)
+│   ├── HttpMCPClient.cs               # http (Streamable HTTP) / sse client
 │   ├── MCPClientFactory.cs            # External client factory (stdio/http/sse dispatch in one place)
+│   ├── IMcpConfigValueResolver.cs     # Value-resolution contract ($credential: reference substitution)
+│   ├── CredentialValueResolver.cs     # Default resolver (inline credential-reference substitution)
+│   ├── McpConfigSecurityValidator.cs  # Plain-text credential gate for external MCP config
 │   ├── MCPRegistry.cs                 # MCP registry
 │   ├── MCPToolPlugin.cs               # MCP tool plugin
 │   └── BuiltIn/
 │       └── FileSystemMCPClient.cs     # File system MCP client
-├── Connectors/                        # Connector system (abstraction in the framework, assembled from config, no name switch)
+├── Connectors/                        # Connector system (framework holds only abstraction and management; vendor impls come from products/plugins)
 │   ├── IConnector.cs                  # Connector contract + MCP exposure + factory inputs/settings
-│   ├── ConnectorFactoryRegistry.cs    # Connector factory table + host-level singleton instance cache
-│   ├── ConnectorRegistry.cs           # Scoped resolver: declaration/enablement/4-state catalog/MCP derivation
-│   ├── ConnectorServiceCollectionExtensions.cs # AddConnector / AddBuiltinConnectors
-│   └── AliyunDevOps/                  # Aliyun DevOps connector (ProviderKey: aliyunDevOps, instance name yunxiao)
-│       ├── YunxiaoConnector.cs        # IConnector implementation + MCP exposure
-│       ├── YunxiaoApiOptions.cs       # Organization ID / domain / timeout
-│       ├── YunxiaoServiceCollectionExtensions.cs # Connector DI registration extension
-│       ├── IYunxiaoCredentialProvider.cs / PatCredential.cs # Credential source
-│       ├── CodeupClient.cs            # Repository I/O
-│       ├── FlowClient.cs              # Pipeline I/O
-│       ├── YunxiaoErrorMapper.cs / YunxiaoModels.cs # Error mapping and data models
-│       └── Mcp/                       # In-process MCP client and tool definitions
-│           ├── YunxiaoMCPClient.cs    # Yunxiao MCP client (borrows the connector, never disposes it)
-│           ├── YunxiaoToolDefinitions.cs # Tool schemas (code-defined)
-│           └── MCPRegistryExtensions.cs  # Register/unregister semantic aliases (pass-through)
+│   ├── ConnectorBase.cs               # Vendor-neutral connector base class (idempotent init + disposal skeleton)
+│   ├── ConnectorFactoryRegistry.cs    # Connector factory table (thread-safe) + host-level singleton instance cache
+│   ├── ConnectorRegistry.cs           # Scoped resolver: declaration/enablement/4-state catalog/MCP derivation/workspace full-declaration merge
+│   ├── ConnectorWorkspaceEntry.cs     # Workspace connector entry (name/provider/settings/enabled, legacy {enabled} compatible)
+│   ├── IConnectorConfigWriter.cs      # Connector-declaration write contract
+│   ├── WorkspaceConnectorConfigWriter.cs # Default writer (workspace file + traversal guard + credential gate)
+│   ├── ConnectorSettingsSecurityValidator.cs # Plain-text credential write gate ($credential: references)
+│   └── ConnectorServiceCollectionExtensions.cs # AddConnector / AddBuiltinConnectors
 ├── Attachments/
 │   ├── IAttachmentProcessor.cs        # Attachment processor interface
 │   ├── DefaultAttachmentProcessor.cs  # Default implementation (images/text)
@@ -1123,11 +1156,11 @@ LuBan.AIAgent/
 │   │   └── BuiltinPluginCatalog.cs    # Built-in plugin catalog (shipped with the host)
 │   ├── Contracts/                     # Contracts: IPlugin / IPluginHost / IPluginPanel / state repository
 │   │   ├── IPlugin.cs                 # Plugin contract
-│   │   ├── IPluginHost.cs             # Host capability contract (sidebar/panel/Skill/MCP/logging/UI callback)
+│   │   ├── IPluginHost.cs             # Host capability contract (sidebar/panel/Skill/MCP/connectors/logging/UI callback)
 │   │   ├── IPluginPanel.cs            # Plugin panel contract (UI-agnostic)
 │   │   ├── IPluginStateRepository.cs  # State persistence contract
 │   │   ├── PluginManifest.cs          # plugin.json manifest model
-│   │   ├── PluginPermissions.cs       # Permission declarations (6 dimensions + array/object JSON converter)
+│   │   ├── PluginPermissions.cs       # Permission declarations (7 dimensions incl. connectors + array/object JSON converter)
 │   │   ├── PluginSidebarEntry.cs      # Sidebar entry declaration
 │   │   ├── PluginCommandDescriptor.cs # Command declaration
 │   │   ├── SkillDefinition.cs         # Skill declaration contributed by a plugin
@@ -1140,15 +1173,16 @@ LuBan.AIAgent/
 │   │   └── PluginDependencyResolver.cs# Dependency topology and cycle detection
 │   ├── Lifecycle/
 │   │   ├── PluginManager.cs           # Scan/enable/disable/install/upgrade/uninstall orchestration + 7-step unload and GC verification
-│   │   ├── PluginLoadContext.cs       # Collectible AssemblyLoadContext (lib/ first, falls back to the root)
+│   │   ├── PluginLoadContext.cs       # Collectible AssemblyLoadContext (lib/ first, falls back to the root; configurable sharing set)
 │   │   ├── PluginHostScope.cs         # Host capability proxy + contribution bookkeeping
 │   │   └── PluginStateRepository.cs   # Default JSON state repository
 │   ├── Security/
-│   │   ├── PluginSecurityOptions.cs   # Permission whitelist policy (network/process/Git/filesystem/credentials)
+│   │   ├── PluginSecurityOptions.cs   # Permission whitelist policy (network/process/Git/filesystem/credentials/connector providers)
 │   │   ├── PluginPermissionEvaluator.cs # Declaration-time coverage check + runtime boundary decisions
 │   │   ├── PluginPermissionGuard.cs   # Runtime egress guard + bounded violation audit
 │   │   ├── PluginScopeContext.cs      # Permission environment (AsyncLocal) propagation
-│   │   ├── CredentialKeys.cs          # Credential key normalization and environment-variable mapping
+│   │   ├── CredentialKeys.cs          # Credential key normalization (no vendor spelling table in the framework)
+│   │   ├── ICredentialKeyAliases.cs   # Host-supplied vendor key alias table (canonical keys/env-var names)
 │   │   ├── ICredentialStore.cs        # Credential storage contract
 │   │   └── ConfigurationCredentialStore.cs # Default read-only "configuration + environment variable" store
 │   └── Schemas/

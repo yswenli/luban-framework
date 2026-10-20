@@ -161,7 +161,7 @@ public sealed class PluginPermissionEvaluator
     /// 判定插件是否有权注册 / 使用指定连接器提供方（PRD §3.7：未声明则无法注册）。
     /// </summary>
     /// <param name="permissions">插件声明的权限。</param>
-    /// <param name="providerKey">连接器提供方键（如 <c>aliyunDevOps</c>）。</param>
+    /// <param name="providerKey">连接器提供方键（如 <c>myVendor</c>）。</param>
     /// <returns>允许时返回 <c>true</c>。</returns>
     public bool IsConnectorAllowed(PluginPermissions? permissions, string? providerKey)
     {
@@ -338,7 +338,7 @@ public sealed class PluginPermissionEvaluator
             var declaredSuffix = d[2..];
             var allowedSuffix = a[2..];
 
-            // *.aliyuncs.com 覆盖 *.aliyuncs.com 与 *.foo.aliyuncs.com
+            // *.example.com 覆盖 *.example.com 与 *.foo.example.com
             return string.Equals(declaredSuffix, allowedSuffix, StringComparison.Ordinal) ||
                    declaredSuffix.EndsWith("." + allowedSuffix, StringComparison.Ordinal);
         }

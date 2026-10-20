@@ -116,7 +116,7 @@
             "additionalProperties": false,
             "required": ["providerKey"],
             "properties": {
-              "providerKey": { "type": "string", "minLength": 1, "description": "提供方键，如 aliyunDevOps。" },
+              "providerKey": { "type": "string", "minLength": 1, "description": "提供方键，如 myVendor。" },
               "displayName": { "type": "string", "description": "提供方显示名。" }
             }
           }

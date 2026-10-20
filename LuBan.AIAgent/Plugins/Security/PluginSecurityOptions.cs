@@ -76,7 +76,7 @@ public sealed class PluginSecurityOptions
     /// <remarks>
     /// <para>
     /// <b>默认空</b>（默认拒绝）：具体提供方键属产品 / 插件知识，由宿主按需在
-    /// <c>LuBanAgent:Plugins:Security:Connectors</c> 配置（如 <c>aliyunDevOps</c>）。
+    /// <c>LuBanAgent:Plugins:Security:Connectors</c> 配置（如 <c>myVendor</c>）。
     /// </para>
     /// <para>
     /// 插件 <c>permissions.connectors</c> 声明必须落在目录内；未声明即无法注册 / 使用（运行期默认拒绝）。

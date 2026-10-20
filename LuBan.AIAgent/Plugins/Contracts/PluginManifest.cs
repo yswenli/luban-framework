@@ -162,8 +162,8 @@ public sealed class PluginMcpServerDeclaration
 /// </summary>
 /// <remarks>
 /// <para>
-/// 支持两种写法：字符串简写 <c>"aliyunDevOps"</c>，或对象详写
-/// <c>{ "providerKey": "aliyunDevOps", "displayName": "阿里云云效" }</c>。
+/// 支持两种写法：字符串简写 <c>"myVendor"</c>，或对象详写
+/// <c>{ "providerKey": "myVendor", "displayName": "示例厂商" }</c>。
 /// </para>
 /// <para>
 /// 声明项必须在插件 <c>permissions.connectors</c> 之内，且被宿主 <c>ConnectorWhitelist</c> 覆盖，
@@ -174,7 +174,7 @@ public sealed class PluginMcpServerDeclaration
 public sealed class PluginConnectorDeclaration
 {
     /// <summary>
-    /// 提供方键（如 <c>aliyunDevOps</c>），对应 <c>ConnectorFactoryRegistration.ProviderKey</c>。
+    /// 提供方键（如 <c>myVendor</c>），对应 <c>ConnectorFactoryRegistration.ProviderKey</c>。
     /// </summary>
     [JsonPropertyName("providerKey")]
     public string ProviderKey { get; set; } = string.Empty;

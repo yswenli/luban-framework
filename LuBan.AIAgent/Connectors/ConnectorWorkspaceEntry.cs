@@ -43,7 +43,7 @@ public sealed class ConnectorWorkspaceEntry
     public string? Name { get; set; }
 
     /// <summary>
-    /// 提供方键（如 <c>aliyunDevOps</c>）；缺省表示本文件只覆盖启用状态。
+    /// 提供方键（如 <c>myVendor</c>）；缺省表示本文件只覆盖启用状态。
     /// </summary>
     [JsonPropertyName("provider")]
     public string? Provider { get; set; }
