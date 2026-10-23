@@ -26,7 +26,7 @@ namespace LuBan.XTestProject;
 [TestClass]
 public class PluginManagerLifecycleUnitTest
 {
-    private const string BuiltinId = "com.tjc.builtin-demo";
+    private const string BuiltinId = "com.example.builtin-demo";
 
     private static string NewStateFile() => Path.Combine(
         Path.GetTempPath(),
@@ -181,8 +181,8 @@ public class PluginManagerLifecycleUnitTest
         var context = CreateManager();
         try
         {
-            Assert.IsFalse(await context.Manager.EnableAsync("com.tjc.not-installed"));
-            Assert.IsFalse(await context.Manager.DisableAsync("com.tjc.not-installed"));
+            Assert.IsFalse(await context.Manager.EnableAsync("com.example.not-installed"));
+            Assert.IsFalse(await context.Manager.DisableAsync("com.example.not-installed"));
         }
         finally
         {
@@ -259,18 +259,18 @@ public class PluginManagerLifecycleUnitTest
     {
         var context = CreateManager(builtins: new[]
         {
-            new RecordingPlugin("com.tjc.b", "乙插件"),
-            new RecordingPlugin("com.tjc.a", "甲插件")
+            new RecordingPlugin("com.example.b", "乙插件"),
+            new RecordingPlugin("com.example.a", "甲插件")
         });
         try
         {
             await context.Manager.ScanAsync(Array.Empty<string>());
-            await context.Manager.EnableAsync("com.tjc.b");
+            await context.Manager.EnableAsync("com.example.b");
 
             var all = context.Manager.GetPlugins();
 
             Assert.AreEqual(2, all.Count);
-            Assert.AreEqual("com.tjc.b", all[0].Id);
+            Assert.AreEqual("com.example.b", all[0].Id);
             Assert.AreEqual(PluginState.Enabled, all[0].State);
         }
         finally
@@ -308,8 +308,8 @@ public class PluginManagerLifecycleUnitTest
     public async Task ScanAsync_DiscoversDirectoryPluginByManifest()
     {
         using var root = PluginTestDirectory.Create();
-        root.WriteFile(Path.Combine("com.tjc.dir", "plugin.json"), """
-        { "id": "com.tjc.dir", "name": "目录插件", "version": "1.2.3", "entryAssembly": "Ghost.dll" }
+        root.WriteFile(Path.Combine("com.example.dir", "plugin.json"), """
+        { "id": "com.example.dir", "name": "目录插件", "version": "1.2.3", "entryAssembly": "Ghost.dll" }
         """);
 
         var context = CreateManager();
@@ -318,7 +318,7 @@ public class PluginManagerLifecycleUnitTest
             var count = await context.Manager.ScanAsync(new[] { root.Path });
 
             Assert.AreEqual(1, count);
-            var descriptor = context.Manager.GetPlugin("com.tjc.dir")!;
+            var descriptor = context.Manager.GetPlugin("com.example.dir")!;
             Assert.IsFalse(descriptor.IsBuiltin);
             Assert.AreEqual("目录插件", descriptor.Name);
             Assert.AreEqual("1.2.3", descriptor.Version);
@@ -368,9 +368,9 @@ public class PluginManagerLifecycleUnitTest
     public async Task EnableAsync_PermissionOutOfWhitelist_MarksDisabled()
     {
         using var root = PluginTestDirectory.Create();
-        root.WriteFile(Path.Combine("com.tjc.evil", "plugin.json"), """
+        root.WriteFile(Path.Combine("com.example.evil", "plugin.json"), """
         {
-          "id": "com.tjc.evil",
+          "id": "com.example.evil",
           "name": "越界插件",
           "version": "1.0.0",
           "entryAssembly": "Evil.dll",
@@ -382,12 +382,12 @@ public class PluginManagerLifecycleUnitTest
         try
         {
             await context.Manager.ScanAsync(new[] { root.Path });
-            Assert.IsNotNull(context.Manager.GetPlugin("com.tjc.evil"));
+            Assert.IsNotNull(context.Manager.GetPlugin("com.example.evil"));
 
-            Assert.IsFalse(await context.Manager.EnableAsync("com.tjc.evil"));
+            Assert.IsFalse(await context.Manager.EnableAsync("com.example.evil"));
 
             // PRD §3.7：权限声明越界属「宿主策略不允许启用」→ Disabled（而非 Error）
-            var descriptor = context.Manager.GetPlugin("com.tjc.evil")!;
+            var descriptor = context.Manager.GetPlugin("com.example.evil")!;
             Assert.AreEqual(PluginState.Disabled, descriptor.State);
             Assert.IsTrue(descriptor.LastError!.Contains("越界"), descriptor.LastError);
             CollectionAssert.Contains(descriptor.Permissions.Network.ToArray(), "evil.example.com");
@@ -405,13 +405,13 @@ public class PluginManagerLifecycleUnitTest
         using var root = PluginTestDirectory.Create();
         // 权限声明合规，但入口程序集缺失 → 应走到激活阶段判 Error
         // （证明权限门禁只拦权限，不会把格式问题误判为 Disabled）
-        root.WriteFile(Path.Combine("com.tjc.ok", "plugin.json"), """
+        root.WriteFile(Path.Combine("com.example.ok", "plugin.json"), """
         {
-          "id": "com.tjc.ok",
+          "id": "com.example.ok",
           "name": "合规插件",
           "version": "1.0.0",
           "entryAssembly": "Ok.dll",
-          "permissions": { "network": ["codeup.aliyun.com"], "credential": ["codeup:pat"] }
+          "permissions": { "network": ["git.example.com"], "credential": ["legacy:pat"] }
         }
         """);
 
@@ -420,8 +420,8 @@ public class PluginManagerLifecycleUnitTest
         {
             await context.Manager.ScanAsync(new[] { root.Path });
 
-            Assert.IsFalse(await context.Manager.EnableAsync("com.tjc.ok"));
-            Assert.AreEqual(PluginState.Error, context.Manager.GetPlugin("com.tjc.ok")!.State);
+            Assert.IsFalse(await context.Manager.EnableAsync("com.example.ok"));
+            Assert.AreEqual(PluginState.Error, context.Manager.GetPlugin("com.example.ok")!.State);
         }
         finally
         {
@@ -434,10 +434,10 @@ public class PluginManagerLifecycleUnitTest
     public async Task EnableAsync_DirectoryPluginWithBadAssembly_MarksError()
     {
         using var root = PluginTestDirectory.Create();
-        root.WriteFile(Path.Combine("com.tjc.broken", "plugin.json"), """
-        { "id": "com.tjc.broken", "name": "坏程序集", "version": "1.0.0", "entryAssembly": "Broken.dll" }
+        root.WriteFile(Path.Combine("com.example.broken", "plugin.json"), """
+        { "id": "com.example.broken", "name": "坏程序集", "version": "1.0.0", "entryAssembly": "Broken.dll" }
         """);
-        root.WriteFile(Path.Combine("com.tjc.broken", "lib", "Broken.dll"), "这不是一个程序集");
+        root.WriteFile(Path.Combine("com.example.broken", "lib", "Broken.dll"), "这不是一个程序集");
 
         var context = CreateManager();
         try
@@ -445,14 +445,14 @@ public class PluginManagerLifecycleUnitTest
             await context.Manager.ScanAsync(new[] { root.Path });
 
             // 加载失败必须被隔离为 Error，不能把异常抛给调用方
-            Assert.IsFalse(await context.Manager.EnableAsync("com.tjc.broken"));
+            Assert.IsFalse(await context.Manager.EnableAsync("com.example.broken"));
 
-            var descriptor = context.Manager.GetPlugin("com.tjc.broken")!;
+            var descriptor = context.Manager.GetPlugin("com.example.broken")!;
             Assert.AreEqual(PluginState.Error, descriptor.State);
             Assert.IsFalse(string.IsNullOrWhiteSpace(descriptor.LastError));
 
             // Error 态插件仍可被停用（走完卸载流程且无副作用）
-            Assert.IsTrue(await context.Manager.DisableAsync("com.tjc.broken"));
+            Assert.IsTrue(await context.Manager.DisableAsync("com.example.broken"));
         }
         finally
         {
@@ -466,22 +466,22 @@ public class PluginManagerLifecycleUnitTest
     {
         var stateFile = NewStateFile();
         using var root = PluginTestDirectory.Create();
-        var pluginDirectory = root.CreateDirectory("com.tjc.uninst");
-        root.WriteFile(Path.Combine("com.tjc.uninst", "plugin.json"), """
-        { "id": "com.tjc.uninst", "name": "待卸载", "version": "1.0.0", "entryAssembly": "Gone.dll" }
+        var pluginDirectory = root.CreateDirectory("com.example.uninst");
+        root.WriteFile(Path.Combine("com.example.uninst", "plugin.json"), """
+        { "id": "com.example.uninst", "name": "待卸载", "version": "1.0.0", "entryAssembly": "Gone.dll" }
         """);
 
         var context = CreateManager(stateFile);
         try
         {
             await context.Manager.ScanAsync(new[] { root.Path });
-            Assert.IsNotNull(context.Manager.GetPlugin("com.tjc.uninst"));
+            Assert.IsNotNull(context.Manager.GetPlugin("com.example.uninst"));
 
-            Assert.IsTrue(await context.Manager.UninstallAsync("com.tjc.uninst"));
+            Assert.IsTrue(await context.Manager.UninstallAsync("com.example.uninst"));
 
-            Assert.IsNull(context.Manager.GetPlugin("com.tjc.uninst"));
+            Assert.IsNull(context.Manager.GetPlugin("com.example.uninst"));
             Assert.IsFalse(Directory.Exists(pluginDirectory), "插件目录应被删除");
-            Assert.IsNull(await new PluginStateRepository(stateFile).GetAsync("com.tjc.uninst"));
+            Assert.IsNull(await new PluginStateRepository(stateFile).GetAsync("com.example.uninst"));
         }
         finally
         {
@@ -516,34 +516,34 @@ public class PluginManagerLifecycleUnitTest
         using var installed = PluginTestDirectory.Create();
         using var source = PluginTestDirectory.Create();
 
-        installed.WriteFile(Path.Combine("com.tjc.up", "plugin.json"), """
-        { "id": "com.tjc.up", "name": "升级样例", "version": "1.0.0", "entryAssembly": "Ghost.dll" }
+        installed.WriteFile(Path.Combine("com.example.up", "plugin.json"), """
+        { "id": "com.example.up", "name": "升级样例", "version": "1.0.0", "entryAssembly": "Ghost.dll" }
         """);
-        installed.WriteFile(Path.Combine("com.tjc.up", "lib", "Ghost.dll"), "v1");
+        installed.WriteFile(Path.Combine("com.example.up", "lib", "Ghost.dll"), "v1");
 
-        source.WriteFile(Path.Combine("com.tjc.up", "plugin.json"), """
-        { "id": "com.tjc.up", "name": "升级样例", "version": "2.0.0", "entryAssembly": "Ghost.dll" }
+        source.WriteFile(Path.Combine("com.example.up", "plugin.json"), """
+        { "id": "com.example.up", "name": "升级样例", "version": "2.0.0", "entryAssembly": "Ghost.dll" }
         """);
-        source.WriteFile(Path.Combine("com.tjc.up", "lib", "Ghost.dll"), "v2");
-        source.WriteFile(Path.Combine("com.tjc.up", "assets", "icon.png"), "icon");
+        source.WriteFile(Path.Combine("com.example.up", "lib", "Ghost.dll"), "v2");
+        source.WriteFile(Path.Combine("com.example.up", "assets", "icon.png"), "icon");
 
         var context = CreateManager(stateFile);
         try
         {
             await context.Manager.ScanAsync(new[] { installed.Path });
-            Assert.AreEqual("1.0.0", context.Manager.GetPlugin("com.tjc.up")!.Version);
+            Assert.AreEqual("1.0.0", context.Manager.GetPlugin("com.example.up")!.Version);
 
             Assert.IsTrue(await context.Manager.UpgradeAsync(
-                "com.tjc.up",
-                Path.Combine(source.Path, "com.tjc.up")));
+                "com.example.up",
+                Path.Combine(source.Path, "com.example.up")));
 
-            var descriptor = context.Manager.GetPlugin("com.tjc.up")!;
+            var descriptor = context.Manager.GetPlugin("com.example.up")!;
             Assert.AreEqual("2.0.0", descriptor.Version);
             Assert.AreEqual(PluginState.Installed, descriptor.State);
             Assert.IsFalse(descriptor.RequiresRestart);
 
             // 旧包内容必须被完全替换（先清空再复制），不能残留 v1 的文件
-            var target = Path.Combine(installed.Path, "com.tjc.up");
+            var target = Path.Combine(installed.Path, "com.example.up");
             Assert.AreEqual("v2", File.ReadAllText(Path.Combine(target, "lib", "Ghost.dll")));
             Assert.IsTrue(File.Exists(Path.Combine(target, "assets", "icon.png")));
         }
@@ -561,13 +561,13 @@ public class PluginManagerLifecycleUnitTest
         using var installed = PluginTestDirectory.Create();
         using var source = PluginTestDirectory.Create();
 
-        installed.WriteFile(Path.Combine("com.tjc.up", "plugin.json"), """
-        { "id": "com.tjc.up", "name": "升级样例", "version": "1.0.0", "entryAssembly": "Ghost.dll" }
+        installed.WriteFile(Path.Combine("com.example.up", "plugin.json"), """
+        { "id": "com.example.up", "name": "升级样例", "version": "1.0.0", "entryAssembly": "Ghost.dll" }
         """);
-        installed.WriteFile(Path.Combine("com.tjc.up", "lib", "Ghost.dll"), "v1");
+        installed.WriteFile(Path.Combine("com.example.up", "lib", "Ghost.dll"), "v1");
 
         source.WriteFile(Path.Combine("other", "plugin.json"), """
-        { "id": "com.tjc.other", "name": "另一个插件", "version": "2.0.0", "entryAssembly": "Ghost.dll" }
+        { "id": "com.example.other", "name": "另一个插件", "version": "2.0.0", "entryAssembly": "Ghost.dll" }
         """);
         source.WriteFile(Path.Combine("other", "lib", "Ghost.dll"), "v2");
 
@@ -578,12 +578,12 @@ public class PluginManagerLifecycleUnitTest
 
             // 源目录清单 id 与目标插件不一致 → 拒绝（否则等于把 B 插件塞进 A 的目录）
             Assert.IsFalse(await context.Manager.UpgradeAsync(
-                "com.tjc.up",
+                "com.example.up",
                 Path.Combine(source.Path, "other")));
 
-            Assert.AreEqual("1.0.0", context.Manager.GetPlugin("com.tjc.up")!.Version);
+            Assert.AreEqual("1.0.0", context.Manager.GetPlugin("com.example.up")!.Version);
             Assert.AreEqual("v1", File.ReadAllText(
-                Path.Combine(installed.Path, "com.tjc.up", "lib", "Ghost.dll")));
+                Path.Combine(installed.Path, "com.example.up", "lib", "Ghost.dll")));
         }
         finally
         {
@@ -744,3 +744,4 @@ public class PluginManagerLifecycleUnitTest
         public override IReadOnlyList<ConnectorMcpExposure> McpExposures => Array.Empty<ConnectorMcpExposure>();
     }
 }
+

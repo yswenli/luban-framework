@@ -16,8 +16,8 @@ namespace LuBan.XTestProject;
 /// 凭据存储与键归一化测试（PRD §3.7 / §4.9）。
 /// </summary>
 /// <remarks>
-/// 框架只认通用规范拼写 <c>connector:&lt;实例名&gt;:&lt;字段&gt;</c>；厂商历史拼写
-/// （如 <c>codeup:pat</c> 与 <c>yunxiao_pat</c>）的等价关系由宿主实现
+/// 框架只认通用规范拼写 <c>connector:&lt;实例名&gt;:&lt;字段&gt;</c>；历史拼写
+/// （如 <c>legacy:pat</c> 与 <c>legacy_pat</c>）的等价关系由宿主实现
 /// <see cref="ICredentialKeyAliases"/> 提供——本测试用 <see cref="DemoCredentialKeyAliases"/> 验证该机制。
 /// </remarks>
 [TestClass]
@@ -68,10 +68,10 @@ public class CredentialStoreUnitTest
     {
         var aliases = TestSecurity.Aliases;
 
-        foreach (var alias in new[] { "yunxiao_pat", "yunxiao:pat", "codeup_pat", "codeup:pat", "YUNXIAO_PAT" })
+        foreach (var alias in new[] { "legacy_pat", "legacy:pat", "LEGACY_PAT" })
             Assert.AreEqual(TestSecurity.DemoTokenKey, aliases.Resolve(alias));
 
-        foreach (var alias in new[] { "yunxiao_org_id", "yunxiao:org", "codeup_org_id", "codeup:org" })
+        foreach (var alias in new[] { "legacy_org_id", "legacy:org" })
             Assert.AreEqual(TestSecurity.DemoOrgKey, aliases.Resolve(alias));
 
         // 无别名的写法只做通用归一化
@@ -87,7 +87,7 @@ public class CredentialStoreUnitTest
 
         // 非连接器键 → LUBAN_<键>（非字母数字转下划线、大写）
         Assert.AreEqual("LUBAN_CUSTOM_KEY", CredentialKeys.GetEnvironmentVariableName("custom_key"));
-        Assert.AreEqual("LUBAN_YUNXIAO_ORGANIZATION_ID", CredentialKeys.GetEnvironmentVariableName("yunxiao_organization_id"));
+        Assert.AreEqual("LUBAN_LEGACY_ORGANIZATION_ID", CredentialKeys.GetEnvironmentVariableName("legacy_organization_id"));
     }
 
     // ---------------- 默认存储：读 ----------------
@@ -105,18 +105,18 @@ public class CredentialStoreUnitTest
     {
         var store = Store(($"{SectionName}:{TestSecurity.DemoTokenKey}", "pat-value"));
 
-        Assert.AreEqual("pat-value", await store.GetAsync("codeup:pat"));
-        Assert.AreEqual("pat-value", await store.GetAsync("YUNXIAO:PAT"));
+        Assert.AreEqual("pat-value", await store.GetAsync("legacy:pat"));
+        Assert.AreEqual("pat-value", await store.GetAsync("LEGACY:PAT"));
     }
 
     [TestMethod]
     public async Task GetAsync_LegacyConfiguredKey_FallsBackToAlias()
     {
         // 旧配置仍用历史拼写：宿主别名保证无需人工迁移
-        var store = Store(($"{SectionName}:yunxiao_pat", "legacy-value"));
+        var store = Store(($"{SectionName}:legacy_pat", "legacy-value"));
 
         Assert.AreEqual("legacy-value", await store.GetAsync(TestSecurity.DemoTokenKey));
-        Assert.AreEqual("legacy-value", await store.GetAsync("codeup:pat"));
+        Assert.AreEqual("legacy-value", await store.GetAsync("legacy:pat"));
     }
 
     [TestMethod]
@@ -141,7 +141,7 @@ public class CredentialStoreUnitTest
     {
         var store = Store(($"{SectionName}:{TestSecurity.DemoTokenKey}", "pat-value"));
 
-        Assert.IsTrue(store.Contains("codeup:pat"));
+        Assert.IsTrue(store.Contains("legacy:pat"));
         Assert.IsFalse(store.Contains("missing_key"));
         await Task.CompletedTask;
     }
@@ -168,7 +168,7 @@ public class CredentialStoreUnitTest
     {
         var store = Store(
             ($"{SectionName}:{TestSecurity.DemoTokenKey}", "pat-value"),
-            ($"{SectionName}:yunxiao_org_id", "org-1"));
+            ($"{SectionName}:legacy_org_id", "org-1"));
 
         var keys = store.Keys.ToArray();
 

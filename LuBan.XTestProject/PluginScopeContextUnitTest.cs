@@ -49,7 +49,7 @@ public class PluginScopeContextUnitTest
     [TestMethod]
     public void Enter_SetsScope_AndDisposeRestores()
     {
-        using (PluginScopeContext.Enter("com.demo.a", Network("codeup.aliyun.com")))
+        using (PluginScopeContext.Enter("com.demo.a", Network("git.example.com")))
         {
             Assert.IsNotNull(PluginScopeContext.Current);
             Assert.AreEqual("com.demo.a", PluginScopeContext.Current!.PluginId);
@@ -61,9 +61,9 @@ public class PluginScopeContextUnitTest
     [TestMethod]
     public void Enter_IsNestable_AndRestoresOuter()
     {
-        using (PluginScopeContext.Enter("outer", Network("codeup.aliyun.com")))
+        using (PluginScopeContext.Enter("outer", Network("git.example.com")))
         {
-            using (PluginScopeContext.Enter("inner", Network("flow.aliyun.com")))
+            using (PluginScopeContext.Enter("inner", Network("flow.example.com")))
             {
                 Assert.AreEqual("inner", PluginScopeContext.Current!.PluginId);
             }
@@ -86,7 +86,7 @@ public class PluginScopeContextUnitTest
     [TestMethod]
     public async Task Enter_FlowsIntoAsyncContinuations()
     {
-        using (PluginScopeContext.Enter("com.demo.async", Network("codeup.aliyun.com")))
+        using (PluginScopeContext.Enter("com.demo.async", Network("git.example.com")))
         {
             await Task.Yield();
             Assert.AreEqual("com.demo.async", PluginScopeContext.Current!.PluginId);
@@ -125,10 +125,10 @@ public class PluginScopeContextUnitTest
     {
         var guard = new PluginPermissionGuard(Evaluator(GuardOptions()));
 
-        using (PluginScopeContext.Enter("com.demo.ok", Network("codeup.aliyun.com")))
+        using (PluginScopeContext.Enter("com.demo.ok", Network("git.example.com")))
         {
-            Assert.IsTrue(guard.IsNetworkAllowed("codeup.aliyun.com"));
-            guard.RequireNetwork("codeup.aliyun.com", "plugin-call");
+            Assert.IsTrue(guard.IsNetworkAllowed("git.example.com"));
+            guard.RequireNetwork("git.example.com", "plugin-call");
         }
 
         Assert.AreEqual(0, guard.RecentDenials.Count);
@@ -141,7 +141,7 @@ public class PluginScopeContextUnitTest
     {
         var guard = new PluginPermissionGuard(Evaluator(GuardOptions()));
 
-        using (PluginScopeContext.Enter("com.demo.bad", Network("codeup.aliyun.com")))
+        using (PluginScopeContext.Enter("com.demo.bad", Network("git.example.com")))
         {
             var ex = Assert.ThrowsExactly<PluginPermissionDeniedException>(
                 () => guard.RequireNetwork("evil.example.com", "plugin-call"));
@@ -162,7 +162,7 @@ public class PluginScopeContextUnitTest
         var guard = new PluginPermissionGuard(Evaluator(GuardOptions()));
 
         // 声明了网络但未声明凭据 → 凭据出口仍被拒绝（PRD §3.7：未声明则无法读取）
-        using (PluginScopeContext.Enter("com.demo.nocred", Network("codeup.aliyun.com")))
+        using (PluginScopeContext.Enter("com.demo.nocred", Network("git.example.com")))
         {
             Assert.ThrowsExactly<PluginPermissionDeniedException>(
                 () => guard.RequireCredential(TestSecurity.DemoTokenKey, "plugin-call"));
@@ -174,7 +174,7 @@ public class PluginScopeContextUnitTest
     {
         var guard = new PluginPermissionGuard(Evaluator(GuardOptions()));
 
-        using (PluginScopeContext.Enter("com.demo.cred", Credential("codeup:pat")))
+        using (PluginScopeContext.Enter("com.demo.cred", Credential("legacy:pat")))
         {
             guard.RequireCredential(TestSecurity.DemoTokenKey, "plugin-call");
         }
@@ -190,7 +190,7 @@ public class PluginScopeContextUnitTest
         var options = GuardOptions(enforce: false);
         var guard = new PluginPermissionGuard(Evaluator(options));
 
-        using (PluginScopeContext.Enter("com.demo.audit", Network("codeup.aliyun.com")))
+        using (PluginScopeContext.Enter("com.demo.audit", Network("git.example.com")))
         {
             guard.RequireNetwork("evil.example.com", "plugin-call");
             Assert.IsTrue(guard.IsNetworkAllowed("evil.example.com"));
@@ -206,7 +206,7 @@ public class PluginScopeContextUnitTest
     {
         var guard = new PluginPermissionGuard(Evaluator(GuardOptions(maxRecords: 2)));
 
-        using (PluginScopeContext.Enter("com.demo.bounded", Network("codeup.aliyun.com")))
+        using (PluginScopeContext.Enter("com.demo.bounded", Network("git.example.com")))
         {
             for (var i = 0; i < 5; i++)
             {

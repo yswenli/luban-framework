@@ -35,7 +35,7 @@ public class PluginConnectorDeclarationUnitTest
     {
         var manifest = new PluginManifest
         {
-            Id = "com.tjc.connector-demo",
+            Id = "com.demo.connector",
             Name = "连接器演示",
             Version = "1.0.0",
             EntryAssembly = "Demo.dll"
@@ -50,11 +50,11 @@ public class PluginConnectorDeclarationUnitTest
     {
         const string json = """
         {
-          "id": "com.tjc.connector-demo",
+          "id": "com.demo.connector",
           "name": "连接器演示",
           "version": "1.0.0",
           "entryAssembly": "Demo.dll",
-          "connectors": [ "demo", { "providerKey": "aliyunDevOps", "displayName": "阿里云云效" } ]
+          "connectors": [ "demo", { "providerKey": "demoConnector", "displayName": "示例连接器" } ]
         }
         """;
 
@@ -63,8 +63,8 @@ public class PluginConnectorDeclarationUnitTest
         Assert.AreEqual(2, manifest.Connectors.Count);
         Assert.AreEqual("demo", manifest.Connectors[0].ProviderKey);
         Assert.IsNull(manifest.Connectors[0].DisplayName);
-        Assert.AreEqual("aliyunDevOps", manifest.Connectors[1].ProviderKey);
-        Assert.AreEqual("阿里云云效", manifest.Connectors[1].DisplayName);
+        Assert.AreEqual("demoConnector", manifest.Connectors[1].ProviderKey);
+        Assert.AreEqual("示例连接器", manifest.Connectors[1].DisplayName);
     }
 
     [TestMethod]
@@ -74,9 +74,9 @@ public class PluginConnectorDeclarationUnitTest
         var arrayForm = JsonSerializer.Deserialize<PluginManifest>(arrayJson, JsonOpts)!;
         CollectionAssert.AreEqual(new[] { "demo" }, arrayForm.Permissions.Connectors);
 
-        const string objectJson = """{ "permissions": { "connectors": [ "demo", "aliyunDevOps" ] } }""";
+        const string objectJson = """{ "permissions": { "connectors": [ "demo", "demoConnector" ] } }""";
         var objectForm = JsonSerializer.Deserialize<PluginManifest>(objectJson, JsonOpts)!;
-        CollectionAssert.AreEqual(new[] { "demo", "aliyunDevOps" }, objectForm.Permissions.Connectors);
+        CollectionAssert.AreEqual(new[] { "demo", "demoConnector" }, objectForm.Permissions.Connectors);
     }
 
     [TestMethod]
@@ -116,11 +116,11 @@ public class PluginConnectorDeclarationUnitTest
     [TestMethod]
     public void Declaration_WhitelistScoped_Passes_ButUnknownKeyFails()
     {
-        var within = Manifest("aliyunDevOps");
-        within.Permissions.Connectors.Add("aliyunDevOps");
+        var within = Manifest("demoConnector");
+        within.Permissions.Connectors.Add("demoConnector");
         Assert.IsTrue(Evaluator().Validate(within).IsValid);
 
-        // 不在示例宿主 ConnectorWhitelist（demo / aliyunDevOps）内的提供方：声明期越界
+        // 不在示例宿主 ConnectorWhitelist（demo / demoConnector）内的提供方：声明期越界
         var outside = Manifest("unknownVendor");
         outside.Permissions.Connectors.Add("unknownVendor");
         var result = Evaluator().Validate(outside);

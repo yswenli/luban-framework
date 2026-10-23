@@ -27,7 +27,7 @@ public class PluginPermissionsUnitTest
     {
         var json = """
         {
-          "id": "com.tjc.demo",
+          "id": "com.example.demo",
           "name": "Demo",
           "version": "1.0.0",
           "entryAssembly": "Demo.dll",
@@ -88,7 +88,7 @@ public class PluginPermissionsUnitTest
     public void MissingField_BecomesEmptyPermissions()
     {
         var json = """
-        { "id": "com.tjc.demo", "name": "Demo", "version": "1.0.0", "entryAssembly": "Demo.dll" }
+        { "id": "com.example.demo", "name": "Demo", "version": "1.0.0", "entryAssembly": "Demo.dll" }
         """;
 
         var manifest = JsonSerializer.Deserialize<PluginManifest>(json, JsonOpts)!;
@@ -168,7 +168,7 @@ public class PluginPermissionsUnitTest
     {
         var original = new PluginManifest
         {
-            Id = "com.tjc.demo",
+            Id = "com.example.demo",
             Name = "Demo",
             Version = "1.0.0",
             EntryAssembly = "Demo.dll",
@@ -190,10 +190,10 @@ public class PluginPermissionsUnitTest
     }
 
     [TestMethod]
-    public void KnownDimensions_MatchesPrdSixDimensions()
+    public void KnownDimensions_MatchesPrdSevenDimensions()
     {
         CollectionAssert.AreEqual(
-            new[] { "filesystem", "network", "git", "database", "process", "credential" },
+            new[] { "filesystem", "network", "git", "database", "process", "credential", "connectors" },
             PluginPermissions.KnownDimensions.ToArray());
     }
 }

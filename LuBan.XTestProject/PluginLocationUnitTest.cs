@@ -52,20 +52,20 @@ public class PluginLocationUnitTest
     public void ResolvePluginDirectory_FindsDirectoryWithManifest()
     {
         using var root = PluginTestDirectory.Create();
-        root.WriteFile(Path.Combine("com.tjc.demo", "plugin.json"), "{}");
+        root.WriteFile(Path.Combine("com.example.demo", "plugin.json"), "{}");
 
-        var resolved = PluginLocation.ResolvePluginDirectory("com.tjc.demo", new[] { root.Path });
+        var resolved = PluginLocation.ResolvePluginDirectory("com.example.demo", new[] { root.Path });
 
-        Assert.AreEqual(Path.Combine(root.Path, "com.tjc.demo"), resolved);
+        Assert.AreEqual(Path.Combine(root.Path, "com.example.demo"), resolved);
     }
 
     [TestMethod]
     public void ResolvePluginDirectory_IgnoresDirectoryWithoutManifest()
     {
         using var root = PluginTestDirectory.Create();
-        root.CreateDirectory("com.tjc.demo");
+        root.CreateDirectory("com.example.demo");
 
-        Assert.IsNull(PluginLocation.ResolvePluginDirectory("com.tjc.demo", new[] { root.Path }));
+        Assert.IsNull(PluginLocation.ResolvePluginDirectory("com.example.demo", new[] { root.Path }));
     }
 
     [TestMethod]
@@ -73,12 +73,12 @@ public class PluginLocationUnitTest
     {
         using var first = PluginTestDirectory.Create();
         using var second = PluginTestDirectory.Create();
-        first.WriteFile(Path.Combine("com.tjc.demo", "plugin.json"), """{"id":"first"}""");
-        second.WriteFile(Path.Combine("com.tjc.demo", "plugin.json"), """{"id":"second"}""");
+        first.WriteFile(Path.Combine("com.example.demo", "plugin.json"), """{"id":"first"}""");
+        second.WriteFile(Path.Combine("com.example.demo", "plugin.json"), """{"id":"second"}""");
 
-        var resolved = PluginLocation.ResolvePluginDirectory("com.tjc.demo", new[] { first.Path, second.Path });
+        var resolved = PluginLocation.ResolvePluginDirectory("com.example.demo", new[] { first.Path, second.Path });
 
-        Assert.AreEqual(Path.Combine(first.Path, "com.tjc.demo"), resolved);
+        Assert.AreEqual(Path.Combine(first.Path, "com.example.demo"), resolved);
     }
 
     [TestMethod]
@@ -87,8 +87,8 @@ public class PluginLocationUnitTest
         using var root = PluginTestDirectory.Create();
 
         Assert.IsNull(PluginLocation.ResolvePluginDirectory("  ", new[] { root.Path }));
-        Assert.IsNull(PluginLocation.ResolvePluginDirectory("com.tjc.demo", new[] { root.Path }));
-        Assert.IsNull(PluginLocation.ResolvePluginDirectory("com.tjc.demo", Array.Empty<string>()));
+        Assert.IsNull(PluginLocation.ResolvePluginDirectory("com.example.demo", new[] { root.Path }));
+        Assert.IsNull(PluginLocation.ResolvePluginDirectory("com.example.demo", Array.Empty<string>()));
     }
 
     [TestMethod]
@@ -128,8 +128,8 @@ public class PluginLocationUnitTest
     public void GetManifestPath_CombinesFileName()
     {
         Assert.AreEqual(
-            Path.Combine("D:\\plugins\\com.tjc.demo", "plugin.json"),
-            PluginLocation.GetManifestPath("D:\\plugins\\com.tjc.demo"));
+            Path.Combine("D:\\plugins\\com.example.demo", "plugin.json"),
+            PluginLocation.GetManifestPath("D:\\plugins\\com.example.demo"));
     }
 
     [TestMethod]

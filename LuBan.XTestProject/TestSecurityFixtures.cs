@@ -35,12 +35,12 @@ internal static class TestSecurity
     /// </summary>
     internal static PluginSecurityOptions Options() => new()
     {
-        NetworkWhitelist = new List<string> { "codeup.aliyun.com", "flow.aliyun.com", "*.aliyuncs.com" },
+        NetworkWhitelist = new List<string> { "git.example.com", "flow.example.com", "*.example.org" },
         ProcessWhitelist = new List<string> { "dotnet", "git" },
         CredentialCatalog = new List<string> { DemoTokenKey, DemoOrgKey },
         GitWhitelist = new List<string> { "clone_push", "commit", "inspect" },
         FilesystemWhitelist = new List<string> { "workspace" },
-        ConnectorWhitelist = new List<string> { "demo", "aliyunDevOps" }
+        ConnectorWhitelist = new List<string> { "demo", "demoConnector" }
     };
 
     /// <summary>构造判定器（示例宿主策略 + 示例别名）。</summary>
@@ -52,19 +52,19 @@ internal static class TestSecurity
 /// 示例宿主的凭据键别名：演示「历史拼写 → 规范键」的映射与旧数据回退。
 /// </summary>
 /// <remarks>
-/// 这里刻意使用 <c>codeup:pat</c> / <c>yunxiao_pat</c> 一类历史拼写作为<b>输入数据</b>，
+/// 这里刻意使用 <c>legacy_pat</c> / <c>legacy:pat</c> 一类历史拼写作为<b>输入数据</b>，
 /// 用于证明框架的别名机制可用；框架自身不识别这些键。
 /// </remarks>
 internal sealed class DemoCredentialKeyAliases : ICredentialKeyAliases
 {
     private static readonly string[] TokenAliases =
     {
-        "demo_pat", "demo:pat", "codeup_pat", "codeup:pat", "yunxiao_pat", "yunxiao:pat"
+        "demo_pat", "demo:pat", "legacy_pat", "legacy:pat"
     };
 
     private static readonly string[] OrgAliases =
     {
-        "demo_org_id", "demo:org", "codeup_org_id", "codeup:org", "yunxiao_org_id", "yunxiao:org"
+        "demo_org_id", "demo:org", "legacy_org_id", "legacy:org"
     };
 
     /// <inheritdoc />
@@ -84,8 +84,8 @@ internal sealed class DemoCredentialKeyAliases : ICredentialKeyAliases
     /// <inheritdoc />
     public IReadOnlyList<string> GetLegacyAliases(string canonicalKey) => canonicalKey switch
     {
-        TestSecurity.DemoTokenKey => new[] { "demo_pat", "codeup:pat", "yunxiao_pat" },
-        TestSecurity.DemoOrgKey => new[] { "demo_org_id", "codeup:org", "yunxiao_org_id" },
+        TestSecurity.DemoTokenKey => new[] { "demo_pat", "legacy:pat", "legacy_pat" },
+        TestSecurity.DemoOrgKey => new[] { "demo_org_id", "legacy:org" },
         _ => Array.Empty<string>()
     };
 

@@ -38,7 +38,7 @@ public class PluginAssemblySharingUnitTest
     {
         var sharing = PluginAssemblySharing.Default;
 
-        Assert.IsFalse(sharing.IsShared("LubanAgent.Connectors.AliyunDevOps"));
+        Assert.IsFalse(sharing.IsShared("LubanAgentCore"));
         Assert.IsFalse(sharing.IsShared("Newtonsoft.Json"));
         Assert.IsFalse(sharing.IsShared(""));
     }
@@ -50,7 +50,7 @@ public class PluginAssemblySharingUnitTest
         sharing.AdditionalPrefixes.Add("LubanAgent.");
         sharing.AdditionalExactNames.Add("My.Plugin.Contract");
 
-        Assert.IsTrue(sharing.IsShared("LubanAgent.Connectors.AliyunDevOps"));
+        Assert.IsTrue(sharing.IsShared("LubanAgent.PluginContract"));
         Assert.IsTrue(sharing.IsShared("LubanAgent.Codex"));
         Assert.IsTrue(sharing.IsShared("My.Plugin.Contract"));
         Assert.IsFalse(sharing.IsShared("Newtonsoft.Json"));

@@ -22,7 +22,7 @@ public class ManifestValidatorUnitTest
 
     private static PluginManifest Valid() => new()
     {
-        Id = "com.tjc.newproject",
+        Id = "com.example.newproject",
         Name = "新建项目",
         Version = "1.0.0",
         EntryAssembly = "NewProject.dll",
@@ -61,7 +61,7 @@ public class ManifestValidatorUnitTest
     }
 
     [TestMethod]
-    [DataRow("com.tjc.newproject")]      // 反向域名
+    [DataRow("com.example.newproject")]      // 反向域名
     [DataRow("newproject")]              // 单词
     [DataRow("com-tjc-newproject")]      // 中划线
     [DataRow("com_tjc_newproject")]      // 下划线
@@ -75,8 +75,8 @@ public class ManifestValidatorUnitTest
     }
 
     [TestMethod]
-    [DataRow("1com.tjc")]                // 数字开头
-    [DataRow(".com.tjc")]                // 点开头
+    [DataRow("1com.example")]                // 数字开头
+    [DataRow(".com.example")]                // 点开头
     [DataRow("com tjc")]                 // 空格
     [DataRow("com/tjc")]                 // 斜杠
     [DataRow("a")]                       // 少于 2 字符
@@ -249,8 +249,8 @@ public class ManifestValidatorUnitTest
     public void McpServers_DuplicateName_ReportsError()
     {
         var manifest = Valid();
-        manifest.McpServers.Add(new PluginMcpServerDeclaration { Name = "yunxiao" });
-        manifest.McpServers.Add(new PluginMcpServerDeclaration { Name = "Yunxiao" });
+        manifest.McpServers.Add(new PluginMcpServerDeclaration { Name = "demo" });
+        manifest.McpServers.Add(new PluginMcpServerDeclaration { Name = "Demo" });
 
         var result = _validator.Validate(manifest);
 
@@ -262,7 +262,7 @@ public class ManifestValidatorUnitTest
     public void McpServers_NonInprocTransport_ReportsError()
     {
         var manifest = Valid();
-        manifest.McpServers.Add(new PluginMcpServerDeclaration { Name = "yunxiao", Transport = "stdio" });
+        manifest.McpServers.Add(new PluginMcpServerDeclaration { Name = "demo", Transport = "stdio" });
 
         var result = _validator.Validate(manifest);
 
@@ -274,7 +274,7 @@ public class ManifestValidatorUnitTest
     public void McpServers_InprocOrDefaultTransport_IsValid()
     {
         var manifest = Valid();
-        manifest.McpServers.Add(new PluginMcpServerDeclaration { Name = "yunxiao", Transport = "inproc" });
+        manifest.McpServers.Add(new PluginMcpServerDeclaration { Name = "demo", Transport = "inproc" });
         manifest.McpServers.Add(new PluginMcpServerDeclaration { Name = "other" });
 
         Assert.IsTrue(_validator.Validate(manifest).IsValid);
@@ -284,17 +284,17 @@ public class ManifestValidatorUnitTest
     public void EnabledMcpServers_ExcludesDisabledDeclarations()
     {
         var manifest = Valid();
-        manifest.McpServers.Add(new PluginMcpServerDeclaration { Name = "yunxiao", Enabled = true });
+        manifest.McpServers.Add(new PluginMcpServerDeclaration { Name = "demo", Enabled = true });
         manifest.McpServers.Add(new PluginMcpServerDeclaration { Name = "flow", Enabled = false });
 
-        CollectionAssert.AreEqual(new[] { "yunxiao" }, manifest.EnabledMcpServers.Select(s => s.Name).ToArray());
+        CollectionAssert.AreEqual(new[] { "demo" }, manifest.EnabledMcpServers.Select(s => s.Name).ToArray());
     }
 
     [TestMethod]
     public void Dependencies_SelfReference_ReportsError()
     {
         var manifest = Valid();
-        manifest.Dependencies.Add("com.tjc.newproject");
+        manifest.Dependencies.Add("com.example.newproject");
 
         var result = _validator.Validate(manifest);
 

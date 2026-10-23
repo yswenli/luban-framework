@@ -42,8 +42,8 @@ public class PluginSecurityValidatorUnitTest
     {
         var permissions = new PluginPermissions
         {
-            Network = new List<string> { "codeup.aliyun.com", "*.aliyuncs.com" },
-            Credential = new List<string> { "yunxiao_pat" },
+            Network = new List<string> { "git.example.com", "*.example.org" },
+            Credential = new List<string> { "legacy_pat" },
             Git = new List<string> { "clone_push" },
             Filesystem = new List<string> { "workspace" },
         };
@@ -98,8 +98,8 @@ public class PluginSecurityValidatorUnitTest
     public void HostWhitelist_Override_TightensAcceptance()
     {
         // 宿主收紧白名单后，原先合规的声明变为越界
-        var options = new PluginSecurityOptions { NetworkWhitelist = new List<string> { "flow.aliyun.com" } };
-        var permissions = new PluginPermissions { Network = new List<string> { "codeup.aliyun.com" } };
+        var options = new PluginSecurityOptions { NetworkWhitelist = new List<string> { "flow.example.com" } };
+        var permissions = new PluginPermissions { Network = new List<string> { "git.example.com" } };
 
         var result = Validator(options).Validate(Manifest(permissions));
 

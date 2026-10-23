@@ -82,14 +82,14 @@ public class PluginPermissionEvaluatorUnitTest
     [TestMethod]
     public void Declaration_NetworkInWhitelist_IsValid()
     {
-        AssertAccepted(Perms("network", "codeup.aliyun.com", "flow.aliyun.com", "*.aliyuncs.com"), "network");
+        AssertAccepted(Perms("network", "git.example.com", "flow.example.com", "*.example.org"), "network");
     }
 
     [TestMethod]
     public void Declaration_NetworkWildcardSubdomain_CoveredByWhitelistWildcard()
     {
-        // *.aliyuncs.com 覆盖 *.foo.aliyuncs.com
-        AssertAccepted(Perms("network", "*.foo.aliyuncs.com"), "network");
+        // *.example.org 覆盖 *.foo.example.org
+        AssertAccepted(Perms("network", "*.foo.example.org"), "network");
     }
 
     [TestMethod]
@@ -121,15 +121,15 @@ public class PluginPermissionEvaluatorUnitTest
     {
         var result = Validate(Perms("network", "*"));
 
-        Assert.IsTrue(result.Warnings.Any(w => w.Contains("codeup.aliyun.com", StringComparison.Ordinal)),
+        Assert.IsTrue(result.Warnings.Any(w => w.Contains("git.example.com", StringComparison.Ordinal)),
             $"警告应列出宿主白名单：{result.ToSummary()}");
     }
 
     [TestMethod]
     public void Declaration_NetworkBareHost_DoesNotCoverSubdomain()
     {
-        // codeup.aliyun.com 只能覆盖裸域本身，不能覆盖其子域
-        AssertRejected(Perms("network", "sub.codeup.aliyun.com"), "network");
+        // git.example.com 只能覆盖裸域本身，不能覆盖其子域
+        AssertRejected(Perms("network", "sub.git.example.com"), "network");
     }
 
     // ---------------- 声明期：process ----------------
@@ -164,9 +164,9 @@ public class PluginPermissionEvaluatorUnitTest
     public void Declaration_CredentialAlias_NormalizedAndAccepted()
     {
         // 框架默认凭据目录为空；此处用「示例宿主」策略（目录含 connector:demo:token）
-        // 验证宿主别名把历史拼写 codeup:pat / yunxiao_pat 归一化到同一规范键后仍落在目录内。
-        AssertAccepted(Perms("credential", "codeup:pat"), "credential");
-        AssertAccepted(Perms("credential", "yunxiao:pat"), "credential");
+        // 验证宿主别名把历史拼写 legacy:pat / legacy_pat 归一化到同一规范键后仍落在目录内。
+        AssertAccepted(Perms("credential", "legacy:pat"), "credential");
+        AssertAccepted(Perms("credential", "LEGACY:PAT"), "credential");
         AssertAccepted(Perms("credential", TestSecurity.DemoTokenKey), "credential");
     }
 
@@ -269,17 +269,17 @@ public class PluginPermissionEvaluatorUnitTest
     public void Runtime_Network_UndeclaredIsDenied()
     {
         var evaluator = TestSecurity.Evaluator();
-        Assert.IsFalse(evaluator.IsNetworkAllowed(null, "codeup.aliyun.com"));
-        Assert.IsFalse(evaluator.IsNetworkAllowed(new PluginPermissions(), "codeup.aliyun.com"));
+        Assert.IsFalse(evaluator.IsNetworkAllowed(null, "git.example.com"));
+        Assert.IsFalse(evaluator.IsNetworkAllowed(new PluginPermissions(), "git.example.com"));
     }
 
     [TestMethod]
     public void Runtime_Network_DeclaredHostIsAllowed_OthersDenied()
     {
         var evaluator = TestSecurity.Evaluator();
-        var permissions = Perms("network", "codeup.aliyun.com");
+        var permissions = Perms("network", "git.example.com");
 
-        Assert.IsTrue(evaluator.IsNetworkAllowed(permissions, "codeup.aliyun.com"));
+        Assert.IsTrue(evaluator.IsNetworkAllowed(permissions, "git.example.com"));
         Assert.IsFalse(evaluator.IsNetworkAllowed(permissions, "evil.example.com"));
     }
 
@@ -287,11 +287,11 @@ public class PluginPermissionEvaluatorUnitTest
     public void Runtime_Network_WildcardMatchesSubdomainOnly()
     {
         var evaluator = TestSecurity.Evaluator();
-        var permissions = Perms("network", "*.aliyuncs.com");
+        var permissions = Perms("network", "*.example.org");
 
-        Assert.IsTrue(evaluator.IsNetworkAllowed(permissions, "openapi-rdc.aliyuncs.com"));
-        Assert.IsTrue(evaluator.IsNetworkAllowed(permissions, "a.b.aliyuncs.com"));
-        Assert.IsFalse(evaluator.IsNetworkAllowed(permissions, "aliyuncs.com"));
+        Assert.IsTrue(evaluator.IsNetworkAllowed(permissions, "openapi-rdc.example.org"));
+        Assert.IsTrue(evaluator.IsNetworkAllowed(permissions, "a.b.example.org"));
+        Assert.IsFalse(evaluator.IsNetworkAllowed(permissions, "example.org"));
     }
 
     [TestMethod]
@@ -309,7 +309,7 @@ public class PluginPermissionEvaluatorUnitTest
     public void Runtime_Credential_AliasAndCatalogKeyAreEquivalent()
     {
         var evaluator = TestSecurity.Evaluator();
-        var permissions = Perms("credential", "codeup:pat");
+        var permissions = Perms("credential", "legacy:pat");
 
         Assert.IsTrue(evaluator.IsCredentialAllowed(permissions, TestSecurity.DemoTokenKey));
         Assert.IsFalse(evaluator.IsCredentialAllowed(permissions, "other_key"));
@@ -385,12 +385,12 @@ public class PluginPermissionEvaluatorUnitTest
         var permissions = Perms("network", "*");
 
         // 白名单内的主机放行
-        Assert.IsTrue(evaluator.IsNetworkAllowed(permissions, "codeup.aliyun.com"));
-        Assert.IsTrue(evaluator.IsNetworkAllowed(permissions, "openapi-rdc.aliyuncs.com"));
+        Assert.IsTrue(evaluator.IsNetworkAllowed(permissions, "git.example.com"));
+        Assert.IsTrue(evaluator.IsNetworkAllowed(permissions, "openapi-rdc.example.org"));
 
         // 白名单外仍被拒绝：通配 ≠ 放行全网
         Assert.IsFalse(evaluator.IsNetworkAllowed(permissions, "evil.example.com"));
-        Assert.IsFalse(evaluator.IsNetworkAllowed(permissions, "aliyuncs.com"));
+        Assert.IsFalse(evaluator.IsNetworkAllowed(permissions, "example.org"));
     }
 
     [TestMethod]
@@ -401,7 +401,7 @@ public class PluginPermissionEvaluatorUnitTest
         var permissions = Perms("network", "*");
 
         Assert.IsTrue(evaluator.IsNetworkAllowed(permissions, "corp.internal"));
-        Assert.IsFalse(evaluator.IsNetworkAllowed(permissions, "codeup.aliyun.com"));
+        Assert.IsFalse(evaluator.IsNetworkAllowed(permissions, "git.example.com"));
     }
 
     [TestMethod]
@@ -451,12 +451,12 @@ public class PluginPermissionEvaluatorUnitTest
     public void HostMatches_WildcardAndExact()
     {
         Assert.IsTrue(PluginPermissionEvaluator.HostMatches("*", "anything.example.com"));
-        Assert.IsTrue(PluginPermissionEvaluator.HostMatches("*.aliyuncs.com", "openapi-rdc.aliyuncs.com"));
-        Assert.IsFalse(PluginPermissionEvaluator.HostMatches("*.aliyuncs.com", "aliyuncs.com"));
-        Assert.IsTrue(PluginPermissionEvaluator.HostMatches("CodeUp.Aliyun.com", "codeup.aliyun.com"));
-        Assert.IsFalse(PluginPermissionEvaluator.HostMatches("codeup.aliyun.com", "evil.example.com"));
-        Assert.IsFalse(PluginPermissionEvaluator.HostMatches("", "codeup.aliyun.com"));
-        Assert.IsFalse(PluginPermissionEvaluator.HostMatches("codeup.aliyun.com", null));
+        Assert.IsTrue(PluginPermissionEvaluator.HostMatches("*.example.org", "openapi-rdc.example.org"));
+        Assert.IsFalse(PluginPermissionEvaluator.HostMatches("*.example.org", "example.org"));
+        Assert.IsTrue(PluginPermissionEvaluator.HostMatches("Git.Example.com", "git.example.com"));
+        Assert.IsFalse(PluginPermissionEvaluator.HostMatches("git.example.com", "evil.example.com"));
+        Assert.IsFalse(PluginPermissionEvaluator.HostMatches("", "git.example.com"));
+        Assert.IsFalse(PluginPermissionEvaluator.HostMatches("git.example.com", null));
     }
 
     // ---------------- 策略默认值 ----------------
@@ -489,13 +489,13 @@ public class PluginPermissionEvaluatorUnitTest
         var options = TestSecurity.Options();
         options.Normalize(TestSecurity.Aliases);
 
-        CollectionAssert.Contains(options.NetworkWhitelist.ToArray(), "codeup.aliyun.com");
-        CollectionAssert.Contains(options.NetworkWhitelist.ToArray(), "flow.aliyun.com");
-        CollectionAssert.Contains(options.NetworkWhitelist.ToArray(), "*.aliyuncs.com");
+        CollectionAssert.Contains(options.NetworkWhitelist.ToArray(), "git.example.com");
+        CollectionAssert.Contains(options.NetworkWhitelist.ToArray(), "flow.example.com");
+        CollectionAssert.Contains(options.NetworkWhitelist.ToArray(), "*.example.org");
 
         // 目录内的历史拼写经别名归一化到规范键
         CollectionAssert.Contains(options.CredentialCatalog.ToArray(), TestSecurity.DemoTokenKey);
-        CollectionAssert.DoesNotContain(options.CredentialCatalog.ToArray(), "codeup:pat");
+        CollectionAssert.DoesNotContain(options.CredentialCatalog.ToArray(), "legacy:pat");
     }
 
     [TestMethod]

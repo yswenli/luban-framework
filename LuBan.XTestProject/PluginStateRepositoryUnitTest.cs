@@ -34,7 +34,7 @@ public class PluginStateRepositoryUnitTest
             var repository = new PluginStateRepository(file);
             var record = new PluginStateRecord
             {
-                Id = "com.tjc.newproject",
+                Id = "com.example.newproject",
                 Version = "1.0.0",
                 State = PluginState.Enabled,
                 LastError = null,
@@ -43,10 +43,10 @@ public class PluginStateRepositoryUnitTest
 
             await repository.SaveAsync(record);
 
-            var loaded = await repository.GetAsync("com.tjc.newproject");
+            var loaded = await repository.GetAsync("com.example.newproject");
 
             Assert.IsNotNull(loaded);
-            Assert.AreEqual("com.tjc.newproject", loaded!.Id);
+            Assert.AreEqual("com.example.newproject", loaded!.Id);
             Assert.AreEqual("1.0.0", loaded.Version);
             Assert.AreEqual(PluginState.Enabled, loaded.State);
             Assert.IsFalse(loaded.RequiresRestart);
@@ -65,14 +65,14 @@ public class PluginStateRepositoryUnitTest
         {
             await new PluginStateRepository(file).SaveAsync(new PluginStateRecord
             {
-                Id = "com.tjc.newproject",
+                Id = "com.example.newproject",
                 State = PluginState.Disabled,
                 RequiresRestart = true,
                 LastError = "程序集卸载验证未通过"
             });
 
             // 新实例重读：验证「降级 + 提示重启」状态能跨进程边界留存（PRD §3.12 第 7 步可观测性）
-            var loaded = await new PluginStateRepository(file).GetAsync("com.tjc.newproject");
+            var loaded = await new PluginStateRepository(file).GetAsync("com.example.newproject");
 
             Assert.IsNotNull(loaded);
             Assert.IsTrue(loaded!.RequiresRestart);

@@ -56,7 +56,7 @@ public class SwaggerJwtFilter : IOperationFilter
         //    Schema = new OpenApiSchema
         //    {
         //        Type = "string",
-        //        Default = new OpenApiString("Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVC5TdGFuZGFyZCJ9.eyJleHAiOjIwNDI2NDc0NjEsIlVzZXJJZCI6MCwiVGVuYW50SWQiOjAsIkFjY291bnQiOiIiLCJSZWFsTmFtZSI6IiIsIkFjY291bnRUeXBlIjoiNzc3IiwiT3JnSWQiOjAsIk9yZ05hbWUiOiIiLCJPcmdUeXBlIjoiIiwiT3BlbklkIjoiT3BlbklkIiwiYXVkIjoiQ3ljbG9wcy5GcmFtZVdvcmsuV2ViQXBpIiwiaXNzIjoieXN3ZW5saS5jbmJsb2dzLmNvbSJ9.9i8aqVT7rruX-gmKsFkMElVDJ7UIRsuDkNceYEZsT78"),
+        //        Default = new OpenApiString("Bearer <your-jwt-token>"),
         //        Title = "Authorization"
         //    }
         //});
