@@ -21,6 +21,8 @@
 *描述：向量数学计算工具
 *
 *****************************************************************************/
+using System.Runtime.InteropServices;
+
 namespace LuBan.AIAgent.Retrieval;
 
 /// <summary>
@@ -31,7 +33,22 @@ public static class VectorMath
     /// <summary>
     /// 余弦相似度
     /// </summary>
-    public static double Cosine(float[] a, float[] b)
+    public static double Cosine(float[] a, float[] b) => Cosine(a.AsSpan(), b.AsSpan());
+
+    /// <summary>
+    /// 余弦相似度（存储侧字节向量零拷贝版本）：直接在同一块 byte 缓冲上按 float 读取，
+    /// 免去「每行 new float[]」的分配；用于逐行打分时避免随行数增长的 GC 压力。
+    /// </summary>
+    public static double Cosine(float[] a, ReadOnlySpan<byte> b)
+    {
+        if (b.Length < sizeof(float) || b.Length % sizeof(float) != 0) return 0;
+        return Cosine(a.AsSpan(), MemoryMarshal.Cast<byte, float>(b));
+    }
+
+    /// <summary>
+    /// 余弦相似度（跨度版本，不分配）
+    /// </summary>
+    public static double Cosine(ReadOnlySpan<float> a, ReadOnlySpan<float> b)
     {
         if (a.Length != b.Length || a.Length == 0) return 0;
         double dot = 0, na = 0, nb = 0;

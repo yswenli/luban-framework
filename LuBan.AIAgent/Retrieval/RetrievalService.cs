@@ -315,25 +315,70 @@ public class RetrievalService : IRetrievalService
         if (string.IsNullOrWhiteSpace(query))
             return Array.Empty<RetrievalResult>();
         using var _ = await _rwLock.ReadLockAsync(cancellationToken);
-        var embeddings = await GenerateAsync(new[] { query }, cancellationToken);
-        var queryVector = embeddings[0].Vector.ToArray();
-        // 全量候选：maxResults 截断会漏检相关内容，且实现方需按 Id 稳定排序保证可复现
-        var entries = await _store.LoadVectorsAsync(pathPrefix, language, int.MaxValue, workspaceId);
-        var scored = entries
-            .Select(e => (e.ChunkId, Score: VectorMath.Cosine(queryVector, e.Vector)))
-            .OrderByDescending(x => x.Score)
-            .ThenBy(x => x.ChunkId)
-            .Take(topK)
-            .ToList();
-        var map = await _store.GetChunksAsync(scored.Select(s => s.ChunkId).ToList(), workspaceId);
-        var results = new List<RetrievalResult>();
-        foreach (var (chunkId, score) in scored)
+
+        // 存储若支持库内 top-K：先做一次 O(1) 存在性判断，空索引直接返回，
+        // 不为一次空检索把嵌入模型（数十 MB 原生内存）拉起来；命中时才分页扫描并只保留 K 条。
+        if (_store is IVectorTopKSearch topKStore)
         {
-            if (!map.TryGetValue(chunkId, out var c)) continue;
+            if (!await topKStore.HasVectorsAsync(pathPrefix, language, workspaceId, cancellationToken))
+                return Array.Empty<RetrievalResult>();
+
+            var queryVector = await GenerateQueryVectorAsync(query, cancellationToken);
+            var hits = await topKStore.SearchTopKAsync(queryVector, topK, pathPrefix, language, workspaceId, cancellationToken);
+            return await MaterializeAsync(hits, workspaceId);
+        }
+
+        // 兼容路径：先取候选，再决定是否计算查询向量（空库短路，避免白算）
+        var entries = await _store.LoadVectorsAsync(pathPrefix, language, int.MaxValue, workspaceId);
+        if (entries.Count == 0)
+            return Array.Empty<RetrievalResult>();
+
+        var compatVector = await GenerateQueryVectorAsync(query, cancellationToken);
+        var scored = SelectTopK(entries, compatVector, topK);
+        return await MaterializeAsync(scored, workspaceId);
+    }
+
+    /// <summary>
+    /// 生成查询向量（检索热路径唯一入口：只在确认有候选之后调用）。
+    /// </summary>
+    private async Task<float[]> GenerateQueryVectorAsync(string query, CancellationToken cancellationToken)
+    {
+        var embeddings = await GenerateAsync(new[] { query }, cancellationToken);
+        return embeddings[0].Vector.ToArray();
+    }
+
+    /// <summary>
+    /// 在内存候选集中做有界 top-K 选择：只维护 K 条结果，避免「全量投影 + 全量排序」的 O(n) 分配。
+    /// 结果顺序与原来一致：分数降序、同分按切块 Id 升序。
+    /// </summary>
+    private static List<VectorHit> SelectTopK(IReadOnlyList<VectorEntry> entries, float[] queryVector, int topK)
+    {
+        var collector = new VectorTopK(topK);
+        foreach (var entry in entries)
+        {
+            // 维度不一致时 Cosine 返回 0（与原实现一致：仍可作为候选，不因维度问题整体丢弃）
+            collector.Add(entry.ChunkId, VectorMath.Cosine(queryVector, entry.Vector));
+        }
+        return collector.Results.ToList();
+    }
+
+    /// <summary>
+    /// 把命中映射为检索结果（补齐文件路径、行号等元数据）。
+    /// </summary>
+    private async Task<IReadOnlyList<RetrievalResult>> MaterializeAsync(IReadOnlyList<VectorHit> hits, string? workspaceId)
+    {
+        if (hits.Count == 0)
+            return Array.Empty<RetrievalResult>();
+
+        var map = await _store.GetChunksAsync(hits.Select(h => h.ChunkId).ToList(), workspaceId);
+        var results = new List<RetrievalResult>(hits.Count);
+        foreach (var hit in hits)
+        {
+            if (!map.TryGetValue(hit.ChunkId, out var c)) continue;
             results.Add(new RetrievalResult
             {
-                ChunkId = chunkId, FilePath = c.FilePath, StartLine = c.StartLine, EndLine = c.EndLine,
-                ChunkType = c.ChunkType, SymbolName = c.SymbolName, Content = c.Content, Score = score
+                ChunkId = hit.ChunkId, FilePath = c.FilePath, StartLine = c.StartLine, EndLine = c.EndLine,
+                ChunkType = c.ChunkType, SymbolName = c.SymbolName, Content = c.Content, Score = hit.Score
             });
         }
         return results;

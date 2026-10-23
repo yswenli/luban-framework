@@ -63,6 +63,13 @@ public class VectorEntry
 }
 
 /// <summary>
+/// 向量检索命中（存储侧 top-K 结果）
+/// </summary>
+/// <param name="ChunkId">切块 Id</param>
+/// <param name="Score">余弦相似度</param>
+public sealed record VectorHit(long ChunkId, double Score);
+
+/// <summary>
 /// 已索引文件
 /// </summary>
 public class IndexedFile

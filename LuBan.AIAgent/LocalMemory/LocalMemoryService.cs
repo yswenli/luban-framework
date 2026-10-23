@@ -15,6 +15,7 @@
 *
 *****************************************************************************/
 using LuBan.AIAgent.Abstractions;
+using LuBan.AIAgent.Retrieval;
 
 namespace LuBan.AIAgent.LocalMemory;
 
@@ -22,13 +23,19 @@ namespace LuBan.AIAgent.LocalMemory;
 /// 本地长期记忆服务实现，基于本地 Embedding + SQLite 向量检索。
 /// 特性：工作区隔离、内容去重、可选 TTL、fallback 字符 n-gram 向量 + 倒排索引预筛。
 /// </summary>
-public class LocalMemoryService : ILocalMemoryService
+public class LocalMemoryService : ILocalMemoryService, IDisposable
 {
     private readonly ILocalMemoryStore _store;
     private readonly IEmbeddingGenerator<string, Embedding<float>>? _embedder;
     private readonly LocalMemoryOptions _options;
     private readonly IWorkspaceContextProvider? _workspaceContext;
     private readonly IUserContext? _userContext;
+
+    /// <summary>过期清理的节流间隔：清理不再挂在检索热路径上，由后台循环按此间隔执行。</summary>
+    private static readonly TimeSpan CleanupInterval = TimeSpan.FromMinutes(5);
+
+    private readonly CancellationTokenSource _cleanupCts = new();
+    private int _cleanupState; // 0=未启动 1=已启动 2=已释放
 
     private readonly object _indexLock = new();
     private Dictionary<uint, HashSet<string>>? _inverted;
@@ -99,38 +106,77 @@ public class LocalMemoryService : ILocalMemoryService
         if (string.IsNullOrWhiteSpace(query)) return Array.Empty<MemorySearchResult>();
         topK = Math.Max(1, topK);
 
-        _ = Task.Run(async () =>
+        // 过期清理移出检索热路径：只在首次检索时启动一个按间隔执行的后台循环，
+        // 避免「每次召回都 fire-and-forget 一个 DB 删除」与 SQLite 写锁竞争。
+        EnsureCleanupLoop();
+
+        var workspaceId = category == MemoryCategories.Global ? null : _workspaceContext?.CurrentWorkspaceId;
+
+        // fallback 模式：倒排索引预筛；ONNX 模式：全量扫描。
+        // 两条路径都先取候选、判定为空，再计算查询向量：空库/空候选时不做嵌入，
+        // 否则一次空检索就会把嵌入模型（数十 MB 原生内存）拉起来。
+        if (_embedder == null)
         {
-            try
+            var candidates = await GetCandidates(query, cancellationToken);
+            if (candidates.Count == 0) return Array.Empty<MemorySearchResult>();
+
+            var rows = await _store.LoadByIdsAsync(CurrentUserId, candidates, workspaceId, cancellationToken);
+            if (category != null)
+                rows = rows.Where(r => r.Entry.Category == category).ToList();
+            if (rows.Count == 0) return Array.Empty<MemorySearchResult>();
+
+            var fallbackVector = await GenerateEmbeddingAsync(query, cancellationToken);
+            return ScoreRows(fallbackVector, rows, topK);
+        }
+
+        var all = await _store.LoadAllAsync(CurrentUserId, category, workspaceId, cancellationToken: cancellationToken);
+        if (all.Count == 0) return Array.Empty<MemorySearchResult>();
+
+        var queryVector = await GenerateEmbeddingAsync(query, cancellationToken);
+        return ScoreRows(queryVector, all, topK);
+    }
+
+    /// <summary>
+    /// 首次检索时启动过期清理循环（幂等）：立即清理一次，之后按 <see cref="CleanupInterval"/> 周期执行。
+    /// </summary>
+    private void EnsureCleanupLoop()
+    {
+        if (Interlocked.CompareExchange(ref _cleanupState, 1, 0) != 0) return;
+        _ = CleanupLoopAsync();
+    }
+
+    /// <summary>
+    /// 后台过期清理循环；随服务 scope 释放而取消。
+    /// </summary>
+    private async Task CleanupLoopAsync()
+    {
+        try
+        {
+            while (!_cleanupCts.IsCancellationRequested)
             {
                 await _store.DeleteExpiredAsync(CurrentUserId);
                 lock (_indexLock)
                     _indexDirty = true;
-            }
-            catch (Exception ex)
-            {
-                Logger.Error("Expired cleanup failed", ex);
-            }
-        });
-
-        var workspaceId = category == MemoryCategories.Global ? null : _workspaceContext?.CurrentWorkspaceId;
-        var queryVector = await GenerateEmbeddingAsync(query, cancellationToken);
-
-        // fallback 模式：倒排索引预筛；ONNX 模式：全量扫描
-        if (_embedder == null)
-        {
-            var candidates = await GetCandidates(query, cancellationToken);
-            if (candidates.Count > 0)
-            {
-                var rows = await _store.LoadByIdsAsync(CurrentUserId, candidates, workspaceId, cancellationToken);
-                if (category != null)
-                    rows = rows.Where(r => r.Entry.Category == category).ToList();
-                return ScoreRows(queryVector, rows, topK);
+                await Task.Delay(CleanupInterval, _cleanupCts.Token);
             }
         }
+        catch (OperationCanceledException)
+        {
+            // 服务释放：正常退出
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("Expired cleanup failed", ex);
+        }
+    }
 
-        var all = await _store.LoadAllAsync(CurrentUserId, category, workspaceId, cancellationToken: cancellationToken);
-        return ScoreRows(queryVector, all, topK);
+    /// <inheritdoc />
+    public void Dispose()
+    {
+        if (Interlocked.Exchange(ref _cleanupState, 2) == 2) return;
+        // 只取消、不 Dispose 令牌源：循环可能正持有该令牌等待，Dispose 会造成竞争异常。
+        try { _cleanupCts.Cancel(); }
+        catch (ObjectDisposedException) { }
     }
 
     /// <inheritdoc />
@@ -194,13 +240,20 @@ public class LocalMemoryService : ILocalMemoryService
         IReadOnlyList<(MemoryEntry Entry, byte[] VectorBytes)> rows,
         int topK)
     {
-        var scored = new List<MemorySearchResult>(rows.Count);
+        if (topK <= 0 || rows.Count == 0) return Array.Empty<MemorySearchResult>();
+
+        // 有界 top-K：只维护 K 条结果，避免为整表每行都建 MemorySearchResult 再全量排序。
+        var top = new List<(MemorySearchResult Result, double Score)>(Math.Min(topK, rows.Count));
         foreach (var (entry, bytes) in rows)
         {
-            var storedVector = ToFloats(bytes);
-            if (storedVector.Length == 0 || storedVector.Length != queryVector.Length) continue;
-            var score = CosineSimilarity(queryVector, storedVector);
-            scored.Add(new MemorySearchResult
+            // 维度不符/空向量直接跳过（与原实现一致）
+            if (bytes.Length == 0 || bytes.Length / sizeof(float) != queryVector.Length) continue;
+
+            // 零拷贝打分：直接在同一块 byte 缓冲上按 float 读取，不再「每行 new float[]」
+            var score = VectorMath.Cosine(queryVector, bytes);
+            if (top.Count >= topK && score <= top[^1].Score) continue;
+
+            var result = new MemorySearchResult
             {
                 Id = entry.Id,
                 Content = entry.Content,
@@ -212,12 +265,19 @@ public class LocalMemoryService : ILocalMemoryService
                 ContentHash = entry.ContentHash,
                 ExpiresAt = entry.ExpiresAt,
                 Score = score
-            });
+            };
+
+            // 同分按原始行序（稳定排序），插入到第一条分数更低的位置之前
+            var index = top.Count;
+            for (var i = 0; i < top.Count; i++)
+            {
+                if (score > top[i].Score) { index = i; break; }
+            }
+            top.Insert(index, (result, score));
+            if (top.Count > topK) top.RemoveAt(top.Count - 1);
         }
-        return scored
-            .OrderByDescending(r => r.Score)
-            .Take(topK)
-            .ToList();
+
+        return top.Select(t => t.Result).ToList();
     }
 
     private static string ComputeContentHash(string content)
@@ -242,19 +302,6 @@ public class LocalMemoryService : ILocalMemoryService
         return vector;
     }
 
-    private static double CosineSimilarity(float[] a, float[] b)
-    {
-        double dot = 0, normA = 0, normB = 0;
-        for (int i = 0; i < a.Length; i++)
-        {
-            dot += a[i] * b[i];
-            normA += a[i] * a[i];
-            normB += b[i] * b[i];
-        }
-        if (normA == 0 || normB == 0) return 0;
-        return dot / (Math.Sqrt(normA) * Math.Sqrt(normB));
-    }
-
     private static void Normalize(float[] vector)
     {
         double sum = 0;
@@ -269,13 +316,5 @@ public class LocalMemoryService : ILocalMemoryService
         var bytes = new byte[vector.Length * sizeof(float)];
         Buffer.BlockCopy(vector, 0, bytes, 0, bytes.Length);
         return bytes;
-    }
-
-    private static float[] ToFloats(byte[] bytes)
-    {
-        if (bytes == null || bytes.Length == 0) return Array.Empty<float>();
-        var floats = new float[bytes.Length / sizeof(float)];
-        Buffer.BlockCopy(bytes, 0, floats, 0, bytes.Length);
-        return floats;
     }
 }
