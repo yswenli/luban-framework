@@ -15,26 +15,38 @@
 *
 *=================================================
 *修改标记
-*修改时间：2026/7/13 12:05:30
+*修改时间：2026/10/26
 *修改人： yswenli
 *版本号： V1.0.0.0
-*描述：Program 类
+*描述：最小 Agent 端点验证宿主可用性
 *
 *****************************************************************************/
+using LuBan.AIAgent;
+using LuBan.AIAgent.Hosting;
+using LuBan.AIAgent.Sessions;
 
-namespace WebApplication1;
+var builder = WebApplication.CreateBuilder(args);
 
-/// <summary>
-/// �������
-/// </summary>
-public class Program
+// ===== 最小 Agent 示例：三行注册 =====
+builder.Services.AddLuBanAgentDefaults(builder.Configuration);
+builder.Services.AddLuBanAgentHost();
+builder.Services.AddLuBanAgentOpenAI(builder.Configuration);
+
+var app = builder.Build();
+
+// ===== 最小 Agent 端点 =====
+app.MapPost("/agent/minimal", async (IAgentHost host, ISessionManager sessions, string prompt, CancellationToken ct) =>
 {
-    /// <summary>
-    /// �������
-    /// </summary>
-    /// <param name="args"></param>
-    public static void Main(string[] args)
+    var session = await sessions.CreateSessionAsync("minimal", null);
+    await sessions.SetCurrentSessionAsync(session.SessionId);
+    await host.InitializeAsync(session.SessionId, ct);
+
+    var sb = new System.Text.StringBuilder();
+    await foreach (var evt in host.RunStreamingAsync(new AgentRunRequest { Input = prompt, SessionId = session.SessionId }, ct))
     {
-        WebApp.RunWebHost(args);
+        if (evt is TextDeltaEvent delta) sb.Append(delta.Delta);
     }
-}
+    return Results.Text(sb.ToString());
+});
+
+app.Run();
