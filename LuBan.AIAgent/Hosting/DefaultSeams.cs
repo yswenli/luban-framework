@@ -1,0 +1,72 @@
+using LuBan.AIAgent.Abstractions;
+using LuBan.AIAgent.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+
+namespace LuBan.AIAgent.Hosting;
+
+/// <summary>单工作区解析：取 <c>LuBanAgent:WorkspaceRoot</c>，缺省为进程当前目录。</summary>
+public sealed class SingleWorkspaceResolver(IOptions<LuBanAgentOptions> options) : IAgentWorkspaceResolver
+{
+    /// <inheritdoc />
+    public Task<WorkspaceDescriptor> ResolveAsync(string sessionId, CancellationToken ct = default)
+    {
+        var root = string.IsNullOrWhiteSpace(options.Value.WorkspaceRoot)
+            ? Directory.GetCurrentDirectory()
+            : options.Value.WorkspaceRoot!;
+
+        return Task.FromResult(new WorkspaceDescriptor("default", "Default", root, "normal"));
+    }
+}
+
+/// <summary>恒返回固定 Profile。</summary>
+public sealed class DefaultAgentProfileResolver(IAgentProfile profile) : IAgentProfileResolver
+{
+    /// <inheritdoc />
+    public IAgentProfile Resolve(WorkspaceDescriptor workspace) => profile;
+}
+
+/// <summary>默认用户解析：读 <see cref="IUserContext"/>，缺失回落 <c>local</c>。</summary>
+public sealed class DefaultAgentUserResolver : IAgentUserResolver
+{
+    /// <inheritdoc />
+    public string ResolveUserId(IServiceProvider services)
+        => services.GetService<IUserContext>()?.UserId is { Length: > 0 } id ? id : "local";
+}
+
+/// <summary>
+/// 默认模型选择：读 <c>LuBanAgent:DefaultModel</c>（格式 <c>provider:model</c>）。
+/// </summary>
+/// <remarks>
+/// 未配置时 <see cref="QualifiedModelName"/> 为空字符串，由工厂按自身缺省模型处理；
+/// 配置值无法按 <c>:</c> 拆成 provider/model 时，两个分量均为 null，但限定名仍原样返回。
+/// </remarks>
+public sealed class DefaultAgentModelSelection : IAgentModelSelection
+{
+    private readonly string _qualified;
+    private readonly string? _provider;
+    private readonly string? _model;
+
+    /// <summary>创建默认模型选择。</summary>
+    /// <param name="options">Agent 配置选项。</param>
+    public DefaultAgentModelSelection(IOptions<LuBanAgentOptions> options)
+    {
+        _qualified = options.Value.DefaultModel?.Trim() ?? string.Empty;
+
+        var idx = _qualified.IndexOf(':');
+        if (idx > 0 && idx < _qualified.Length - 1)
+        {
+            _provider = _qualified[..idx];
+            _model = _qualified[(idx + 1)..];
+        }
+    }
+
+    /// <inheritdoc />
+    public string? ProviderId => _provider;
+
+    /// <inheritdoc />
+    public string? ModelId => _model;
+
+    /// <inheritdoc />
+    public string QualifiedModelName => _qualified;
+}

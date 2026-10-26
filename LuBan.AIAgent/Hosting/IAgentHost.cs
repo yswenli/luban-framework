@@ -1,0 +1,29 @@
+namespace LuBan.AIAgent.Hosting;
+
+/// <summary>
+/// Agent 宿主：按会话路由流式对话，输出 UI 无关的 <see cref="AgentStreamEvent"/> 序列。
+/// </summary>
+/// <remarks>
+/// 必须以 <b>Scoped</b> 解析（它用当前 scope 取 <c>IChatClient</c> / 附件编排器等 Scoped 服务）。
+/// 每会话的 Agent 实例在其会话 scope 内构建并缓存，宿主自身不持有会话状态。
+/// </remarks>
+public interface IAgentHost
+{
+    /// <summary>当前会话的 Agent 是否已就绪。</summary>
+    bool IsInitialized { get; }
+
+    /// <summary>当前 scope 的服务提供者（供宿主读取全局配置/工作区等）。</summary>
+    IServiceProvider Services { get; }
+
+    /// <summary>当前活动会话标识（无则 null）。</summary>
+    string? CurrentSessionId { get; }
+
+    /// <summary>确保指定会话的 Agent 已构建（首次对话前调用）。</summary>
+    Task InitializeAsync(string sessionId, CancellationToken ct = default);
+
+    /// <summary>重置指定会话的 Agent 缓存；null 表示当前会话。</summary>
+    void Reset(string? sessionId = null);
+
+    /// <summary>运行一轮对话。</summary>
+    IAsyncEnumerable<AgentStreamEvent> RunStreamingAsync(AgentRunRequest request, CancellationToken ct = default);
+}
