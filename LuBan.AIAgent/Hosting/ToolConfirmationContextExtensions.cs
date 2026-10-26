@@ -1,0 +1,48 @@
+using LuBan.AIAgent.Abstractions;
+
+namespace LuBan.AIAgent.Hosting;
+
+/// <summary>
+/// <see cref="ToolConfirmationContext"/> 的每轮装配扩展。
+/// </summary>
+public static class ToolConfirmationContextExtensions
+{
+    /// <summary>
+    /// 为一轮对话装配确认上下文。
+    /// 权限模式的实际策略由框架 ToolConfirmationService 统一分发：
+    /// Bypass 全部放行、Plan 只记录计划项且不执行、AcceptEdits 放行编辑类、Default 逐项确认。
+    /// 因此确认回调可无条件传入，无需宿主按模式提前省略。
+    /// </summary>
+    /// <param name="context">DI 单例确认上下文。</param>
+    /// <param name="mode">本轮权限模式。</param>
+    /// <param name="cancellationToken">取消令牌（Esc 中断时拒绝后续工具调用）。</param>
+    /// <param name="confirmCallback">确认回调；仅在需要人工确认时被框架调用，返回用户的三态/授权选择。</param>
+    /// <param name="sessionContext">会话上下文；提供时以该会话的 EffectiveRoot/AllowedRoots 做会话级路径检查（含 worktree）。</param>
+    /// <param name="onPlannedAction">Plan 模式计划项回调，宿主用于收集或即时展示。</param>
+    /// <param name="onUserDenied">用户明确拒绝工具调用时的回调；宿主应在此取消本轮令牌以终止对话（非 Esc 取消才会触发）。</param>
+    /// <remarks>
+    /// 框架的 <see cref="ToolConfirmationContext.Callback"/> 为异步 <c>Func&lt;.., Task&lt;ConfirmResult&gt;&gt;</c>，
+    /// 但两端宿主目前仍以阻塞方式等待 UI 确认（CLI 用 ManualResetEventSlim、GUI 同理），
+    /// 故此处集中把同步回调包装成 Task，行为与升级前一致；
+    /// 后续若要真正不占用 agent 线程，应把宿主确认改为 TaskCompletionSource 再直接传异步回调。
+    /// </remarks>
+    public static void ConfigureForTurn(
+        this ToolConfirmationContext context,
+        ToolPermissionMode mode,
+        CancellationToken cancellationToken,
+        Func<string, IReadOnlyDictionary<string, object?>, ConfirmResult>? confirmCallback,
+        ISessionContext? sessionContext = null,
+        Action<string, IReadOnlyDictionary<string, object?>>? onPlannedAction = null,
+        Action<string, IReadOnlyDictionary<string, object?>>? onUserDenied = null)
+    {
+        context.Mode = mode;
+        context.CancellationToken = cancellationToken;
+        // 方法组不能配合 ?. 使用（CS8978），故用显式三元；无会话上下文时不设检查器。
+        context.WorkspacePathChecker = sessionContext is null ? null : sessionContext.IsWithinEffectiveRoot;
+        context.Callback = confirmCallback is null
+            ? null
+            : (toolName, args) => Task.FromResult(confirmCallback(toolName, args));
+        context.OnPlannedAction = onPlannedAction;
+        context.OnUserDenied = onUserDenied;
+    }
+}
