@@ -80,6 +80,11 @@ public sealed class AgentHost(
         if (string.IsNullOrWhiteSpace(modelId))
             throw new InvalidOperationException("未选择模型");
 
+        // 附件路径归一：UI 传入路径（拖拽/选择器）+ 正文 @引用 合并去重，正文剥离引用。
+        // 解析规则由产品实现（IAgentAttachmentOrchestrator），故所有宿主口径一致。
+        var resolved = AgentAttachmentResolver.Resolve(request, attachments);
+        request = request with { Input = resolved.Text, AttachmentPaths = resolved.Paths };
+
         IReadOnlyList<ProcessedAttachment> processed = Array.Empty<ProcessedAttachment>();
         if (request.AttachmentPaths.Count > 0)
         {
