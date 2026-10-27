@@ -32,6 +32,7 @@ public sealed class SessionRuntime : IAsyncDisposable
     private readonly CancellationTokenSource _cts = new();
     private Task? _loop;
     private int _running;
+    private int _pendingReload;
     private int _disposed;
 
     /// <summary>会话标识。</summary>
@@ -50,18 +51,15 @@ public sealed class SessionRuntime : IAsyncDisposable
     public WorkspaceDescriptor? Workspace { get; set; }
 
     /// <summary>标记：回合结束后需重载 Agent 上下文。</summary>
-    public bool PendingReload { get; private set; }
+    public bool PendingReload => Volatile.Read(ref _pendingReload) == 1;
 
     /// <summary>请求延迟重载（回合结束后执行）。</summary>
-    public void RequestReload() => PendingReload = true;
+    /// <remarks>由 UI 线程写入、运行线程读取，故用 volatile 写保证可见性。</remarks>
+    public void RequestReload() => Volatile.Write(ref _pendingReload, 1);
 
-    /// <summary>消费重载标记（调用方负责重建 Agent 后复位）。</summary>
-    public bool ConsumePendingReload()
-    {
-        if (!PendingReload) return false;
-        PendingReload = false;
-        return true;
-    }
+    /// <summary>消费重载标记（调用方负责释放 Agent 后复位）。</summary>
+    /// <remarks>用原子交换保证同一标记只会被消费一次（UI 与运行线程可能并发触发）。</remarks>
+    public bool ConsumePendingReload() => Interlocked.Exchange(ref _pendingReload, 0) == 1;
 
     /// <summary>当前是否正在执行某个回合。</summary>
     public bool IsRunning => Volatile.Read(ref _running) == 1;

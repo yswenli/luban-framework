@@ -36,7 +36,13 @@ public interface IAgentHost
     /// <summary>确保指定会话的 Agent 已构建（首次对话前调用）。</summary>
     Task InitializeAsync(string sessionId, CancellationToken ct = default);
 
-    /// <summary>重置指定会话的 Agent 缓存；null 表示当前会话。</summary>
+    /// <summary>
+    /// 重置指定会话的 Agent 缓存；null 表示当前会话。
+    /// </summary>
+    /// <remarks>
+    /// 若该会话正有回合在运行，则只登记延迟重载（不释放正在使用的 Agent），
+    /// 待回合收尾时释放、下一次对话按最新配置重建。
+    /// </remarks>
     void Reset(string? sessionId = null);
 
     /// <summary>运行一轮对话。</summary>

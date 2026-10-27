@@ -52,6 +52,23 @@ public sealed class AgentHost(
         var runtime = runtimes.Get(id);
         if (runtime is null) return;
 
+        // 回合运行中释放 Agent 会让正在执行的回合持有已释放/空实例：
+        // 改为打延迟重载标记，由回合收尾时释放，下一次对话按新配置重建。
+        if (runtime.IsRunning)
+        {
+            runtime.RequestReload();
+            return;
+        }
+
+        DetachAgent(runtime);
+    }
+
+    /// <summary>释放会话运行时缓存的 Agent 并解绑工作区（下一次对话按当前配置与工作区重建）。</summary>
+    /// <remarks>
+    /// 调用方必须保证此刻没有回合正在使用该 Agent；运行中的释放走 <see cref="SessionRuntime.RequestReload"/> 延后路径。
+    /// </remarks>
+    private static void DetachAgent(SessionRuntime runtime)
+    {
         if (runtime.Agent is IDisposable oldAgent)
         {
             try { oldAgent.Dispose(); }
@@ -212,11 +229,10 @@ public sealed class AgentHost(
                 }
                 finally
                 {
-                    // 回合结束后检查 PendingReload
+                    // 回合收尾时本回合尚未退出运行循环（IsRunning 仍为 true），
+                    // 故不能回调 Reset（会被再次延后而永久搁置），直接释放让下次对话重建。
                     if (runtime.ConsumePendingReload())
-                    {
-                        Reset(runtime.SessionId);
-                    }
+                        DetachAgent(runtime);
                 }
             }
         }, ct);

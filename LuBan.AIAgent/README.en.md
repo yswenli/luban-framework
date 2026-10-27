@@ -533,7 +533,7 @@ Brings "session scope + run loop + profile + attachment orchestration + capabili
 |------|------|
 | `AddLuBanAgentHost()` | Registers the host and default seams (all `TryAdd`): `SessionRuntimeManager` (singleton), `IAgentHost` (scoped), profile / workspace / user / model-selection resolvers, attachment orchestration, capability gate, session initializer, and `ICommandCatalog` (singleton) |
 | `AddLuBanAgentOpenAI(configuration)` | Registers `IChatClient` from `LuBanAgent:Models` (`Provider` / `Model` / `ApiKey` / `BaseUrl`); when incomplete it only records a `ChatClientFactoryWarning` — no registration and no throw |
-| `IAgentHost` | Host entry point: `InitializeAsync` / `Reset` / `RunStreamingAsync(AgentRunRequest)`; **must be resolved as Scoped**, holds no session state itself |
+| `IAgentHost` | Host entry point: `InitializeAsync` / `Reset` / `RunStreamingAsync(AgentRunRequest)`; **must be resolved as Scoped**, holds no session state itself. If a turn is running for that session, `Reset` only flags a deferred reload (never interrupting the turn); the agent is released when the turn finishes and rebuilt with the latest configuration on the next turn |
 | `AgentRunRequest` | One-turn input: `Input` / `AttachmentPaths` / `SessionId` / `PermissionMode` / `ConfirmHandler` / `OnPlannedAction` / `OnUserDenied` |
 | `AgentStreamEvent` | UI-agnostic output events: `TextDeltaEvent` / `ThinkingDeltaEvent` / `ToolCallStartedEvent` / `ToolCallCompletedEvent` / `ToolCallFailedEvent` / `ErrorEvent` / `OrchestrationProgressEvent` / `AttachmentAddedEvent` |
 | `SessionRuntimeManager` / `SessionRuntime` | Per-session DI scope with a serial run loop (`EnqueueAsync`), reload flag (`RequestReload`), last-active tracking and disposal |

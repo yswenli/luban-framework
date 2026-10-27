@@ -532,7 +532,7 @@ services.AddConnector<MyVendorConnector>("myVendor", ctx => new MyVendorConnecto
 |------|------|
 | `AddLuBanAgentHost()` | 注册宿主与默认接缝（全部 `TryAdd`）：`SessionRuntimeManager`（Singleton）、`IAgentHost`（Scoped）、Profile / 工作区 / 用户 / 模型选择解析、附件编排、能力门禁、会话初始化与 `ICommandCatalog`（Singleton） |
 | `AddLuBanAgentOpenAI(configuration)` | 按 `LuBanAgent:Models`（`Provider` / `Model` / `ApiKey` / `BaseUrl`）注册 `IChatClient`；配置不全时只登记 `ChatClientFactoryWarning`，不注册也不抛 |
-| `IAgentHost` | 宿主入口：`InitializeAsync` / `Reset` / `RunStreamingAsync(AgentRunRequest)`；**必须以 Scoped 解析**，自身不持有会话状态 |
+| `IAgentHost` | 宿主入口：`InitializeAsync` / `Reset` / `RunStreamingAsync(AgentRunRequest)`；**必须以 Scoped 解析**，自身不持有会话状态。`Reset` 在该会话有回合运行中时只登记延迟重载（不打断回合），回合收尾后释放 Agent，下一次对话按最新配置重建 |
 | `AgentRunRequest` | 一轮对话入参：`Input` / `AttachmentPaths` / `SessionId` / `PermissionMode` / `ConfirmHandler` / `OnPlannedAction` / `OnUserDenied` |
 | `AgentStreamEvent` | UI 无关输出事件：`TextDeltaEvent` / `ThinkingDeltaEvent` / `ToolCallStartedEvent` / `ToolCallCompletedEvent` / `ToolCallFailedEvent` / `ErrorEvent` / `OrchestrationProgressEvent` / `AttachmentAddedEvent` |
 | `SessionRuntimeManager` / `SessionRuntime` | 按会话维护独立 DI scope 与串行运行循环（`EnqueueAsync`）、重载标记（`RequestReload`）、活动时间与释放 |
