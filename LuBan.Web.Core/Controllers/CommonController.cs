@@ -21,7 +21,6 @@
 *描述：数据库配置的通用接口
 *
 *****************************************************************************/
-using LuBan.Common.Errors;
 using System.Web;
 
 namespace LuBan.Web.Core.Controllers;

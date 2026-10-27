@@ -128,11 +128,13 @@ public class ScriptToolGroup
     /// </summary>
     /// <param name="command">要执行的命令</param>
     /// <param name="workingDirectory">工作目录（可选）</param>
+    /// <param name="cancellationToken">取消令牌（由框架注入）。按 Esc 取消时须终止外部进程，否则残留进程会占住会话回合。</param>
     /// <returns>执行结果</returns>
     [Description("执行 Shell 命令。执行环境自动探测（Windows 优先 pwsh > powershell > cmd，类 Unix 优先 bash），返回值中的 shell/shellPath/platform 字段会告知实际使用的解释器；命令请按该解释器语法编写。")]
     [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026", 
         Justification = "JSON 序列化仅用于简单结果类型，已通过 JsonSerializerOptions 处理")]
-    public async Task<ToolResult<string>> RunShellAsync(string command, string? workingDirectory = null)
+    public async Task<ToolResult<string>> RunShellAsync(
+        string command, string? workingDirectory = null, CancellationToken cancellationToken = default)
     {
         // 确认执行
         var outcome = await _confirmationService.EvaluateAsync(nameof(RunShellAsync), null,
@@ -148,6 +150,9 @@ public class ScriptToolGroup
 
         try
         {
+            // Esc 已在确认阶段触发时不再启动外部进程
+            cancellationToken.ThrowIfCancellationRequested();
+
             // 先探测运行环境，再按其类型构造参数风格与引用方式
             var environment = _shellDetector.Resolve(_options.Shell);
             if (!environment.IsAvailable)
@@ -174,6 +179,7 @@ public class ScriptToolGroup
                 workingDirectory,
                 stdin: null,
                 timeoutMs: _options.DefaultTimeout,
+                cancellationToken: cancellationToken,
                 argumentList: shellCommand.ArgumentList,
                 outputEncoding: Encoding.UTF8);
 
@@ -190,6 +196,12 @@ public class ScriptToolGroup
                 commandLine = shellCommand.Display,
                 warning = environment.Warning
             }.ToJson());
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Esc 取消：向上抛出，交由框架按"回合已取消"收尾；
+            // 若在此处吞成失败结果，宿主会误以为是命令执行失败而继续跑完整个回合。
+            throw;
         }
         catch (Exception ex)
         {
@@ -213,11 +225,13 @@ public class ScriptToolGroup
     /// </summary>
     /// <param name="script">Lua 脚本内容</param>
     /// <param name="workingDirectory">保留参数仅为签名兼容；内嵌沙箱无文件系统访问能力，该参数不生效。</param>
+    /// <param name="cancellationToken">取消令牌（由框架注入）；沙箱为同步执行，仅在进入前检查。</param>
     /// <returns>执行结果</returns>
     [Description("在嵌入式 Lua 沙箱中执行脚本。沙箱无文件系统与系统命令能力，结果通过 print 输出（也可用 return 返回末尾表达式）。")]
     [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026", 
         Justification = "JSON 序列化仅用于简单结果类型，已通过 JsonSerializerOptions 处理")]
-    public async Task<ToolResult<string>> RunLuaAsync(string script, string? workingDirectory = null)
+    public async Task<ToolResult<string>> RunLuaAsync(
+        string script, string? workingDirectory = null, CancellationToken cancellationToken = default)
     {
         // 确认执行
         var outcome = await _confirmationService.EvaluateAsync(nameof(RunLuaAsync), null,
@@ -233,6 +247,9 @@ public class ScriptToolGroup
 
         try
         {
+            // Esc 取消：内嵌沙箱为同步执行，无法中途打断，仅在进入前检查
+            cancellationToken.ThrowIfCancellationRequested();
+
             // 内嵌沙箱执行：无需外部 lua 解释器；print 与末尾表达式值写入 stdout
             var result = _luaRunner.Execute(script, _options.DefaultTimeout);
 
@@ -245,6 +262,11 @@ public class ScriptToolGroup
                 timedOut = result.TimedOut,
                 runtime = "moonSharp-soft-sandbox"
             }.ToJson());
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Esc 取消：向上抛出，交由框架按"回合已取消"收尾
+            throw;
         }
         catch (Exception ex)
         {
@@ -266,11 +288,13 @@ public class ScriptToolGroup
 /// </summary>
 /// <param name="script">Python 脚本内容</param>
 /// <param name="workingDirectory">工作目录（可选）</param>
+/// <param name="cancellationToken">取消令牌（由框架注入）。按 Esc 取消时须终止外部进程，否则残留进程会占住会话回合。</param>
 /// <returns>执行结果</returns>
 [Description("执行 Python 脚本")]
 [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026", 
     Justification = "JSON 序列化仅用于简单结果类型，已通过 JsonSerializerOptions 处理")]
-public async Task<ToolResult<string>> RunPythonAsync(string script, string? workingDirectory = null)
+public async Task<ToolResult<string>> RunPythonAsync(
+    string script, string? workingDirectory = null, CancellationToken cancellationToken = default)
 {
     // 确认执行
     var outcome = await _confirmationService.EvaluateAsync(nameof(RunPythonAsync), null,
@@ -286,6 +310,9 @@ public async Task<ToolResult<string>> RunPythonAsync(string script, string? work
 
     try
     {
+        // Esc 已在确认阶段触发时不再启动外部进程
+        cancellationToken.ThrowIfCancellationRequested();
+
         // 诊断日志：Python 环境
         Logger.Info($"Python 执行: executable={_options.PythonPath}, workingDir={workingDirectory ?? "未指定"}");
         Logger.Debug($"脚本内容（前200字符）:\n{(script.Length > 200 ? script.Substring(0, 200) + "..." : script)}");
@@ -297,7 +324,8 @@ public async Task<ToolResult<string>> RunPythonAsync(string script, string? work
             "-",  // "-" 表示从 stdin 读取脚本
             workingDirectory,
             stdin: script,
-            timeoutMs: _options.DefaultTimeout);
+            timeoutMs: _options.DefaultTimeout,
+            cancellationToken: cancellationToken);
 
         // 诊断日志：执行结果
         Logger.Info($"Python 结果: exitCode={result.ExitCode}, stdout.length={result.StandardOutput.Length}, stderr.length={result.StandardError.Length}, duration={result.DurationMs}ms");
@@ -325,6 +353,11 @@ public async Task<ToolResult<string>> RunPythonAsync(string script, string? work
             durationMs = result.DurationMs,
             timedOut = result.TimedOut
         }.ToJson());
+    }
+    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+    {
+        // Esc 取消：向上抛出，交由框架按"回合已取消"收尾
+        throw;
     }
     catch (Exception ex)
     {

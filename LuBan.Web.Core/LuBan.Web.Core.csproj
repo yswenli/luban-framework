@@ -8,7 +8,7 @@
 		<DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
 		<GeneratePackageOnBuild>True</GeneratePackageOnBuild>
 		<Title>$(AssemblyName)</Title>
-		<Version>2026.10.23.1</Version>
+		<Version>2026.10.27.1</Version>
 		<Authors>yswenli</Authors>
 		<Description>LuBan Framework中api核心功能项目，基于aspnetcore集成di、jwt、swagger、codefirtst、支持多种常见数据库、nacos配置中心、统一接口回复参数、全局异常捕获、全局接口日志、防重放攻击、图形验证码、快捷上下文对象、上传下载、数据导入导出等功能</Description>
 		<Copyright>yswenli</Copyright>
@@ -33,12 +33,12 @@
 	<ItemGroup>
 		<PackageReference Include="Ben.Demystifier" Version="0.4.1" />
 		<PackageReference Include="Lazy.Captcha.Core" Version="2.2.7" />
-		<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.13" />
-		<PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.13" />
-		<PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.13" />
-		<PackageReference Include="Microsoft.Extensions.Hosting.Systemd" Version="10.0.13" />
-		<PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.13" />
-		<PackageReference Include="Microsoft.Extensions.Http" Version="10.0.13" />
+		<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.14" />
+		<PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.14" />
+		<PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.14" />
+		<PackageReference Include="Microsoft.Extensions.Hosting.Systemd" Version="10.0.14" />
+		<PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.14" />
+		<PackageReference Include="Microsoft.Extensions.Http" Version="10.0.14" />
 		<PackageReference Include="Microsoft.IdentityModel.Tokens" Version="8.23.0" />
 		<PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.23.0" />
 		<PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.23.0" />

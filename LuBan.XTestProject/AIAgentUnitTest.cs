@@ -19,6 +19,7 @@ using LuBan.AIAgent.Abstractions;
 using LuBan.AIAgent.Configuration;
 using LuBan.AIAgent.Infrastructure;
 using LuBan.AIAgent.Tools.FileSystem;
+using LuBan.AIAgent.Tools.Script;
 using LuBan.AIAgent.Tools.Web;
 
 using Microsoft.Extensions.AI;
@@ -303,6 +304,95 @@ public class AIAgentUnitTest
 
         Assert.AreEqual(0, result.ExitCode, result.StandardError);
         StringAssert.Contains(result.StandardOutput, "luban-中文-ok");
+    }
+
+    /// <summary>
+    /// 取消语义：用户按 Esc 取消时必须立即终止外部进程并抛取消异常，
+    /// 而不是把它伪装成"执行失败"让回合继续跑满超时（否则会话串行队列被占，下一条消息长时间零输出）。
+    /// </summary>
+    [TestMethod]
+    public async Task TestProcessRunner_Cancel_KillsProcessAndThrowsCancellation()
+    {
+        var detector = new ShellEnvironmentDetector();
+        var environment = detector.Resolve(string.Empty);
+        Assert.IsTrue(environment.IsAvailable, environment.Warning);
+
+        // 长耗时命令：Windows 用 ping，类 Unix 用 sleep
+        var longRunning = OperatingSystem.IsWindows() ? "ping -n 30 127.0.0.1" : "sleep 30";
+        var command = ShellEnvironmentDetector.BuildCommand(environment, longRunning);
+
+        var runner = new ProcessRunner();
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(500));
+
+        var startedAt = DateTimeOffset.UtcNow;
+        OperationCanceledException? caught = null;
+        try
+        {
+            await runner.RunAsync(
+                command.Executable,
+                command.Arguments ?? string.Empty,
+                workingDir: null,
+                stdin: null,
+                timeoutMs: 60000,
+                cancellationToken: cts.Token,
+                argumentList: command.ArgumentList,
+                outputEncoding: Encoding.UTF8);
+        }
+        catch (OperationCanceledException ex)
+        {
+            // 具体类型可能是 TaskCanceledException（派生类），统一按取消断言
+            caught = ex;
+        }
+
+        var elapsed = DateTimeOffset.UtcNow - startedAt;
+        Assert.IsNotNull(caught, "取消失败：未抛出 OperationCanceledException（被当成执行失败吞掉）");
+
+        // 必须远早于 60s 超时返回，证明确实是取消而非超时
+        Assert.IsTrue(elapsed < TimeSpan.FromSeconds(20), $"取消耗时过长: {elapsed.TotalSeconds:F1}s");
+    }
+
+    /// <summary>
+    /// 取消链路端到端（框架层）：宿主 InvokeAsync 时传入的取消令牌必须能穿透 AIFunction
+    /// 注入到工具方法，进而终止正在执行的外部进程 —— 这是 Esc 能真正中断长命令的前提。
+    /// </summary>
+    [TestMethod]
+    public async Task TestScriptTool_CancellationFlowsThroughAIFunction()
+    {
+        var detector = new ShellEnvironmentDetector();
+        Assert.IsTrue(detector.Resolve(string.Empty).IsAvailable);
+
+        var context = new ToolConfirmationContext { Mode = ToolPermissionMode.BypassPermissions };
+        var confirmation = new ToolConfirmationService(context);
+        using var lua = new LuaScriptRunner();
+        var group = new ScriptToolGroup(
+            new ScriptToolOptions { Shell = string.Empty, DefaultTimeout = 60000 },
+            new ProcessRunner(),
+            lua,
+            detector,
+            confirmation);
+
+        var method = typeof(ScriptToolGroup).GetMethod(nameof(ScriptToolGroup.RunShellAsync));
+        Assert.IsNotNull(method);
+        var function = AIFunctionFactory.Create(method, group);
+
+        var longRunning = OperatingSystem.IsWindows() ? "ping -n 30 127.0.0.1" : "sleep 30";
+        var arguments = new AIFunctionArguments { ["command"] = longRunning };
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(500));
+
+        var startedAt = DateTimeOffset.UtcNow;
+        OperationCanceledException? caught = null;
+        try
+        {
+            await function.InvokeAsync(arguments, cts.Token);
+        }
+        catch (OperationCanceledException ex)
+        {
+            caught = ex;
+        }
+
+        var elapsed = DateTimeOffset.UtcNow - startedAt;
+        Assert.IsNotNull(caught, "取消令牌未穿透到工具方法：长命令没有被中断");
+        Assert.IsTrue(elapsed < TimeSpan.FromSeconds(20), $"取消耗时过长: {elapsed.TotalSeconds:F1}s");
     }
 }
 

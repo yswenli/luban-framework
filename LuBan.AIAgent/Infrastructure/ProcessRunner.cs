@@ -125,8 +125,8 @@ public sealed class ProcessRunner
                 process.StandardInput.Close();
             }
 
-            var stdOutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
-            var stdErrTask = process.StandardError.ReadToEndAsync(cancellationToken);
+            var stdOutTask = process.StandardOutput.ReadToEndAsync();
+            var stdErrTask = process.StandardError.ReadToEndAsync();
 
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeoutCts.CancelAfter(timeoutMs);
@@ -139,15 +139,15 @@ public sealed class ProcessRunner
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
                 timedOut = true;
-                try
-                {
-                    if (!process.HasExited)
-                    {
-                        process.Kill(true);
-                        await process.WaitForExitAsync(cancellationToken);
-                    }
-                }
-                catch { }
+                KillProcessTree(process);
+                try { await process.WaitForExitAsync(CancellationToken.None); } catch { }
+            }
+            catch (OperationCanceledException)
+            {
+                // 用户取消（Esc）：必须杀掉整棵进程树。否则外部进程继续跑到超时，
+                // 承载它的会话回合迟迟不返回，串行队列被占住，下一条消息只会静默排队。
+                KillProcessTree(process);
+                throw;
             }
 
             var stdout = await stdOutTask;
@@ -162,6 +162,12 @@ public sealed class ProcessRunner
                 StandardError: Normalize(stderr),
                 DurationMs: (int)(completedAt - startedAt).TotalMilliseconds,
                 TimedOut: timedOut);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // 取消是"回合被中断"，不是"执行失败"：向上抛出，让宿主按取消收尾
+            Logger.Info($"进程已取消并终止: {executable} {arguments}");
+            throw;
         }
         catch (Exception ex)
         {
@@ -178,6 +184,23 @@ public sealed class ProcessRunner
     }
 
     private static string Normalize(string value) => value.Replace("\r\n", "\n");
+
+    /// <summary>
+    /// 终止进程及其子进程树；进程已退出或无权访问时静默忽略。
+    /// </summary>
+    /// <param name="process">目标进程。</param>
+    private static void KillProcessTree(Process process)
+    {
+        try
+        {
+            if (!process.HasExited)
+                process.Kill(entireProcessTree: true);
+        }
+        catch
+        {
+            // 进程已退出 / 无权限：忽略即可，不能因为杀进程失败而吞掉取消语义
+        }
+    }
 }
 
 /// <summary>

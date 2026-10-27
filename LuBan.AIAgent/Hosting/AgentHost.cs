@@ -237,8 +237,64 @@ public sealed class AgentHost(
             }
         }, ct);
 
-        await foreach (var evt in channel.Reader.ReadAllAsync(ct))
-            yield return evt;
+        // 取消（Esc/新会话）时不能立刻结束事件流：回合委托可能仍在执行（如不可中断的工具），
+        // 而会话运行时的串行队列仍被该回合占着。此时若 UI 立刻复位为"空闲"，
+        // 用户接着发的下一条消息只会排队，表现为"显示运行中但文字不再增长"的假停。
+        while (true)
+        {
+            bool hasMore;
+            try
+            {
+                hasMore = await channel.Reader.WaitToReadAsync(ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                // 不再向 UI 推送事件，但要等回合真正收尾（有宽限期，避免死等不可取消的工具）
+                await AwaitTurnTeardownAsync(channel.Reader, runtime.SessionId).ConfigureAwait(false);
+                throw;
+            }
+
+            if (!hasMore)
+                yield break;
+
+            while (channel.Reader.TryRead(out var evt))
+                yield return evt;
+        }
+    }
+
+    /// <summary>取消后等待回合真正收尾的宽限期。</summary>
+    private static readonly TimeSpan TurnTeardownGrace = TimeSpan.FromSeconds(15);
+
+    /// <summary>
+    /// 取消后把本回合剩余事件读空并丢弃，直到回合委托真正结束（或超过宽限期）。
+    /// 目的是让宿主知道"上一回合已经彻底收尾"，而不是在残留回合仍占着串行队列时就宣告空闲。
+    /// </summary>
+    /// <param name="reader">回合事件通道读取端。</param>
+    /// <param name="sessionId">会话标识（用于日志）。</param>
+    private static async Task AwaitTurnTeardownAsync(ChannelReader<AgentStreamEvent> reader, string sessionId)
+    {
+        using var grace = new CancellationTokenSource(TurnTeardownGrace);
+        try
+        {
+            while (await reader.WaitToReadAsync(grace.Token).ConfigureAwait(false))
+            {
+                while (reader.TryRead(out _))
+                {
+                    // 丢弃：UI 已放弃本回合输出
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            Logger.Warn(
+                $"回合取消后未在 {TurnTeardownGrace.TotalSeconds:0}s 内收尾（可能存在不可取消的工具），" +
+                $"该会话后续消息将继续排队: {sessionId}");
+        }
+        catch (Exception ex)
+        {
+            // 通道以异常完成（回合内抛出）：收尾异常不影响取消语义
+            Logger.Warn($"回合取消后收尾期间发生异常（已忽略）: {sessionId}", ex);
+        }
     }
 
     /// <summary>确保指定会话运行时内已按工作区构建 Agent。</summary>
