@@ -1,4 +1,19 @@
-using LuBan.AIAgent.Attachments;
+/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net10.0
+*机器名称：WALLE
+*Author：yswenli
+*命名空间：LuBan.AIAgent.Hosting
+*文件名： DefaultAgentAttachmentOrchestrator
+*版本号： V1.0.0.0
+*唯一标识：默认附件编排
+*当前的用户域：WALLE
+*创建人：yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/10/26
+*描述：默认附件编排：引用解析、逐文件处理、能力门禁与视觉探测
+*
+*****************************************************************************/using LuBan.AIAgent.Attachments;
 
 namespace LuBan.AIAgent.Hosting;
 

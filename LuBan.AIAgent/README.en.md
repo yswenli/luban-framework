@@ -56,6 +56,10 @@ With this option the host must implement `ISessionContext` (required by PathGuar
 `ILocalMemoryStore` (required by the localmemory tool group), and other contracts; otherwise resolving
 the related services throws `InvalidOperationException`.
 
+> If you need a ready-made multi-session host (session scopes, run loop, attachment orchestration,
+> command catalog) without implementing those contracts yourself, add `services.AddLuBanAgentHost();`
+> — see "Hosting Layer (opt-in)" below.
+
 ## Tech Stack
 
 | Component | Description |
@@ -520,6 +524,44 @@ public sealed class MyVendorConnector : ConnectorBase
 // Assembly (host appsettings supplies Plugins:Security:NetworkWhitelist / CredentialCatalog / ConnectorWhitelist)
 services.AddConnector<MyVendorConnector>("myVendor", ctx => new MyVendorConnector(ctx));
 ```
+
+### Hosting Layer (opt-in)
+
+Brings "session scope + run loop + profile + attachment orchestration + capability gate + command catalog" into the framework, leaving hosts (TUI / desktop / web / A2A) responsible only for UI and product configuration. `IAgentHost` emits a **UI-agnostic** `AgentStreamEvent` sequence; the framework references no UI types.
+
+| Component | Description |
+|------|------|
+| `AddLuBanAgentHost()` | Registers the host and default seams (all `TryAdd`): `SessionRuntimeManager` (singleton), `IAgentHost` (scoped), profile / workspace / user / model-selection resolvers, attachment orchestration, capability gate, session initializer, and `ICommandCatalog` (singleton) |
+| `AddLuBanAgentOpenAI(configuration)` | Registers `IChatClient` from `LuBanAgent:Models` (`Provider` / `Model` / `ApiKey` / `BaseUrl`); when incomplete it only records a `ChatClientFactoryWarning` — no registration and no throw |
+| `IAgentHost` | Host entry point: `InitializeAsync` / `Reset` / `RunStreamingAsync(AgentRunRequest)`; **must be resolved as Scoped**, holds no session state itself |
+| `AgentRunRequest` | One-turn input: `Input` / `AttachmentPaths` / `SessionId` / `PermissionMode` / `ConfirmHandler` / `OnPlannedAction` / `OnUserDenied` |
+| `AgentStreamEvent` | UI-agnostic output events: `TextDeltaEvent` / `ThinkingDeltaEvent` / `ToolCallStartedEvent` / `ToolCallCompletedEvent` / `ToolCallFailedEvent` / `ErrorEvent` / `OrchestrationProgressEvent` / `AttachmentAddedEvent` |
+| `SessionRuntimeManager` / `SessionRuntime` | Per-session DI scope with a serial run loop (`EnqueueAsync`), reload flag (`RequestReload`), last-active tracking and disposal |
+| `IAgentProfile` / `AgentProfileBase` | Agent configuration (system prompt, tool groups, retrieval mode) and agent creation flow; `DefaultAgentProfile` is the general-purpose assistant |
+| `IAgentWorkspaceResolver` / `WorkspaceDescriptor` | Resolves the workspace per session (`Id` / `Name` / `RootPath` / `Type`); defaults to `LuBanAgent:WorkspaceRoot`, falling back to the process working directory |
+| `IAgentProfileResolver` / `IAgentUserResolver` / `IAgentModelSelection` | Profile selection, user id (defaults to `IUserContext.UserId`, falling back to `local`), qualified model name (defaults to `LuBanAgent:DefaultModel`) |
+| `IAgentAttachmentOrchestrator` / `AgentAttachmentResolver` | `@reference` extraction, attachment processing and capability gate, merge/dedup of UI paths and references; parsing rules come from the orchestrator, so CLI / desktop / web / A2A behave identically |
+| `IModelCapabilityGate` / `IModelCapabilityProbe` | Model attachment-capability check and one-turn vision probe (default: allow all, no probe) |
+| `ISessionRuntimeInitializer` / `IAgentSessionExtension` | Extension point after a session scope is created, and per-session extension before the agent is built (plugin contributions, connector activation, etc.) |
+| `ICommandCatalog` / `SlashCommandDefinition` | Slash-command catalog shared by both clients (name / aliases / description / category / usage / supported clients) to prevent drift between CLI and desktop |
+| `ToolConfirmationContextExtensions` | Per-turn confirmation context assembly (permission mode, cancellation token, confirm callback, planned-action and denial callbacks) |
+
+```csharp
+services.AddLuBanAgent(configuration);
+services.AddLuBanAgentHost();
+services.AddLuBanAgentOpenAI(configuration);   // or register IChatClient yourself
+
+using var scope = serviceProvider.CreateScope();
+var host = scope.ServiceProvider.GetRequiredService<IAgentHost>();
+await host.InitializeAsync(sessionId);
+await foreach (var e in host.RunStreamingAsync(new AgentRunRequest { Input = "hello", SessionId = sessionId }))
+{
+    if (e is TextDeltaEvent d) Console.Write(d.Delta);
+}
+```
+
+> The hosting layer is **opt-in**: without `AddLuBanAgentHost()`, the existing `AddLuBanAgent` / `AddLuBanAgentDefaults` + `ILuBanAgentFactory` usage is unchanged.
+> For product behavior (multiple workspaces, persisted sessions, vendor connectors, custom profiles), register your own implementations after `AddLuBanAgentHost()` to override the default seams (all `TryAdd`).
 
 ## Usage Guide
 
@@ -1187,9 +1229,39 @@ LuBan.AIAgent/
 │   │   └── ConfigurationCredentialStore.cs # Default read-only "configuration + environment variable" store
 │   └── Schemas/
 │       └── plugin.schema.json         # JSON Schema for plugin.json (shipped in the package)
+├── Hosting/                           # Hosting layer (session scope / run loop / profile / attachments / commands)
+│   ├── IAgentHost.cs                  # Host entry point (routes streaming turns by session)
+│   ├── AgentHost.cs                   # Default host implementation (stateless router)
+│   ├── AgentRunRequest.cs             # One-turn request
+│   ├── AgentStreamEvent.cs            # UI-agnostic stream events (text/thinking/tool/error/orchestration/attachment)
+│   ├── SessionRuntimeManager.cs       # Session runtime table (one DI scope per session)
+│   ├── SessionRuntime.cs              # Session runtime (serial run loop + reload flag)
+│   ├── SessionRuntimeSeed.cs          # Session initialization seed (user/workspace)
+│   ├── IAgentProfile.cs               # Agent configuration contract
+│   ├── AgentProfileBase.cs            # Agent configuration base (system prompt + agent creation)
+│   ├── DefaultAgentProfile.cs         # Default general-purpose profile
+│   ├── IAgentProfileResolver.cs       # Profile resolver contract
+│   ├── IAgentWorkspaceResolver.cs     # Workspace resolver contract
+│   ├── WorkspaceDescriptor.cs         # Workspace descriptor (Id/Name/RootPath/Type)
+│   ├── IAgentUserResolver.cs          # User id resolver contract
+│   ├── IAgentModelSelection.cs        # Model selection contract
+│   ├── DefaultSeams.cs                # Default workspace/profile/user/model-selection implementations
+│   ├── IAgentAttachmentOrchestrator.cs # Attachment orchestration contract (references/processing/gate/probe)
+│   ├── DefaultAgentAttachmentOrchestrator.cs # Default attachment orchestration
+│   ├── AgentAttachmentResolver.cs     # Merge/dedup UI paths and @references
+│   ├── IModelCapabilityGate.cs        # Attachment capability gate + one-turn vision probe
+│   ├── ISessionRuntimeInitializer.cs  # Session scope initializer extension point (with no-op)
+│   ├── IAgentSessionExtension.cs      # Per-session extension before agent creation
+│   ├── ToolConfirmationContextExtensions.cs # Per-turn confirmation context assembly
+│   └── Commands/                      # Slash-command catalog shared by both clients
+│       ├── ICommandCatalog.cs         # Command query contract (all / prefix match / exact lookup)
+│       ├── CommandCatalog.cs          # Default catalog
+│       └── SlashCommandDefinition.cs  # Command metadata + client flags
 ├── LuBanAgent.cs                      # Agent instance
 ├── LuBanAgentFactory.cs               # Agent factory
 ├── LuBanAgentExtensions.cs            # DI extension methods
+├── LuBanAgentHostExtensions.cs        # Host registration extension (AddLuBanAgentHost)
+├── LuBanAgentOpenAIExtensions.cs      # OpenAI-compatible provider registration (AddLuBanAgentOpenAI)
 ├── SanitizingChatClient.cs            # Chat client sanitizer
 ├── AIFunctionFactoryHelper.cs         # AI function factory helper
 └── ILuBanAgentFactory.cs              # Agent factory interface

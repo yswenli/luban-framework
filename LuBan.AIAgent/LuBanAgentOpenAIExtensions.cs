@@ -45,7 +45,7 @@ public static class LuBanAgentOpenAIExtensions
     /// </code>
     /// </para>
     /// <para>
-    /// 未配置完整时，宿主可自行注册 <see cref="IChatClient"/>，或读取 <see cref="IChatClientFactoryWarning"/> 提示用户。
+    /// 未配置完整时，宿主可自行注册 <see cref="IChatClient"/>，或读取 <see cref="ChatClientFactoryWarning"/> 提示用户。
     /// </para>
     /// </remarks>
     public static IServiceCollection AddLuBanAgentOpenAI(
@@ -61,7 +61,7 @@ public static class LuBanAgentOpenAIExtensions
         if (string.IsNullOrWhiteSpace(provider) || string.IsNullOrWhiteSpace(model) || string.IsNullOrWhiteSpace(apiKey))
         {
             // 配置不全：保持宿主自行注册 IChatClient 的能力，这里不注册也不抛
-            services.AddSingleton<IChatClientFactoryWarning>(new IChatClientFactoryWarning(
+            services.AddSingleton<ChatClientFactoryWarning>(new ChatClientFactoryWarning(
                 "LuBanAgent:Models 未配置完整（Provider/Model/ApiKey），未注册默认 IChatClient。"));
             return services;
         }
@@ -81,4 +81,4 @@ public static class LuBanAgentOpenAIExtensions
 
 /// <summary>启动期提示载体（宿主可读取并打印）。</summary>
 /// <param name="Message">提示文案。</param>
-public sealed record IChatClientFactoryWarning(string Message);
+public sealed record ChatClientFactoryWarning(string Message);

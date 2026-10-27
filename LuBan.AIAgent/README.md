@@ -55,6 +55,9 @@ services.AddLuBanAgent(configuration);
 此方式需宿主自行实现 `ISessionContext`（PathGuard / 全部工具组依赖）、`ILocalMemoryStore`
 （localmemory 工具组依赖）等契约，否则在解析相关服务时会抛出 `InvalidOperationException`。
 
+> 需要一个可用的多会话宿主（会话作用域、运行循环、附件编排、命令清单）但不想自己实现这些契约时，
+> 再加一行 `services.AddLuBanAgentHost();` 即可，详见「宿主层（Hosting，opt-in）」。
+
 ## 技术栈
 
 | 组件 | 说明 |
@@ -520,6 +523,44 @@ public sealed class MyVendorConnector : ConnectorBase
 // 装配（宿主 appsettings 里补 Plugins:Security:NetworkWhitelist / CredentialCatalog / ConnectorWhitelist）
 services.AddConnector<MyVendorConnector>("myVendor", ctx => new MyVendorConnector(ctx));
 ```
+
+### 宿主层（Hosting，opt-in）
+
+把「会话作用域 + 运行循环 + Profile + 附件编排 + 能力门禁 + 命令清单」收进框架，宿主（TUI / 桌面 / Web / A2A）只负责 UI 与产品配置。`IAgentHost` 输出 **UI 无关** 的 `AgentStreamEvent` 序列，框架不引用任何 UI 类型。
+
+| 组件 | 说明 |
+|------|------|
+| `AddLuBanAgentHost()` | 注册宿主与默认接缝（全部 `TryAdd`）：`SessionRuntimeManager`（Singleton）、`IAgentHost`（Scoped）、Profile / 工作区 / 用户 / 模型选择解析、附件编排、能力门禁、会话初始化与 `ICommandCatalog`（Singleton） |
+| `AddLuBanAgentOpenAI(configuration)` | 按 `LuBanAgent:Models`（`Provider` / `Model` / `ApiKey` / `BaseUrl`）注册 `IChatClient`；配置不全时只登记 `ChatClientFactoryWarning`，不注册也不抛 |
+| `IAgentHost` | 宿主入口：`InitializeAsync` / `Reset` / `RunStreamingAsync(AgentRunRequest)`；**必须以 Scoped 解析**，自身不持有会话状态 |
+| `AgentRunRequest` | 一轮对话入参：`Input` / `AttachmentPaths` / `SessionId` / `PermissionMode` / `ConfirmHandler` / `OnPlannedAction` / `OnUserDenied` |
+| `AgentStreamEvent` | UI 无关输出事件：`TextDeltaEvent` / `ThinkingDeltaEvent` / `ToolCallStartedEvent` / `ToolCallCompletedEvent` / `ToolCallFailedEvent` / `ErrorEvent` / `OrchestrationProgressEvent` / `AttachmentAddedEvent` |
+| `SessionRuntimeManager` / `SessionRuntime` | 按会话维护独立 DI scope 与串行运行循环（`EnqueueAsync`）、重载标记（`RequestReload`）、活动时间与释放 |
+| `IAgentProfile` / `AgentProfileBase` | Agent 配置（系统提示词、工具组、检索模式）与建 Agent 流程；`DefaultAgentProfile` 为通用助手 |
+| `IAgentWorkspaceResolver` / `WorkspaceDescriptor` | 按会话解析工作区（`Id` / `Name` / `RootPath` / `Type`）；默认读 `LuBanAgent:WorkspaceRoot`，缺省为进程当前目录 |
+| `IAgentProfileResolver` / `IAgentUserResolver` / `IAgentModelSelection` | Profile 选择、用户标识（默认读 `IUserContext.UserId`，回落 `local`）、模型限定名（默认读 `LuBanAgent:DefaultModel`） |
+| `IAgentAttachmentOrchestrator` / `AgentAttachmentResolver` | `@引用` 解析、附件处理与能力门禁、UI 路径与引用合并去重；解析规则由编排器提供，因此 CLI / 桌面 / Web / A2A 行为一致 |
+| `IModelCapabilityGate` / `IModelCapabilityProbe` | 模型对附件的能力判定与单轮视觉能力探测（默认一律放行、不探测） |
+| `ISessionRuntimeInitializer` / `IAgentSessionExtension` | 会话 scope 创建后的初始化扩展点、建 Agent 前的会话扩展点（插件贡献、连接器启用等） |
+| `ICommandCatalog` / `SlashCommandDefinition` | 两端共享的斜杠命令清单（名称 / 别名 / 描述 / 分类 / 用法 / 可用客户端），避免 CLI 与桌面端漂移 |
+| `ToolConfirmationContextExtensions` | 每轮确认上下文装配（权限模式、取消令牌、确认回调、计划项与拒绝回调） |
+
+```csharp
+services.AddLuBanAgent(configuration);
+services.AddLuBanAgentHost();
+services.AddLuBanAgentOpenAI(configuration);   // 或由宿主自行注册 IChatClient
+
+using var scope = serviceProvider.CreateScope();
+var host = scope.ServiceProvider.GetRequiredService<IAgentHost>();
+await host.InitializeAsync(sessionId);
+await foreach (var e in host.RunStreamingAsync(new AgentRunRequest { Input = "你好", SessionId = sessionId }))
+{
+    if (e is TextDeltaEvent d) Console.Write(d.Delta);
+}
+```
+
+> 宿主层是 **opt-in**：不调用 `AddLuBanAgentHost` 时，`AddLuBanAgent` / `AddLuBanAgentDefaults` + `ILuBanAgentFactory` 的既有用法完全不变。
+> 需要产品行为（多工作区、持久化会话、厂商连接器、自定义 Profile）时，在 `AddLuBanAgentHost()` 之后注册自己的实现覆盖默认接缝即可（全部 `TryAdd`）。
 
 ## 使用指南
 
@@ -1184,9 +1225,39 @@ LuBan.AIAgent/
 │   │   └── ConfigurationCredentialStore.cs # 默认「配置 + 环境变量」只读实现
 │   └── Schemas/
 │       └── plugin.schema.json         # plugin.json 的 JSON Schema（随包发布）
+├── Hosting/                           # 宿主层（会话作用域 / 运行循环 / Profile / 附件编排 / 命令清单）
+│   ├── IAgentHost.cs                  # 宿主入口（按会话路由流式对话）
+│   ├── AgentHost.cs                   # 宿主默认实现（无状态路由器）
+│   ├── AgentRunRequest.cs             # 一轮对话入参
+│   ├── AgentStreamEvent.cs            # UI 无关流式事件（文本/思考/工具/错误/编排/附件）
+│   ├── SessionRuntimeManager.cs       # 会话运行时表（每会话独立 DI scope）
+│   ├── SessionRuntime.cs              # 会话运行时（串行运行循环 + 重载标记）
+│   ├── SessionRuntimeSeed.cs          # 会话初始化种子（用户/工作区）
+│   ├── IAgentProfile.cs               # Agent 配置契约
+│   ├── AgentProfileBase.cs            # Agent 配置基类（系统提示词 + 建 Agent 流程）
+│   ├── DefaultAgentProfile.cs         # 默认通用助手 Profile
+│   ├── IAgentProfileResolver.cs       # Profile 解析契约
+│   ├── IAgentWorkspaceResolver.cs     # 工作区解析契约
+│   ├── WorkspaceDescriptor.cs         # 工作区描述（Id/Name/RootPath/Type）
+│   ├── IAgentUserResolver.cs          # 用户标识解析契约
+│   ├── IAgentModelSelection.cs        # 模型选择契约
+│   ├── DefaultSeams.cs                # 工作区/Profile/用户/模型选择的默认实现
+│   ├── IAgentAttachmentOrchestrator.cs # 附件编排契约（引用解析/处理/门禁/探测）
+│   ├── DefaultAgentAttachmentOrchestrator.cs # 默认附件编排
+│   ├── AgentAttachmentResolver.cs     # UI 路径与 @引用 合并去重
+│   ├── IModelCapabilityGate.cs        # 附件能力门禁 + 单轮视觉探针
+│   ├── ISessionRuntimeInitializer.cs  # 会话 scope 初始化扩展点（含空实现）
+│   ├── IAgentSessionExtension.cs      # 建 Agent 前的会话扩展点
+│   ├── ToolConfirmationContextExtensions.cs # 每轮确认上下文装配
+│   └── Commands/                      # 两端共享的斜杠命令清单
+│       ├── ICommandCatalog.cs         # 命令查询契约（全部/前缀匹配/精确查找）
+│       ├── CommandCatalog.cs          # 默认清单
+│       └── SlashCommandDefinition.cs  # 命令元数据 + 客户端标记
 ├── LuBanAgent.cs                      # Agent 实例
 ├── LuBanAgentFactory.cs               # Agent 工厂
 ├── LuBanAgentExtensions.cs            # DI 扩展方法
+├── LuBanAgentHostExtensions.cs        # 宿主注册扩展（AddLuBanAgentHost）
+├── LuBanAgentOpenAIExtensions.cs      # OpenAI 兼容 Provider 注册扩展（AddLuBanAgentOpenAI）
 ├── SanitizingChatClient.cs            # 聊天客户端消毒器
 ├── AIFunctionFactoryHelper.cs         # AI 函数工厂辅助类
 └── ILuBanAgentFactory.cs              # Agent 工厂接口

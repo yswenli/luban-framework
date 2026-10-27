@@ -1,4 +1,19 @@
-namespace LuBan.AIAgent.Hosting;
+/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net10.0
+*机器名称：WALLE
+*Author：yswenli
+*命名空间：LuBan.AIAgent.Hosting
+*文件名： IAgentModelSelection
+*版本号： V1.0.0.0
+*唯一标识：模型选择接口
+*当前的用户域：WALLE
+*创建人：yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/10/26
+*描述：模型选择契约：当前会话使用的模型限定名
+*
+*****************************************************************************/namespace LuBan.AIAgent.Hosting;
 
 /// <summary>当前选定的模型（宿主读取；产品可用自己的配置实现覆盖）。</summary>
 public interface IAgentModelSelection

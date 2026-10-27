@@ -1,4 +1,19 @@
-using LuBan.AIAgent.Attachments;
+/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net10.0
+*机器名称：WALLE
+*Author：yswenli
+*命名空间：LuBan.AIAgent.Hosting
+*文件名： IModelCapabilityGate
+*版本号： V1.0.0.0
+*唯一标识：模型能力门禁
+*当前的用户域：WALLE
+*创建人：yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/10/26
+*描述：模型对附件的能力判定与单轮视觉能力探针
+*
+*****************************************************************************/using LuBan.AIAgent.Attachments;
 
 namespace LuBan.AIAgent.Hosting;
 

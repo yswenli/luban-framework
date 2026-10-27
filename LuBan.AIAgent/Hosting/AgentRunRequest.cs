@@ -1,4 +1,19 @@
-using LuBan.AIAgent.Abstractions;
+/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net10.0
+*机器名称：WALLE
+*Author：yswenli
+*命名空间：LuBan.AIAgent.Hosting
+*文件名： AgentRunRequest
+*版本号： V1.0.0.0
+*唯一标识：一轮对话入参
+*当前的用户域：WALLE
+*创建人：yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/10/26
+*描述：一轮对话的入参模型（正文/附件/会话/权限/回调）
+*
+*****************************************************************************/using LuBan.AIAgent.Abstractions;
 
 namespace LuBan.AIAgent.Hosting;
 

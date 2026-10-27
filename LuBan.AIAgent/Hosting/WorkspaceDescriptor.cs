@@ -1,4 +1,19 @@
-namespace LuBan.AIAgent.Hosting;
+/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net10.0
+*机器名称：WALLE
+*Author：yswenli
+*命名空间：LuBan.AIAgent.Hosting
+*文件名： WorkspaceDescriptor
+*版本号： V1.0.0.0
+*唯一标识：工作区描述
+*当前的用户域：WALLE
+*创建人：yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/10/26
+*描述：工作区描述模型（Id / Name / RootPath / Type）
+*
+*****************************************************************************/namespace LuBan.AIAgent.Hosting;
 
 /// <summary>
 /// 工作区的中立描述（框架不依赖产品的工作区模型）。

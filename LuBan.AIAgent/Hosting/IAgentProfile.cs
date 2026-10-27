@@ -1,4 +1,19 @@
-namespace LuBan.AIAgent.Hosting;
+/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net10.0
+*机器名称：WALLE
+*Author：yswenli
+*命名空间：LuBan.AIAgent.Hosting
+*文件名： IAgentProfile
+*版本号： V1.0.0.0
+*唯一标识：Agent 配置接口
+*当前的用户域：WALLE
+*创建人：yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/10/26
+*描述：Agent 配置契约：系统提示词、工具组、检索模式与建 Agent 流程
+*
+*****************************************************************************/namespace LuBan.AIAgent.Hosting;
 
 /// <summary>Agent 配置：系统提示词、工具组、检索模式与创建流程。</summary>
 public interface IAgentProfile

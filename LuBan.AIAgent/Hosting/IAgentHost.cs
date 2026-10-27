@@ -1,4 +1,19 @@
-namespace LuBan.AIAgent.Hosting;
+/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net10.0
+*机器名称：WALLE
+*Author：yswenli
+*命名空间：LuBan.AIAgent.Hosting
+*文件名： IAgentHost
+*版本号： V1.0.0.0
+*唯一标识：Agent 宿主接口
+*当前的用户域：WALLE
+*创建人：yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/10/26
+*描述：Agent 宿主契约：按会话路由流式对话，输出 UI 无关事件
+*
+*****************************************************************************/namespace LuBan.AIAgent.Hosting;
 
 /// <summary>
 /// Agent 宿主：按会话路由流式对话，输出 UI 无关的 <see cref="AgentStreamEvent"/> 序列。
