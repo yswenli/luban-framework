@@ -80,6 +80,32 @@ dotnet add package LuBan.Web.Core
 }
 ```
 
+### LuBan Agent 接入
+
+框架在标准启动链（`WebApp.RunWebHost`）中会自动尝试注册 LuBan Agent，配置按以下顺序解析：
+
+1. `db_config` 表中 `Code = sys-luban-framework:aiagent` 的记录，`Value` 为与 `LuBanAgent` 节结构一致的 JSON；
+2. 上述记录不存在时，回退宿主配置（`appsettings.json` 的 `LuBanAgent` 节、环境变量）；
+3. 两处都没有、或内容不完整/不合法 → **不启用**，站点照常启动，控制台输出一条黄字原因。
+
+```json
+{
+  "LuBanAgent": {
+    "WorkspaceRoot": "D:\\work\\agent",
+    "DefaultModel": "deepseek:deepseek-chat",
+    "Models": {
+      "Provider": "deepseek",
+      "Model": "deepseek-chat",
+      "ApiKey": "sk-***"
+    }
+  }
+}
+```
+
+校验口径：`Models.Provider` 必须在框架已知 Provider 列表内（大小写不敏感）、`Models.Model` / `Models.ApiKey` / `DefaultModel` 非空、`Models.BaseUrl` 若给出必须是合法 http(s) 地址。
+
+关闭方式：删除 `LuBanAgent` 节且不配置 `db_config` 记录即可（不存在"只关一半"的开关）。Agent 初始化失败只降级为不启用，不会导致 Web 应用启动失败。
+
 ---
 
 ## 功能全景

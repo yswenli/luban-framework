@@ -80,6 +80,32 @@ Add core configuration in `appsettings.json`:
 }
 ```
 
+### LuBan Agent Integration
+
+The standard startup chain (`WebApp.RunWebHost`) tries to register LuBan Agent automatically. Configuration is resolved in this order:
+
+1. the `db_config` record with `Code = sys-luban-framework:aiagent`, whose `Value` is a JSON object shaped like the `LuBanAgent` section;
+2. when that record is absent, the host configuration (`LuBanAgent` section in `appsettings.json`, environment variables);
+3. neither present, or present but incomplete/invalid → **the agent stays disabled**, the web app still starts, and one yellow reason line is printed to the console.
+
+```json
+{
+  "LuBanAgent": {
+    "WorkspaceRoot": "D:\\work\\agent",
+    "DefaultModel": "deepseek:deepseek-chat",
+    "Models": {
+      "Provider": "deepseek",
+      "Model": "deepseek-chat",
+      "ApiKey": "sk-***"
+    }
+  }
+}
+```
+
+Validation: `Models.Provider` must be one of the built-in providers (case-insensitive), `Models.Model` / `Models.ApiKey` / `DefaultModel` must be non-empty, and `Models.BaseUrl` — when supplied — must be a valid http(s) URL.
+
+To disable: remove the `LuBanAgent` section and leave no `db_config` record (there is no half-on switch). A failing agent initialization degrades to "disabled" and never prevents the web app from starting.
+
 ---
 
 ## Feature Overview
