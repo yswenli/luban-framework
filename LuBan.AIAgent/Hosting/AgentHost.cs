@@ -284,16 +284,17 @@ public sealed class AgentHost(
                 }
             }
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (grace.IsCancellationRequested)
         {
+            // 只有宽限期真正到点才告警；否则是回合自身的取消异常经通道完成态重抛（见下）
             Logger.Warn(
                 $"回合取消后未在 {TurnTeardownGrace.TotalSeconds:0}s 内收尾（可能存在不可取消的工具），" +
                 $"该会话后续消息将继续排队: {sessionId}");
         }
         catch (Exception ex)
         {
-            // 通道以异常完成（回合内抛出）：收尾异常不影响取消语义
-            Logger.Warn($"回合取消后收尾期间发生异常（已忽略）: {sessionId}", ex);
+            // 通道以异常完成（回合内抛出，通常就是本次取消本身）：收尾异常不影响取消语义
+            Logger.Info($"回合取消后收尾期间通道异常结束（预期为取消）: {sessionId} {ex.GetType().Name}");
         }
     }
 
