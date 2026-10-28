@@ -123,6 +123,8 @@ git commit -m "Web 核心库引用 Agent 组件"
 
 ## Task 3：新增扁平校验 DTO
 
+> **历史记录（v1）**：本节描述的是「`Models` 为扁平对象」的初版 schema；2026-10-28 已按 §6 改为数组，现行代码以 §6 为准。
+
 **Files:**
 - Create: `LuBan.Web.Core/AIAgent/LuBanAgentStartupOptions.cs`
 
@@ -195,6 +197,8 @@ git commit -m "新增 Agent 配置校验模型"
 ---
 
 ## Task 4：先写解析器单测（RED）
+
+> **历史记录（v1）**：本节单测片段用的是扁平对象 schema；现行 schema 见 §6（`Models` 数组），`LuBanAgentConfigResolverUnitTest` 已按新 schema 改写并扩充到 25 条。
 
 **Files:**
 - Create: `LuBan.XTestProject/LuBanAgentConfigResolverUnitTest.cs`
@@ -413,6 +417,8 @@ dotnet build LuBan.XTestProject\LuBan.UnitTestProject.csproj -p:RestoreIgnoreFai
 ---
 
 ## Task 5：实现解析器（GREEN）
+
+> **历史记录（v1）**：本节代码片段与 using 说明属于初版；现行实现多了 `CreateEffectiveConfiguration` / `ResolveWorkspaceRoot`（§6），`ProviderDefaults` 也已由 `LuBan.Web.Core/GlobalUsings.cs` 全局引入。
 
 **Files:**
 - Create: `LuBan.Web.Core/AIAgent/LuBanAgentConfigResolver.cs`
@@ -830,6 +836,8 @@ git commit -m "示例 Agent 端点改为控制器承载"
 
 ## Task 9：README 中英同步
 
+> **历史记录（v1）**：本节贴的 README 文本是扁平对象版本；实际落库的 README 已按 §6（数组 + `WorkspaceRoot` 相对路径说明）更新。
+
 **Files:**
 - Modify: `LuBan.Web.Core/README.md`
 - Modify: `LuBan.Web.Core/README.en.md`
@@ -1016,9 +1024,56 @@ git log --oneline -8   # 检查 8 条提交信息（中文、无 -A 误带文件
 | `NacosConfigUtil.Read` 与注册用配置**理论上可能分叉** | 校验走 `NacosConfigUtil.Read`（受 `Enable` 影响，读静态 `ConfigUtil._configuration`），注册用宿主 `IConfiguration`。当前 `Enable` 恒 false（`Set()` 只在 `IHostedService.StartAsync` 后调用，而插入点在 `builder.Build()` 前），两者同源等价。**将来若给 Web 启动加 Nacos 预加载，必须改成用同一份来源重建配置**，修改点就在 `ResolveFromHost`（方案 B 已被需求方拍板，此风险保留） |
 | `Replace(IConfiguration)` 削弱 appsettings 热更新 | 新根由 `AddConfiguration(原配置) + AddJsonStream` 组成，`IOptionsMonitor` 走注册时捕获的 section 不受影响；受影响面只有运行期直注 `IConfiguration` 的服务（目前只有 `SessionRuntimeManager` 读一个 int 阈值）。示例站无热更新需求 |
 | `ConfigUtil` / `NacosConfigUtil` 静态读源**看不到** db 覆盖值 | `ConfigUtil._configuration` 在 `ConfigureServices` 开头就绑成原始宿主配置，`Replace` 只改 DI 容器。合并配置是超集，其他节读取结果不变 |
-| `LuBanAgentOptions.Models` 类型与配置形状不符 | 声明是 `Dictionary<string, ModelEndpointOptions>`，配置是扁平对象。当前无代码消费（`AddLuBanAgentOpenAI` 直读原始键）。本次不动 |
+| ~~`LuBanAgentOptions.Models` 类型与配置形状不符~~ | **2026-10-28 已关闭**（见 §6）：`Models` 改数组、元素补 `Provider`/`Model`，`AddLuBanAgentOpenAI` 按数组注册多 Provider 路由 |
 | `ISessionManager` 默认实现 Singleton → 会话串号 | 原 `/agent/minimal` 同样问题，示例站单并发使用。只搬不改 |
 | `BuildProvider()` 无 `ValidateOnBuild` | 缺依赖只在首次请求暴露，故启动期校验必须做全（本设计的核心价值）。不要指望容器帮兜底 |
 | Agent 依赖传染 | 引用 `LuBan.Web.Core` 的项目都会被动带上 `LuBan.AIAgent`（含 Playwright），nupkg 也新增该依赖。D2 已接受，发布说明需点明 |
 | 路由变更 | `/agent/minimal` → `/api/agent/chat`。示例站无外部消费者 |
 | 无运行期热更新 | 配置改了要重启 |
+
+---
+
+## 6. 2026-10-28 追加：配置结构 v2（W1 + M1，已实施）
+
+需求：`WorkspaceRoot` 同时支持绝对路径与 ASP.NET Core 网站相对路径；`Models` 由对象改为数组。拍板结果：**W1 + M1**，`DefaultModel` 可省略（取数组第一项），同一 Provider 允许多条但凭据必须一致。
+
+### 6.1 改动清单
+
+| 文件 | 改动 |
+|---|---|
+| `LuBan.AIAgent/Configuration/ModelEndpointOptions.cs` | 新增 `Provider` / `Model`；保留 `BaseUrl` / `ApiKey` |
+| `LuBan.AIAgent/Configuration/LuBanAgentOptions.cs` | `Models` 由 `Dictionary<string, ModelEndpointOptions>` 改为 `List<ModelEndpointOptions>` |
+| `LuBan.AIAgent/LuBanAgentOpenAIExtensions.cs` | 读数组；按 Provider 分组建 `OpenAIClient`，注册 `IChatClient` + `IProviderRouter`；同 Provider 凭据不一致或 BaseUrl 非法 → 跳过并写 `ChatClientFactoryWarning` |
+| `LuBan.Web.Core/AIAgent/LuBanAgentStartupOptions.cs` | `Models` 改为 `List<LuBanAgentModelsOptions>?` |
+| `LuBan.Web.Core/AIAgent/LuBanAgentConfigResolver.cs` | 校验数组/重复 Provider/`DefaultModel` 命中；新增 `CreateEffectiveConfiguration` 与 `ResolveWorkspaceRoot` |
+| `LuBan.Web.Core/AIAgent/AIAgentExtension.cs` | `AddAIAgent` 增加 `contentRootPath` 参数；注册前生成 effective 配置并用它替换 DI 中的 `IConfiguration` |
+| `LuBan.Web.Core/Utils/StartupUtil.cs` | `ConfigureServices` 增加可选 `contentRootPath`，传给 `AddAIAgent` |
+| `LuBan.Web.Core/ServiceHost.cs` | 传 `builder.Environment.ContentRootPath` |
+| `WebApplication1/appsettings.json` | 示例改为相对 `WorkspaceRoot`（`.`）+ `Models` 数组 |
+| `LuBan.XTestProject/LuBanAgentConfigResolverUnitTest.cs` | 适配新 schema，补 18 条用例（数组/重复 Provider/DefaultModel/路径归一化） |
+| `LuBan.Web.Core/README(.en).md`、`LuBan.AIAgent/README(.en).md` | 配置形状与校验口径同步 |
+
+### 6.2 规则定稿
+
+- `Models` 为空或仍是旧扁平对象 → 不启用（旧写法不再兼容）。
+- 每项 `Provider` 必须在 `ProviderDefaults.ProviderIds` 内；`Model` / `ApiKey` 非空；`BaseUrl` 非空时必须是 http(s)。
+- 同 Provider 多条：`ApiKey` 相同、`BaseUrl`（显式值或 Provider 内置默认值，忽略尾斜杠）相同；否则不启用。
+- `DefaultModel`：省略 → 取 `Models[0]` 的 `provider:model`（在 `CreateEffectiveConfiguration` 补齐）；给出 → 必须是 `provider:model` 且命中数组（Provider 大小写不敏感，Model 敏感）。
+- `WorkspaceRoot`：绝对路径 `Path.GetFullPath`；相对路径以 `ContentRootPath` 为基准；无 ContentRoot 回退 `AppContext.BaseDirectory`。框架层（`LuBan.AIAgent`）仍不做归一化，CLI/桌面端语义不变。
+
+### 6.3 验证结果（2026-10-28）
+
+- `dotnet build LuBan.AIAgent\LuBan.AIAgent.csproj` → 0 警告 0 错误
+- `dotnet build WebApplication1\WebApplication1.csproj -p:RestoreIgnoreFailedSources=true` → 0 错误（2 个既有 NU1801）
+- `LuBanAgentConfigResolverUnitTest` + `DefaultSeamsUnitTest` → 30/30 通过
+- 5 类回归（上述 + `DefaultsHostUnitTest` + `AIAgentUnitTest` + `ConfigUtilUnitTest`）→ 51 通过 / 3 失败，均为既有失败（§10.2 已登记）
+
+### 6.4 冒烟补充（覆盖 §10.4 第 9 条）
+
+| # | 场景 | 预期 |
+|---|---|---|
+| 11 | `WorkspaceRoot` 配成 `.` | 站点起；Agent 工作区解析为站点内容根（可在文件工具中确认） |
+| 12 | `Models` 配两个 Provider（如 deepseek + kimi），`DefaultModel` 指向第二个 | 站点起；请求走 `DefaultModel` 指定的模型 |
+| 13 | 省略 `DefaultModel` | 站点起；实际走 `Models` 第一项 |
+| 14 | 同一 Provider 配两条模型但 `ApiKey` 不同 | 不启用；日志含「ApiKey/BaseUrl 不一致」 |
+| 15 | 仍写旧版扁平 `Models` 对象 | 不启用；日志含「缺少 LuBanAgent:Models 配置」 |
