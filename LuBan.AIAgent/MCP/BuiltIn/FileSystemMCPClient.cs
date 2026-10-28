@@ -142,17 +142,22 @@ public class FileSystemMCPClient : MCPClientBase
             switch (toolName)
             {
                 case "read_file":
-                    return await ReadFileAsync(arguments).ConfigureAwait(false);
+                    return await ReadFileAsync(arguments, cancellationToken).ConfigureAwait(false);
 
                 case "write_file":
-                    return await WriteFileAsync(arguments).ConfigureAwait(false);
+                    return await WriteFileAsync(arguments, cancellationToken).ConfigureAwait(false);
 
                 case "list_directory":
-                    return await ListDirectoryAsync(arguments).ConfigureAwait(false);
+                    return await ListDirectoryAsync(arguments, cancellationToken).ConfigureAwait(false);
 
                 default:
                     return Fail($"未知工具: {toolName}");
             }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // 用户取消（Esc）不是工具失败：原样抛出，由宿主终止回合。
+            throw;
         }
         catch (Exception ex)
         {
@@ -161,8 +166,9 @@ public class FileSystemMCPClient : MCPClientBase
         }
     }
 
-    private async Task<MCPToolResult> ReadFileAsync(Dictionary<string, object?> arguments)
+    private async Task<MCPToolResult> ReadFileAsync(Dictionary<string, object?> arguments, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var path = arguments.GetValueOrDefault("path")?.ToString();
         if (string.IsNullOrEmpty(path))
             return Fail("缺少参数: path");
@@ -191,7 +197,7 @@ public class FileSystemMCPClient : MCPClientBase
         using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
         using var reader = new StreamReader(stream);
         string? line;
-        while ((line = await reader.ReadLineAsync()) != null)
+        while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
         {
             lineNo++;
             if (lineNo > readFileMaxLines)
@@ -222,7 +228,7 @@ public class FileSystemMCPClient : MCPClientBase
         return Ok(sb.ToString());
     }
 
-    private async Task<MCPToolResult> WriteFileAsync(Dictionary<string, object?> arguments)
+    private async Task<MCPToolResult> WriteFileAsync(Dictionary<string, object?> arguments, CancellationToken cancellationToken)
     {
         var path = arguments.GetValueOrDefault("path")?.ToString();
         var content = arguments.GetValueOrDefault("content")?.ToString();
@@ -238,12 +244,13 @@ public class FileSystemMCPClient : MCPClientBase
         if (Directory.Exists(path))
             return Fail($"路径是目录: {path}。写入文件需要包含文件名的文件路径，请改为传入目录下的具体文件（可用 list_directory 查看目录内容）。");
 
-        await File.WriteAllTextAsync(path, content);
+        await File.WriteAllTextAsync(path, content, cancellationToken);
         return Ok($"已写入文件: {path}");
     }
 
-    private Task<MCPToolResult> ListDirectoryAsync(Dictionary<string, object?> arguments)
+    private Task<MCPToolResult> ListDirectoryAsync(Dictionary<string, object?> arguments, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var path = arguments.GetValueOrDefault("path")?.ToString();
         if (string.IsNullOrEmpty(path))
             return Task.FromResult(Fail("缺少参数: path"));

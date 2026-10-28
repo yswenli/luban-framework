@@ -115,6 +115,26 @@ public sealed class PlaywrightSession : IAsyncDisposable, IDisposable
         }
     }
 
+    /// <summary>
+    /// 取消在途浏览器操作：关闭当前页面以打断正在等待的 Playwright 调用，
+    /// 但保留浏览器实例（下次 <see cref="GetPageAsync"/> 会自动新建页面）。
+    /// Playwright 公开 API 不接受 <see cref="CancellationToken"/>，因此只能通过关闭页面来中断。
+    /// </summary>
+    public async Task AbortPageAsync()
+    {
+        await _lock.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            if (_page == null) return;
+            try { await _page.CloseAsync(); } catch { }
+            _page = null;
+        }
+        finally
+        {
+            _lock.Release();
+        }
+    }
+
     private async Task ResetAsync()
     {
         if (_page != null)

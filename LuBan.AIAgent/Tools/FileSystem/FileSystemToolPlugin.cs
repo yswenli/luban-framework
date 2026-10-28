@@ -170,13 +170,14 @@ public class FileSystemToolGroup
         "makefile", "cmakelists.txt"
     };
 
-    private static IEnumerable<string> EnumerateFilesSafe(string rootPath)
+    private static IEnumerable<string> EnumerateFilesSafe(string rootPath, CancellationToken cancellationToken = default)
     {
         var dirs = new Queue<string>();
         dirs.Enqueue(rootPath);
 
         while (dirs.Count > 0)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var current = dirs.Dequeue();
 
             IEnumerable<string> files;
@@ -216,7 +217,10 @@ public class FileSystemToolGroup
             if (fileList is not null)
             {
                 foreach (var file in fileList)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
                     yield return file;
+                }
             }
 
             IEnumerable<string> subDirs;
@@ -242,6 +246,7 @@ public class FileSystemToolGroup
 
             foreach (var subDir in subDirs)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 var name = Path.GetFileName(subDir);
                 if (!ExcludedDirectoryNames.Contains(name))
                     dirs.Enqueue(subDir);
@@ -329,9 +334,11 @@ public class FileSystemToolGroup
     /// </summary>
     /// <param name="path">文件路径</param>
     /// <returns>文件内容</returns>
+    /// <param name="cancellationToken">取消令牌（用户中止回合时尽快停止长耗时操作）。</param>
     [Description("读取文件内容")]
-    public async Task<ToolResult<string>> ReadFileAsync(string path)
+    public async Task<ToolResult<string>> ReadFileAsync(string path, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
 
         // 工作区外读取需确认
         if (await ConfirmOrBlockAsync(nameof(ReadFileAsync), path,
@@ -339,6 +346,8 @@ public class FileSystemToolGroup
         {
             return blocked;
         }
+        // 确认等待期间可能已被取消，重耗时操作不要再启动
+        cancellationToken.ThrowIfCancellationRequested();
 
         if (Directory.Exists(path))
             return ToolResult.Fail<string>(DirectoryPathMessage(path, "读取文件需要文件路径"));
@@ -360,7 +369,7 @@ public class FileSystemToolGroup
             using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
             using var reader = new StreamReader(stream);
             string? line;
-            while ((line = await reader.ReadLineAsync()) != null)
+            while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
             {
                 lineNo++;
                 if (lineNo > readFileMaxLines)
@@ -420,6 +429,10 @@ public class FileSystemToolGroup
             Logger.Error("文件读取异常：文件可能被独占锁定", ex, path);
             return ToolResult.Fail<string>($"无法读取文件: {path}。文件可能被其他程序独占锁定，请关闭占用该文件的程序后重试。");
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             Logger.Error("文件读取异常", ex, path);
@@ -432,10 +445,12 @@ public class FileSystemToolGroup
 /// </summary>
 /// <param name="path">文件路径（相对或绝对）</param>
 /// <param name="content">文件内容</param>
+/// <param name="cancellationToken">取消令牌（用户中止回合时尽快停止长耗时操作）。</param>
 /// <returns>操作结果</returns>
 [Description("写入文件内容到指定路径。")]
-    public async Task<ToolResult<string>> WriteFileAsync(string path, string content)
+    public async Task<ToolResult<string>> WriteFileAsync(string path, string content, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
 
         // 工作区内写入免确认，工作区外需确认
         if (await ConfirmOrBlockAsync(nameof(WriteFileAsync), path,
@@ -449,7 +464,7 @@ public class FileSystemToolGroup
 
         try
         {
-            await File.WriteAllTextAsync(path, content);
+            await File.WriteAllTextAsync(path, content, cancellationToken);
             return ToolResult.Ok<string>($"已写入文件 {path}");
         }
         catch (DirectoryNotFoundException ex)
@@ -477,6 +492,10 @@ public class FileSystemToolGroup
             Logger.Error("文件写入异常：IO 错误", ex, path);
             return ToolResult.Fail<string>($"IO 错误: {path}。{ex.Message}");
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             Logger.Error("文件写入异常", ex, path);
@@ -489,9 +508,11 @@ public class FileSystemToolGroup
     /// </summary>
     /// <param name="path">目录路径</param>
     /// <returns>目录内容</returns>
+    /// <param name="cancellationToken">取消令牌（用户中止回合时尽快停止长耗时操作）。</param>
     [Description("列出目录内容")]
-    public async Task<ToolResult<string>> ListDirectoryAsync(string path)
+    public async Task<ToolResult<string>> ListDirectoryAsync(string path, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
 
         // 工作区外列目录需确认
         if (await ConfirmOrBlockAsync(nameof(ListDirectoryAsync), path,
@@ -530,6 +551,10 @@ public class FileSystemToolGroup
             Logger.Error("列出目录异常：IO 错误", ex, path);
             return ToolResult.Fail<string>($"IO 错误: {path}。{ex.Message}");
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             Logger.Error("列出目录异常", ex, path);
@@ -543,9 +568,11 @@ public class FileSystemToolGroup
     /// </summary>
     /// <param name="rootPath">工作区根目录</param>
     /// <returns>工作区概览信息</returns>
+    /// <param name="cancellationToken">取消令牌（用户中止回合时尽快停止长耗时操作）。</param>
     [Description("获取工作区概览：目录树（限3层）+ 文件类型统计 + 关键文件。一次调用了解工作区结构，避免多次ListDirectory。")]
-    public async Task<ToolResult<string>> GetWorkspaceOverviewAsync(string rootPath)
+    public async Task<ToolResult<string>> GetWorkspaceOverviewAsync(string rootPath, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         // 相对路径（含 "."）已由参数绑定锚定到工作区根，这里不再按进程 CWD 解析；
         // 仅对直接调用（未经过绑定）做空值保底。
         var resolvedPath = string.IsNullOrEmpty(rootPath)
@@ -557,6 +584,8 @@ public class FileSystemToolGroup
         {
             return blocked;
         }
+        // 确认等待期间可能已被取消，重耗时操作不要再启动
+        cancellationToken.ThrowIfCancellationRequested();
 
         try
         {
@@ -572,14 +601,14 @@ public class FileSystemToolGroup
             // 1. 目录树（限 3 层）
             sb.AppendLine("## 目录结构（3 层）");
             sb.AppendLine("```");
-            BuildDirectoryTree(fullPath, 0, 3, sb, fullPath);
+            BuildDirectoryTree(fullPath, 0, 3, sb, fullPath, cancellationToken);
             sb.AppendLine("```");
             sb.AppendLine();
 
             // 2. 文件类型统计 + 3. 关键文件（合并为一次遍历）
             var extCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
             var keyFiles = new List<string>();
-            CollectWorkspaceStats(fullPath, fullPath, extCounts, keyFiles, maxKeyDepth: 2, currentDepth: 0);
+            CollectWorkspaceStats(fullPath, fullPath, extCounts, keyFiles, maxKeyDepth: 2, currentDepth: 0, cancellationToken: cancellationToken);
 
             sb.AppendLine("## 文件类型统计");
             var totalFiles = extCounts.Values.Sum();
@@ -617,6 +646,10 @@ public class FileSystemToolGroup
             Logger.Error("工作区概览异常：目录不存在", ex, rootPath);
             return ToolResult.Fail<string>($"未找到工作区: {rootPath}。请检查路径是否正确。");
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             Logger.Error("工作区概览异常", ex, rootPath);
@@ -627,9 +660,10 @@ public class FileSystemToolGroup
     /// <summary>
     /// 递归构建目录树字符串。
     /// </summary>
-    private static void BuildDirectoryTree(string dir, int depth, int maxDepth, StringBuilder sb, string rootPath)
+    private static void BuildDirectoryTree(string dir, int depth, int maxDepth, StringBuilder sb, string rootPath, CancellationToken cancellationToken = default)
     {
         if (depth > maxDepth) return;
+        cancellationToken.ThrowIfCancellationRequested();
 
         var indent = depth == 0 ? "" : new string(' ', depth * 2);
         var dirName = depth == 0 ? Path.GetFileName(rootPath) : Path.GetFileName(dir);
@@ -684,7 +718,7 @@ public class FileSystemToolGroup
 
         foreach (var subdir in visibleSubdirs)
         {
-            BuildDirectoryTree(subdir, depth + 1, maxDepth, sb, rootPath);
+            BuildDirectoryTree(subdir, depth + 1, maxDepth, sb, rootPath, cancellationToken);
         }
 
         foreach (var file in visibleFiles)
@@ -704,8 +738,9 @@ public class FileSystemToolGroup
     private static void CollectWorkspaceStats(
         string dir, string rootPath,
         Dictionary<string, int> extCounts, List<string> keyFiles,
-        int maxKeyDepth, int currentDepth)
+        int maxKeyDepth, int currentDepth, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         string[] entries;
         try
         {
@@ -716,12 +751,13 @@ public class FileSystemToolGroup
 
         foreach (var entry in entries)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var attr = File.GetAttributes(entry);
             if ((attr & FileAttributes.Directory) == FileAttributes.Directory)
             {
                 var name = Path.GetFileName(entry);
                 if (ExcludedDirectoryNames.Contains(name)) continue;
-                CollectWorkspaceStats(entry, rootPath, extCounts, keyFiles, maxKeyDepth, currentDepth + 1);
+                CollectWorkspaceStats(entry, rootPath, extCounts, keyFiles, maxKeyDepth, currentDepth + 1, cancellationToken);
             }
             else
             {
@@ -744,9 +780,11 @@ public class FileSystemToolGroup
     /// </summary>
     /// <param name="path">文件路径</param>
     /// <returns>删除结果</returns>
+    /// <param name="cancellationToken">取消令牌（用户中止回合时尽快停止长耗时操作）。</param>
     [Description("删除文件（无论是否在工作区内，都必须确认）")]
-    public async Task<ToolResult<string>> DeleteFileAsync(string path)
+    public async Task<ToolResult<string>> DeleteFileAsync(string path, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
 
         // 删除操作：始终需要确认
         if (await ConfirmOrBlockAsync(nameof(DeleteFileAsync), path,
@@ -791,6 +829,10 @@ public class FileSystemToolGroup
             Logger.Error("文件删除异常：IO 错误", ex, path);
             return ToolResult.Fail<string>($"IO 错误: {path}。{ex.Message}");
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             Logger.Error("文件删除异常", ex, path);
@@ -803,9 +845,11 @@ public class FileSystemToolGroup
     /// </summary>
     /// <param name="path">目录路径</param>
     /// <returns>删除结果</returns>
+    /// <param name="cancellationToken">取消令牌（用户中止回合时尽快停止长耗时操作）。</param>
     [Description("删除目录及其所有内容（无论是否在工作区内，都必须确认）")]
-    public async Task<ToolResult<string>> DeleteDirectoryAsync(string path)
+    public async Task<ToolResult<string>> DeleteDirectoryAsync(string path, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
 
         // 删除操作：始终需要确认
         if (await ConfirmOrBlockAsync(nameof(DeleteDirectoryAsync), path,
@@ -847,6 +891,10 @@ public class FileSystemToolGroup
             Logger.Error("目录删除异常：IO 错误", ex, path);
             return ToolResult.Fail<string>($"IO 错误: {path}。{ex.Message}");
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             Logger.Error("目录删除异常", ex, path);
@@ -861,22 +909,26 @@ public class FileSystemToolGroup
     /// <param name="pattern">glob 模式</param>
     /// <param name="maxResults">最大返回数量</param>
     /// <returns>匹配的文件列表</returns>
+    /// <param name="cancellationToken">取消令牌（用户中止回合时尽快停止长耗时操作）。</param>
     [Description("按文件名模式搜索文件，支持 glob 通配符（如 *.cs、**/*.cs）")]
-    public async Task<ToolResult<string>> SearchFilesAsync(string rootPath, string pattern, int maxResults = 100)
+    public async Task<ToolResult<string>> SearchFilesAsync(string rootPath, string pattern, int maxResults = 100, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         // 工作区外搜索需确认
         if (await ConfirmOrBlockAsync(nameof(SearchFilesAsync), rootPath,
             new Dictionary<string, object?> { ["rootPath"] = rootPath, ["pattern"] = pattern }) is { } blocked)
         {
             return blocked;
         }
+        // 确认等待期间可能已被取消，重耗时操作不要再启动
+        cancellationToken.ThrowIfCancellationRequested();
 
         try
         {
             var globRegex = GlobMatcher.CompileGlobPattern(pattern);
             var matchFullPath = !GlobMatcher.IsFileNameOnly(pattern);
             var results = new List<string>();
-            foreach (var file in EnumerateFilesSafe(rootPath))
+            foreach (var file in EnumerateFilesSafe(rootPath, cancellationToken))
             {
                 var ext = Path.GetExtension(file);
                 if (!string.IsNullOrEmpty(ext) && BinaryFileExtensions.Contains(ext))
@@ -925,6 +977,10 @@ public class FileSystemToolGroup
             Logger.Error("搜索文件异常：IO 错误", ex, rootPath);
             return ToolResult.Fail<string>($"IO 错误: {rootPath}。{ex.Message}");
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             Logger.Error("搜索文件异常", ex, rootPath);
@@ -940,15 +996,19 @@ public class FileSystemToolGroup
     /// <param name="filePattern">文件名 glob 过滤</param>
     /// <param name="maxResults">最大返回匹配行数</param>
     /// <returns>匹配的文件路径、行号和行内容</returns>
+    /// <param name="cancellationToken">取消令牌（用户中止回合时尽快停止长耗时操作）。</param>
     [Description("按正则表达式搜索文件内容，返回匹配的文件路径、行号和行内容")]
-    public async Task<ToolResult<string>> GrepAsync(string rootPath, string pattern, string? filePattern = null, int maxResults = 100)
+    public async Task<ToolResult<string>> GrepAsync(string rootPath, string pattern, string? filePattern = null, int maxResults = 100, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         // 工作区外搜索需确认
         if (await ConfirmOrBlockAsync(nameof(GrepAsync), rootPath,
             new Dictionary<string, object?> { ["rootPath"] = rootPath, ["pattern"] = pattern }) is { } blocked)
         {
             return blocked;
         }
+        // 确认等待期间可能已被取消，重耗时操作不要再启动
+        cancellationToken.ThrowIfCancellationRequested();
 
         try
         {
@@ -963,7 +1023,7 @@ public class FileSystemToolGroup
 
             var results = new List<string>();
 
-            foreach (var file in EnumerateFilesSafe(rootPath))
+            foreach (var file in EnumerateFilesSafe(rootPath, cancellationToken))
             {
                 var ext = Path.GetExtension(file);
                 if (!string.IsNullOrEmpty(ext) && BinaryFileExtensions.Contains(ext))
@@ -981,7 +1041,7 @@ public class FileSystemToolGroup
                     using var reader = new StreamReader(stream);
                     var lineNumber = 0;
                     string? line;
-                    while ((line = await reader.ReadLineAsync()) != null)
+                    while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
                     {
                         lineNumber++;
                         if (regex.IsMatch(line))
@@ -1044,6 +1104,10 @@ public class FileSystemToolGroup
             Logger.Error("搜索内容异常：IO 错误", ex, rootPath);
             return ToolResult.Fail<string>($"IO 错误: {rootPath}。{ex.Message}");
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             Logger.Error("搜索内容异常", ex, rootPath);
@@ -1056,9 +1120,11 @@ public class FileSystemToolGroup
     /// </summary>
     /// <param name="path">目录路径</param>
     /// <returns>创建结果</returns>
+    /// <param name="cancellationToken">取消令牌（用户中止回合时尽快停止长耗时操作）。</param>
     [Description("创建目录，支持递归创建父目录")]
-    public async Task<ToolResult<string>> CreateDirectoryAsync(string path)
+    public async Task<ToolResult<string>> CreateDirectoryAsync(string path, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
 
         if (await ConfirmOrBlockAsync(nameof(CreateDirectoryAsync), path,
             new Dictionary<string, object?> { ["path"] = path }) is { } blocked)
@@ -1099,6 +1165,10 @@ public class FileSystemToolGroup
             Logger.Error("创建目录异常：IO 错误", ex, path);
             return ToolResult.Fail<string>($"IO 错误: {path}。{ex.Message}");
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             Logger.Error("创建目录异常", ex, path);
@@ -1113,9 +1183,11 @@ public class FileSystemToolGroup
     /// <param name="destPath">目标路径</param>
     /// <param name="overwrite">是否覆盖</param>
     /// <returns>复制结果</returns>
+    /// <param name="cancellationToken">取消令牌（用户中止回合时尽快停止长耗时操作）。</param>
     [Description("复制文件到目标路径")]
-    public async Task<ToolResult<string>> CopyFileAsync(string sourcePath, string destPath, bool overwrite = false)
+    public async Task<ToolResult<string>> CopyFileAsync(string sourcePath, string destPath, bool overwrite = false, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var confirmArgs = new Dictionary<string, object?>
         {
             ["sourcePath"] = sourcePath,
@@ -1154,7 +1226,7 @@ public class FileSystemToolGroup
 
             using var sourceStream = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
             using var destStream = new FileStream(destPath, FileMode.Create, FileAccess.Write, FileShare.None);
-            await sourceStream.CopyToAsync(destStream).ConfigureAwait(false);
+            await sourceStream.CopyToAsync(destStream, cancellationToken).ConfigureAwait(false);
             return ToolResult.Ok<string>($"已复制文件 {sourcePath} -> {destPath}");
         }
         catch (FileNotFoundException ex)
@@ -1187,6 +1259,10 @@ public class FileSystemToolGroup
             Logger.Error("复制文件异常：文件可能被独占锁定", ex, destPath);
             return ToolResult.Fail<string>($"无法复制文件: 文件可能被其他程序独占锁定，请关闭占用该文件的程序后重试。详细信息: {ex.Message}");
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             Logger.Error("复制文件异常", ex, destPath);
@@ -1200,9 +1276,11 @@ public class FileSystemToolGroup
     /// <param name="sourcePath">源文件路径</param>
     /// <param name="destPath">目标路径</param>
     /// <returns>移动结果</returns>
+    /// <param name="cancellationToken">取消令牌（用户中止回合时尽快停止长耗时操作）。</param>
     [Description("移动或重命名文件")]
-    public async Task<ToolResult<string>> MoveFileAsync(string sourcePath, string destPath)
+    public async Task<ToolResult<string>> MoveFileAsync(string sourcePath, string destPath, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var confirmArgs = new Dictionary<string, object?>
         {
             ["sourcePath"] = sourcePath,
@@ -1267,6 +1345,10 @@ public class FileSystemToolGroup
             Logger.Error("移动文件异常：IO 错误", ex, destPath);
             return ToolResult.Fail<string>($"IO 错误: {destPath}。{ex.Message}");
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             Logger.Error("移动文件异常", ex, destPath);
@@ -1282,9 +1364,11 @@ public class FileSystemToolGroup
     /// <param name="new_string">替换后的新文本。</param>
     /// <param name="replace_all">是否替换全部匹配。</param>
     /// <returns>替换结果。</returns>
+    /// <param name="cancellationToken">取消令牌（用户中止回合时尽快停止长耗时操作）。</param>
     [Description("对文件执行精确字符串替换（old_string → new_string）。默认要求 old_string 唯一，多点替换请用 MultiEdit 或 replace_all=true。创建/覆盖整个文件请用 WriteFile。")]
-    public async Task<ToolResult<string>> EditFileAsync(string path, string old_string, string new_string, bool replace_all = false)
+    public async Task<ToolResult<string>> EditFileAsync(string path, string old_string, string new_string, bool replace_all = false, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (await ConfirmOrBlockAsync(nameof(EditFileAsync), path,
             new Dictionary<string, object?> { ["path"] = path, ["old_string"] = old_string, ["new_string"] = new_string, ["replace_all"] = replace_all }) is { } blocked)
         {
@@ -1301,7 +1385,7 @@ public class FileSystemToolGroup
 
         try
         {
-            var (original, hasBom) = await ReadAllTextWithBomAsync(path);
+            var (original, hasBom) = await ReadAllTextWithBomAsync(path, cancellationToken);
             var count = CountOccurrences(original, old_string);
 
             if (count == 0)
@@ -1316,10 +1400,14 @@ public class FileSystemToolGroup
                 ? original.Replace(old_string, new_string)
                 : ReplaceFirst(original, old_string, new_string);
 
-            await WriteAllTextWithBomAsync(path, updated, hasBom);
+            await WriteAllTextWithBomAsync(path, updated, hasBom, cancellationToken);
             return ToolResult.Ok<string>(
                 $"已替换 {count} 处。\n{BuildEditContext(updated, changeIndex)}",
                 $"path={path}; replaced={count}");
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception ex)
         {
@@ -1334,9 +1422,11 @@ public class FileSystemToolGroup
     /// <param name="path">目标文件路径。</param>
     /// <param name="edits">替换操作列表。</param>
     /// <returns>批量替换结果。</returns>
+    /// <param name="cancellationToken">取消令牌（用户中止回合时尽快停止长耗时操作）。</param>
     [Description("对同一文件原子批量执行多条精确字符串替换；任一条失败则整体不写入。")]
-    public async Task<ToolResult<string>> MultiEditFileAsync(string path, IReadOnlyList<EditOperation> edits)
+    public async Task<ToolResult<string>> MultiEditFileAsync(string path, IReadOnlyList<EditOperation> edits, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (await ConfirmOrBlockAsync(nameof(MultiEditFileAsync), path,
             new Dictionary<string, object?> { ["path"] = path, ["edits"] = edits }) is { } blocked)
         {
@@ -1353,7 +1443,7 @@ public class FileSystemToolGroup
 
         try
         {
-            var (current, hasBom) = await ReadAllTextWithBomAsync(path);
+            var (current, hasBom) = await ReadAllTextWithBomAsync(path, cancellationToken);
 
             var editAnchorIndex = edits[0].OldString.Length > 0
                 ? current.IndexOf(edits[0].OldString, StringComparison.Ordinal)
@@ -1380,10 +1470,14 @@ public class FileSystemToolGroup
                     : ReplaceFirst(current, op.OldString, op.NewString);
             }
 
-            await WriteAllTextWithBomAsync(path, current, hasBom);
+            await WriteAllTextWithBomAsync(path, current, hasBom, cancellationToken);
             return ToolResult.Ok<string>(
                 $"已应用 {edits.Count} 条替换。\n{BuildEditContext(current, editAnchorIndex)}",
                 $"path={path}; edits={edits.Count}");
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception ex)
         {
@@ -1395,9 +1489,9 @@ public class FileSystemToolGroup
     /// <summary>
     /// 读取文本并检测是否存在 UTF-8 BOM。
     /// </summary>
-    private static async Task<(string Text, bool HasBom)> ReadAllTextWithBomAsync(string path)
+    private static async Task<(string Text, bool HasBom)> ReadAllTextWithBomAsync(string path, CancellationToken cancellationToken = default)
     {
-        var bytes = await File.ReadAllBytesAsync(path);
+        var bytes = await File.ReadAllBytesAsync(path, cancellationToken);
         var hasBom = bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF;
         var text = hasBom
             ? Encoding.UTF8.GetString(bytes, 3, bytes.Length - 3)
@@ -1408,11 +1502,11 @@ public class FileSystemToolGroup
     /// <summary>
     /// 按原样写回文本，保留原有的 UTF-8 BOM。
     /// </summary>
-    private static async Task WriteAllTextWithBomAsync(string path, string text, bool hasBom)
+    private static async Task WriteAllTextWithBomAsync(string path, string text, bool hasBom, CancellationToken cancellationToken = default)
     {
         if (!hasBom)
         {
-            await File.WriteAllTextAsync(path, text);
+            await File.WriteAllTextAsync(path, text, cancellationToken);
             return;
         }
 
@@ -1422,7 +1516,7 @@ public class FileSystemToolGroup
         bytes[1] = 0xBB;
         bytes[2] = 0xBF;
         Buffer.BlockCopy(content, 0, bytes, 3, content.Length);
-        await File.WriteAllBytesAsync(path, bytes);
+        await File.WriteAllBytesAsync(path, bytes, cancellationToken);
     }
 
     /// <summary>
@@ -1475,9 +1569,11 @@ public class FileSystemToolGroup
     /// </summary>
     /// <param name="path">文件或目录路径</param>
     /// <returns>详细信息</returns>
+    /// <param name="cancellationToken">取消令牌（用户中止回合时尽快停止长耗时操作）。</param>
     [Description("获取文件或目录的详细信息，包括大小、修改时间等")]
-    public async Task<ToolResult<string>> GetFileInfoAsync(string path)
+    public async Task<ToolResult<string>> GetFileInfoAsync(string path, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         // 工作区外读取信息需确认
         if (await ConfirmOrBlockAsync(nameof(GetFileInfoAsync), path,
             new Dictionary<string, object?> { ["path"] = path }) is { } blocked)
@@ -1508,6 +1604,7 @@ public class FileSystemToolGroup
                 {
                     foreach (var _ in dirInfo.EnumerateFiles())
                     {
+                        cancellationToken.ThrowIfCancellationRequested();
                         if (++fileCount >= 10000) break;
                     }
                 }
@@ -1519,6 +1616,7 @@ public class FileSystemToolGroup
                 {
                     foreach (var _ in dirInfo.EnumerateDirectories())
                     {
+                        cancellationToken.ThrowIfCancellationRequested();
                         if (++dirCount >= 10000) break;
                     }
                 }
@@ -1562,6 +1660,10 @@ public class FileSystemToolGroup
         {
             Logger.Error("获取信息异常：IO 错误", ex, path);
             return ToolResult.Fail<string>($"IO 错误: {path}。{ex.Message}");
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception ex)
         {

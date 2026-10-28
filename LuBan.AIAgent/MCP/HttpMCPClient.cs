@@ -236,7 +236,11 @@ public class HttpMCPClient : IMCPClient, IDisposable
             }, cancellationToken).ConfigureAwait(false);
 
             if (result == null)
+            {
+                // 取消导致的「无响应」不是工具失败：原样抛出，由宿主终止回合。
+                cancellationToken.ThrowIfCancellationRequested();
                 return new MCPToolResult { Success = false, Error = "MCP 调用失败或无响应" };
+            }
 
             var content = result["content"] is JsonArray arr
                 ? arr.OfType<JsonObject>().FirstOrDefault()?["text"]?.GetValue<string>()
@@ -249,6 +253,11 @@ public class HttpMCPClient : IMCPClient, IDisposable
                 Content = content,
                 Error = isError ? content : null
             };
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // 用户取消（Esc）不是工具失败：原样抛出，由宿主终止回合。
+            throw;
         }
         catch (Exception ex)
         {

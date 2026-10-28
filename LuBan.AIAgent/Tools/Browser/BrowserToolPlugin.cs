@@ -105,27 +105,30 @@ public class BrowserToolGroup
     /// 导航到指定 URL
     /// </summary>
     /// <param name="url">目标 URL</param>
+    /// <param name="cancellationToken">取消令牌（取消时关闭当前页面以打断在途导航）。</param>
     /// <returns>导航结果</returns>
     [Description("导航到指定 URL")]
-    public async Task<ToolResult<string>> NavigateAsync(string url)
+    public async Task<ToolResult<string>> NavigateAsync(string url, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var outcome = await _confirmationService.EvaluateAsync(nameof(NavigateAsync), null,
             new Dictionary<string, object?> { ["url"] = url });
         if (outcome == EnumConfirmationOutcome.Planned)
             return ToolResult.Plan<string>();
         if (outcome != EnumConfirmationOutcome.Allowed)
             return ToolResult.Denied<string>();
+        cancellationToken.ThrowIfCancellationRequested();
 
         if (!IsValidHttpUrl(url))
             return ToolResult.Fail<string>($"无效的 URL: {url}。仅支持 http:// 和 https:// 协议。");
 
         // 第一次尝试：NetworkIdle（等待网络完全空闲），失败时不记录错误日志（降级重试会决定是否记录）
-        var (ok, msg) = await TryNavigateAsync(url, 30000, Microsoft.Playwright.WaitUntilState.NetworkIdle, logOnError: false);
+        var (ok, msg) = await TryNavigateAsync(url, 30000, Microsoft.Playwright.WaitUntilState.NetworkIdle, cancellationToken, logOnError: false);
         if (ok) return ToolResult.Ok<string>(msg!);
 
         // NetworkIdle 失败时降级为 DOMContentLoaded（仅等待 DOM 加载完成）
         Logger.Warn($"浏览器导航 NetworkIdle 失败，降级为 DOMContentLoaded 重试: {url}");
-        (ok, msg) = await TryNavigateAsync(url, 15000, Microsoft.Playwright.WaitUntilState.DOMContentLoaded);
+        (ok, msg) = await TryNavigateAsync(url, 15000, Microsoft.Playwright.WaitUntilState.DOMContentLoaded, cancellationToken);
         if (ok) return ToolResult.Ok<string>(msg!);
 
         return ToolResult.Fail<string>(msg!);
@@ -137,20 +140,26 @@ public class BrowserToolGroup
     /// <param name="url">目标 URL</param>
     /// <param name="timeoutMs">超时时间（毫秒）</param>
     /// <param name="waitUntil">等待策略</param>
+    /// <param name="cancellationToken">取消令牌。</param>
     /// <param name="logOnError">是否记录错误日志（降级重试场景下由调用方统一记录）</param>
     /// <returns>(是否成功, 结果消息)</returns>
     private async Task<(bool ok, string? msg)> TryNavigateAsync(
-        string url, int timeoutMs, Microsoft.Playwright.WaitUntilState waitUntil, bool logOnError = true)
+        string url, int timeoutMs, Microsoft.Playwright.WaitUntilState waitUntil,
+        CancellationToken cancellationToken, bool logOnError = true)
     {
         try
         {
-            var page = await _session.GetPageAsync();
-            await page.GotoAsync(url, new Microsoft.Playwright.PageGotoOptions
+            var page = await _session.GetPageAsync(cancellationToken);
+            await RunCancelableAsync(() => page.GotoAsync(url, new Microsoft.Playwright.PageGotoOptions
             {
                 Timeout = timeoutMs,
                 WaitUntil = waitUntil
-            });
+            }), cancellationToken);
             return (true, $"已成功导航到 {url}（等待策略: {waitUntil}）");
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Microsoft.Playwright.PlaywrightException ex)
         {
@@ -209,25 +218,32 @@ public class BrowserToolGroup
     /// 点击页面元素
     /// </summary>
     /// <param name="selector">CSS 选择器</param>
+    /// <param name="cancellationToken">取消令牌。</param>
     /// <returns>点击结果</returns>
     [Description("点击页面元素，使用 CSS 选择器定位元素")]
-    public async Task<ToolResult<string>> ClickAsync(string selector)
+    public async Task<ToolResult<string>> ClickAsync(string selector, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var outcome = await _confirmationService.EvaluateAsync(nameof(ClickAsync), null,
             new Dictionary<string, object?> { ["selector"] = selector });
         if (outcome == EnumConfirmationOutcome.Planned)
             return ToolResult.Plan<string>();
         if (outcome != EnumConfirmationOutcome.Allowed)
             return ToolResult.Denied<string>();
+        cancellationToken.ThrowIfCancellationRequested();
 
         try
         {
-            var page = await _session.GetPageAsync();
-            await page.ClickAsync(selector, new Microsoft.Playwright.PageClickOptions
+            var page = await _session.GetPageAsync(cancellationToken);
+            await RunCancelableAsync(() => page.ClickAsync(selector, new Microsoft.Playwright.PageClickOptions
             {
                 Timeout = 10000
-            });
+            }), cancellationToken);
             return ToolResult.Ok<string>($"已成功点击元素: {selector}");
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Microsoft.Playwright.PlaywrightException ex)
         {
@@ -246,25 +262,32 @@ public class BrowserToolGroup
     /// </summary>
     /// <param name="selector">CSS 选择器</param>
     /// <param name="text">要输入的文本</param>
+    /// <param name="cancellationToken">取消令牌。</param>
     /// <returns>输入结果</returns>
     [Description("在输入框中输入文本，使用 CSS 选择器定位输入框")]
-    public async Task<ToolResult<string>> TypeTextAsync(string selector, string text)
+    public async Task<ToolResult<string>> TypeTextAsync(string selector, string text, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var outcome = await _confirmationService.EvaluateAsync(nameof(TypeTextAsync), null,
             new Dictionary<string, object?> { ["selector"] = selector, ["text"] = text });
         if (outcome == EnumConfirmationOutcome.Planned)
             return ToolResult.Plan<string>();
         if (outcome != EnumConfirmationOutcome.Allowed)
             return ToolResult.Denied<string>();
+        cancellationToken.ThrowIfCancellationRequested();
 
         try
         {
-            var page = await _session.GetPageAsync();
-            await page.FillAsync(selector, text, new Microsoft.Playwright.PageFillOptions
+            var page = await _session.GetPageAsync(cancellationToken);
+            await RunCancelableAsync(() => page.FillAsync(selector, text, new Microsoft.Playwright.PageFillOptions
             {
                 Timeout = 10000
-            });
+            }), cancellationToken);
             return ToolResult.Ok<string>($"已在元素 {selector} 中成功输入文本: {text}");
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Microsoft.Playwright.PlaywrightException ex)
         {
@@ -282,21 +305,23 @@ public class BrowserToolGroup
     /// 截取页面截图
     /// </summary>
     /// <param name="path">截图保存路径（可选）</param>
+    /// <param name="cancellationToken">取消令牌。</param>
     /// <returns>截图结果（base64 编码）</returns>
     [Description("截取页面截图，返回 base64 编码的图片数据")]
-    public async Task<ToolResult<string>> ScreenshotAsync(string? path = null)
+    public async Task<ToolResult<string>> ScreenshotAsync(string? path = null, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (!string.IsNullOrEmpty(path) && !LuBan.AIAgent.Infrastructure.PathGuard.IsPathSafe(path))
             return ToolResult.Fail<string>($"截图路径不安全: {path}");
 
         try
         {
-            var page = await _session.GetPageAsync();
-            var bytes = await page.ScreenshotAsync(new Microsoft.Playwright.PageScreenshotOptions
+            var page = await _session.GetPageAsync(cancellationToken);
+            var bytes = await RunCancelableAsync(() => page.ScreenshotAsync(new Microsoft.Playwright.PageScreenshotOptions
             {
                 Path = path,
                 FullPage = false  // 只截取可视区域，避免图片过大
-            });
+            }), cancellationToken);
             
             // 限制 base64 数据大小（最多 100KB）
             var base64 = Convert.ToBase64String(bytes);
@@ -306,6 +331,10 @@ public class BrowserToolGroup
             }
             
             return ToolResult.Ok<string>($"截图成功，Base64 数据:\n{base64}");
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Microsoft.Playwright.PlaywrightException ex)
         {
@@ -323,16 +352,18 @@ public class BrowserToolGroup
     /// 获取页面内容
     /// </summary>
     /// <param name="selector">CSS 选择器（可选）</param>
+    /// <param name="cancellationToken">取消令牌。</param>
     /// <returns>页面内容</returns>
     [Description("获取页面 HTML 内容或指定元素的文本内容")]
-    public async Task<ToolResult<string>> GetContentAsync(string? selector = null)
+    public async Task<ToolResult<string>> GetContentAsync(string? selector = null, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         try
         {
-            var page = await _session.GetPageAsync();
+            var page = await _session.GetPageAsync(cancellationToken);
             if (string.IsNullOrEmpty(selector))
             {
-                var content = await page.ContentAsync();
+                var content = await RunCancelableAsync(() => page.ContentAsync(), cancellationToken);
                 
                 // 限制内容大小（最多 50KB，约 12K tokens）
                 const int maxContentLength = 50 * 1024;
@@ -343,7 +374,7 @@ public class BrowserToolGroup
                 
                 return ToolResult.Ok<string>($"页面内容:\n{content}");
             }
-            var text = await page.Locator(selector).TextContentAsync();
+            var text = await RunCancelableAsync(() => page.Locator(selector).TextContentAsync(), cancellationToken);
             
             // 限制元素内容大小
             const int maxTextLength = 20 * 1024;
@@ -353,6 +384,10 @@ public class BrowserToolGroup
             }
             
             return ToolResult.Ok<string>($"元素 {selector} 的文本内容:\n{text ?? "(空)"}");
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Microsoft.Playwright.PlaywrightException ex)
         {
@@ -371,18 +406,24 @@ public class BrowserToolGroup
     /// </summary>
     /// <param name="selector">CSS 选择器</param>
     /// <param name="timeout">超时时间（毫秒）</param>
+    /// <param name="cancellationToken">取消令牌。</param>
     /// <returns>等待结果</returns>
     [Description("等待指定元素出现在页面上")]
-    public async Task<ToolResult<string>> WaitForSelectorAsync(string selector, int timeout = 10000)
+    public async Task<ToolResult<string>> WaitForSelectorAsync(string selector, int timeout = 10000, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         try
         {
-            var page = await _session.GetPageAsync();
-            await page.WaitForSelectorAsync(selector, new Microsoft.Playwright.PageWaitForSelectorOptions
+            var page = await _session.GetPageAsync(cancellationToken);
+            await RunCancelableAsync(() => page.WaitForSelectorAsync(selector, new Microsoft.Playwright.PageWaitForSelectorOptions
             {
                 Timeout = timeout
-            });
+            }), cancellationToken);
             return ToolResult.Ok<string>($"元素 {selector} 已出现");
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Microsoft.Playwright.PlaywrightException ex)
         {
@@ -401,18 +442,76 @@ public class BrowserToolGroup
     /// </summary>
     /// <returns>当前 URL</returns>
     [Description("获取当前页面的 URL")]
-    public async Task<ToolResult<string>> GetCurrentUrlAsync()
+    public async Task<ToolResult<string>> GetCurrentUrlAsync(CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         try
         {
-            var page = await _session.GetPageAsync();
+            var page = await _session.GetPageAsync(cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
             var url = page.Url;
             return ToolResult.Ok<string>($"当前页面 URL: {url}");
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception ex)
         {
             Logger.Error("浏览器获取URL异常", ex);
             return ToolResult.Fail<string>($"获取 URL 失败: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// 执行在途可能与取消令牌无关的 Playwright 调用：取消时关闭当前页面以打断调用，
+    /// 并把由此产生的异常统一转成 <see cref="OperationCanceledException"/> 交回宿主。
+    /// </summary>
+    /// <typeparam name="T">返回值类型。</typeparam>
+    /// <param name="action">Playwright 调用。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    private async Task<T> RunCancelableAsync<T>(Func<Task<T>> action, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!cancellationToken.CanBeCanceled)
+            return await action();
+
+        using var registration = cancellationToken.Register(
+            static state => _ = AbortSafelyAsync((PlaywrightSession)state!), _session);
+        try
+        {
+            var result = await action();
+            cancellationToken.ThrowIfCancellationRequested();
+            return result;
+        }
+        catch (Exception ex) when (cancellationToken.IsCancellationRequested)
+        {
+            throw new OperationCanceledException("浏览器操作已取消", ex, cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// 无返回值的 <see cref="RunCancelableAsync{T}"/> 重载。
+    /// </summary>
+    private Task RunCancelableAsync(Func<Task> action, CancellationToken cancellationToken)
+        => RunCancelableAsync(async () =>
+        {
+            await action();
+            return true;
+        }, cancellationToken);
+
+    /// <summary>
+    /// 取消回调中关闭页面；任何异常都不能逃逸到未观察的任务里。
+    /// </summary>
+    private static async Task AbortSafelyAsync(PlaywrightSession session)
+    {
+        try
+        {
+            await session.AbortPageAsync();
+        }
+        catch
+        {
+            // 会话已释放等情况直接忽略：取消路径不应再抛异常
         }
     }
 

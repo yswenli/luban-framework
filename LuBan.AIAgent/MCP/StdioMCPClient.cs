@@ -224,6 +224,8 @@ public class StdioMCPClient : IMCPClient, IDisposable, IAsyncDisposable
 
         if (result == null)
         {
+            // 取消导致的「无响应」不是工具失败：原样抛出，由宿主终止回合。
+            cancellationToken.ThrowIfCancellationRequested();
             Logger.Error("MCP 调用返回空结果", new Exception("MCP 调用失败或无响应"), toolName);
             return new MCPToolResult { Success = false, Error = "MCP 调用失败或无响应" };
         }
