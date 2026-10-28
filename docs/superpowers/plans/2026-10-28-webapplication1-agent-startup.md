@@ -611,8 +611,15 @@ git commit -m "新增 Agent 配置解析与校验及单元测试"
 
 ## Task 6：把注册接进 `StartupUtil.ConfigureServices`
 
+> **实施定稿（2026-10-28）**：注册段最终提取到 `LuBan.Web.Core/AIAgent/AIAgentExtension.cs` 的
+> `AddAIAgent(configuration)` 扩展方法，`StartupUtil` 只保留一行 `services.AddAIAgent(configuration);`。
+> 代码与本任务的下列内联写法逐行等价（多一条绿色「正在初始化 AIAgent」日志），
+> 故 Step 1 的 `using LuBan.AIAgent;` 改由扩展方法所在项目提供，`StartupUtil.cs` 不再需要。
+> 选择提取而非内联的原因：`StartupUtil` 已达千行，可选能力的注册逻辑内联会继续膨胀。
+
 **Files:**
 - Modify: `LuBan.Web.Core/Utils/StartupUtil.cs`
+- Add: `LuBan.Web.Core/AIAgent/AIAgentExtension.cs`
 
 - [ ] **Step 1: 文件顶部补 using**
 
@@ -940,8 +947,11 @@ dotnet test LuBan.XTestProject\LuBan.UnitTestProject.csproj --no-build --filter 
 |---|---|
 | `ConfigUtilUnitTest.ConfigUtilTest` | `ConfigUtil.Read("HostingOptions")` 对一个**对象节**走 `configuration["HostingOptions"]` 下标取叶子值，必然返回 null，用例本身写错了。单独跑也红 |
 | `AIAgentUnitTest.TestDependencyInjection` | 依赖 `IChatClient` 已注册（`AddLuBanAgentDefaults` 的前置） |
+| `DefaultsHostUnitTest.Defaults_FactoryCreateAsync_DoesNotThrow` | 测试里 `using var sp = Build()` 同步 Dispose 根容器，而 `ConnectorInstanceHost` 只实现 `IAsyncDisposable`（`ConnectorServiceCollectionExtensions` 注册为单例），`factory.CreateAsync` 解析工具组时把它实例化即抛 `...type only implements IAsyncDisposable. Use DisposeAsync to dispose the container.`。已在实施前基线 `15901fd` 的临时 worktree 单跑复现，与本次改动无关；生产宿主走 `WebApplication` 的异步释放，不受影响 |
 
 出现其他新失败，逐条定位，不要直接宣布"环境问题"。
+
+> 注意回归过滤类名是 `DefaultSeamsUnitTest`，不含 `DefaultsHostUnitTest`；两条都要跑，否则会漏掉上表最后一条既有失败。
 
 ### 10.3 静态检查
 

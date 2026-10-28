@@ -3,7 +3,7 @@
 *CLR版本： .net10.0
 *机器名称：YSWENLI
 *公司名称：yswenli
-*命名空间：LuBan.Web.Core
+*命名空间：LuBan.Web.Core.Utils
 *文件名： StartupUtil
 *版本号： V1.0.0.0
 *唯一标识：ba773eaf-9688-41bc-b9a6-1139cd402004
@@ -21,8 +21,6 @@
 *描述：asp.net core 初始化
 *
 *****************************************************************************/
-
-using LuBan.AIAgent;
 
 namespace LuBan.Web.Core.Utils;
 
@@ -114,31 +112,7 @@ public static class StartupUtil
             services.InitSms();
 
             //配置 Agent（db_config 优先，回退宿主配置；不完整则不启用）
-            try
-            {
-                var agentResolution = LuBanAgentConfigResolver.Resolve(configuration);
-                if (agentResolution.Enabled && agentResolution.Configuration is { } agentConfig)
-                {
-                    services.AddLuBanAgentDefaults(agentConfig);
-                    services.AddLuBanAgentHost();
-                    services.AddLuBanAgentOpenAI(agentConfig);
-
-                    if (!ReferenceEquals(agentConfig, configuration))
-                    {
-                        // D-D：让运行期直接注入 IConfiguration 的 Agent 服务看到同一份值
-                        services.Replace(ServiceDescriptor.Singleton<IConfiguration>(agentConfig));
-                    }
-                }
-                else
-                {
-                    ConsoleUtil.WriteLine($"LuBan Agent 未启用：{agentResolution.DisabledReason}", color: ConsoleColor.Yellow);
-                }
-            }
-            catch (Exception ex)
-            {
-                // Agent 属可选能力：初始化失败只降级为不启用，不得拖垮整个 Web 应用
-                ConsoleUtil.WriteLine($"LuBan Agent 初始化失败，已跳过：{ex}", color: ConsoleColor.Yellow);
-            }
+            services.AddAIAgent(configuration);
 
             //配置缓存
             services.AddServiceCache();
@@ -158,7 +132,6 @@ public static class StartupUtil
             Environment.Exit(-1);
         }
     }
-
 
     /// <summary>
     /// 注册中间件
