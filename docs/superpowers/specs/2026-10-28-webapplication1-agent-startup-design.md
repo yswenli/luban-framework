@@ -78,6 +78,8 @@ v1 提交后做了两轮审查：一轮 builder check（假设我是实现者，
 | D7 | 未启用时控制器返回 503 |
 | D8 | 端点实现在 `Controllers/Default/` 下 |
 | D9 | `InitDataBaseOrm` 失败即退出的既有行为不变 |
+| D10 | Agent 接口**取消匿名**：去掉 `[AllowAnonymous]`（同时去掉对本控制器无意义的 `[AllowAccess]`），恢复 `BaseApiController` 继承的 JWT 鉴权 |
+| D11 | 该接口的会话**按登录用户隔离**：每个登录用户固定一个会话（多轮有历史），不同用户互不可见；接口不暴露 `sessionId`，归属由服务端维护 |
 
 ## 7. 决策记录（v3 定稿，实现按此执行）
 
@@ -96,7 +98,7 @@ v1 提交后做了两轮审查：一轮 builder check（假设我是实现者，
 
 | # | 默认 | 理由 |
 |---|---|---|
-| C1 | 控制器路由 `POST /api/agent/chat`，保留 `[AllowAnonymous]` | 与被替换的 `/agent/minimal` 一致，示例站免登录 |
+| C1 | 控制器路由 `POST /api/agent/chat`，保留 `[AllowAnonymous]`（**已被 D10 取代**：现需登录） | 与被替换的 `/agent/minimal` 一致，示例站免登录 |
 | C2 | 读库过程抛异常 → 当作"没有记录"，继续回退 | 与 `SmsConfigResolver` 的 `catch → null` 一致；数据库故障不该连带禁用 Agent |
 | C3 | 插入点：`services.InitSms()` 之后、`services.AddServiceCache()` 之前 | 读 `db_config` 必须先有 ORM（`InitDataBaseOrm` 在 `:109`）；且必须在 `services.BuildProvider()`（`:121`）之前注册完 |
 | C4 | 未启用时用 `ConsoleUtil` 打一条 WARN，含具体原因；不写 `Logger` | 此刻 `Logger` 未必就绪（`InitDataBaseOrm` 内同款注释） |
@@ -323,6 +325,34 @@ public class AgentChatInput
 - `ErrorResult(string, int)` 来自 `BaseController`（`LuBan.Web.Core/AspNetCore/BaseController.cs:233`），返回 `Fail` 结构，符合框架响应约定。
 - `ISessionManager` 默认实现 `InMemorySessionManager` 注册为 **Singleton**，`SetCurrentSessionAsync` 是进程级当前会话；并发请求会互相串。这是原 `/agent/minimal` 就有的示例级缺陷，本次只搬不改（留档，见 §12）。
 - 参数类型写成 `AgentChatInput?` 是必需的：项目开了 `<Nullable>enable</Nullable>`，body 缺失时确实为 null。
+
+> **2026-10-28 追加**：本节是 v1 历史记录。鉴权与会话归属已按 D10 / D11 改建，现行实现见 §9.9。
+
+### 9.9 2026-10-28 追加：鉴权与会话多用户隔离（已实施）
+
+**改动文件**
+
+| 文件 | 改动 |
+|---|---|
+| `WebApplication1/Controllers/Default/AgentController.cs` | 去掉 `[AllowAnonymous, AllowAccess]`；取 `SessionUser.UserId`（未登录直接 401 防御）；会话标识改由注册表按用户取，不再每请求新建、不再调 `SetCurrentSessionAsync` |
+| `LuBan.Web.Core/AIAgent/WebAgentUserResolver.cs`（新增） | `IAgentUserResolver` 的 Web 实现：会话 scope 优先用 `IUserContext.UserId`（`SessionRuntimeManager` 已回填），请求 scope 回退 JWT 的 `UserId` claim，都取不到才 `local` |
+| `LuBan.Web.Core/AIAgent/AIAgentExtension.cs` | `AddLuBanAgentDefaults` 之后 `TryAddScoped<IAgentUserResolver, WebAgentUserResolver>()` |
+| `WebApplication1/Services/Agent/WebAgentSessionRegistry.cs`（新增） | 单例注册表 `userId → sessionId`，同一用户复用、并发首轮只建一个（`SemaphoreSlim` 按用户加锁），不依赖 `CurrentSession` |
+| `LuBan.XTestProject/WebAgentUserResolverUnitTest.cs`（新增） | 2 条单测：上下文有值优先、无值回落 `local` |
+
+**为什么必须补 `WebAgentUserResolver`**
+
+默认 `DefaultAgentUserResolver` 读 `IUserContext.UserId`，而请求作用域里 `DefaultContextState.UserId` 恒为 null → 回落 `"local"`。`AgentHost.EnsureRuntimeAsync`（`AgentHost.cs:98`）在**请求作用域**调用该解析器，于是所有登录用户都会以 `local` 身份进入 `SessionRuntime`，本地长期记忆、临时目录、用量统计全部串号。
+
+**为什么不能靠 `ISessionManager` 做隔离**
+
+`InMemorySessionManager` 是 Singleton，`CurrentSession` 是进程级指针，`GetUserSessionsAsync()` 返回全量。改它等于重做框架会话层（方案 B），本次不做；控制器改为「始终显式传 `SessionId`、不碰 `CurrentSession`」，把归属收敛到 `WebAgentSessionRegistry`。
+
+**接口行为**
+
+- 未带 token `POST /api/agent/chat` → 403（`AuthorizationMiddlewareResultHandler` 既有口径，与其它受保护接口一致）
+- 带有效 token → 进入控制器；同一用户连续请求复用同一 `SessionId`；不同用户 `SessionId` 互不相同
+- 会话仍在内存（进程重启失效）；一个用户一个会话，数量按用户数收敛
 
 ### 9.6 新增常量：`LuBan.Common/Consts/CommonConst.cs`
 

@@ -1077,3 +1077,56 @@ git log --oneline -8   # 检查 8 条提交信息（中文、无 -A 误带文件
 | 13 | 省略 `DefaultModel` | 站点起；实际走 `Models` 第一项 |
 | 14 | 同一 Provider 配两条模型但 `ApiKey` 不同 | 不启用；日志含「ApiKey/BaseUrl 不一致」 |
 | 15 | 仍写旧版扁平 `Models` 对象 | 不启用；日志含「缺少 LuBanAgent:Models 配置」 |
+
+---
+
+## 7. 2026-10-28 追加：接口去匿名 + 会话多用户隔离（方案 A，已实施）
+
+需求：`WebApplication1` 的 agent 接口不要匿名；该接口的 agent 会话支持多用户。拍板结果：**方案 A（Web 侧最小闭环）**，接口不暴露 `sessionId`，每个登录用户固定一个会话。
+
+### 7.1 改动清单
+
+| 文件 | 改动 |
+|---|---|
+| `WebApplication1/Controllers/Default/AgentController.cs` | 去掉 `[AllowAnonymous, AllowAccess]`；按 `SessionUser.UserId` 取会话；不再每请求 `CreateSessionAsync`、不再调 `SetCurrentSessionAsync` |
+| `LuBan.Web.Core/AIAgent/WebAgentUserResolver.cs`（新增） | `IAgentUserResolver` 的 Web 实现：会话 scope 用 `IUserContext.UserId`，请求 scope 用 JWT `UserId` claim，兜底 `local` |
+| `LuBan.Web.Core/AIAgent/AIAgentExtension.cs` | `TryAddScoped<IAgentUserResolver, WebAgentUserResolver>()`（在 `AddLuBanAgentDefaults` 之后、`AddLuBanAgentHost` 之前） |
+| `WebApplication1/Services/Agent/WebAgentSessionRegistry.cs`（新增） | 单例 `userId → sessionId` 注册表；同一用户并发首轮只建一个会话（按用户 `SemaphoreSlim`） |
+| `LuBan.XTestProject/WebAgentUserResolverUnitTest.cs`（新增） | 2 条单测（上下文优先 / 回落 `local`） |
+
+**未改动**：`LuBan.AIAgent` 一行未动，因此**不需要重新发框架包**；`ISessionManager` 默认实现保持单用户语义不变。
+
+### 7.2 规则定稿
+
+- 鉴权走 `BaseApiController` 继承的 `[Authorize(JwtBearer)]`；`AllowAccess` 只对 `[ForbiddenAccess]` 有意义，本控制器继承链上没有，故两个特性一并删除。
+- 未带 token → 403（框架 `AuthorizationMiddlewareResultHandler` 既有口径，与其它受保护接口一致），不是 200。
+- 会话归属只在 `WebAgentSessionRegistry` 里判定；控制器始终显式把 `SessionId` 传给 `AgentHost`/`AgentRunRequest`，不依赖 `CurrentSession`（单例进程级指针，多用户会互相覆盖）。
+- 会话 scope 的 `IUserContext` 由 `SessionRuntimeManager` 按归属回填，因此本地长期记忆、临时目录、用量统计随用户隔离。
+- 会话仅存内存，进程重启即失效；数量随用户数收敛（不再每请求新建，附带修掉会话对象无限堆积）。
+
+### 7.3 验证结果（2026-10-28）
+
+- `dotnet build WebApplication1\WebApplication1.csproj -p:RestoreIgnoreFailedSources=true` → 0 错误（2 个既有 NU1801）
+- `WebAgentUserResolverUnitTest` → 2/2 通过
+- 回归 49 例（`LuBanAgentConfigResolverUnitTest` + `AIAgentUnitTest` + `DefaultsHostUnitTest` + 新增用例）→ 47 通过 / 2 失败，均为既有失败（§10.2 已登记）
+- 实机（`https://127.0.0.1:7000`，两个本地用户 + 手工签发的 JWT）：
+  - 匿名 `POST /api/agent/chat` → **403**
+  - 用户 A 连续两次 → `SessionId` 一致（复用）；用户 B → 另一个 `SessionId`
+  - 用户 A 四路并发首轮 → 只创建 1 个会话，其余 3 次命中同一会话
+  - `calllog` 的 `userID` 分别为两个用户 Id；`IAgentUserResolver` 解析到各自用户 Id（非 `local`）
+  - 聊天本身返回 500，原因是 `appsettings` 里的占位 `ApiKey`（`Authentication Fails, Your api key: ****xxxx`），与本次改动无关
+
+> 验证用的临时 `[DIAG-*]` 控制台日志、`LuBan.db` 里的测试用户/在线用户记录均为本地环境产物，验证后已移除/未纳入版本库。
+
+### 7.4 冒烟补充（覆盖 §10.4 第 2/3/4 条）
+
+| # | 场景 | 预期 |
+|---|---|---|
+| 16 | 不带 `Authorization: Bearer` 调 `POST /api/agent/chat` | 403，body 为 `Fail` 结构（不再匿名放行） |
+| 17 | 用 `POST /api/mobile/auth/login` 拿 token（需 `db_user` 有启用用户）后调用 | 进入模型调用；同一用户连续两次复用同一会话（多轮有历史） |
+| 18 | 换另一个用户 token 调用 | 与用户 A 使用不同会话，互相看不到对方历史 |
+| 19 | 同一用户并发多路请求 | 只创建一个会话，无串话 |
+| 20 | `db_config`/`appsettings` 都不配 Agent 且已登录 | 503（鉴权通过后才判未启用） |
+
+> §10.4 原第 2/3/4 条现在都要带 token；不带 token 时先被鉴权拦下（403）。
+> 备注：`WebApplication1/LuBan.db` 默认没有种子用户，`/api/mobile/auth/login` 会 500（既有示例站行为，与本次改动无关），冒烟前需自行准备一个启用状态的 `db_user`。
