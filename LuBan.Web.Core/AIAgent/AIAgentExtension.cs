@@ -16,6 +16,7 @@
 *****************************************************************************/
 
 using LuBan.AIAgent;
+using LuBan.AIAgent.Hosting;
 
 namespace LuBan.Web.Core.AIAgent;
 
@@ -47,6 +48,8 @@ public static class AIAgentExtension
 
                 ConsoleUtil.WriteLineWithCount("正在初始化 AIAgent", color: ConsoleColor.Green);
                 services.AddLuBanAgentDefaults(effectiveConfig);
+                // 用户隔离：把 JWT 用户身份接入会话运行时（默认实现恒为 local）
+                services.TryAddScoped<IAgentUserResolver, WebAgentUserResolver>();
                 services.AddLuBanAgentHost();
                 services.AddLuBanAgentOpenAI(effectiveConfig);
 
