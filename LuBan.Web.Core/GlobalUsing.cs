@@ -54,6 +54,7 @@ global using LuBan.Service.Models;
 global using LuBan.Threading;
 global using LuBan.VideoKit;
 global using LuBan.Web.Core;
+global using LuBan.Web.Core.AIAgent;
 global using LuBan.Web.Core.AspNetCore;
 global using LuBan.Web.Core.AspNetCore.Extentions;
 global using LuBan.Web.Core.AspNetCore.SignalR;
