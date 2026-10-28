@@ -1,11 +1,20 @@
 /****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：Walle
 *命名空间：LuBan.AIAgent.Configuration
 *文件名： GitToolOptions
+*版本号： V1.0.0.0
+*唯一标识：e8fdfd77-bb9a-4acb-ac79-76d7a678e6ac
+*当前的用户域：WALLE
+*创建人：yswenli
+*电子邮箱：yswenli@outlook.com
 *创建时间：2026/10/9
 *描述：Git 工具配置选项
+*
 *****************************************************************************/
+
 namespace LuBan.AIAgent.Configuration;
 
 /// <summary>

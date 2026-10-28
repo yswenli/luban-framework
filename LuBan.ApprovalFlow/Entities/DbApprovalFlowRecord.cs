@@ -1,9 +1,9 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c) YSWenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *Author：yswenli
-*命名空间：LuBan.Orm.Entities
+*命名空间：LuBan.ApprovalFlow.Entities
 *文件名： DbApprovalFlowRecord
 *版本号： V1.0.0.0
 *唯一标识：c7cadd4e-b44e-4ec3-b4b2-ed65f7b4ddf4

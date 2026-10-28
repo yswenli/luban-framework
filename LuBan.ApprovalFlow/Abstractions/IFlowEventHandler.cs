@@ -1,9 +1,18 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c) YSWenli All Rights Reserved.
 *CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：Walle
 *命名空间：LuBan.ApprovalFlow.Abstractions
 *文件名： IFlowEventHandler
+*版本号： V1.0.0.0
+*唯一标识：b6f31485-d3b7-43b0-8b42-c13dc4c4998c
+*当前的用户域：WALLE
+*创建人：yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/7/11
 *描述：审批流 EventBus 事件处理器接口
+*
 *****************************************************************************/
 
 namespace LuBan.ApprovalFlow.Abstractions;

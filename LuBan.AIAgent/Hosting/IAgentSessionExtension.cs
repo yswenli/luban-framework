@@ -6,7 +6,7 @@
 *命名空间：LuBan.AIAgent.Hosting
 *文件名： IAgentSessionExtension
 *版本号： V1.0.0.0
-*唯一标识：会话扩展接口
+*唯一标识：195257be-5ce1-4fc1-a7a1-54aa235d5259
 *当前的用户域：WALLE
 *创建人：yswenli
 *电子邮箱：yswenli@outlook.com

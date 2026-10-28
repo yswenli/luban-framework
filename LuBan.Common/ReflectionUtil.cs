@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 /****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
@@ -49,7 +48,6 @@ public static class ReflectionUtil
         return Activator.CreateInstance(type);
     }
 
-
     /// <summary>
     /// 创建某实例泛型参数的实例
     /// </summary>
@@ -92,7 +90,6 @@ public static class ReflectionUtil
                 $"字段 {property.Name} 是不可空值类型（{propertyType.Name}），不能使用 null 作为筛选值");
         }
     }
-
 
     /// <summary>
     /// 创建“元素是否等于val”的委托（优化性能，避免频繁反射）
@@ -152,6 +149,12 @@ public static class ReflectionUtil
     static ConcurrentDictionary<string, dynamic> _instanceCache = [];
     static readonly ConcurrentDictionary<(Type, string), PropertyInfo?> _propertyCache = new();
 
+    /// <summary>
+    /// 按名称取类型的公共实例属性，并按“类型 + 属性名”缓存结果（含查不到的 null）。
+    /// </summary>
+    /// <param name="type">要查找属性的类型。</param>
+    /// <param name="propertyName">属性名称。</param>
+    /// <returns>属性元数据；不存在时返回 <c>null</c>。</returns>
     [UnconditionalSuppressMessage("System.Diagnostics.CodeAnalysis", "IL2080", Justification = "Reflection-based code; library is not trim/AOT targeted.")]
     public static PropertyInfo? GetCachedProperty([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] this Type type, string propertyName)
     {
@@ -191,7 +194,6 @@ public static class ReflectionUtil
         var type = instance.GetType();
         return FastILUtil.MethodInvoke(type, methodName, instance, args);
     }
-
 
     #endregion
 
@@ -254,7 +256,6 @@ public static class ReflectionUtil
 
         return type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
     }
-
 
     /// <summary>
     /// 检查是否存在attribute
@@ -323,7 +324,6 @@ public static class ReflectionUtil
     public static List<string?>? GetMethodAttributes(this object obj, string methodName)
         => obj?.GetType().GetMethod(methodName)?.CustomAttributes?.Select(q => q.AttributeType.FullName)?.ToList();
 
-
     /// <summary>
     /// 对象某个方法的参数是否有attribute标记
     /// </summary>
@@ -359,8 +359,6 @@ public static class ReflectionUtil
     /// <returns></returns>
     [RequiresUnreferencedCode("GetMethodParametersAttributes uses GetMethod by string name which is not trim-safe.")]
     public static List<string?>? GetMethodParametersAttributes(this object obj, string methodName) => obj?.GetType().GetMethod(methodName)?.GetParameters()?.SelectMany(q => q.CustomAttributes)?.Select(q => q.AttributeType.FullName)?.ToList() ?? null;
-
-
 
     /// <summary>
     /// 根据指定的attr获取当前类别和Attr
@@ -408,18 +406,29 @@ public static class ReflectionUtil
         return index1 > -1 && (index2 < 0 || index1 > index2);
     }
 
+    /// <summary>
+    /// 判断方法上的 <c>Attr1</c> 是否生效：必须存在，且排在 <c>Attr2</c> 之后
+    /// （<c>Attr2</c> 不存在时视为生效）。
+    /// </summary>
+    /// <param name="methodInfo">待检查的方法。</param>
+    /// <returns><c>Attr1</c> 生效返回 <c>true</c>。</returns>
     public static bool AttributeHasEffect<Attr1, Attr2>(this MethodInfo methodInfo)
         where Attr1 : Attribute where Attr2 : Attribute
     {
         return AttributeHasEffectCore<Attr1, Attr2>(methodInfo);
     }
 
+    /// <summary>
+    /// 判断类型上的 <c>Attr1</c> 是否生效：必须存在，且排在 <c>Attr2</c> 之后
+    /// （<c>Attr2</c> 不存在时视为生效）。
+    /// </summary>
+    /// <param name="instanceType">待检查的类型。</param>
+    /// <returns><c>Attr1</c> 生效返回 <c>true</c>。</returns>
     public static bool AttributeHasEffect<Attr1, Attr2>([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] this Type instanceType)
         where Attr1 : Attribute where Attr2 : Attribute
     {
         return AttributeHasEffectCore<Attr1, Attr2>(instanceType);
     }
-
 
     /// <summary>
     /// 设置属性值
@@ -599,8 +608,6 @@ public static class ReflectionUtil
         return list;
     }
 
-
-
     /// <summary>
     /// 获取属性值
     /// </summary>
@@ -630,7 +637,6 @@ public static class ReflectionUtil
             .Select(x => x.Name)
             .ToList();
     }
-
 
     /// <summary>
     /// 转换
@@ -807,7 +813,6 @@ public static class ReflectionUtil
         return type.IsArray;
     }
 
-
     /// <summary>
     /// 是否继承某个接口
     /// </summary>
@@ -873,9 +878,7 @@ public static class ReflectionUtil
         TypeDescriptor.AddAttributes(obj, attr);
     }
 
-
     #region 将字符串格式化成指定的数据类型
-
 
     /// <summary>
     /// 将字符串格式化成指定的数据类型
@@ -903,7 +906,6 @@ public static class ReflectionUtil
         }
         return ConvertSimpleType(str, type);
     }
-
 
     [UnconditionalSuppressMessage("System.Diagnostics.CodeAnalysis", "IL2067", Justification = "Reflection-based code; library is not trim/AOT targeted.")]
     [UnconditionalSuppressMessage("System.Diagnostics.CodeAnalysis", "IL2072", Justification = "Reflection-based code; library is not trim/AOT targeted.")]
@@ -970,7 +972,6 @@ public static class ReflectionUtil
         }
         return null;
     }
-
 
     /// <summary>
     /// 获取属性值

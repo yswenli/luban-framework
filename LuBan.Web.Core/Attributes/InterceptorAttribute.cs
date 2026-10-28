@@ -1,10 +1,10 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *公司名称：yswenli
-*命名空间：LuBan.Web.Core.Auth
-*文件名： ServiceFilterAttribute
+*命名空间：LuBan.Web.Core.Attributes
+*文件名： InterceptorAttribute
 *版本号： V1.0.0.0
 *唯一标识：72161c1a-6478-4b26-8c70-f8de3062f71b
 *当前的用户域：WALLE
@@ -32,6 +32,11 @@ public class InterceptorAttribute : BaseFilterAttribute
     Type _serviceType;
     string[] _parameters;
 
+    /// <summary>
+    /// 用拦截服务类型与其需要读取的参数名构造业务拦截过滤器，并校验该类型可实现拦截服务接口。
+    /// </summary>
+    /// <param name="type">实现拦截服务接口的类型。</param>
+    /// <param name="parameters">拦截时需要从请求中提取的参数名列表。</param>
     public InterceptorAttribute(Type type, params string[] parameters)
     {
         _serviceType = type;

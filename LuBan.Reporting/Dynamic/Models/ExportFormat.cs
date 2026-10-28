@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c) YSWenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -6,7 +6,7 @@
 *命名空间：LuBan.Reporting.Dynamic.Models
 *文件名： ExportFormat
 *版本号： V1.0.0.0
-*唯一标识：
+*唯一标识：11f5879f-3ef5-49e3-802f-09fd8bd2179e
 *当前的用户域：WALLE
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com

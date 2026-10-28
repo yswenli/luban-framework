@@ -11,8 +11,6 @@
 *描述：MCP 凭据引用解析器 —— $credential:<key> → ICredentialStore
 *
 *****************************************************************************/
-using System.Text;
-using LuBan.AIAgent.Plugins.Security;
 
 namespace LuBan.AIAgent.MCP;
 

@@ -14,12 +14,6 @@
 *描述：wiki 工具插件（opt-in，工具组名 "wiki"）
 *
 *****************************************************************************/
-using LuBan.AIAgent.Abstractions;
-using LuBan.AIAgent.Configuration;
-using LuBan.AIAgent.Wiki;
-using Microsoft.Extensions.AI;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
 
 namespace LuBan.AIAgent.Tools.Wiki;
 

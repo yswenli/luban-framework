@@ -22,9 +22,6 @@
 *
 *****************************************************************************/
 
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
-
 namespace LuBan.Common.Http;
 
 /// <summary>

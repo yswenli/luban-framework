@@ -16,8 +16,6 @@
 *****************************************************************************/
 namespace LuBan.AIAgent.Wiki.Extractors;
 
-using LuBan.AIAgent.Retrieval;
-
 /// <summary>按扩展名路由到提取器；未注册的非二进制文件回落 <see cref="TextExtractor"/>。</summary>
 public class SourceExtractorRegistry
 {

@@ -6,7 +6,7 @@
 *命名空间：LuBan.AIAgent.Hosting
 *文件名： AgentRunRequest
 *版本号： V1.0.0.0
-*唯一标识：一轮对话入参
+*唯一标识：7de55616-8076-454b-abb1-9368822428db
 *当前的用户域：WALLE
 *创建人：yswenli
 *电子邮箱：yswenli@outlook.com

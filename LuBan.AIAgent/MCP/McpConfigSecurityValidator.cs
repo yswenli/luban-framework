@@ -11,7 +11,6 @@
 *描述：MCP 配置明文凭据校验 —— 令牌一律走 $credential 引用，禁止落盘
 *
 *****************************************************************************/
-using LuBan.AIAgent.Configuration;
 
 namespace LuBan.AIAgent.MCP;
 

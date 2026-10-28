@@ -21,7 +21,6 @@
 *描述：时间处理类
 *
 *****************************************************************************/
-using LuBan.Common.Calendar;
 
 namespace LuBan.Common;
 
@@ -158,7 +157,6 @@ public static class DateTimeUtil
         var ts = new TimeSpan(ticks);
         return (int)ts.TotalSeconds;
     }
-
 
     /// <summary>
     /// 字符串时间类型转换为时间类型
@@ -310,7 +308,6 @@ public static class DateTimeUtil
         }
     }
 
-
     /// <summary>
     /// 默认开始时间:1970/1/1
     /// </summary>
@@ -374,7 +371,6 @@ public static class DateTimeUtil
             return _defaultStartTime.AddSeconds((double)unixTime);
         }
     }
-
 
     /// <summary>
     /// ISO8601时间格式,
@@ -752,8 +748,6 @@ public static class DateTimeUtil
         public const string 汤加标准时间 = "Tonga Standard Time";
     }
 
-
-
     /// <summary>
     /// 太平洋日期
     /// </summary>
@@ -1051,7 +1045,6 @@ public static class DateTimeUtil
 
         return string.Format("{0} 天 {1} 小时 {2} 分 {3} 秒", sDay, sHour, sMinute, sSecond);
     }
-
 
     /// <summary>
     /// 转换时间格式为HH:mm:ss

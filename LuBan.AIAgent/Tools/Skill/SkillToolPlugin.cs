@@ -1,15 +1,19 @@
 /****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：Walle
 *命名空间：LuBan.AIAgent.Tools.Skill
 *文件名： SkillToolPlugin
+*版本号： V1.0.0.0
+*唯一标识：62ee423f-c73c-4af6-aae5-42712c3662a8
+*当前的用户域：WALLE
+*创建人：yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/10/14
 *描述：Skill 消费工具组插件（GroupName="skill"）
+*
 *****************************************************************************/
-using LuBan.AIAgent.Abstractions;
-using LuBan.AIAgent.Configuration;
-using LuBan.AIAgent.Skills;
-using Microsoft.Extensions.AI;
-using Microsoft.Extensions.Options;
 
 namespace LuBan.AIAgent.Tools.Skill;
 

@@ -6,7 +6,7 @@
 *命名空间：LuBan.AIAgent.Hosting
 *文件名： AgentAttachmentResolver
 *版本号： V1.0.0.0
-*唯一标识：附件路径归一
+*唯一标识：90b5863b-3eec-4dce-b8e7-97c6c6b701fa
 *当前的用户域：WALLE
 *创建人：yswenli
 *电子邮箱：yswenli@outlook.com

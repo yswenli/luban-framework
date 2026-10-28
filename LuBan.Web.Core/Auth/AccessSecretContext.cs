@@ -1,24 +1,24 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *公司名称：Walle
 *命名空间：LuBan.Web.Core.Auth
-*文件名： GetAccessSecretContext
+*文件名： AccessSecretContext
 *版本号： V1.0.0.0
 *唯一标识：89e3881f-d2ef-4652-bfdb-a0acde46f3c5
 *当前的用户域：WALLE
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2023/12/5 10:26:11
-*描述：
+*描述：获取 AccessKey 关联 AccessSecret 方法的上下文
 *
 *=================================================
 *修改标记
 *修改时间：2023/12/5 10:26:11
 *修改人： yswenli
 *版本号： V1.0.0.0
-*描述：
+*描述：获取 AccessKey 关联 AccessSecret 方法的上下文
 *
 *****************************************************************************/
 namespace LuBan.Web.Core.Auth;

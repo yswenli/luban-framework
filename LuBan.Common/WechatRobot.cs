@@ -1,10 +1,10 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ YSWenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *Author：yswenli
 *命名空间：LuBan.Common
-*文件名： WeChatRobot
+*文件名： WechatRobot
 *版本号： V1.0.0.0
 *唯一标识：fb3af6cf-4a34-44a8-9ba5-b9fc8f7f5888
 *当前的用户域：WALLE

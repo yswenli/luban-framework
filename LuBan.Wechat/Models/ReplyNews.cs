@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ 2023-2024 Oceania All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -11,14 +11,14 @@
 *创建人： WALLE
 *电子邮箱：yswenli@outlook.com
 *创建时间：2022/7/5 15:06:17
-*描述：
+*描述：ReplyNews 类
 *
 *=================================================
 *修改标记
 *修改时间：2022/7/5 15:06:17
 *修改人： yswenli
 *版本号： V1.0.0.0
-*描述：
+*描述：ReplyNews 类
 *
 *****************************************************************************/
 namespace LuBan.Wechat.Models
@@ -28,24 +28,48 @@ namespace LuBan.Wechat.Models
 /// </summary>
     public class ReplyNews : Reply
     {
+        /// <summary>
+        /// 图文消息的文章列表，按顺序渲染为多条图文（回复协议字段 item）。
+        /// </summary>
         public List<RelyNewsArticle> item { get; set; }
 
+        /// <summary>
+        /// 构造图文回复消息，并把消息类型置为 news。
+        /// </summary>
         public ReplyNews()
         {
             base.MsgType = EnumReplyMsgType.news;
         }
     }
 
+    /// <summary>
+    /// 图文消息中的单篇文章，承载标题、摘要、封面与跳转链接。
+    /// </summary>
     public class RelyNewsArticle
     {
+        /// <summary>
+        /// 文章标题（回复协议字段 Title）。
+        /// </summary>
         public string Title { get; set; }
 
+        /// <summary>
+        /// 文章摘要文本（回复协议字段 Description）。
+        /// </summary>
         public string Description { get; set; }
 
+        /// <summary>
+        /// 文章封面图片链接（回复协议字段 PicUrl）。
+        /// </summary>
         public string PicUrl { get; set; }
 
+        /// <summary>
+        /// 文章点击后跳转的链接（回复协议字段 Url）。
+        /// </summary>
         public string Url { get; set; }
 
+        /// <summary>
+        /// 图文消息缩略图的素材 ID（回复协议字段 Thumb_media_id）。
+        /// </summary>
         public string Thumb_media_id { get; set; }
     }
 }

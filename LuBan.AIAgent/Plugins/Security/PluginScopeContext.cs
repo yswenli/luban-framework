@@ -11,7 +11,6 @@
 *描述：权限环境的异步环境传递（AsyncLocal）
 *
 *****************************************************************************/
-using LuBan.AIAgent.Plugins.Base;
 
 namespace LuBan.AIAgent.Plugins.Security;
 
@@ -68,8 +67,15 @@ public static class PluginScopeContext
         private readonly PluginPermissionScope? _previous;
         private bool _disposed;
 
+        /// <summary>
+        /// 记录进入前的权限环境，供退出时还原。
+        /// </summary>
+        /// <param name="previous">进入前的权限环境，可为 null。</param>
         public ScopeToken(PluginPermissionScope? previous) => _previous = previous;
 
+        /// <summary>
+        /// 退出当前权限环境并还原为进入前的值，重复调用无副作用。
+        /// </summary>
         public void Dispose()
         {
             if (_disposed) return;

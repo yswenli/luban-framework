@@ -1,9 +1,9 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ YSWenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *Author：yswenli
-*命名空间：LuBan.Common.Data
+*命名空间：System.Collections.Generic
 *文件名： ThreadSafeList
 *版本号： V1.0.0.0
 *唯一标识：79010b7d-2ae0-4711-9fa4-2f1417144db1

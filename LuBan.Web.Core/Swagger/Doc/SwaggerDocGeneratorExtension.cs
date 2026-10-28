@@ -11,14 +11,14 @@
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2022/6/21 11:20:36
-*描述：
+*描述：SwaggerDocGeneratorExtension服务
 *
 *=====================================================================
 *修改标记
 *修改时间：2022/6/21 11:20:36
 *修改人： walle.wen
 *版本号： V1.0.0.0
-*描述：
+*描述：SwaggerDocGeneratorExtension服务
 *
 *****************************************************************************/
 namespace LuBan.Web.Core.Swagger.Doc;

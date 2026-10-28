@@ -22,8 +22,6 @@
 *
 *****************************************************************************/
 
-using System.ComponentModel;
-
 namespace LuBan.Web.Core.Swagger;
 
 /// <summary>

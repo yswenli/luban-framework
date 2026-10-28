@@ -1,10 +1,9 @@
-using System.Diagnostics.CodeAnalysis;
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c) YSWenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *Author：yswenli
-*命名空间：LuBan.Common.Models
+*命名空间：System
 *文件名： TitleValue
 *版本号： V1.0.0.0
 *唯一标识：158c79f6-3527-4ddc-94cf-511b7453e392
@@ -12,18 +11,17 @@ using System.Diagnostics.CodeAnalysis;
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2025/3/6 11:44:10
-*描述：
+*描述：获取指定字段数据，例如：姓名、性别、年龄、身份证号等等
 *
 *=================================================
 *修改标记
 *修改时间：2025/3/6 11:44:10
 *修改人： yswenli
 *版本号： V1.0.0.0
-*描述：
+*描述：获取指定字段数据，例如：姓名、性别、年龄、身份证号等等
 *
 *****************************************************************************/
 namespace System;
-
 
 #region TitleValue 
 
@@ -129,8 +127,6 @@ public sealed class TitleValueCollection : List<TitleValue>
     {
         return this.Any(t => t.Title == title);
     }
-
-
 
 }
 

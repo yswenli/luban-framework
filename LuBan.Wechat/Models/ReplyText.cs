@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ 2023-2024 Oceania All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -11,14 +11,14 @@
 *创建人： WALLE
 *电子邮箱：yswenli@outlook.com
 *创建时间：2022/7/5 14:57:57
-*描述：
+*描述：ReplyText 类
 *
 *=================================================
 *修改标记
 *修改时间：2022/7/5 14:57:57
 *修改人： yswenli
 *版本号： V1.0.0.0
-*描述：
+*描述：ReplyText 类
 *
 *****************************************************************************/
 
@@ -29,8 +29,14 @@ namespace LuBan.Wechat.Models
 /// </summary>
     public class ReplyText : Reply
     {
+        /// <summary>
+        /// 回复的文本内容，长度上限约 2048 字节（回复协议字段 Content）。
+        /// </summary>
         public string Content { get; set; }
 
+        /// <summary>
+        /// 构造文本回复消息，并把消息类型置为 text。
+        /// </summary>
         public ReplyText()
         {
             base.MsgType = EnumReplyMsgType.text;

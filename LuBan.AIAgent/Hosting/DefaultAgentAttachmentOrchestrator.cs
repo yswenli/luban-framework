@@ -6,7 +6,7 @@
 *命名空间：LuBan.AIAgent.Hosting
 *文件名： DefaultAgentAttachmentOrchestrator
 *版本号： V1.0.0.0
-*唯一标识：默认附件编排
+*唯一标识：ab9e8f01-133a-4a50-b6f7-e5fc19864be5
 *当前的用户域：WALLE
 *创建人：yswenli
 *电子邮箱：yswenli@outlook.com

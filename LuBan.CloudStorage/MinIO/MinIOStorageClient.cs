@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c) YSWenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -11,21 +11,16 @@
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2025/5/26 15:15:09
-*描述：
+*描述：minio客户端， https://www.minio.org.cn/docs/minio/linux/developers/dotnet/minio-dotnet.html， https://www.minio.org.cn/docs/m…
 *
 *=================================================
 *修改标记
 *修改时间：2025/5/26 15:15:09
 *修改人： yswenli
 *版本号： V1.0.0.0
-*描述：
+*描述：minio客户端， https://www.minio.org.cn/docs/minio/linux/developers/dotnet/minio-dotnet.html， https://www.minio.org.cn/docs/m…
 *
 *****************************************************************************/
-
-using Minio;
-using Minio.DataModel.Args;
-using Minio.DataModel.Encryption;
-
 
 namespace LuBan.CloudStorage.MinIO;
 

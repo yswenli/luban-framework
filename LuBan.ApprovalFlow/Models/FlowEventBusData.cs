@@ -1,9 +1,18 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c) YSWenli All Rights Reserved.
 *CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：Walle
 *命名空间：LuBan.ApprovalFlow.Models
 *文件名： FlowEventBusData
+*版本号： V1.0.0.0
+*唯一标识：321dd218-2439-4997-9c60-b2fa3c4152c1
+*当前的用户域：WALLE
+*创建人：yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/7/11
 *描述：审批流 EventBus 事件数据基类
+*
 *****************************************************************************/
 
 namespace LuBan.ApprovalFlow.Models;
@@ -99,7 +108,15 @@ public class FlowEventBusData : LuBan.EventBus.Models.BaseEventData
 [Serializable]
 public class FlowInitializedBusEvent : FlowEventBusData
 {
+    /// <summary>
+    /// 初始化流程初始化事件实例，事件名固定为 FlowInitialized。
+    /// </summary>
     public FlowInitializedBusEvent() : base("FlowInitialized") { }
+    /// <summary>
+    /// 以流程记录ID和流程编码初始化流程初始化事件实例。
+    /// </summary>
+    /// <param name="recordId">流程记录ID。</param>
+    /// <param name="flowCode">流程编码，可为空。</param>
     public FlowInitializedBusEvent(long recordId, string? flowCode = null) : base("FlowInitialized", recordId, flowCode) { }
 }
 
@@ -109,7 +126,15 @@ public class FlowInitializedBusEvent : FlowEventBusData
 [Serializable]
 public class FlowCompletedBusEvent : FlowEventBusData
 {
+    /// <summary>
+    /// 初始化流程完成事件实例，事件名固定为 FlowCompleted。
+    /// </summary>
     public FlowCompletedBusEvent() : base("FlowCompleted") { }
+    /// <summary>
+    /// 以流程记录ID和流程编码初始化流程完成事件实例。
+    /// </summary>
+    /// <param name="recordId">流程记录ID。</param>
+    /// <param name="flowCode">流程编码，可为空。</param>
     public FlowCompletedBusEvent(long recordId, string? flowCode = null) : base("FlowCompleted", recordId, flowCode) { }
 }
 
@@ -119,7 +144,15 @@ public class FlowCompletedBusEvent : FlowEventBusData
 [Serializable]
 public class FlowRejectedBusEvent : FlowEventBusData
 {
+    /// <summary>
+    /// 初始化流程被拒绝事件实例，事件名固定为 FlowRejected。
+    /// </summary>
     public FlowRejectedBusEvent() : base("FlowRejected") { }
+    /// <summary>
+    /// 以流程记录ID和流程编码初始化流程被拒绝事件实例。
+    /// </summary>
+    /// <param name="recordId">流程记录ID。</param>
+    /// <param name="flowCode">流程编码，可为空。</param>
     public FlowRejectedBusEvent(long recordId, string? flowCode = null) : base("FlowRejected", recordId, flowCode) { }
 }
 
@@ -129,7 +162,15 @@ public class FlowRejectedBusEvent : FlowEventBusData
 [Serializable]
 public class NodeEnterBusEvent : FlowEventBusData
 {
+    /// <summary>
+    /// 初始化节点进入事件实例，事件名固定为 NodeEnter。
+    /// </summary>
     public NodeEnterBusEvent() : base("NodeEnter") { }
+    /// <summary>
+    /// 以流程记录ID和流程编码初始化节点进入事件实例。
+    /// </summary>
+    /// <param name="recordId">流程记录ID。</param>
+    /// <param name="flowCode">流程编码，可为空。</param>
     public NodeEnterBusEvent(long recordId, string? flowCode = null) : base("NodeEnter", recordId, flowCode) { }
 }
 
@@ -139,7 +180,15 @@ public class NodeEnterBusEvent : FlowEventBusData
 [Serializable]
 public class NodeLeaveBusEvent : FlowEventBusData
 {
+    /// <summary>
+    /// 初始化节点离开事件实例，事件名固定为 NodeLeave。
+    /// </summary>
     public NodeLeaveBusEvent() : base("NodeLeave") { }
+    /// <summary>
+    /// 以流程记录ID和流程编码初始化节点离开事件实例。
+    /// </summary>
+    /// <param name="recordId">流程记录ID。</param>
+    /// <param name="flowCode">流程编码，可为空。</param>
     public NodeLeaveBusEvent(long recordId, string? flowCode = null) : base("NodeLeave", recordId, flowCode) { }
 }
 
@@ -149,6 +198,14 @@ public class NodeLeaveBusEvent : FlowEventBusData
 [Serializable]
 public class ApprovalActionBusEvent : FlowEventBusData
 {
+    /// <summary>
+    /// 初始化审批操作事件实例，事件名固定为 ApprovalAction。
+    /// </summary>
     public ApprovalActionBusEvent() : base("ApprovalAction") { }
+    /// <summary>
+    /// 以流程记录ID和流程编码初始化审批操作事件实例。
+    /// </summary>
+    /// <param name="recordId">流程记录ID。</param>
+    /// <param name="flowCode">流程编码，可为空。</param>
     public ApprovalActionBusEvent(long recordId, string? flowCode = null) : base("ApprovalAction", recordId, flowCode) { }
 }

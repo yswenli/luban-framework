@@ -74,7 +74,7 @@ v1 提交后做了两轮审查：一轮 builder check（假设我是实现者，
 | D3 | `WebApplication1` 整体切成框架标准启动方式 |
 | D4 | `db_config` 用固定 `Code = sys-luban-framework:aiagent`，`Value` 就是 `LuBanAgent` 那一节的 JSON |
 | D5 | 记录存在但内容坏 → 直接不启用，**不回退**配置 |
-| D6 | 校验口径：`Models.Provider` 必须在框架已知 Provider 列表内（大小写不敏感）；`Models.Model`、`Models.ApiKey`、`DefaultModel` 非空；`BaseUrl` 若给出必须是合法 http(s) URL；Provider 未知即算错误 |
+| D6 | 校验口径：`Models` 为数组，逐项校验 `Provider` 必须在框架已知 Provider 列表内（大小写不敏感）、`Model`/`ApiKey` 非空、`BaseUrl` 若给出必须是合法 http(s) URL；同一 Provider 多条时 `ApiKey`/`BaseUrl` 必须一致；`DefaultModel` 可省略（省略取数组第一项），给出则必须是 `provider:model` 且命中数组 |
 | D7 | 未启用时控制器返回 503 |
 | D8 | 端点实现在 `Controllers/Default/` 下 |
 | D9 | `InitDataBaseOrm` 失败即退出的既有行为不变 |
@@ -83,10 +83,14 @@ v1 提交后做了两轮审查：一轮 builder check（假设我是实现者，
 
 | # | 结论 | 依据 |
 |---|---|---|
-| **D-A** | `DefaultModel` **必填**，缺失即不启用 | `AgentHost.cs:113`、`:317` 在 `QualifiedModelName` 为空时抛「未选择模型」；`DefaultModel` 是其唯一来源 |
+| **D-A** | `DefaultModel` **可省略**：省略时注册前补成 `Models` 数组第一项的 `provider:model`；显式给出时必须是 `provider:model` 且命中数组 | `AgentHost.cs:113`、`:317` 在 `QualifiedModelName` 为空时抛「未选择模型」；`DefaultModel` 是其唯一来源，故不能真的空着交给运行期 |
 | **D-B** | 第二级配置源 = 宿主 `IConfiguration`；代码保留 `NacosConfigUtil.Read` 调用但**不承诺 Nacos** | `NacosConfigUtil.Enable` 只由 `Set()` 置 true，而 `Set()` 在 `IHostedService.StartAsync` 之后；插入点在 `builder.Build()` 前 |
 | **D-C** | `WebApplication1/Program.cs` 改为 `WebApp.RunWebHost(args)` 一行 | `WebApp.cs:80` → `ServiceHost.cs:230` → `CreateWebApplication`，是框架唯一完整启动链 |
 | **D-D** | db 配置生效时，合并配置**注册进 DI 顶掉 `IConfiguration`** | 避免 `IOptions<LuBanAgentOptions>` 与直注 `IConfiguration` 的服务在一次启动内看到两套值 |
+| **D-E** | `LuBanAgentOptions.Models` 改为 `List<ModelEndpointOptions>`（元素含 `Provider`/`Model`/`ApiKey`/`BaseUrl`），`AddLuBanAgentOpenAI` 按 Provider 分组构建 `LuBanChatClient` 并注册 `IProviderRouter` | 旧字典声明无任何消费方、且与配置形状不符（原 R95）；数组化后真正支持多模型，`DefaultModel` 仍按 `provider:model` 命中数组项 |
+| **D-F** | `WorkspaceRoot` 支持绝对路径与相对路径：相对值在注册前以 `IHostEnvironment.ContentRootPath` 为基准归一化为绝对路径；非 Web 宿主 / 单测回退 `AppContext.BaseDirectory` | 站点部署时 `AppContext.BaseDirectory` 是 `bin`，会锚错目录；`Web.Core` 在 `ServiceHost.CreateWebApplication` 能拿到 ContentRoot |
+
+> **2026-10-28 追加**：D-E / D-F 与 D6/D-A 的修订来自同日需求（`Models` 数组化、`WorkspaceRoot` 支持网站相对路径），实现见 §9.1 / §9.2 / §9.3。
 
 ## 8. 留给实现者的默认（可推翻）
 
@@ -111,8 +115,8 @@ v1 提交后做了两轮审查：一轮 builder check（假设我是实现者，
 public sealed class LuBanAgentStartupOptions
 {
     public string? WorkspaceRoot { get; set; }
-    public string? DefaultModel { get; set; }
-    public LuBanAgentModelsOptions? Models { get; set; }
+    public string? DefaultModel { get; set; }          // 可省略，省略时取 Models 第一项
+    public List<LuBanAgentModelsOptions>? Models { get; set; }
 }
 
 public sealed class LuBanAgentModelsOptions
@@ -126,7 +130,22 @@ public sealed class LuBanAgentModelsOptions
 
 公开（而非 internal）：单测项目需要直接构造，且 `LuBan.XTestProject` 未配置 `InternalsVisibleTo`。
 
-**为什么不直接复用 `LuBanAgentOptions`？** 因为它的 `Models` 声明是 `Dictionary<string, ModelEndpointOptions>`（`Configuration/LuBanAgentOptions.cs:52`），而 `appsettings.json` 里 `LuBanAgent:Models` 是**扁平对象** `{"Provider","Model","ApiKey"}`（`WebApplication1/appsettings.json:88-92`）。用 `LuBanAgentOptions` 绑定会得到 3 条垃圾字典项（键 `Provider`/`Model`/`ApiKey`，值全是空 `ModelEndpointOptions`），校验必然判错。运行期真正读 `Models` 的是 `AddLuBanAgentOpenAI`，它直接读原始配置键（`LuBanAgentOpenAIExtensions.cs:55-59`），绕开了这个字典——所以这是框架既有缺陷但当前无人消费，本次只为校验建一个扁平 DTO，不动 `LuBanAgentOptions`（留档见 §12）。
+**为什么不直接复用 `LuBanAgentOptions`？** 运行期绑定类型与校验 DTO 分开仍是必要的：校验 DTO 只描述配置形状，`LuBanAgentOptions` 还带 `SystemPrompt`、`Tools`、`Session` 等运行期字段。2026-10-28 起两者的 `Models` 形状已对齐（都是数组，元素含 `Provider`/`Model`/`ApiKey`/`BaseUrl`），原 R95「字典声明与实际扁平配置不符」随之关闭；`AddLuBanAgentOpenAI` 也不再直读原始键，而是按数组构建多 Provider 路由。
+
+示例：
+
+```jsonc
+"LuBanAgent": {
+  // 绝对路径，或相对网站内容根（ContentRootPath）的路径
+  "WorkspaceRoot": ".",
+  // 可省略；省略时取 Models 数组第一项
+  "DefaultModel": "deepseek:deepseek-v4-pro",
+  "Models": [
+    { "Provider": "deepseek", "Model": "deepseek-v4-pro", "ApiKey": "sk-xxx" },
+    { "Provider": "kimi", "Model": "kimi-k3", "ApiKey": "sk-yyy" }
+  ]
+}
+```
 
 ### 9.2 新增：`LuBan.Web.Core/AIAgent/LuBanAgentConfigResolver.cs`
 
@@ -172,14 +191,26 @@ public sealed class LuBanAgentResolution
 |---|---|---|
 | JSON 可解析 | `Value` 必须是合法 JSON（db 路径独有） | `db_config 中 sys-luban-framework:aiagent 的 Value 不是合法 JSON：<msg>` |
 | 整体存在 | `options is not null` | `未找到 LuBanAgent 配置` |
-| Models 存在 | `options.Models is not null` | `缺少 LuBanAgent:Models 配置` |
-| Provider | 非空且 `ProviderDefaults.ProviderIds.Contains(x, OrdinalIgnoreCase)` | `Provider 'xxx' 不在框架已知列表内` |
-| Model | 非空 | `缺少 Models.Model` |
-| ApiKey | 非空 | `缺少 Models.ApiKey` |
-| BaseUrl | 空则跳过；非空 `Uri.TryCreate(Absolute)` 且 scheme ∈ {http, https} | `Models.BaseUrl 不是合法的 http(s) 地址` |
-| DefaultModel | 非空（格式 `provider:model` 不强制校验，交给运行期） | `缺少 DefaultModel` |
+| Models 存在 | `options.Models is { Count: > 0 }` | `缺少 LuBanAgent:Models 配置` |
+| 每项 Provider | 非空且 `ProviderDefaults.ProviderIds.Contains(x, OrdinalIgnoreCase)` | `Models[0].Provider 'xxx' 不在框架已知列表内` |
+| 每项 Model | 非空 | `缺少 Models[0].Model` |
+| 每项 ApiKey | 非空 | `缺少 Models[0].ApiKey` |
+| 每项 BaseUrl | 空则跳过；非空 `Uri.TryCreate(Absolute)` 且 scheme ∈ {http, https} | `Models[0].BaseUrl 不是合法的 http(s) 地址` |
+| 同 Provider 多条 | `ApiKey` 必须相同，`BaseUrl`（含 Provider 内置默认值）归一化后必须相同 | `Models 中 Provider 'deepseek' 出现多条但 ApiKey/BaseUrl 不一致` |
+| DefaultModel | 可省略；给出则必须是 `provider:model` 且命中 `Models` 某项（Provider 大小写不敏感、Model 敏感） | `DefaultModel 'x:y' 未在 Models 数组中找到对应项` |
 
-`BaseUrl` 必须在此拦截：`AddLuBanAgentOpenAI` 把 `new Uri(baseUrl)` 放在 `IChatClient` 工厂 lambda 里（`LuBanAgentOpenAIExtensions.cs:70-76`），非法值不是注册期抛，而是**首次解析 `IChatClient`（即第一个请求）**才抛 —— 启动期校验是唯一能提前拦住的地方。
+`BaseUrl` 必须在此拦截：非法值若漏到注册期，至少要保证不把站点拖垮——`AddLuBanAgentOpenAI` 现在用 `Uri.TryCreate` 兜底并跳过该 Provider，但「跳过」意味着配置看似合法却少了一个模型，所以启动期校验仍是第一道闸。
+
+**注册前的归一化**（`CreateEffectiveConfiguration`）
+
+```csharp
+public static IConfiguration CreateEffectiveConfiguration(IConfiguration configuration, string? contentRootPath = null);
+public static string? ResolveWorkspaceRoot(string? workspaceRoot, string? contentRootPath = null);
+```
+
+- `WorkspaceRoot`：绝对路径 `Path.GetFullPath` 规范化；相对路径以 `contentRootPath`（ASP.NET Core `ContentRootPath`）为基准；`contentRootPath` 为空时回退 `AppContext.BaseDirectory`。无需调整时返回原 `IConfiguration` 实例。
+- `DefaultModel`：缺失时补 `Models:0` 的 `provider:model`，保证 `AgentHost` 仍能拿到非空模型。
+- 只覆盖这两个键（`AddConfiguration(原配置)` + `AddInMemoryCollection`），db 合并结果与其他节不受影响。
 
 **默认 db 读取实现**
 
@@ -196,40 +227,37 @@ static string? DefaultDbReader(string code)
 
 ### 9.3 修改：`LuBan.Web.Core/Utils/StartupUtil.cs`
 
-在 `services.InitSms();`（`StartupUtil.cs:112`）之后、`services.AddServiceCache();`（`:115`）之前插入。**整段必须包在 try/catch 里**：`ConfigureServices` 外层是 `catch → Environment.Exit(-1)`（`StartupUtil.cs:124-130`），任何从 Agent 冒出的异常都会把站点直接杀掉，违反「配置不完整/错误不得导致启动失败」。
+在 `services.InitSms();`（`StartupUtil.cs:112`）之后、`services.AddServiceCache();`（`:115`）之前插入一行。**降级保护整体放在 `AIAgentExtension.AddAIAgent` 内**：`ConfigureServices` 外层是 `catch → Environment.Exit(-1)`（`StartupUtil.cs:124-130`），任何从 Agent 冒出的异常都会把站点直接杀掉，违反「配置不完整/错误不得导致启动失败」。
 
 ```csharp
 //配置 Agent（db_config 优先，回退宿主配置；不完整则不启用）
-try
-{
-    var agentResolution = LuBanAgentConfigResolver.Resolve(configuration);
-    if (agentResolution.Enabled && agentResolution.Configuration is { } agentConfig)
-    {
-        services.AddLuBanAgentDefaults(agentConfig);
-        services.AddLuBanAgentHost();
-        services.AddLuBanAgentOpenAI(agentConfig);
+services.AddAIAgent(configuration, contentRootPath);
+```
 
-        if (!ReferenceEquals(agentConfig, configuration))
-        {
-            // D-D：让运行期直接注入 IConfiguration 的 Agent 服务看到同一份值
-            services.Replace(ServiceDescriptor.Singleton<IConfiguration>(agentConfig));
-        }
-    }
-    else
-    {
-        ConsoleUtil.WriteLine($"LuBan Agent 未启用：{agentResolution.DisabledReason}", color: ConsoleColor.Yellow);
-    }
-}
-catch (Exception ex)
+`ConfigureServices` 因此新增可选参数 `string? contentRootPath = null`，由 `ServiceHost.CreateWebApplication` 传入 `builder.Environment.ContentRootPath`；老式 `BaseStartup` 调用点保持两参重载，回退程序目录。
+
+`AddAIAgent` 内部：
+
+```csharp
+var agentResolution = LuBanAgentConfigResolver.Resolve(configuration);
+if (agentResolution.Enabled && agentResolution.Configuration is { } agentConfig)
 {
-    // Agent 属可选能力：初始化失败只降级为不启用，不得拖垮整个 Web 应用
-    ConsoleUtil.WriteLine($"LuBan Agent 初始化失败，已跳过：{ex}", color: ConsoleColor.Yellow);
+    var effectiveConfig = LuBanAgentConfigResolver.CreateEffectiveConfiguration(agentConfig, contentRootPath);
+    services.AddLuBanAgentDefaults(effectiveConfig);
+    services.AddLuBanAgentHost();
+    services.AddLuBanAgentOpenAI(effectiveConfig);
+    if (!ReferenceEquals(effectiveConfig, configuration))
+        services.Replace(ServiceDescriptor.Singleton<IConfiguration>(effectiveConfig));
+}
+else
+{
+    ConsoleUtil.WriteLine($"LuBan Agent 未启用：{agentResolution.DisabledReason}", color: ConsoleColor.Yellow);
 }
 ```
 
 - 注册顺序与 `Program.cs` 原实现一致（Defaults → Host → OpenAI）。
-- 未启用时一行都不注册、不抛异常。
-- `Replace` 需 `Microsoft.Extensions.DependencyInjection.Extensions`（Web.Core `GlobalUsing.cs` 已引入）；合并配置是原配置超集，只有 `LuBanAgent` 节被覆盖。
+- 未启用时一行都不注册、不抛异常；异常在 `AddAIAgent` 的 `try/catch` 内降级为「跳过」。
+- `Replace` 需 `Microsoft.Extensions.DependencyInjection.Extensions`（Web.Core `GlobalUsing.cs` 已引入）；`effectiveConfig` 是原配置超集，只覆盖 `LuBanAgent` 的 `WorkspaceRoot` / `DefaultModel`。
 - **不要**试图用 `ValidateOnBuild` 兜底：`ServiceProviderUtil.BuildProvider()`（`LuBan.DI/ServiceProviderUtil.cs:107`）用的是无参 `BuildServiceProvider()`，未开 `ValidateOnBuild`/`ValidateScopes`，缺依赖只会在首次请求暴露。所以启动期校验必须自己把该拦的都拦住。
 - `ConsoleUtil.WriteLine` 是 `string` 扩展方法（`LuBan.Common/ConsoleUtil.cs:105`），以静态形式调用可用。**不用 `Logger`**：此刻静态 `Logger` 未必已挂 loggerFactory（`Logger.SetLogger` 在 `CreateWebApplication` 里 `Build()` 之后才调）。
 
@@ -323,7 +351,7 @@ public const string SysLuBanAgentCode = "sys-luban-framework:aiagent";
 |---|---|---|
 | `LuBan.Web.Core/GlobalUsing.cs` | `global using LuBan.Web.Core.AIAgent;` | `StartupUtil` 在 `LuBan.Web.Core.Utils`，不补则解析不到解析器 |
 | `LuBan.Web.Core/AIAgent/*.cs` | 无需 | Web.Core GlobalUsing 已含 `Microsoft.Extensions.Configuration`、`Microsoft.Extensions.DependencyInjection(.Extensions)`、`LuBan.Orm.Entities`、`LuBan.Common.Consts`、`System.Text.Json`、`System.Text`、`LuBan.AIAgent` 需显式（见下） |
-| 解析器文件 | `using LuBan.AIAgent.Configuration.Providers;` | `ProviderDefaults` 在该命名空间 |
+| 解析器文件 | 无需额外 using（`ProviderDefaults` 由 Web.Core `GlobalUsings.cs` 的 `LuBan.AIAgent.Configuration.Providers` 提供） | 该全局 using 已统一收口，文件内不再单独声明 |
 | `WebApplication1/Controllers/Default/AgentController.cs` | `using LuBan.AIAgent.Hosting;`、`using LuBan.AIAgent.Sessions;`、`using System.Text;` | `IAgentHost`/`AgentRunRequest`/`TextDeltaEvent` 在 `Hosting`，`ISessionManager` 在 `Sessions`；`System.Text` 不在 Web SDK 隐式 using 内 |
 
 已核实存在的全局 using（无需重复）：`WebApplication1/GlobalUsing.cs` 含 `LuBan.Web.Core`、`LuBan.Web.Core.Attributes`（`AllowAccess`）、`LuBan.Common.Data`（`Fail`/`Success`）、`System.ComponentModel`（`DisplayName`）。
@@ -331,7 +359,7 @@ public const string SysLuBanAgentCode = "sys-luban-framework:aiagent";
 
 ## 10. 日志与可观测性
 
-- 未启用：`ConsoleUtil` 黄字一条 `LuBan Agent 未启用：<原因>`；原因需能区分「没有配置」「JSON 坏」「Provider 未知」「缺 Model/ApiKey」「BaseUrl 非法」（及 D-A 定稿后的 DefaultModel）。
+- 未启用：`ConsoleUtil` 黄字一条 `LuBan Agent 未启用：<原因>`；原因需能区分「没有配置」「JSON 坏」「Provider 未知」「缺 Model/ApiKey」「BaseUrl 非法」「同 Provider 凭据不一致」「DefaultModel 未命中数组」。
 - 启用：不加噪音日志。
 - 不用 `ChatClientFactoryWarning` 作主要提示——启动期校验已接管。
 
@@ -341,7 +369,7 @@ public const string SysLuBanAgentCode = "sys-luban-framework:aiagent";
 
 通过 `Resolve(configuration, dbConfigReader)` 注入假读取委托，不需要数据库：
 
-1. db 合法 JSON → `Enabled=true`、`Source="db"`、合并配置里 `LuBanAgent:Models:Provider` 取 db 值而非宿主值。
+1. db 合法 JSON → `Enabled=true`、`Source="db"`、合并配置里 `LuBanAgent:Models:0:Provider` 取 db 值而非宿主值。
 2. db 记录 JSON 非法 → `Enabled=false`、原因含 JSON 关键字、**不回退**（即便宿主配置合法）。
 3. db 无记录 + 宿主配置合法 → `Enabled=true`、`Source="host"`。
 4. db 无记录 + 宿主无 `LuBanAgent` → `Enabled=false`。
@@ -349,8 +377,14 @@ public const string SysLuBanAgentCode = "sys-luban-framework:aiagent";
 6. Provider 未知（即便给了合法 BaseUrl）→ `Enabled=false`。
 7. `BaseUrl="not-a-url"` → 失败；`https://api.example.com/v1/` → 通过。
 8. `Value` 多包一层 `{"LuBanAgent": {...}}` → 仍可解析。
-9. 缺 `DefaultModel` → `Enabled=false`。
+9. 缺 `DefaultModel` → `Enabled=true`，且 `CreateEffectiveConfiguration` 补成 `Models` 第一项的 `provider:model`。
 10. db 覆盖只作用于 `LuBanAgent` 节：合并后 `DbConnectionOptions` 等原节仍可读，且宿主原有 `LuBanAgent:WorkspaceRoot` 在 db 未给该键时保留（配置源后者优先、同键覆盖、异键互补）。
+11. `Models` 为空数组 / 旧版扁平对象 → `Enabled=false`。
+12. 多 Provider 数组 → `Enabled=true`，且第二项键路径可读。
+13. 同 Provider 多条：凭据一致（含 BaseUrl 尾斜杠差异）→ 通过；`ApiKey` 不同 → `Enabled=false`。
+14. `DefaultModel` 不在数组 / 格式非法 → `Enabled=false`。
+15. `ResolveWorkspaceRoot`：绝对路径保持；相对 `.`/子目录以 `ContentRootPath` 为基准；无 ContentRoot 回退 `AppContext.BaseDirectory`。
+16. `CreateEffectiveConfiguration`：相对根 + 缺省 DefaultModel 被覆盖且保留其他节；已绝对 + 已配置 DefaultModel 返回同一实例。
 
 测试结构沿用仓库现有 MSTest 风格（`[TestClass]` / `[TestMethod]`）。`LuBan.UnitTestProject.csproj` 已同时引用 `LuBan.Web.Core` 与 `LuBan.AIAgent`，无需加 `InternalsVisibleTo`（解析器与 DTO 均为 `public`）。
 
@@ -383,7 +417,8 @@ public const string SysLuBanAgentCode = "sys-luban-framework:aiagent";
 | `Replace` 会削弱 appsettings 文件热更新 | 新的根由 `AddConfiguration(原配置)` + `AddJsonStream` 组成；`ChainedConfigurationProvider` 转发原根的 reload token，但 `IOptionsMonitor` 走的是**注册时捕获**的 section，不受影响；受影响面只有「运行期直注 `IConfiguration` 的服务」 | 目前只有 `SessionRuntimeManager`（读一个 int 阈值），实例站在示例站无热更新需求；若将来要求热更新，改为「不 Replace，只给 Agent 传 `agentConfig`」 |
 | `ConfigUtil` / `NacosConfigUtil` 静态读源**不受** `Replace` 影响 | `ConfigUtil._configuration` 在 `ConfigureServices` 开头就被赋成原始宿主配置（`ConfigUtil.cs:40-44`），`Replace` 只改 DI 容器 | 合并配置是超集，其他节读取结果不变，无实际影响；但不要指望「静态读」能看到 db 覆盖值 |
 | 默认 appsettings 会直接启用 Agent | `WebApplication1/appsettings.json:85-93` 已有完整 `LuBanAgent` 节（`ApiKey=sk-xxxxxxxx` 占位） | 冒烟「不启用」场景必须手动删节或清空 `ApiKey`，不能默认就期待 503 |
-| `LuBanAgentOptions.Models` 类型与配置形状不符（既有缺陷，留档不改） | 声明是 `Dictionary<string, ModelEndpointOptions>`，实际配置是扁平 `{Provider,Model,ApiKey}`；绑定会产出 3 条垃圾字典项 | 当前无任何代码消费该属性（`AddLuBanAgentOpenAI` 直读原始键），本次不修，只在上游用它做校验时避开（§9.1） |
+| ~~`LuBanAgentOptions.Models` 类型与配置形状不符~~（R95，**2026-10-28 关闭**） | 原声明是 `Dictionary<string, ModelEndpointOptions>`，实际配置是扁平 `{Provider,Model,ApiKey}`，绑定会产出垃圾字典项 | D-E：`Models` 已改数组、元素补 `Provider`/`Model`，`AddLuBanAgentOpenAI` 改为按数组注册多 Provider 路由；旧扁平写法不再支持，升级包后必须改配置 |
+| 相对 `WorkspaceRoot` 的基准只在 Web 宿主确定 | `LuBan.AIAgent` 自身仍不做路径归一化（CLI/桌面端保持原有进程目录语义） | 需要统一时在各自宿主注册前调用 `LuBanAgentConfigResolver.CreateEffectiveConfiguration`；Web.Core 已接入 |
 | 启动期读库 | 位于 `InitDataBaseOrm` 之后，`Logger` 未必就绪 | 只用 `ConsoleUtil`；读库异常按无记录处理 |
 | 依赖传染 | 引用 `Web.Core` 的项目被动带上 AIAgent（含 Playwright），且 `LuBan.Web.Core.nupkg` 会新增对 `LuBan.AIAgent` 的包依赖 | 已由 D2 接受，发布说明点明 |
 | appsettings 现占位 ApiKey | `sk-xxxxxxxx` 非空会通过校验，运行期 401 | 示例配置问题，冒烟用真实 Key |

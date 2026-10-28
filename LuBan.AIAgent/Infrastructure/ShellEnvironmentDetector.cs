@@ -21,7 +21,6 @@
 *描述：Shell 运行环境探测与命令构造
 *
 *****************************************************************************/
-using System.Collections.Concurrent;
 
 namespace LuBan.AIAgent.Infrastructure;
 

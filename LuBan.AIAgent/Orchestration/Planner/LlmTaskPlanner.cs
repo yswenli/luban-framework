@@ -122,6 +122,12 @@ public class LlmTaskPlanner : ITaskPlanner
     /// <returns></returns>
     /// <exception cref="TaskPlanningException"></exception>
 
+    /// <summary>
+    /// 调用 LLM 把自然语言任务拆解为任务图谱，解析或校验失败会重试，超限后抛出异常。
+    /// </summary>
+    /// <param name="task">待拆解的任务描述。</param>
+    /// <param name="ct">取消令牌。</param>
+    /// <returns>解析并校验通过的任务图谱。</returns>
     [UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code", Justification = "PlanAsync uses JSON deserialization via ToObject extension which requires reflection. This planner is only invoked at runtime when orchestration is enabled, not during AOT compilation.")]
     public async Task<TaskGraph?> PlanAsync(string task, CancellationToken ct = default)
     {

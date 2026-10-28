@@ -21,8 +21,6 @@
 *描述：高性能分布式锁实现
 *
 *****************************************************************************/
-using LuBan.Redis.Interfaces;
-using System.Collections.Concurrent;
 
 namespace LuBan.Redis.Core;
 

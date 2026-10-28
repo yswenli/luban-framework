@@ -22,8 +22,6 @@
 *
 *****************************************************************************/
 
-using LuBan.Web.Core.OnlineUser;
-
 namespace LuBan.Web.Core.Attributes;
 
 /// <summary>
@@ -119,7 +117,6 @@ public class OnlineUserMiddleware
         await context.Response.WriteAsync(new Fail<string>("当前操作未登录或会话已过期，请重新登录", 401).ToJson());
     }
 }
-
 
 /// <summary>
 /// 在线用户验证中间件

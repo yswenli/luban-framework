@@ -1,11 +1,20 @@
 /****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：Walle
 *命名空间：LuBan.Common
 *文件名： MarkdownUtil
+*版本号： V1.0.0.0
+*唯一标识：9c0588cf-018a-48a7-8622-908b7ab8b925
+*当前的用户域：WALLE
+*创建人：yswenli
+*电子邮箱：yswenli@outlook.com
 *创建时间：2026/10/9
 *描述：HTML 转 Markdown 工具（基于 ReverseMarkdown）
+*
 *****************************************************************************/
+
 using ReverseMarkdown;
 
 namespace LuBan.Common;

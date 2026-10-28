@@ -6,7 +6,7 @@
 *命名空间：LuBan.Common.IO
 *文件名： TempDirectory
 *版本号： V1.0.0.0
-*唯一标识：临时目录管理
+*唯一标识：78d765cd-68f9-4e5b-88ac-273f0df87506
 *当前的用户域：WALLE
 *创建人：yswenli
 *电子邮箱：yswenli@outlook.com
@@ -194,6 +194,9 @@ public static class TempDirectory
     private sealed class Restore(Action action) : IDisposable
     {
         private Action? _action = action;
+        /// <summary>
+        /// 执行保存的回调，把当前异步作用域的临时目录提供者还原为 <c>Push</c> 之前的值。
+        /// </summary>
         public void Dispose()
         {
             _action?.Invoke();

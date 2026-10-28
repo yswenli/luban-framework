@@ -6,7 +6,7 @@
 *命名空间：LuBan.AIAgent.Hosting
 *文件名： IAgentModelSelection
 *版本号： V1.0.0.0
-*唯一标识：模型选择接口
+*唯一标识：22f0ebc6-0cae-48f3-9e1b-c74eb33a3302
 *当前的用户域：WALLE
 *创建人：yswenli
 *电子邮箱：yswenli@outlook.com

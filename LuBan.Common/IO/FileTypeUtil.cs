@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -11,14 +11,14 @@
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2024/8/12 10:34:12
-*描述：
+*描述：文件真实格式检查
 *
 *=================================================
 *修改标记
 *修改时间：2024/8/12 10:34:12
 *修改人： yswenli
 *版本号： V1.0.0.0
-*描述：
+*描述：文件真实格式检查
 *
 *****************************************************************************/
 namespace LuBan.Common.IO;
@@ -28,6 +28,9 @@ namespace LuBan.Common.IO;
 /// </summary>
 public static class FileTypeUtil
 {
+    /// <summary>
+    /// 扩展名（含点、大写）到文件头签名的映射，用于按魔数（magic number）校验真实文件格式。
+    /// </summary>
     public static Dictionary<string, List<byte[]>> FileSignature { get; private set; }
 
 

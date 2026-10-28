@@ -3,8 +3,8 @@
 *CLR版本： .net10.0
 *机器名称：WALLE
 *公司名称：Walle
-*命名空间：LuBan.Orm
-*文件名： DBDataSetup
+*命名空间：LuBan.Web.Core.Database
+*文件名： LuBanOrmExtention
 *版本号： V1.0.0.0
 *唯一标识：82f9dca2-ea6a-45f3-95f0-07abb74f6785
 *当前的用户域：WALLE
@@ -21,7 +21,6 @@
 *描述：LuBanOrm相关初始化
 *
 *****************************************************************************/
-using LuBan.Common.Sms;
 
 namespace LuBan.Web.Core.Database;
 
@@ -219,7 +218,6 @@ internal static class LuBanOrmExtention
             return defaultValue;
         }
     }
-
 
     /// <summary>
     /// 数据范围权限： 仅本人数据、本部门数据、本部门及以下数据、本机构数据、本机构及以下数据、全部数据

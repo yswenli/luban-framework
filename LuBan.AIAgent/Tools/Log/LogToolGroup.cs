@@ -1,12 +1,19 @@
 /****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：Walle
 *命名空间：LuBan.AIAgent.Tools.Log
 *文件名： LogToolGroup
+*版本号： V1.0.0.0
+*唯一标识：8c535fee-26ca-488b-9370-ae8939992ccb
+*当前的用户域：WALLE
+*创建人：yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/10/10
 *描述：大日志分析工具实现（LogStats / LogGrep / LogSlice）
+*
 *****************************************************************************/
-using System.ComponentModel;
-using System.Globalization;
 
 namespace LuBan.AIAgent.Tools.Log;
 

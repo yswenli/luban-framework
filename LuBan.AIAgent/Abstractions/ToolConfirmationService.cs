@@ -362,6 +362,9 @@ public class ToolConfirmationContext
     {
         private int _disposed;
 
+        /// <summary>
+        /// 退出子代理作用域，还原进入前的深度与放行策略；重复调用不再改动。
+        /// </summary>
         public void Dispose()
         {
             if (Interlocked.Exchange(ref _disposed, 1) == 1)

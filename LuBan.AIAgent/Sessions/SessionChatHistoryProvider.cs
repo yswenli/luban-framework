@@ -1,7 +1,3 @@
-using LuBan.AIAgent.Rules;
-using Microsoft.Agents.AI;
-using Microsoft.Extensions.AI;
-
 /****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0

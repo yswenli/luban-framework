@@ -4,21 +4,21 @@
 *机器名称：WALLE
 *公司名称：Walle
 *命名空间：LuBan.Web.Core
-*文件名： GloabUsing
+*文件名： GlobalUsings
 *版本号： V1.0.0.0
 *唯一标识：32e11c24-1e0d-471b-bbcd-d279bdfb2114
 *当前的用户域：WALLE
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2023/12/1 15:19:58
-*描述：
+*描述：项目级全局 using 声明，集中管理常用命名空间。
 *
 *=================================================
 *修改标记
 *修改时间：2023/12/1 15:19:58
 *修改人： yswenli
 *版本号： V1.0.0.0
-*描述：
+*描述：项目级全局 using 声明，集中管理常用命名空间。
 *
 *****************************************************************************/
 global using Encrypt.Library;
@@ -132,3 +132,16 @@ global using System.Text.Json.Serialization;
 global using System.Text.RegularExpressions;
 
 global using Yitter.IdGenerator;
+
+// 由代码文件上移的命名空间（2026-10-28 规范化）
+global using LuBan.AIAgent;
+global using LuBan.AIAgent.Configuration.Providers;
+global using LuBan.Redis.Interfaces;
+global using LuBan.Speech;
+global using LuBan.Web.Core.OnlineUser;
+global using LuBan.Web.Core.Swagger.Doc.Models;
+global using Nacos.AspNetCore.V2;
+global using System.Net;
+global using System.Text.Json.Nodes;
+global using System.Threading.Tasks;
+global using System.Web;

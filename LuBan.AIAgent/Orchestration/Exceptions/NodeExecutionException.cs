@@ -14,7 +14,6 @@
 *描述：节点执行异常，聚合多个节点失败信息
 *
 *****************************************************************************/
-using LuBan.AIAgent.Orchestration.Models;
 
 namespace LuBan.AIAgent.Orchestration;
 

@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -73,12 +73,21 @@ public class NacosConfig
 public class Listener
 {
 
+    /// <summary>
+    /// 该配置项是否允许缺失（接口字段 Optional）。
+    /// </summary>
     [DataMember(Name = "Optional")]
     public bool Optional { get; set; }
 
+    /// <summary>
+    /// Nacos 配置的数据 ID（接口字段 DataId）。
+    /// </summary>
     [DataMember(Name = "DataId")]
     public string DataId { get; set; }
 
+    /// <summary>
+    /// Nacos 配置所属分组（接口字段 Group）。
+    /// </summary>
     [DataMember(Name = "Group")]
     public string Group { get; set; }
 }

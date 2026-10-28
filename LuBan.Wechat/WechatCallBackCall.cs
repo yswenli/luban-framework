@@ -22,10 +22,7 @@
 *
 *****************************************************************************/
 
-using LuBan.Wechat.Errors;
-
 namespace LuBan.Wechat;
-
 
 /// <summary>
 /// 回调消息接收委托类
@@ -84,7 +81,6 @@ public class WechatCallBackCall
         }
     }
 
-
     /// <summary>
     /// 接收微信回调请求流
     /// </summary>
@@ -113,7 +109,6 @@ public class WechatCallBackCall
         }
         return null;
     }
-
 
     /// <summary>
     /// 服务器回复
@@ -197,7 +192,6 @@ public class WechatCallBackCall
             throw new Exception("Reply XML:" + ex.Message);
         }
     }
-
 
     /// <summary>
     /// Signature

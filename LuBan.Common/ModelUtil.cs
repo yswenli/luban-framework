@@ -11,18 +11,16 @@
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2021/6/2 15:39:05
-*描述：
+*描述：对象与实体模型互转工具类（含默认相等比较器）。
 *
 *=====================================================================
 *修改标记
 *修改时间：2021/6/2 15:39:05
 *修改人： Walle.Wen
 *版本号： V1.0.0.0
-*描述：
+*描述：对象与实体模型互转工具类（含默认相等比较器）。
 *
- *****************************************************************************/
-using System.Text.Json.Serialization;
-
+*****************************************************************************/
 
 namespace LuBan.Common
 {
@@ -652,7 +650,6 @@ namespace LuBan.Common
                                     }
                                 }
 
-
                                 if (sourceProperty.PropertyType == typeof(float))
                                 {
                                     if (targetProperty.PropertyType == typeof(string))
@@ -1049,7 +1046,6 @@ namespace LuBan.Common
             return null;
         }
 
-
         /// <summary>
         /// 转换成另外一个实体列表
         /// </summary>
@@ -1079,7 +1075,6 @@ namespace LuBan.Common
             return null;
         }
 
-
         /// <summary>
         /// 转换成另外一个实体
         /// </summary>
@@ -1092,8 +1087,6 @@ namespace LuBan.Common
         {
             return source.To(typeof(T), convertMatchType) as T;
         }
-
-
 
         /// <summary>
         /// 转换成另外一个实体列表
@@ -1149,8 +1142,6 @@ namespace LuBan.Common
             return result;
         }
 
-
-
         /// <summary>
         /// 从obj中获取url query
         /// </summary>
@@ -1184,7 +1175,6 @@ namespace LuBan.Common
                     if (val == null) continue;
 
                     if (ignores != null && ignores.Length > 0 && ignores.Contains(propertiyName, DefaultEqualityComparer<string>.Default)) continue;
-
 
                     if (property.PropertyType.IsClass && property.PropertyType != typeof(string))
                     {
@@ -1375,7 +1365,6 @@ namespace LuBan.Common
             }
             return result;
         }
-
 
         /// <summary>
         /// 将简单实体转换成Dictionary
@@ -1729,7 +1718,6 @@ namespace LuBan.Common
             return result;
         }
 
-
         /// <summary>
         /// 将claim转为实体
         /// </summary>
@@ -1768,7 +1756,6 @@ namespace LuBan.Common
             return t;
         }
 
-
         /// <summary>
         /// 获取属性名称，从System.Text.Json的JsonPropertyNameAttribute或JsonIgnoreAttribute中获取属性名称
         /// </summary>
@@ -1792,7 +1779,6 @@ namespace LuBan.Common
         }
 
     }
-
 
     /// <summary>
     /// 自定义相等比较类

@@ -1,10 +1,10 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c) YSWenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *Author：yswenli
 *命名空间：LuBan.Redis.Core
-*文件名： RedisSubcriber
+*文件名： RedisSubscriber
 *版本号： V1.0.0.0
 *唯一标识：3aec0875-5f26-4f91-9063-b32783abe033
 *当前的用户域：WALLE

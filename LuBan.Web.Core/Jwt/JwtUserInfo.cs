@@ -1,9 +1,9 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *Author：yswenli
-*命名空间：LuBan.Web.Core.JWT
+*命名空间：LuBan.Web.Core.Jwt
 *文件名： JwtUserInfo
 *版本号： V1.0.0.0
 *唯一标识：545a86da-e760-4461-8fef-eb96325fde2e

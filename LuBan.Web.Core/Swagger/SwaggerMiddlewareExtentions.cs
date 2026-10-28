@@ -1,10 +1,10 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：YSWENLI
 *公司名称：yswenli
 *命名空间：LuBan.Web.Core.Swagger
-*文件名： SwaggerMiddleware
+*文件名： SwaggerMiddlewareExtentions
 *版本号： V1.0.0.0
 *唯一标识：058a760a-cf4b-4bdf-a8c6-101c23d7a0de
 *当前的用户域：yswenli

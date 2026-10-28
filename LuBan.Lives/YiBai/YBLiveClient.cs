@@ -21,8 +21,6 @@
 *描述：100直播
 *
 *****************************************************************************/
-using System.Text.Json;
-using LuBan.Lives.YiBai.Models;
 
 namespace LuBan.Lives.YiBai
 {
@@ -90,7 +88,6 @@ namespace LuBan.Lives.YiBai
             }
         }
 
-
         /// <summary>
         /// 获取直播间链接
         /// </summary>
@@ -106,7 +103,6 @@ namespace LuBan.Lives.YiBai
             var url = string.Format("{0}/#/details/{1}/{2}?token={3}", _liveOption.Url, secret, channelId, token);
             return url;
         }
-
 
         /// <summary>
         /// 获取后台登录Token

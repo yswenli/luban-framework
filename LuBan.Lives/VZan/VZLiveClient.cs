@@ -21,7 +21,6 @@
 *描述：微赞直播
 *
 *****************************************************************************/
-using LuBan.Lives.VZan.Models;
 
 namespace LuBan.Lives.VZan;
 
@@ -206,8 +205,6 @@ public class VZLiveClient : BaseLiveClient, ILiveClient
         }
         return result;
     }
-
-
 
     /// <summary>
     /// 解绑第三方账号关联，2个参数至少传一个，需在管理后台申请开通

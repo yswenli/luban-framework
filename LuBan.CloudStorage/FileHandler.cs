@@ -22,10 +22,6 @@
 *
 *****************************************************************************/
 
-using System.Buffers;
-using LuBan.Common.Errors;
-using LuBan.VideoKit;
-
 namespace LuBan.CloudStorage;
 
 /// <summary>
@@ -52,7 +48,6 @@ public partial class FileHandler : IScoped
         _cloudStorageClient = CloudStorageClientFactory.Create();
         _sysFileRep = new BaseRepository<DbFile>();
     }
-
 
     /// <summary>
     /// 保存文件流
@@ -302,7 +297,6 @@ public partial class FileHandler : IScoped
         }
     }
 
-
     /// <summary>
     /// 根据配置验证文件
     /// </summary>
@@ -329,7 +323,6 @@ public partial class FileHandler : IScoped
 
         return (sizeKb, suffix);
     }
-
 
     /// <summary>
     /// 获取正则表达式
@@ -404,7 +397,6 @@ public partial class FileHandler : IScoped
             IsPrivate = isPrivate
         };
     }
-
 
     /// <summary>
     /// 上传小文件

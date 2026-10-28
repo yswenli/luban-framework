@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -35,6 +35,11 @@ namespace LuBan.Common.NPinyin
         /// <param name="text">编码为UTF8的文本</param>
         /// <returns>返回中文对应的拼音首字母</returns>
 
+        /// <summary>
+        /// 取每个汉字拼音的首字母并拼接为大写字符串，无拼音的字符直接跳过。
+        /// </summary>
+        /// <param name="text">UTF-8 编码的文本。</param>
+        /// <returns>拼音首字母串（已转大写）。</returns>
         public static string GetInitials(string text)
         {
             text = text.Trim();
@@ -68,6 +73,11 @@ namespace LuBan.Common.NPinyin
         /// <param name="text">编码为UTF8的文本</param>
         /// <returns>返回中文文本的拼音</returns>
 
+        /// <summary>
+        /// 逐字取汉字拼音，字与字之间以空格分隔后返回。
+        /// </summary>
+        /// <param name="text">UTF-8 编码的文本。</param>
+        /// <returns>以空格分隔的拼音串。</returns>
         public static string GetPinyin(string text)
         {
             StringBuilder sbPinyin = new StringBuilder();

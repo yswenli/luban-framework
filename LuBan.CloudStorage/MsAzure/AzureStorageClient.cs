@@ -21,10 +21,6 @@
 *描述：微软云
 *
 *****************************************************************************/
-using Azure;
-using Azure.Core.Pipeline;
-using Azure.Storage.Blobs;
-using Azure.Storage.Sas;
 
 namespace LuBan.CloudStorage.MsAzure;
 
@@ -133,7 +129,6 @@ public class AzureStorageClient : ICloudStorageClient
         }
         return false;
     }
-
 
     /// <summary>
     /// 上传文件流

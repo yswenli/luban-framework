@@ -1,9 +1,9 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *Author：yswenli
-*命名空间：LuBan.Orm.Entities
+*命名空间：LuBan.Orm.Models
 *文件名： EntityBase
 *版本号： V1.0.0.0
 *唯一标识：17fa1c5b-73fd-4858-bf8a-59af83f21aa6

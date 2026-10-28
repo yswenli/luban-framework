@@ -6,7 +6,7 @@
 *命名空间：LuBan.AIAgent.Retrieval
 *文件名： VectorTopK
 *版本号： V1.0.0.0
-*唯一标识：有界 top-K 向量命中收集器
+*唯一标识：ac1b8551-e3f7-4504-940d-fbbd5c1907e2
 *当前的用户域：WALLE
 *创建人：yswenli
 *电子邮箱：yswenli@outlook.com

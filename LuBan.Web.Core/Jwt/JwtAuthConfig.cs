@@ -1,10 +1,10 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：YSWENLI
 *公司名称：yswenli
-*命名空间：LuBan.Web.Core.JWT
-*文件名： JWTAuthConfig
+*命名空间：LuBan.Web.Core.Jwt
+*文件名： JwtAuthConfig
 *版本号： V1.0.0.0
 *唯一标识：f8a46c52-8482-410a-866e-5bbf2abb1b56
 *当前的用户域：yswenli

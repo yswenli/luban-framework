@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ 2023-2024 Oceania All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -11,14 +11,14 @@
 *创建人： WALLE
 *电子邮箱：yswenli@outlook.com
 *创建时间：2022/7/5 14:50:10
-*描述：
+*描述：ReceiveImage 类
 *
 *=================================================
 *修改标记
 *修改时间：2022/7/5 14:50:10
 *修改人： yswenli
 *版本号： V1.0.0.0
-*描述：
+*描述：ReceiveImage 类
 *
 *****************************************************************************/
 namespace LuBan.Wechat.Models
@@ -28,8 +28,14 @@ namespace LuBan.Wechat.Models
 /// </summary>
     public class ReceiveImage : Receive
     {
+        /// <summary>
+        /// 图片消息的图片链接，可临时下载使用（协议字段 PicUrl）。
+        /// </summary>
         public string PicUrl { get; set; }
 
+        /// <summary>
+        /// 图片消息的素材 ID，可调用素材接口下载原图（协议字段 MediaId）。
+        /// </summary>
         public string MediaId { get; set; }
     }
 }

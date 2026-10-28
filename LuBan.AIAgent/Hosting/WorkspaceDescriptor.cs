@@ -6,7 +6,7 @@
 *命名空间：LuBan.AIAgent.Hosting
 *文件名： WorkspaceDescriptor
 *版本号： V1.0.0.0
-*唯一标识：工作区描述
+*唯一标识：463e091f-163c-4849-a357-80d6af84a4e0
 *当前的用户域：WALLE
 *创建人：yswenli
 *电子邮箱：yswenli@outlook.com

@@ -4,21 +4,21 @@
 *机器名称：WALLE
 *公司名称：Walle
 *命名空间：LuBan.Orm
-*文件名： GloabUsing
+*文件名： GlobalUsings
 *版本号： V1.0.0.0
 *唯一标识：c214066e-18cb-476d-abfc-40e9b8d34e30
 *当前的用户域：WALLE
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2023/12/1 18:42:01
-*描述：
+*描述：项目级全局 using 声明，集中管理常用命名空间。
 *
 *=================================================
 *修改标记
 *修改时间：2023/12/1 18:42:01
 *修改人： yswenli
 *版本号： V1.0.0.0
-*描述：
+*描述：项目级全局 using 声明，集中管理常用命名空间。
 *
 *****************************************************************************/
 global using LuBan.Common;
@@ -63,3 +63,7 @@ global using System.Transactions;
 global using Yitter.IdGenerator;
 
 global using DbType = SqlSugar.DbType;
+
+// 由代码文件上移的命名空间（2026-10-28 规范化）
+global using LuBan.Logging.Configuration;
+global using Microsoft.Extensions.Options;

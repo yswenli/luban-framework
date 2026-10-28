@@ -1,10 +1,20 @@
 /****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：Walle
 *命名空间：LuBan.AIAgent.Configuration
 *文件名： ConnectorManageToolOptions
+*版本号： V1.0.0.0
+*唯一标识：a1b91afe-5270-484a-94df-62d6da3b8fd2
+*当前的用户域：WALLE
+*创建人：yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/10/20
 *描述：连接器管理工具组配置（绑定到 LuBanAgent:Tools:ConnectorManage）
+*
 *****************************************************************************/
+
 namespace LuBan.AIAgent.Configuration;
 
 /// <summary>

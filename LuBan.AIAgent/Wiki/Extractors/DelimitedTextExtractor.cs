@@ -14,7 +14,6 @@
 *描述：CSV / TSV 提取器：转 markdown 表格
 *
 *****************************************************************************/
-using System.Text;
 
 namespace LuBan.AIAgent.Wiki.Extractors;
 

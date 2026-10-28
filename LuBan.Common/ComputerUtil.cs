@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -121,11 +121,19 @@ public static class ComputerUtil
         return !html.Contains("当前 IP：") ? "未知" : html.Replace("当前 IP：", "").Replace("来自于：", "");
     }
 
+    /// <summary>
+    /// 判断当前系统是否为 macOS 或 Linux。
+    /// </summary>
+    /// <returns>类 Unix 平台返回 <c>true</c>，否则返回 <c>false</c>。</returns>
     public static bool IsUnix()
     {
         return RuntimeInformation.IsOSPlatform(OSPlatform.OSX) || RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
     }
 
+    /// <summary>
+    /// 用 <c>top</c>（Unix）或 <c>wmic</c>（Windows）命令读取当前 CPU 使用率。
+    /// </summary>
+    /// <returns>命令原始输出：Unix 为用户态加系统态占比，Windows 为 LoadPercentage。</returns>
     public static string GetCPURate()
     {
         string cpuRate;
@@ -170,12 +178,21 @@ public static class ComputerUtil
 /// </summary>
 public class MemoryMetrics
 {
+    /// <summary>
+    /// 内存总量，单位 MB，不参与 JSON 序列化。
+    /// </summary>
     [JsonIgnore]
     public double Total { get; set; }
 
+    /// <summary>
+    /// 已用内存量，单位 MB，不参与 JSON 序列化。
+    /// </summary>
     [JsonIgnore]
     public double Used { get; set; }
 
+    /// <summary>
+    /// 空闲内存量，单位 MB，不参与 JSON 序列化。
+    /// </summary>
     [JsonIgnore]
     public double Free { get; set; }
 
@@ -246,6 +263,10 @@ public class DiskInfo
     public decimal AvailablePercent { get; set; }
 }
 
+/// <summary>
+/// 内存信息读取客户端：分别用 <c>wmic</c> 与 <c>free -m</c> 取 Windows/Unix 内存数据，
+/// 结果写入 <c>Total</c>、<c>Used</c>、<c>Free</c>，单位 MB。
+/// </summary>
 public class MemoryMetricsClient
 {
     /// <summary>

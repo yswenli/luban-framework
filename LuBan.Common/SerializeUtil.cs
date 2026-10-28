@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：YSWENLI
@@ -11,20 +11,18 @@
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2022/7/14 13:15:45
-*描述：
+*描述：序列化
 *
 *=====================================================================
 *修改标记
 *修改时间：2022/7/14 13:15:45
 *修改人： Walle.Wen
 *版本号： V1.0.0.0
-*描述：
+*描述：序列化
 *
 *****************************************************************************/
 
 namespace LuBan.Common;
-
-using System.Diagnostics.CodeAnalysis;
 
 /// <summary>
 /// 序列化
@@ -180,8 +178,6 @@ public static class SerializeUtil
         }
     }
 
-
-
     /// <summary>
     /// json反序列化
     /// </summary>
@@ -312,7 +308,6 @@ public static class SerializeUtil
         return Deserialize<T>(json);
     }
 
-
     #region stuct
 
     /// <summary>
@@ -395,6 +390,11 @@ public static class SerializeUtil
     /// <param name="obj">The obj.</param>
     /// <returns></returns>
     
+    /// <summary>
+    /// 把对象序列化为 XML 文本：已注册自定义 handler 的类型走 handler，否则用 <c>XmlSerializer</c>。
+    /// </summary>
+    /// <param name="obj">待序列化对象。</param>
+    /// <returns>XML 字符串；<c>obj</c> 为 null 时返回空字符串。</returns>
     [RequiresUnreferencedCode("XML序列化")]
     public static string XmlSerialize(object obj)
     {
@@ -616,7 +616,6 @@ public static class SerializeUtil
                                         }
                                     }
 
-
                                 }
                                 property.SetValue(obj, list);
                             }
@@ -638,7 +637,6 @@ public static class SerializeUtil
                         if (sNodes == null || sNodes.Count < 1) continue;
                         var sObj = Activator.CreateInstance(property.PropertyType);
                         var sVal = FillModel(sObj, sNodes, prefix);
-
 
                         property.SetValue(obj, sVal);
                     }

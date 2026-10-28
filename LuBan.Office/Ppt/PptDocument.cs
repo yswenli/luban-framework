@@ -1,9 +1,9 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *Author：yswenli
-*命名空间：LuBan.Office.Pptx
+*命名空间：LuBan.Office.Ppt
 *文件名： PptDocument
 *版本号： V1.0.0.0
 *唯一标识：e82d892b-864d-4eb2-936e-93f7bd51e6c4
@@ -21,6 +21,7 @@
 *描述：ppt文档
 *
 *****************************************************************************/
+
 using Aspose.Slides;
 
 namespace LuBan.Office.Ppt;
@@ -298,7 +299,6 @@ public class PptDocument : IDisposable
         return false;
     }
 
-
     /// <summary>
     /// 保存为PDF
     /// </summary>
@@ -342,7 +342,6 @@ public class PptDocument : IDisposable
         return _images.GetOrAdd(name, (key) => _presentation.Images.AddImage(FileUtil.Read(imagePath)));
     }
 
-
     /// <summary>
     /// 释放文档资源
     /// </summary>
@@ -352,7 +351,6 @@ public class PptDocument : IDisposable
         _images.Clear();
         _presentation.Dispose();
     }
-
 
     #region 快捷方法
     /// <summary>
@@ -494,7 +492,6 @@ public class PptDocument : IDisposable
         }
         return true;
     }
-
 
     #endregion
 }

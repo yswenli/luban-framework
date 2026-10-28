@@ -1,10 +1,10 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *Author：yswenli
 *命名空间：LuBan.CloudStorage
-*文件名： ICloudStorage
+*文件名： ICloudStorageClient
 *版本号： V1.0.0.0
 *唯一标识：b6011828-2c8f-4e54-a1ab-04afae208c2c
 *当前的用户域：WALLE

@@ -23,8 +23,6 @@
 *****************************************************************************/
 namespace LuBan.Redis;
 
-using System.Collections.Concurrent;
-
 /// <summary>
 /// redis封装类创建者
 /// </summary>

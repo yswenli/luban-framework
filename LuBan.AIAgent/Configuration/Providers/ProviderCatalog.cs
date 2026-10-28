@@ -6,7 +6,7 @@
 *命名空间：LuBan.AIAgent.Configuration.Providers
 *文件名： ProviderCatalog
 *版本号： V1.0.0.0
-*唯一标识：内置 Provider 目录
+*唯一标识：58a0246e-f1b8-4e36-a494-1a71e1e876bd
 *当前的用户域：WALLE
 *创建人：yswenli
 *电子邮箱：yswenli@outlook.com

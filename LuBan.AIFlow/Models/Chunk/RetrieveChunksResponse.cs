@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -29,9 +29,15 @@ namespace LuBan.AIFlow.Models.Chunk;
 /// </summary>
 public class RetrieveChunksResponse
 {
+    /// <summary>
+    /// 接口返回的状态码，0 表示成功（响应字段 code）。
+    /// </summary>
     [JsonPropertyName("code")]
     public int Code { get; set; }
 
+    /// <summary>
+    /// 命中检索条件的分块集合（响应字段 data）。
+    /// </summary>
     [JsonPropertyName("data")]
     public List<ChunkInfo> Data { get; set; } = new();
 }

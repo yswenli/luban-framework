@@ -6,7 +6,7 @@
 *命名空间：LuBan.AIAgent.Skills
 *文件名： BuiltinSkillCatalog
 *版本号： V1.0.0.0
-*唯一标识：内置 Skill 目录
+*唯一标识：d3f0ecb5-e810-41b9-a3e0-5780dcf1baa8
 *当前的用户域：WALLE
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com

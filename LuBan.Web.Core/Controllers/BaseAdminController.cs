@@ -1,9 +1,9 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c) YSWenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *Author：yswenli
-*命名空间：LuBan.Web.Core.Controllers
+*命名空间：LuBan.Web.Core
 *文件名： BaseAdminController
 *版本号： V1.0.0.0
 *唯一标识：e4de6ae0-0cfd-4fcb-b628-ac88eb8b5b1d

@@ -1,10 +1,10 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *Author：yswenli
 *命名空间：LuBan.Lives.HuiChang
-*文件名： HCMeetingClient
+*文件名： HCLiveClient
 *版本号： V1.0.0.0
 *唯一标识：ff7de66d-3ce6-483b-9946-37e2eeca9d64
 *当前的用户域：WALLE

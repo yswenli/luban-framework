@@ -21,7 +21,6 @@
 *描述：LuBan.Web.Core.AspNetCore 基础控制器类
 *
 *****************************************************************************/
-using LuBan.Common.Errors;
 
 namespace LuBan.Web.Core.AspNetCore;
 
@@ -131,7 +130,6 @@ public abstract class BaseController : Controller
         return _env.ExportFile(data, fileName, columnNameList, splitStr);
     }
 
-
     /// <summary>
     /// 客户端ip
     /// </summary>
@@ -142,7 +140,6 @@ public abstract class BaseController : Controller
             return HttpContext.GetClientIp();
         }
     }
-
 
     /// <summary>
     /// 客户端ip和区域
@@ -186,7 +183,6 @@ public abstract class BaseController : Controller
     {
         return SerializeUtil.Deserialize<T>(json);
     }
-
 
     /// <summary>
     /// 返回成功的结果
@@ -261,9 +257,7 @@ public abstract class BaseController : Controller
     /// <returns></returns>
     protected Fail ErrorResult(Exception ex, ErrorDescriptor code) => ErrorResult(ex, code.Code);
 
-
     #region aspnetcore 其它内容
-
 
     /// <summary>
     /// 返回指定内容结果
@@ -321,7 +315,6 @@ public abstract class BaseController : Controller
         var fileStream = new FileStream(physicsFullFileName, FileMode.Open, FileAccess.Read, FileShare.Read);
         return await DownloadAsync(fileInfo.Name, fileStream);
     }
-
 
     /// <summary>
     /// 下载文件,
@@ -484,8 +477,6 @@ public abstract class BaseController : Controller
         await ss.SendAsync(cancellationToken);
     }
 
-
-
     /// <summary>
     /// 发送SSE流数据
     /// </summary>
@@ -516,7 +507,6 @@ public abstract class BaseController : Controller
     }
 
     #endregion
-
 
     /// <summary>
     /// 获取服务缓存

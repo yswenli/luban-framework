@@ -49,7 +49,8 @@ public static class StartupUtil
     /// </summary>
     /// <param name="services"></param>
     /// <param name="configuration"></param>
-    public static void ConfigureServices(this IServiceCollection services, IConfiguration configuration)
+    /// <param name="contentRootPath">站点内容根（ASP.NET Core 的 ContentRootPath），用于解析 Agent 的相对工作目录；为空时回退到程序目录</param>
+    public static void ConfigureServices(this IServiceCollection services, IConfiguration configuration, string? contentRootPath = null)
     {
         try
         {
@@ -112,7 +113,7 @@ public static class StartupUtil
             services.InitSms();
 
             //配置 Agent（db_config 优先，回退宿主配置；不完整则不启用）
-            services.AddAIAgent(configuration);
+            services.AddAIAgent(configuration, contentRootPath);
 
             //配置缓存
             services.AddServiceCache();

@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -11,14 +11,14 @@
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2024/9/19 17:14:02
-*描述：
+*描述：VZToken 类
 *
 *=================================================
 *修改标记
 *修改时间：2024/9/19 17:14:02
 *修改人： yswenli
 *版本号： V1.0.0.0
-*描述：
+*描述：VZToken 类
 *
 *****************************************************************************/
 namespace LuBan.Lives.VZan.Models
@@ -28,7 +28,13 @@ namespace LuBan.Lives.VZan.Models
 /// </summary>
     public class VZToken
     {
+        /// <summary>
+        /// 调用 VZan 接口使用的访问令牌（接口字段 token）。
+        /// </summary>
         public string token { get; set; }
+        /// <summary>
+        /// 令牌的过期时间（接口字段 tokenExpires）。
+        /// </summary>
         public string tokenExpires { get; set; }
     }
 }

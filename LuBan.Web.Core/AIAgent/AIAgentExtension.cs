@@ -6,7 +6,7 @@
 *命名空间：LuBan.Web.Core.AIAgent
 *文件名： AIAgentExtension
 *版本号： V1.0.0.0
-*唯一标识：LuBan Agent 注册扩展
+*唯一标识：5c543be0-947c-43ed-9967-96af81b683f1
 *当前的用户域：WALLE
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
@@ -29,23 +29,31 @@ public static class AIAgentExtension
     /// </summary>
     /// <param name="services"></param>
     /// <param name="configuration"></param>
+    /// <param name="contentRootPath">站点内容根；用于把相对的 <c>WorkspaceRoot</c> 解析成绝对路径，
+    /// 为空时回退到程序目录（非 Web 宿主 / 单测）</param>
     /// <returns></returns>
-    public static IServiceCollection AddAIAgent(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddAIAgent(
+        this IServiceCollection services,
+        IConfiguration configuration,
+        string? contentRootPath = null)
     {
         try
         {
             var agentResolution = LuBanAgentConfigResolver.Resolve(configuration);
             if (agentResolution.Enabled && agentResolution.Configuration is { } agentConfig)
             {
-                ConsoleUtil.WriteLineWithCount("正在初始化 AIAgent", color: ConsoleColor.Green);
-                services.AddLuBanAgentDefaults(agentConfig);
-                services.AddLuBanAgentHost();
-                services.AddLuBanAgentOpenAI(agentConfig);
+                // W1：注册前把相对 WorkspaceRoot 归一化为绝对路径，并补齐缺省的 DefaultModel
+                var effectiveConfig = LuBanAgentConfigResolver.CreateEffectiveConfiguration(agentConfig, contentRootPath);
 
-                if (!ReferenceEquals(agentConfig, configuration))
+                ConsoleUtil.WriteLineWithCount("正在初始化 AIAgent", color: ConsoleColor.Green);
+                services.AddLuBanAgentDefaults(effectiveConfig);
+                services.AddLuBanAgentHost();
+                services.AddLuBanAgentOpenAI(effectiveConfig);
+
+                if (!ReferenceEquals(effectiveConfig, configuration))
                 {
-                    // D-D：让运行期直接注入 IConfiguration 的 Agent 服务看到同一份值
-                    services.Replace(ServiceDescriptor.Singleton<IConfiguration>(agentConfig));
+                    // D-D：让运行期直接注入 IConfiguration 的 Agent 服务看到同一份（已归一化的）值
+                    services.Replace(ServiceDescriptor.Singleton<IConfiguration>(effectiveConfig));
                 }
             }
             else

@@ -14,10 +14,6 @@
 *描述：wiki 工具实现
 *
 *****************************************************************************/
-using System.ComponentModel;
-using LuBan.AIAgent.Abstractions;
-using LuBan.AIAgent.Configuration;
-using LuBan.AIAgent.Wiki;
 
 namespace LuBan.AIAgent.Tools.Wiki;
 

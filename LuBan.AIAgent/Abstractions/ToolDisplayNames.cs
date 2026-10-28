@@ -6,7 +6,7 @@
 *命名空间：LuBan.AIAgent.Abstractions
 *文件名：  ToolDisplayNames
 *版本号： V1.0.0.0
-*唯一标识：工具名 → 中文动作名映射
+*唯一标识：98bb7a8e-75f4-4be6-b7f8-b3f88d6f8235
 *当前的用户域：WALLE
 *创建人：yswenli
 *创建时间：2026/9/14

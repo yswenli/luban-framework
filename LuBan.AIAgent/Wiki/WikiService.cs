@@ -14,10 +14,6 @@
 *描述：wiki 知识库服务默认实现
 *
 *****************************************************************************/
-using System.Text.RegularExpressions;
-using LuBan.AIAgent.Configuration;
-using LuBan.AIAgent.Retrieval;
-using LuBan.AIAgent.Retrieval.Chunkers;
 
 namespace LuBan.AIAgent.Wiki;
 

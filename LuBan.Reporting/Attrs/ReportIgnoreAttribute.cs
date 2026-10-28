@@ -1,10 +1,10 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c) YSWenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *Author：yswenli
 *命名空间：LuBan.Reporting.Attrs
-*文件名： ReportIgnoreAtrribute
+*文件名： ReportIgnoreAttribute
 *版本号： V1.0.0.0
 *唯一标识：60c42b5b-f180-419b-9d1f-c7b2f4c5dbf2
 *当前的用户域：WALLE

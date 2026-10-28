@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c) YSWenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -27,18 +27,33 @@ namespace LuBan.Web.Core.Models;
 /// </summary>
 public class ApprovalFormItem
 {
+    /// <summary>
+    /// 审批表单配置的标识（JSON 字段 configId）。
+    /// </summary>
     [JsonPropertyName("configId")]
     public string ConfigId { get; set; }
 
+    /// <summary>
+    /// 审批表单对应的数据库表名（JSON 字段 tableName）。
+    /// </summary>
     [JsonPropertyName("tableName")]
     public string TableName { get; set; }
 
+    /// <summary>
+    /// 审批表单对应的实体类名称（JSON 字段 entityName）。
+    /// </summary>
     [JsonPropertyName("entityName")]
     public string EntityName { get; set; }
 
+    /// <summary>
+    /// 审批表单的类型名称（JSON 字段 typeName）。
+    /// </summary>
     [JsonPropertyName("typeName")]
     public string TypeName { get; set; }
 
+    /// <summary>
+    /// 由实体名首字母小写与类型名拼接出的前端访问路由（JSON 字段 route）。
+    /// </summary>
     [JsonPropertyName("route")]
     public string Route => EntityName[..1].ToLower() + EntityName[1..] + "/" + TypeName;
 }

@@ -24,8 +24,6 @@
 
 namespace LuBan.CloudStorage;
 
-using System.Collections.Concurrent;
-
 /// <summary>
 /// 云存储工厂
 /// </summary>
@@ -61,7 +59,6 @@ public static class CloudStorageClientFactory
             };
         });
     }
-
 
     /// <summary>
     /// 创建云存储

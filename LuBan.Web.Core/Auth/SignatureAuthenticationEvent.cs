@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -29,6 +29,9 @@ namespace LuBan.Web.Core.Auth
     /// </summary>
     public class SignatureAuthenticationEvent
     {
+        /// <summary>
+        /// 创建签名认证事件实例，各认证回调默认不执行任何处理。
+        /// </summary>
         public SignatureAuthenticationEvent()
         {
         }

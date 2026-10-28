@@ -22,8 +22,6 @@
 *
 *****************************************************************************/
 
-using LuBan.Orm.Enums;
-
 namespace LuBan.Web.Core.OnlineUser;
 
 /// <summary>

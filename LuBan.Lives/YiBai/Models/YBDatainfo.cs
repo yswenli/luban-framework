@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -11,14 +11,14 @@
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2024/9/18 18:20:00
-*描述：
+*描述：YBDatainfo 模型类
 *
 *=================================================
 *修改标记
 *修改时间：2024/9/18 18:20:00
 *修改人： yswenli
 *版本号： V1.0.0.0
-*描述：
+*描述：YBDatainfo 模型类
 *
 *****************************************************************************/
 namespace LuBan.Lives.YiBai.Models;
@@ -27,9 +27,21 @@ namespace LuBan.Lives.YiBai.Models;
 /// YBDatainfo 模型类
 /// </summary>
 
+/// <summary>
+/// YiBai 直播接口的通用返回数据结构。
+/// </summary>
 public class YBDatainfo
 {
+    /// <summary>
+    /// 接口响应状态码（接口字段 code）。
+    /// </summary>
     public int code { get; set; }
+    /// <summary>
+    /// 接口响应提示信息（接口字段 message）。
+    /// </summary>
     public string? message { get; set; }
+    /// <summary>
+    /// 接口返回的业务数据（接口字段 data）。
+    /// </summary>
     public string data { get; set; }
 }

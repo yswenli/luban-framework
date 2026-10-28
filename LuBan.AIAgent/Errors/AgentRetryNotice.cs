@@ -1,13 +1,20 @@
 /****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：Walle
 *命名空间：LuBan.AIAgent.Errors
 *文件名： AgentRetryNotice
-*唯一标识：自动重试通知
+*版本号： V1.0.0.0
+*唯一标识：2a013157-667a-4e77-8adb-196305efaf5e
+*当前的用户域：WALLE
+*创建人：yswenli
+*电子邮箱：yswenli@outlook.com
 *创建时间：2026/9/17
 *描述：自动重试通知（由 LuBanAgentOptions.OnApiRetry 投递给宿主）
 *
 *****************************************************************************/
+
 namespace LuBan.AIAgent.Errors;
 
 /// <summary>

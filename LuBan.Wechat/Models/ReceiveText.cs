@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ 2023-2024 Oceania All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -11,14 +11,14 @@
 *创建人： WALLE
 *电子邮箱：yswenli@outlook.com
 *创建时间：2022/7/5 14:49:44
-*描述：
+*描述：ReceiveText 类
 *
 *=================================================
 *修改标记
 *修改时间：2022/7/5 14:49:44
 *修改人： yswenli
 *版本号： V1.0.0.0
-*描述：
+*描述：ReceiveText 类
 *
 *****************************************************************************/
 namespace LuBan.Wechat.Models
@@ -28,6 +28,9 @@ namespace LuBan.Wechat.Models
 /// </summary>
     public class ReceiveText : Receive
     {
+        /// <summary>
+        /// 文本消息的正文内容（协议字段 Content）。
+        /// </summary>
         public string Content { get; set; }
     }
 }

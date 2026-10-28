@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -145,26 +145,70 @@ public class EMailPop3 : IDisposable, IEMailClient
         return result;
     }
 
+    /// <summary>
+    /// 以显式发件人与单个收件人地址字符串的形态发送邮件；POP3 客户端当前未实现发送能力。
+    /// </summary>
+    /// <param name="from">发件人邮箱地址。</param>
+    /// <param name="to">收件人邮箱地址字符串。</param>
+    /// <param name="subject">邮件主题。</param>
+    /// <param name="body">邮件正文内容。</param>
+    /// <param name="isHtml">正文是否为 HTML 格式。</param>
+    /// <param name="attachments">附件列表，为空表示无附件。</param>
+    /// <returns>表示发送结果文本的任务，当前实现直接抛出未实现异常。</returns>
     public Task<string> SendAsync(string from, string to, string subject, string body, bool isHtml = false, List<Attachment>? attachments = null)
     {
         throw new NotImplementedException();
     }
 
+    /// <summary>
+    /// 发送由 <c>Message</c> 对象描述的邮件；POP3 客户端当前未实现发送能力。
+    /// </summary>
+    /// <param name="message">包含收件人、主题、正文与附件的邮件对象。</param>
+    /// <returns>表示发送结果文本的任务，当前实现直接抛出未实现异常。</returns>
     public Task<string> SendAsync(Message message)
     {
         throw new NotImplementedException();
     }
 
+    /// <summary>
+    /// 以“姓名与地址”元组列表分别指定收件人、抄送与密送的形态发送邮件；POP3 客户端当前未实现发送能力。
+    /// </summary>
+    /// <param name="to">收件人列表，每项为姓名与邮箱地址的元组。</param>
+    /// <param name="cc">抄送列表，为空表示不抄送。</param>
+    /// <param name="bcc">密送列表，为空表示不密送。</param>
+    /// <param name="subject">邮件主题。</param>
+    /// <param name="body">邮件正文内容。</param>
+    /// <param name="isHtml">正文是否为 HTML 格式。</param>
+    /// <param name="attachments">附件列表，为空表示无附件。</param>
+    /// <returns>表示发送结果文本的任务，当前实现直接抛出未实现异常。</returns>
     public Task<string> SendAsync(List<(string, string)> to, List<(string, string)>? cc, List<(string, string)>? bcc, string subject, string body, bool isHtml = false, List<Attachment>? attachments = null)
     {
         throw new NotImplementedException();
     }
 
+    /// <summary>
+    /// 向单个收件人地址发送邮件并附带本地附件列表；POP3 客户端当前未实现发送能力。
+    /// </summary>
+    /// <param name="to">收件人邮箱地址字符串。</param>
+    /// <param name="subject">邮件主题。</param>
+    /// <param name="body">邮件正文内容。</param>
+    /// <param name="isHtml">正文是否为 HTML 格式。</param>
+    /// <param name="attachments">附件列表，为空表示无附件。</param>
+    /// <returns>表示发送结果文本的任务，当前实现直接抛出未实现异常。</returns>
     public Task<string> SendAsync(string to, string subject, string body, bool isHtml = false, List<Attachment>? attachments = null)
     {
         throw new NotImplementedException();
     }
 
+    /// <summary>
+    /// 向单个收件人地址发送邮件，附件以“文件名到下载地址”的字典给出；POP3 客户端当前未实现发送能力。
+    /// </summary>
+    /// <param name="to">收件人邮箱地址字符串。</param>
+    /// <param name="subject">邮件主题。</param>
+    /// <param name="body">邮件正文内容。</param>
+    /// <param name="isHtml">正文是否为 HTML 格式。</param>
+    /// <param name="attachmentUrls">附件字典，键为附件文件名、值为可下载的 URL。</param>
+    /// <returns>表示发送结果文本的任务，当前实现直接抛出未实现异常。</returns>
     public Task<string> SendAsync(string to, string subject, string body, bool isHtml = false, Dictionary<string, string>? attachmentUrls = null)
     {
         throw new NotImplementedException();

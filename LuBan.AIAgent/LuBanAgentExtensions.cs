@@ -21,10 +21,8 @@
 *描述：LuBan Agent 服务集合扩展
 *
 *****************************************************************************/
-using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace LuBan.AIAgent;
-
 
 /// <summary>
 /// LuBan Agent 服务集合扩展

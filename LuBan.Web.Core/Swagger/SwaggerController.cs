@@ -1,10 +1,10 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：YSWENLI
 *公司名称：yswenli
 *命名空间：LuBan.Web.Core.Swagger
-*文件名： MarkDownLoader
+*文件名： SwaggerController
 *版本号： V1.0.0.0
 *唯一标识：d465cb78-dcd7-4dd6-8666-d3999c0ac715
 *当前的用户域：yswenli
@@ -21,7 +21,6 @@
 *描述：Swagger生成markdown
 *
 *****************************************************************************/
-using LuBan.Common.Errors;
 
 namespace LuBan.Web.Core.Swagger;
 
@@ -55,7 +54,6 @@ public class SwaggerController : ControllerBase
             throw FriendlyError.Ex($"请在地址栏中输入参数 ?documents=，且参数 documents 的值仅支持\"default\",\"admin\",\"mobile\",\"internal\",\"open\";ex:{ex}", FrameworkErrors.System.InternalError);
         }
     }
-
 
     /// <summary>
     /// 生成js sdk

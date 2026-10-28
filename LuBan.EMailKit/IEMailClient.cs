@@ -1,10 +1,10 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *Author：yswenli
 *命名空间：LuBan.EMailKit
-*文件名： EMailSmtp
+*文件名： IEMailClient
 *版本号： V1.0.0.0
 *唯一标识：e81daacb-c7f7-414e-a1b5-c01a37e3d811
 *当前的用户域：WALLE

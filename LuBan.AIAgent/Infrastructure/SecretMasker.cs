@@ -14,7 +14,6 @@
 *描述：敏感文本脱敏工具（URL 内嵌凭据 / 明文令牌），供工具确认弹窗与会话记录统一脱敏
 *
 *****************************************************************************/
-using System.Text.RegularExpressions;
 
 namespace LuBan.AIAgent.Infrastructure;
 

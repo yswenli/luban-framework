@@ -22,8 +22,6 @@
 *
 *****************************************************************************/
 
-using System.Diagnostics.CodeAnalysis;
-
 namespace System.Linq.Dynamic;
 
 /// <summary>
@@ -139,7 +137,6 @@ public static class TreeListExtensions
             node.SetPropertyValue(childListName, childList);
         }
     }
-
 
     /// <summary>
     /// 将列表转换为树形列表

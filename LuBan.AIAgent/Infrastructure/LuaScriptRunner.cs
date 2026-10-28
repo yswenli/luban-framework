@@ -21,9 +21,6 @@
 *描述：内嵌 MoonSharp Lua 沙箱执行器（参考 LuBan.Reporting 的 LuaScriptEngine）
 *
 *****************************************************************************/
-using System.Text.RegularExpressions;
-
-using MoonSharp.Interpreter;
 
 namespace LuBan.AIAgent.Infrastructure;
 
@@ -292,6 +289,10 @@ public sealed class LuaScriptRunner : IDisposable
     {
         private readonly StringBuilder _builder = new();
 
+        /// <summary>
+        /// 以线程安全方式向输出缓冲区追加一行文本。
+        /// </summary>
+        /// <param name="value">待追加的一行内容。</param>
         public void AppendLine(string value)
         {
             lock (_builder)
@@ -300,6 +301,10 @@ public sealed class LuaScriptRunner : IDisposable
             }
         }
 
+        /// <summary>
+        /// 取输出缓冲区当前内容的快照。
+        /// </summary>
+        /// <returns>截至调用时刻的完整输出文本。</returns>
         public string Snapshot()
         {
             lock (_builder)

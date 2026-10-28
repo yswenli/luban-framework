@@ -1,10 +1,20 @@
 /****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：Walle
 *命名空间：LuBan.AIAgent.Abstractions
 *文件名： IAgentReloadTrigger
+*版本号： V1.0.0.0
+*唯一标识：9491432f-2aaf-4d6d-a55c-aa4ccdf7ae27
+*当前的用户域：WALLE
+*创建人：yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/10/14
 *描述：Agent 上下文重载触发器接口，用于延迟重建 Agent
+*
 *****************************************************************************/
+
 namespace LuBan.AIAgent.Abstractions;
 
 /// <summary>

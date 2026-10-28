@@ -6,7 +6,7 @@
 *命名空间：LuBan.AIAgent.Hosting
 *文件名： IModelCapabilityGate
 *版本号： V1.0.0.0
-*唯一标识：模型能力门禁
+*唯一标识：9ea78496-59c4-48cc-9496-ce22e91f56f2
 *当前的用户域：WALLE
 *创建人：yswenli
 *电子邮箱：yswenli@outlook.com

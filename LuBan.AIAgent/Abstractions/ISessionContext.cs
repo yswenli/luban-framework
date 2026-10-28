@@ -1,13 +1,19 @@
 /****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：Walle
 *命名空间：LuBan.AIAgent.Abstractions
 *文件名： ISessionContext
+*版本号： V1.0.0.0
+*唯一标识：37b2f32f-a3a9-4ee8-856a-d0df48bda445
+*当前的用户域：WALLE
+*创建人：yswenli
+*电子邮箱：yswenli@outlook.com
 *创建时间：2026/10/10
 *描述：会话级上下文契约（session-scoped），所有路径按有效根解析
 *
 *****************************************************************************/
-using LuBan.AIAgent.Abstractions.Models;
 
 namespace LuBan.AIAgent.Abstractions;
 

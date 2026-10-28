@@ -14,7 +14,6 @@
 *描述：wiki 知识库服务接口
 *
 *****************************************************************************/
-using LuBan.AIAgent.Retrieval;
 
 namespace LuBan.AIAgent.Wiki;
 

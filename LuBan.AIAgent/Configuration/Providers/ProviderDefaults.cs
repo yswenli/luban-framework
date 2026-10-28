@@ -6,7 +6,7 @@
 *命名空间：LuBan.AIAgent.Configuration.Providers
 *文件名： ProviderDefaults
 *版本号： V1.0.0.0
-*唯一标识：内置 Provider 默认端点与模型表
+*唯一标识：3ae1ada5-f557-4002-bfb7-a821ff972a51
 *当前的用户域：WALLE
 *创建人：yswenli
 *电子邮箱：yswenli@outlook.com
@@ -14,7 +14,6 @@
 *描述：内置 Provider 的默认 BaseUrl 与模型清单（纯只读静态数据，无配置绑定与刷新状态）
 *
 *****************************************************************************/
-using System.Collections.ObjectModel;
 
 namespace LuBan.AIAgent.Configuration.Providers;
 

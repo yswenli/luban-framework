@@ -22,8 +22,6 @@
 *
 *****************************************************************************/
 
-using LuBan.Logging.Configuration;
-
 namespace LuBan.Logging.FileLogger;
 
 /// <summary>

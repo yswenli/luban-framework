@@ -11,7 +11,6 @@
 *描述：连接器参数明文凭据校验 —— 疑似令牌一律走 $credential 引用，禁止落盘
 *
 *****************************************************************************/
-using LuBan.AIAgent.MCP;
 
 namespace LuBan.AIAgent.Connectors;
 

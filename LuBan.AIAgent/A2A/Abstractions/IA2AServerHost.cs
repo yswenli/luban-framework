@@ -14,7 +14,6 @@
 *描述：A2A 服务端宿主抽象（框架侧中性定义，不依赖 ASP.NET Core 类型）
 *
 *****************************************************************************/
-using LuBan.AIAgent.A2A.Models;
 
 namespace LuBan.AIAgent.A2A.Abstractions;
 

@@ -21,8 +21,6 @@
 *描述：事件 Channel 实现
 *
 *****************************************************************************/
-using LuBan.Common.EventBus;
-using LuBan.EventBus.Models;
 
 namespace LuBan.EventBus.Core;
 

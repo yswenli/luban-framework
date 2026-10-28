@@ -23,11 +23,6 @@
 *****************************************************************************/
 
 using AlibabaCloud.OpenApiClient.Models;
-using AlibabaCloud.SDK.Dysmsapi20170525;
-using AlibabaCloud.SDK.Dysmsapi20170525.Models;
-using AlibabaCloud.TeaUtil.Models;
-using LuBan.Common.Sms.Models;
-using Tea;
 
 namespace LuBan.Common.Sms.Providers;
 

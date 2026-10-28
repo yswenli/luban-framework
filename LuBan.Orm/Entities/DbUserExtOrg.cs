@@ -1,10 +1,10 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *Author：yswenli
 *命名空间：LuBan.Orm.Entities
-*文件名： SysUserExtOrg
+*文件名： DbUserExtOrg
 *版本号： V1.0.0.0
 *唯一标识：c0cc43b1-7467-4045-8d8c-e6949e8c55e9
 *当前的用户域：WALLE

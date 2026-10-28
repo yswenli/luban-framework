@@ -1,9 +1,9 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *公司名称：Walle
-*命名空间：LuBan.Common.Models
+*命名空间：LuBan.Wechat.Models
 *文件名： EnumWechatReturnCode
 *版本号： V1.0.0.0
 *唯一标识：80ca3ee7-99a9-418b-8246-d2655ccea9ef

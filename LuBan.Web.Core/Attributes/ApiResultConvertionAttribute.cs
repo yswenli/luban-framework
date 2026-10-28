@@ -1,10 +1,10 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *Author：yswenli
-*命名空间：LuBan.Web.Core.AspNetCore
-*文件名： ApiResultConvertion
+*命名空间：LuBan.Web.Core.Attributes
+*文件名： ApiResultConvertionAttribute
 *版本号： V1.0.0.0
 *唯一标识：261f9445-8d20-4bf0-b701-3782ef66a8fb
 *当前的用户域：WALLE

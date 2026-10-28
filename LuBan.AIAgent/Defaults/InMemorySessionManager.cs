@@ -1,12 +1,20 @@
-/***************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：Walle
 *命名空间：LuBan.AIAgent.Defaults
 *文件名： InMemorySessionManager
+*版本号： V1.0.0.0
+*唯一标识：bad56271-e7ee-47db-90c1-60b720111f8c
+*当前的用户域：WALLE
+*创建人：yswenli
+*电子邮箱：yswenli@outlook.com
 *创建时间：2026/10/14
 *描述：会话管理的内存实现（进程内，不持久化），供最小宿主开箱使用
 *
 *****************************************************************************/
+
 namespace LuBan.AIAgent.Defaults;
 
 /// <summary>
@@ -320,12 +328,24 @@ public sealed class InMemorySessionManager : ISessionManager
 
     private sealed class SessionRecord(SessionInfo info, string? workspaceId)
     {
+        /// <summary>
+        /// 该会话的元信息（标识、标题、时间等）。
+        /// </summary>
         public SessionInfo Info { get; } = info;
 
+        /// <summary>
+        /// 会话所属工作区标识；未绑定工作区时为 null。
+        /// </summary>
         public string? WorkspaceId { get; } = workspaceId;
 
+        /// <summary>
+        /// 会话内全部消息，按写入顺序排列。
+        /// </summary>
         public List<SessionMessage> Messages { get; } = new();
 
+        /// <summary>
+        /// 已被压缩归档的消息 Id 集合，查询时可据此过滤原文。
+        /// </summary>
         public HashSet<long> CompactedIds { get; } = new();
     }
 }

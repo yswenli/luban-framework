@@ -14,7 +14,6 @@
 *描述：技能定义 - 插件贡献的技能描述（PRD §4.10.1）
 *
 *****************************************************************************/
-using System.Text.Json.Serialization;
 
 namespace LuBan.AIAgent.Plugins;
 

@@ -91,18 +91,29 @@ The standard startup chain (`WebApp.RunWebHost`) tries to register LuBan Agent a
 ```json
 {
   "LuBanAgent": {
-    "WorkspaceRoot": "D:\\work\\agent",
+    // absolute path, or a path relative to the site content root (ContentRootPath)
+    "WorkspaceRoot": ".",
+    // optional; defaults to the first entry of Models
     "DefaultModel": "deepseek:deepseek-chat",
-    "Models": {
-      "Provider": "deepseek",
-      "Model": "deepseek-chat",
-      "ApiKey": "sk-***"
-    }
+    "Models": [
+      {
+        "Provider": "deepseek",
+        "Model": "deepseek-chat",
+        "ApiKey": "sk-***"
+      }
+    ]
   }
 }
 ```
 
-Validation: `Models.Provider` must be one of the built-in providers (case-insensitive), `Models.Model` / `Models.ApiKey` / `DefaultModel` must be non-empty, and `Models.BaseUrl` — when supplied — must be a valid http(s) URL.
+Validation:
+
+- `Models` is an array. Each entry needs a `Provider` from the built-in provider list (case-insensitive) and non-empty `Model` / `ApiKey`; `BaseUrl`, when supplied, must be a valid http(s) URL.
+- The same provider may appear multiple times for different models, but every entry must share the same `ApiKey` / `BaseUrl`; otherwise that provider is not registered.
+- `DefaultModel` is optional (defaults to the first entry). When present it must be `provider:model` and match an entry in `Models`.
+- `WorkspaceRoot` accepts absolute or relative paths. A relative value is resolved against the site `ContentRootPath`; non-web hosts (for example unit tests) fall back to the program directory.
+
+> Upgrade note: the legacy flat object form (`"Models": { "Provider": ... }`) is no longer supported — convert it to an array.
 
 To disable: remove the `LuBanAgent` section and leave no `db_config` record (there is no half-on switch). A failing agent initialization degrades to "disabled" and never prevents the web app from starting.
 

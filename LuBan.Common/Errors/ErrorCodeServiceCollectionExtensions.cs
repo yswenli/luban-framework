@@ -24,8 +24,6 @@
 
 namespace LuBan.Common.Errors;
 
-using Microsoft.Extensions.DependencyInjection;
-
 /// <summary>
 /// IServiceCollection 扩展方法，用于注册错误码到依赖注入容器
 /// </summary>

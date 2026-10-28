@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -24,6 +24,9 @@
 
 namespace LuBan.ApprovalFlow.Entities;
 
+/// <summary>
+/// 审批统计实体，按用户累计发起、通过、拒绝、转办与委托次数。
+/// </summary>
 [SugarTable("db_approval_statistics", "审批统计")]
 public class DbApprovalStatistics : EntityDataScoreBase
 {

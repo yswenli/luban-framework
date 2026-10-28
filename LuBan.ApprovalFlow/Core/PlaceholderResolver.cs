@@ -22,8 +22,6 @@
 *
 *****************************************************************************/
 
-using System.Text.RegularExpressions;
-
 namespace LuBan.ApprovalFlow.Core;
 
 /// <summary>

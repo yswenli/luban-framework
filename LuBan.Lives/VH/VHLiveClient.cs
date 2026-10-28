@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c) YSWenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -21,8 +21,8 @@
 *描述：微吼直播客户端
 *
 *****************************************************************************/
-using LuBan.Lives.VH.Models;
 
+using LuBan.Lives.VH.Models;
 
 namespace LuBan.Lives.VH;
 
@@ -105,13 +105,18 @@ public class VHLiveClient : BaseLiveClient, ILiveClient
         return await _httpClient.PostAsync<Result>("/v3/users/open-user/create", GetRequestBody(forms), GetBaseHeaders());
     }
 
-
-
+    /// <summary>
+    /// 拼接 Vhall 频道的直播观看地址；当前实现尚未提供，调用即抛出未实现异常。
+    /// </summary>
+    /// <param name="channelId">频道 Id。</param>
+    /// <param name="secret">频道对应的密钥。</param>
+    /// <param name="userId">观看用户的唯一标识。</param>
+    /// <param name="name">观看用户昵称。</param>
+    /// <param name="avatar">观看用户头像地址。</param>
+    /// <returns>直播观看地址字符串。</returns>
     public string GetLiveUrl(string channelId, string secret, string userId, string name, string avatar)
     {
         throw new NotImplementedException();
     }
-
-
 
 }

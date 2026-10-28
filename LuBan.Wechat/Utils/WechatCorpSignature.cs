@@ -22,8 +22,6 @@
 *
 *****************************************************************************/
 
-using SKIT.FlurlHttpClient.Wechat.Work.Utilities;
-
 namespace LuBan.Wechat.Utils
 {
     /// <summary>

@@ -1,10 +1,20 @@
 /****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：Walle
 *命名空间：LuBan.AIAgent.LogAnalysis
 *文件名： LogSignatureNormalizer
+*版本号： V1.0.0.0
+*唯一标识：9e10a49b-be79-4957-92bc-9951b08b7e50
+*当前的用户域：WALLE
+*创建人：yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/10/9
 *描述：把日志行归一化为稳定模板用于错误聚类
+*
 *****************************************************************************/
+
 namespace LuBan.AIAgent.LogAnalysis;
 
 /// <summary>

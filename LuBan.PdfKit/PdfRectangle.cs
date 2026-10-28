@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c) YSWenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -28,9 +28,21 @@ namespace LuBan.PdfKit;
 /// </summary>
 public struct PdfRectangle
 {
+    /// <summary>
+    /// 矩形左边界的横坐标，参照 PDF 页面坐标系（原点在左下角）。
+    /// </summary>
     public float Left;
+    /// <summary>
+    /// 矩形上边界的纵坐标，参照 PDF 页面坐标系（原点在左下角）。
+    /// </summary>
     public float Top;
+    /// <summary>
+    /// 矩形沿横轴方向的宽度，单位与 PDF 用户坐标单位一致。
+    /// </summary>
     public float Width;
+    /// <summary>
+    /// 矩形沿纵轴方向的高度，单位与 PDF 用户坐标单位一致。
+    /// </summary>
     public float Height;
     /// <summary>
     /// pdf矩形区域

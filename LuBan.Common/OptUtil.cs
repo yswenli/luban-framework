@@ -1,11 +1,19 @@
 /****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：Walle
+*命名空间：LuBan.Common
 *文件名： OptUtil
+*版本号： V1.0.0.0
+*唯一标识：e5f837bf-0f7c-4920-aed4-8dc431c5660e
+*当前的用户域：WALLE
+*创建人：yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/7/17
 *描述：TOTP双因素认证工具类
+*
 *****************************************************************************/
-using OtpNet;
-using System.IO;
 
 namespace LuBan.Common;
 

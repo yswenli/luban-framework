@@ -3,7 +3,7 @@
 *CLR版本： .net10.0
 *机器名称：WALLE
 *公司名称：yswenli
-*命名空间：LuBan.Common.AspnetCore
+*命名空间：LuBan.Service.Core
 *文件名： BaseBackgroundService
 *版本号： V1.0.0.0
 *唯一标识：b6c190aa-2b43-4d71-9ef7-8adc69d1ddef

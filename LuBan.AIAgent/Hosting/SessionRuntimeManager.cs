@@ -6,7 +6,7 @@
 *命名空间：LuBan.AIAgent.Hosting
 *文件名： SessionRuntimeManager
 *版本号： V1.0.0.0
-*唯一标识：会话运行时管理器
+*唯一标识：a4718ee0-93b1-48a0-b513-695126416407
 *当前的用户域：WALLE
 *创建人：yswenli
 *电子邮箱：yswenli@outlook.com
@@ -14,12 +14,6 @@
 *描述：按 sessionId 维护会话级 DI scope 与运行循环；空闲超时自动卸载。
 *
 *****************************************************************************/
-using System.Collections.Concurrent;
-
-using LuBan.AIAgent.Defaults;
-
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace LuBan.AIAgent.Hosting;
 

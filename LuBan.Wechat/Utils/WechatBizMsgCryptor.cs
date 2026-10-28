@@ -1,10 +1,10 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
-*CLR版本： 4.0.30319.42000
+*CLR版本： .net10.0
 *机器名称：WALLE
 *公司名称：河之洲
 *命名空间：LuBan.Wechat.Utils
-*文件名： WechatBizMsgCryptUtil
+*文件名： WechatBizMsgCryptor
 *版本号： V1.0.0.0
 *唯一标识：d3d51079-60bf-43a6-b7e6-7267452ebae7
 *当前的用户域：WALLE
@@ -52,6 +52,12 @@ public class WechatBizMsgCryptor
     // @param sToken: 企业微信后台，开发者设置的Token
     // @param sEncodingAESKey: 企业微信后台，开发者设置的EncodingAESKey
     // @param sReceiveId: 不同场景含义不同，详见文档说明
+    /// <summary>
+    /// 使用企业微信后台配置的 Token、EncodingAESKey 与接收方 ID 创建消息加解密器。
+    /// </summary>
+    /// <param name="sToken">开发者后台设置的 Token，参与签名计算。</param>
+    /// <param name="sEncodingAESKey">43 位的消息加解密密钥 EncodingAESKey。</param>
+    /// <param name="sReceiveId">接收方 ID，企业微信为 CorpId，公众号为 AppId，含义随场景不同。</param>
     public WechatBizMsgCryptor(string sToken, string sEncodingAESKey, string sReceiveId)
     {
         m_sToken = sToken;
@@ -66,6 +72,15 @@ public class WechatBizMsgCryptor
     // @param sEchoStr: 随机串，对应URL参数的echostr
     // @param sReplyEchoStr: 解密之后的echostr，当return返回0时有效
     // @return：成功0，失败返回对应的错误码
+    /// <summary>
+    /// 校验回调 URL 的签名并解密 echostr，用于配置回调地址时的接入验证。
+    /// </summary>
+    /// <param name="sMsgSignature">签名串，对应 URL 参数 msg_signature。</param>
+    /// <param name="sTimeStamp">时间戳，对应 URL 参数 timestamp。</param>
+    /// <param name="sNonce">随机串，对应 URL 参数 nonce。</param>
+    /// <param name="sEchoStr">待解密的随机串，对应 URL 参数 echostr。</param>
+    /// <param name="sReplyEchoStr">解密后的 echostr，仅在返回 0 时有效。</param>
+    /// <returns>成功返回 0，失败返回负数错误码，如 -40001 表示签名校验失败。</returns>
     public int VerifyURL(string sMsgSignature, string sTimeStamp, string sNonce, string sEchoStr, ref string sReplyEchoStr)
     {
         int ret = 0;
@@ -105,6 +120,15 @@ public class WechatBizMsgCryptor
     // @param sPostData: 密文，对应POST请求的数据
     // @param sMsg: 解密后的原文，当return返回0时有效
     // @return: 成功0，失败返回对应的错误码
+    /// <summary>
+    /// 校验消息签名，并从 POST 请求的 XML 密文中解密出明文消息。
+    /// </summary>
+    /// <param name="sMsgSignature">签名串，对应 URL 参数 msg_signature。</param>
+    /// <param name="sTimeStamp">时间戳，对应 URL 参数 timestamp。</param>
+    /// <param name="sNonce">随机串，对应 URL 参数 nonce。</param>
+    /// <param name="sPostData">POST 请求携带的 XML 密文。</param>
+    /// <param name="sMsg">解密后的明文消息，仅在返回 0 时有效。</param>
+    /// <returns>成功返回 0，失败返回负数错误码，如 -40002 表示 XML 解析失败。</returns>
     public int DecryptMsg(string sMsgSignature, string sTimeStamp, string sNonce, string sPostData, ref string sMsg)
     {
         if (m_sEncodingAESKey.Length != 43)
@@ -159,6 +183,14 @@ public class WechatBizMsgCryptor
     // @param sEncryptMsg: 加密后的可以直接回复用户的密文，包括msg_signature, timestamp, nonce, encrypt的xml格式的字符串,
     //						当return返回0时有效
     // return：成功0，失败返回对应的错误码
+    /// <summary>
+    /// 把回复消息加密并打包为含 Encrypt、MsgSignature、TimeStamp、Nonce 的 XML 密文。
+    /// </summary>
+    /// <param name="sReplyMsg">待回复给用户的明文消息，XML 格式字符串。</param>
+    /// <param name="sTimeStamp">时间戳，可自行生成或复用请求中的 timestamp。</param>
+    /// <param name="sNonce">随机串，可自行生成或复用请求中的 nonce。</param>
+    /// <param name="sEncryptMsg">加密后的 XML 密文，可直接作为响应返回，仅在返回 0 时有效。</param>
+    /// <returns>成功返回 0，失败返回负数错误码。</returns>
     public int EncryptMsg(string sReplyMsg, string sTimeStamp, string sNonce, ref string sEncryptMsg)
     {
         if (m_sEncodingAESKey.Length != 43)

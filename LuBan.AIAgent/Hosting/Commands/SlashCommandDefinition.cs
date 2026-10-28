@@ -6,7 +6,7 @@
 *命名空间：LuBan.AIAgent.Hosting.Commands
 *文件名： SlashCommandDefinition
 *版本号： V1.0.0.0
-*唯一标识：斜杠命令元数据定义
+*唯一标识：769f8bf2-e749-4dcc-8338-66acf437871a
 *当前的用户域：WALLE
 *创建人：yswenli
 *电子邮箱：yswenli@outlook.com

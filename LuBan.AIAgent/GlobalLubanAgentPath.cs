@@ -1,10 +1,11 @@
 /****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
-*CLR版本： .net8.0
+*CLR版本： .net10.0
 *公司名称：Walle
 *命名空间：LuBan.AIAgent
 *文件名： GlobalLubanAgentPath
 *版本号： V1.0.0.0
+*唯一标识：1019d920-ca64-40ad-ae57-bfa6ef6d410c
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2026/9/4

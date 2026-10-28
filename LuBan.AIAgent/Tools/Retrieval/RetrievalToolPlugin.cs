@@ -21,15 +21,6 @@
 *描述：检索工具插件
 *
 *****************************************************************************/
-using System.ComponentModel;
-using System.Reflection;
-using System.Text;
-using LuBan.AIAgent.Abstractions;
-using LuBan.AIAgent.Configuration;
-using LuBan.AIAgent.Retrieval;
-using Microsoft.Extensions.AI;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
 
 namespace LuBan.AIAgent.Tools.Retrieval;
 

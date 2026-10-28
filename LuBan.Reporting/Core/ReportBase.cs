@@ -24,8 +24,6 @@
 
 namespace LuBan.Reporting.Core;
 
-using System.Collections.Concurrent;
-
 /// <summary>
 /// 报告基类
 /// </summary>

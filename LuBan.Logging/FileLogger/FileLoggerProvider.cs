@@ -22,8 +22,6 @@
 *
 *****************************************************************************/
 
-using System.Collections.Concurrent;
-
 namespace LuBan.Logging.FileLogger;
 
 /// <summary>

@@ -1,13 +1,19 @@
 /****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：Walle
 *命名空间：LuBan.AIAgent.Tools.Skill
 *文件名： SkillToolGroup
+*版本号： V1.0.0.0
+*唯一标识：9789632d-f785-4972-a242-30881f85de84
+*当前的用户域：WALLE
+*创建人：yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/10/14
 *描述：Skill 消费工具实现（ListSkillsAsync / UseSkillAsync）
+*
 *****************************************************************************/
-using LuBan.AIAgent.Abstractions;
-using LuBan.AIAgent.Configuration;
-using LuBan.AIAgent.Skills;
 
 namespace LuBan.AIAgent.Tools.Skill;
 

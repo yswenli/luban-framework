@@ -21,7 +21,6 @@
 *描述：花括号配对切块器
 *
 *****************************************************************************/
-using System.Text.RegularExpressions;
 
 namespace LuBan.AIAgent.Retrieval.Chunkers;
 

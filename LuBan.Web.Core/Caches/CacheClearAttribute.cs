@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c) YSWenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -27,6 +27,9 @@ namespace LuBan.Web.Core.Caches;
 /// 清除aspnetcore api 缓存,清除CacheableAttribute标记的缓存
 /// </summary>
 
+/// <summary>
+/// 方法级过滤器，在接口方法成功执行后清除指定名称的接口缓存。
+/// </summary>
 [AttributeUsage(AttributeTargets.Method, AllowMultiple = false)]
 public class CacheClearAttribute : Attribute, IAsyncActionFilter
 {

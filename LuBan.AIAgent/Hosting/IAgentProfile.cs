@@ -6,7 +6,7 @@
 *命名空间：LuBan.AIAgent.Hosting
 *文件名： IAgentProfile
 *版本号： V1.0.0.0
-*唯一标识：Agent 配置接口
+*唯一标识：35cb64eb-22e7-4c96-8325-7858c9da4212
 *当前的用户域：WALLE
 *创建人：yswenli
 *电子邮箱：yswenli@outlook.com

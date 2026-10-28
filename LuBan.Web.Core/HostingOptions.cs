@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -89,6 +89,9 @@ public class HostingOptions : BaseSingleInstance<HostingOptions>
     /// nacos配置
     /// </summary>
 
+    /// <summary>
+    /// Nacos 配置中心的连接与监听配置，为空表示不启用 Nacos。
+    /// </summary>
     [DataMember(Name = "NacosConfig")]
     public NacosConfig? NacosConfig { get; set; }
 

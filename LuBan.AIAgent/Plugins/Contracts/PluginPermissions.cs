@@ -14,8 +14,6 @@
 *描述：插件权限声明（PRD §3.2 / §4.7）
 *
 *****************************************************************************/
-using System.Text.Json;
-using System.Text.Json.Serialization;
 
 namespace LuBan.AIAgent.Plugins;
 

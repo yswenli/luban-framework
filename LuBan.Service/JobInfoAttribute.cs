@@ -21,7 +21,6 @@
 *描述：任务信息
 *
 *****************************************************************************/
-using System.Collections.Concurrent;
 
 namespace LuBan.Service;
 

@@ -531,13 +531,13 @@ services.AddConnector<MyVendorConnector>("myVendor", ctx => new MyVendorConnecto
 | 组件 | 说明 |
 |------|------|
 | `AddLuBanAgentHost()` | 注册宿主与默认接缝（全部 `TryAdd`）：`SessionRuntimeManager`（Singleton）、`IAgentHost`（Scoped）、Profile / 工作区 / 用户 / 模型选择解析、附件编排、能力门禁、会话初始化与 `ICommandCatalog`（Singleton） |
-| `AddLuBanAgentOpenAI(configuration)` | 按 `LuBanAgent:Models`（`Provider` / `Model` / `ApiKey` / `BaseUrl`）注册 `IChatClient`；配置不全时只登记 `ChatClientFactoryWarning`，不注册也不抛 |
+| `AddLuBanAgentOpenAI(configuration)` | 按 `LuBanAgent:Models` 数组（`Provider` / `Model` / `ApiKey` / `BaseUrl`）为每个 Provider 建客户端，注册 `IChatClient` + `IProviderRouter`；同一 Provider 多条模型必须凭据一致；配置不全时只登记 `ChatClientFactoryWarning`，不注册也不抛 |
 | `IAgentHost` | 宿主入口：`InitializeAsync` / `Reset` / `RunStreamingAsync(AgentRunRequest)`；**必须以 Scoped 解析**，自身不持有会话状态。`Reset` 在该会话有回合运行中时只登记延迟重载（不打断回合），回合收尾后释放 Agent，下一次对话按最新配置重建 |
 | `AgentRunRequest` | 一轮对话入参：`Input` / `AttachmentPaths` / `SessionId` / `PermissionMode` / `ConfirmHandler` / `OnPlannedAction` / `OnUserDenied` |
 | `AgentStreamEvent` | UI 无关输出事件：`TextDeltaEvent` / `ThinkingDeltaEvent` / `ToolCallStartedEvent` / `ToolCallCompletedEvent` / `ToolCallFailedEvent` / `ErrorEvent` / `OrchestrationProgressEvent` / `AttachmentAddedEvent` |
 | `SessionRuntimeManager` / `SessionRuntime` | 按会话维护独立 DI scope 与串行运行循环（`EnqueueAsync`）、重载标记（`RequestReload`）、活动时间与释放 |
 | `IAgentProfile` / `AgentProfileBase` | Agent 配置（系统提示词、工具组、检索模式）与建 Agent 流程；`DefaultAgentProfile` 为通用助手 |
-| `IAgentWorkspaceResolver` / `WorkspaceDescriptor` | 按会话解析工作区（`Id` / `Name` / `RootPath` / `Type`）；默认读 `LuBanAgent:WorkspaceRoot`，缺省为进程当前目录 |
+| `IAgentWorkspaceResolver` / `WorkspaceDescriptor` | 按会话解析工作区（`Id` / `Name` / `RootPath` / `Type`）；默认读 `LuBanAgent:WorkspaceRoot`，缺省为进程当前目录（Web 宿主经 `LuBan.Web.Core` 归一化：相对值按站点 `ContentRootPath`） |
 | `IAgentProfileResolver` / `IAgentUserResolver` / `IAgentModelSelection` | Profile 选择、用户标识（默认读 `IUserContext.UserId`，回落 `local`）、模型限定名（默认读 `LuBanAgent:DefaultModel`） |
 | `IAgentAttachmentOrchestrator` / `AgentAttachmentResolver` | `@引用` 解析、附件处理与能力门禁、UI 路径与引用合并去重；解析规则由编排器提供，因此 CLI / 桌面 / Web / A2A 行为一致 |
 | `IModelCapabilityGate` / `IModelCapabilityProbe` | 模型对附件的能力判定与单轮视觉能力探测（默认一律放行、不探测） |
@@ -569,9 +569,17 @@ await foreach (var e in host.RunStreamingAsync(new AgentRunRequest { Input = "�
 ```json
 {
   "LuBanAgent": {
+    // 绝对路径或相对路径；Web.Core 宿主按站点 ContentRootPath 解析相对值
+    "WorkspaceRoot": ".",
+    // 可省略；省略时取 Models 第一项
     "DefaultModel": "openai:gpt-4o",
     "SystemPrompt": "你是一个智能助手。",
     "MaxToolLoopIterations": 10,
+    // 数组：每项一个 provider:model 组合；同一 Provider 多条时 ApiKey/BaseUrl 必须一致
+    "Models": [
+      { "Provider": "openai", "Model": "gpt-4o", "ApiKey": "sk-***" },
+      { "Provider": "deepseek", "Model": "deepseek-v4-pro", "ApiKey": "sk-***" }
+    ],
     "Session": {
       "CompactTargetMessages": 20,
       "CompactThreshold": 10

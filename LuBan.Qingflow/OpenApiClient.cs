@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ YSWenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -167,6 +167,10 @@ public class OpenApiClient : BaseSingleInstance<OpenApiClient>
         throw new Exception($"调用轻流接口失败,url:{url}，{errCode}:{errMsg}");
     }
 
+    /// <summary>
+    /// 获取当前企业的轻流应用列表，并用返回结果刷新选项中的应用缓存。
+    /// </summary>
+    /// <returns>轻流接口返回的应用列表结果。</returns>
     public async Task<QResult<AppInfoList>?> GetAppListAsync()
     {
         var dic = GetHeaders();

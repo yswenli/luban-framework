@@ -21,8 +21,6 @@
 *描述：windows服务工具类
 *
 *****************************************************************************/
-using System.Runtime.Versioning;
-using System.ServiceProcess;
 
 namespace LuBan.Common;
 
@@ -145,7 +143,6 @@ public static class ServiceUtil
         }
         return false;
     }
-
 
     /// <summary>
     /// 是否存在

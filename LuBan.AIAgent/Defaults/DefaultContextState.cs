@@ -1,13 +1,19 @@
-/***************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：Walle
 *命名空间：LuBan.AIAgent.Defaults
 *文件名： DefaultContextState
+*版本号： V1.0.0.0
+*唯一标识：ae40b03c-8752-4a48-bb3c-ca2d0413ef41
+*当前的用户域：WALLE
+*创建人：yswenli
+*电子邮箱：yswenli@outlook.com
 *创建时间：2026/10/14
 *描述：默认上下文的可写状态（Scoped），供 AddLuBanAgentDefaults 的最小宿主使用
 *
 *****************************************************************************/
-using LuBan.AIAgent.Abstractions.Models;
 
 namespace LuBan.AIAgent.Defaults;
 

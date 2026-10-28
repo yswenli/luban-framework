@@ -11,7 +11,6 @@
 *描述：连接器 DI 注册扩展 —— 基础设施 / AddConnector
 *
 *****************************************************************************/
-using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace LuBan.AIAgent.Connectors;
 

@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c) YSWenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -6,7 +6,7 @@
 *命名空间：LuBan.Reporting.Dynamic.Services
 *文件名： ReportConfigService
 *版本号： V1.0.0.0
-*唯一标识：
+*唯一标识：54e6afda-8886-48b9-b513-7258ac52ecb9
 *当前的用户域：WALLE
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
@@ -31,6 +31,10 @@ public class ReportConfigService
 {
     private readonly DynamicReportRepository _repository;
 
+    /// <summary>
+    /// 创建报表配置管理服务。
+    /// </summary>
+    /// <param name="repository">报表配置的数据访问层。</param>
     public ReportConfigService(DynamicReportRepository repository)
     {
         _repository = repository;

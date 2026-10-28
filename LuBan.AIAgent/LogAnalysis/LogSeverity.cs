@@ -1,3 +1,27 @@
+/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：Walle
+*命名空间：LuBan.AIAgent.LogAnalysis
+*文件名： LogSeverity
+*版本号： V1.0.0.0
+*唯一标识：31044c0c-2b69-466a-a73b-4985221e3b87
+*当前的用户域：WALLE
+*创建人：yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/10/9
+*描述：日志严重级别（Trace..Fatal 顺序由低到高；Unknown 表示未识别，不参与排序）。
+*
+*=================================================
+*修改标记
+*修改时间：2026/10/9
+*修改人： yswenli
+*版本号： V1.0.0.0
+*描述：日志严重级别（Trace..Fatal 顺序由低到高；Unknown 表示未识别，不参与排序）。
+*
+*****************************************************************************/
+
 namespace LuBan.AIAgent.LogAnalysis;
 
 /// <summary>日志严重级别（Trace..Fatal 顺序由低到高；Unknown 表示未识别，不参与排序）。</summary>

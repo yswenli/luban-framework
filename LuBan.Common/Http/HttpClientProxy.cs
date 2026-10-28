@@ -1,10 +1,10 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c) YSWenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *Author：yswenli
-*命名空间：LuBan.Common.Http
-*文件名： HttpClientUtil
+*命名空间：LuBan.Common
+*文件名： HttpClientProxy
 *版本号： V1.0.0.0
 *唯一标识：766250de-3a73-4f99-b810-67109ae9ee9f
 *当前的用户域：WALLE
@@ -21,10 +21,8 @@
 *描述：http请求工具类
 *
 *****************************************************************************/
-using LuBan.Common.Http;
 
 namespace LuBan.Common;
-
 
 /// <summary>
 /// http请求工具类
@@ -46,7 +44,6 @@ public sealed class HttpClientProxy
     {
         _httpClients = new ConcurrentDictionary<string, HttpClientProxy>();
     }
-
 
     void FillHeaders(HttpRequestMessage reqMsg, Dictionary<string, string>? headers = null, bool withContentType = true)
     {
@@ -180,7 +177,6 @@ public sealed class HttpClientProxy
 
     #region Create
 
-
     /// <summary>
     /// 创建http请求代理类
     /// </summary>
@@ -200,7 +196,6 @@ public sealed class HttpClientProxy
     {
         return _httpClients.GetOrAdd(baseUri.ToString().ToLower(), (k) => new HttpClientProxy(baseUri, timeout, version, cookiescontainer, webProxy, useLog));
     }
-
 
     /// <summary>
     /// 创建http请求代理类
@@ -222,9 +217,7 @@ public sealed class HttpClientProxy
         return Create(new Uri(baseUrl), timeout, version, cookiescontainer, webProxy, useLog);
     }
 
-
     #endregion
-
 
     /// <summary>
     /// 基础的http请求
@@ -242,7 +235,6 @@ public sealed class HttpClientProxy
 
         return resMsg;
     }
-
 
     /// <summary>
     /// 基础的http请求
@@ -300,7 +292,6 @@ public sealed class HttpClientProxy
                 }
             }
 
-
         }
         catch (Exception ex)
         {
@@ -337,7 +328,6 @@ public sealed class HttpClientProxy
 
         return bytes ?? [];
     }
-
 
     /// <summary>
     /// get请求
@@ -557,7 +547,6 @@ public sealed class HttpClientProxy
         if (model == null) throw new Exception($"接口返回model为空,json:{json}");
         return model;
     }
-
 
     /// <summary>
     /// 获取请求的模型
@@ -884,7 +873,6 @@ public sealed class HttpClientProxy
 
     //post微信消息回调消息流，并返回字符串
 
-
     /// <summary>
     /// post请求
     /// </summary>
@@ -1103,7 +1091,6 @@ public sealed class HttpClientProxy
         if (model == null) throw new Exception($"接口返回的model为空，json:{result}");
         return model;
     }
-
 
     /// <summary>
     /// 传入Json
@@ -1403,7 +1390,6 @@ public sealed class HttpClientProxy
         return result;
     }
 
-
     /// <summary>
     /// 发送SSE请求
     /// </summary>
@@ -1529,11 +1515,7 @@ public sealed class HttpClientProxy
         throw new Exception($"SSE连接失败，已重试{retryCount}次: {lastException?.Message}");
     }
 
-
-
-
     #endregion
-
 
     /// <summary>
     /// delete
@@ -1600,7 +1582,6 @@ public sealed class HttpClientProxy
         return json.ToObject<T>();
     }
 
-
     /// <summary>
     /// put 请求
     /// </summary>
@@ -1649,7 +1630,6 @@ public sealed class HttpClientProxy
         }
         return json.ToObject<T>();
     }
-
 
     /// <summary>
     /// Patch 请求
@@ -1876,7 +1856,6 @@ public sealed class HttpClientProxy
         return result;
     }
 
-
     /// <summary>
     /// 测试微信回调 GET 请求
     /// </summary>
@@ -1951,7 +1930,5 @@ public sealed class HttpClientProxy
     }
 
     #endregion
-
-
 
 }

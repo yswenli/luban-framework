@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c) YSWenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -21,17 +21,18 @@
 *描述：Word文档
 *
 *****************************************************************************/
+
 using Aspose.Words;
+
 using Aspose.Words.Drawing;
+
 using Aspose.Words.Layout;
+
 using Aspose.Words.Replacing;
+
 using Aspose.Words.Tables;
 
-using System.Reflection;
-using System.Text.RegularExpressions;
-
 namespace LuBan.Office.Docx;
-
 
 /// <summary>
 /// Word文档，
@@ -72,7 +73,6 @@ public class WordDocument
     {
         return _doc.Range.Replace(oldText, newText, new FindReplaceOptions(FindReplaceDirection.Forward)) > 0;
     }
-
 
     /// <summary>
     /// 插入文本
@@ -289,7 +289,6 @@ public class WordDocument
         return true;
     }
 
-
     /// <summary>
     /// 导出为pdf
     /// </summary>
@@ -328,9 +327,9 @@ public class WordDocument
     }
 }
 
-
-
-
+/// <summary>
+/// Word 查找替换回调：在匹配到的占位符位置插入图片并替换掉原文本。
+/// </summary>
 public class ReplaceAndInsertImage : IReplacingCallback
 {
     /// <summary>
@@ -338,11 +337,20 @@ public class ReplaceAndInsertImage : IReplacingCallback
     /// </summary>
     public string url { get; set; }
 
+    /// <summary>
+    /// 创建插入图片的回调，并记录待插入图片的路径。
+    /// </summary>
+    /// <param name="url">需要插入到文档中的图片路径。</param>
     public ReplaceAndInsertImage(string url)
     {
         this.url = url;
     }
 
+    /// <summary>
+    /// 把光标移到匹配节点并在该位置插入图片，随后由替换引擎删除原匹配文本。
+    /// </summary>
+    /// <param name="e">查找替换回调参数，提供匹配节点与匹配内容。</param>
+    /// <returns>替换动作，此处固定为替换掉匹配文本。</returns>
     public ReplaceAction Replacing(ReplacingArgs e)
     {
         //获取当前节点

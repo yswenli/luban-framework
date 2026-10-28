@@ -1,24 +1,24 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *公司名称：Walle
 *命名空间：LuBan.Wechat
-*文件名： GloabUsing
+*文件名： GlobalUsings
 *版本号： V1.0.0.0
 *唯一标识：c161bf84-4e69-480b-bd33-675c910c0a11
 *当前的用户域：WALLE
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2023/12/5 13:25:31
-*描述：
+*描述：项目级全局 using 声明，集中管理常用命名空间。
 *
 *=================================================
 *修改标记
 *修改时间：2023/12/5 13:25:31
 *修改人： yswenli
 *版本号： V1.0.0.0
-*描述：
+*描述：项目级全局 using 声明，集中管理常用命名空间。
 *
 *****************************************************************************/
 global using Encrypt.Library;
@@ -46,3 +46,7 @@ global using System.Text;
 global using System.Xml;
 global using System.Xml.Linq;
 global using System.Xml.Serialization;
+
+// 由代码文件上移的命名空间（2026-10-28 规范化）
+global using LuBan.Common.Errors;
+global using SKIT.FlurlHttpClient.Wechat.Work.Utilities;

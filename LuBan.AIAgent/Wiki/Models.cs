@@ -21,8 +21,6 @@
 *描述：wiki 领域模型
 *
 *****************************************************************************/
-using System.Globalization;
-using System.Text.RegularExpressions;
 
 namespace LuBan.AIAgent.Wiki;
 

@@ -1,13 +1,19 @@
 /****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：Walle
 *命名空间：LuBan.AIAgent.Abstractions
 *文件名： IWorktreeCoordinator
+*版本号： V1.0.0.0
+*唯一标识：6fe4d061-a76c-4a87-ab9b-71d25c29b8ec
+*当前的用户域：WALLE
+*创建人：yswenli
+*电子邮箱：yswenli@outlook.com
 *创建时间：2026/10/10
 *描述：worktree 会话生命周期协调契约（宿主实现）
 *
 *****************************************************************************/
-using LuBan.AIAgent.Abstractions.Models;
 
 namespace LuBan.AIAgent.Abstractions;
 

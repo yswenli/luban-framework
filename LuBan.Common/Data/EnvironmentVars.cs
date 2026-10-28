@@ -1,10 +1,10 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ YSWenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *Author：yswenli
-*命名空间：LuBan.Common.Consts
-*文件名： EnvironmentConst
+*命名空间：LuBan.Common.Data
+*文件名： EnvironmentVars
 *版本号： V1.0.0.0
 *唯一标识：b20f959c-54f3-4028-9613-20fe865784da
 *当前的用户域：WALLE

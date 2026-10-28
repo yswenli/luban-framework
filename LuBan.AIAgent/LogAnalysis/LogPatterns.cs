@@ -1,11 +1,19 @@
 /****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：Walle
 *命名空间：LuBan.AIAgent.LogAnalysis
 *文件名： LogPatterns
+*版本号： V1.0.0.0
+*唯一标识：e76c7ec5-cd69-4f3e-8f11-045dd221e499
+*当前的用户域：WALLE
+*创建人：yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/10/9
 *描述：日志级别与时间戳解析（内置探测 + 可配置正则）
+*
 *****************************************************************************/
-using System.Globalization;
 
 namespace LuBan.AIAgent.LogAnalysis;
 
@@ -24,6 +32,12 @@ internal sealed class LogPatterns
     private readonly Regex _level;
     private readonly Regex _timestamp;
 
+    /// <summary>
+    /// 按配置正则与匹配超时构造级别、时间戳解析器，配置为空或非法时回退内置模式。
+    /// </summary>
+    /// <param name="levelPattern">级别正则，需含命名组 <c>lvl</c>；为 null 时用内置模式。</param>
+    /// <param name="timestampPattern">时间戳正则，需含命名组 <c>ts</c>；为 null 时用内置模式。</param>
+    /// <param name="matchTimeoutMs">单次正则匹配的超时毫秒数。</param>
     public LogPatterns(string? levelPattern, string? timestampPattern, int matchTimeoutMs)
     {
         var timeout = TimeSpan.FromMilliseconds(Math.Max(1, matchTimeoutMs));

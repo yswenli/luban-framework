@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：YSWENLI
@@ -216,9 +216,15 @@ namespace LuBan.Common
         [DataContract]
         internal class IPResponse
         {
+            /// <summary>
+            /// 接口返回状态码（接口字段 code）。
+            /// </summary>
             [DataMember(Name = "code")]
             public int Code { get; set; }
 
+            /// <summary>
+            /// 接口返回的 IP 信息节点（接口字段 msg）。
+            /// </summary>
             [DataMember(Name = "msg")]
             public Msg2 Msg { get; set; }
         }
@@ -226,9 +232,15 @@ namespace LuBan.Common
         internal class Msg2
         {
 
+            /// <summary>
+            /// 客户端真实 IP（接口字段 true_ip）。
+            /// </summary>
             [DataMember(Name = "true_ip")]
             public string TrueIp { get; set; }
 
+            /// <summary>
+            /// 出口或网关 IP（接口字段 web_ip）。
+            /// </summary>
             [DataMember(Name = "web_ip")]
             public string WebIp { get; set; }
         }

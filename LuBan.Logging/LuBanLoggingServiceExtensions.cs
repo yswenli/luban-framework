@@ -22,10 +22,6 @@
 *
 *****************************************************************************/
 
-using LuBan.Logging.Configuration;
-
-using Microsoft.Extensions.DependencyInjection;
-
 namespace LuBan.Logging;
 
 /// <summary>

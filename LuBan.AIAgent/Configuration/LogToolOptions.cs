@@ -1,10 +1,20 @@
 /****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：Walle
 *命名空间：LuBan.AIAgent.Configuration
 *文件名： LogToolOptions
+*版本号： V1.0.0.0
+*唯一标识：edf440ed-4df7-40b8-b239-91bcc2f80639
+*当前的用户域：WALLE
+*创建人：yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/10/9
 *描述：大日志分析引擎与 log 工具组共用配置（引擎读取以注入的 IOptions 为准）
+*
 *****************************************************************************/
+
 namespace LuBan.AIAgent.Configuration;
 
 /// <summary>

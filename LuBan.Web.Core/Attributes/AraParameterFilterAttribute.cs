@@ -1,9 +1,9 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *公司名称：yswenli
-*命名空间：LuBan.Web.Core.Auth
+*命名空间：LuBan.Web.Core.Attributes
 *文件名： AraParameterFilterAttribute
 *版本号： V1.0.0.0
 *唯一标识：34ecb79d-7243-4786-ba9e-8ccf2c328fc9

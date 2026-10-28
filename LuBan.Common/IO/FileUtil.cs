@@ -1,9 +1,9 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：YSWENLI
 *公司名称：yswenli
-*命名空间：LuBan.Common
+*命名空间：LuBan.Common.IO
 *文件名： FileUtil
 *版本号： V1.0.0.0
 *唯一标识：46246be3-87d1-415e-815e-749ffc9cd11d
@@ -11,17 +11,16 @@
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2022/7/14 13:13:47
-*描述：
+*描述：文件操作类
 *
 *=====================================================================
 *修改标记
 *修改时间：2022/7/14 13:13:47
 *修改人： Walle.Wen
 *版本号： V1.0.0.0
-*描述：
+*描述：文件操作类
 *
 *****************************************************************************/
-using System.Globalization;
 
 namespace LuBan.Common.IO;
 
@@ -130,7 +129,6 @@ public static class FileUtil
         }
         return memoryStream;
     }
-
 
     /// <summary>
     /// 写文件
@@ -459,7 +457,6 @@ public static class FileUtil
         return false;
     }
 
-
     /// <summary>
     /// 获取文件信息
     /// </summary>
@@ -651,7 +648,6 @@ public static class FileUtil
     /// 文件类型签名
     /// </summary>
     public static Dictionary<string, List<byte[]>> FileTypeSignature { get; private set; }
-
 
     static FileUtil()
     {

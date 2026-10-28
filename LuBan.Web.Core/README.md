@@ -91,18 +91,29 @@ dotnet add package LuBan.Web.Core
 ```json
 {
   "LuBanAgent": {
-    "WorkspaceRoot": "D:\\work\\agent",
+    // 绝对路径，或相对站点内容根（ContentRootPath，即网站根目录）的路径
+    "WorkspaceRoot": ".",
+    // 可省略；省略时取 Models 数组第一项
     "DefaultModel": "deepseek:deepseek-chat",
-    "Models": {
-      "Provider": "deepseek",
-      "Model": "deepseek-chat",
-      "ApiKey": "sk-***"
-    }
+    "Models": [
+      {
+        "Provider": "deepseek",
+        "Model": "deepseek-chat",
+        "ApiKey": "sk-***"
+      }
+    ]
   }
 }
 ```
 
-校验口径：`Models.Provider` 必须在框架已知 Provider 列表内（大小写不敏感）、`Models.Model` / `Models.ApiKey` / `DefaultModel` 非空、`Models.BaseUrl` 若给出必须是合法 http(s) 地址。
+校验口径：
+
+- `Models` 为数组，每项 `Provider` 必须在框架已知 Provider 列表内（大小写不敏感），`Model` / `ApiKey` 非空，`BaseUrl` 若给出必须是合法 http(s) 地址；
+- 同一 Provider 可配置多个模型，但 `ApiKey` / `BaseUrl` 必须一致，否则该 Provider 不注册；
+- `DefaultModel` 可省略（省略取数组第一项）；一旦给出，必须是 `provider:model` 且命中 `Models` 中某项；
+- `WorkspaceRoot` 支持绝对路径与相对路径：相对值以站点 `ContentRootPath` 为基准，非 Web 宿主（如单元测试）回退到程序目录。
+
+> 升级提示：旧版的扁平对象写法（`"Models": { "Provider": ... }`）不再支持，需改为数组。
 
 关闭方式：删除 `LuBanAgent` 节且不配置 `db_config` 记录即可（不存在"只关一半"的开关）。Agent 初始化失败只降级为不启用，不会导致 Web 应用启动失败。
 

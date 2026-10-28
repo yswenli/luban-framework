@@ -14,8 +14,6 @@
 *描述：插件状态仓储 - JSON 文件式默认实现（框架无 SQLite 依赖）
 *
 *****************************************************************************/
-using System.Text.Json;
-using System.Text.Json.Serialization;
 
 namespace LuBan.AIAgent.Plugins.Lifecycle;
 

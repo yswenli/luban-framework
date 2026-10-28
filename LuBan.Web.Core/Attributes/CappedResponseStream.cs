@@ -1,3 +1,27 @@
+/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：Walle
+*命名空间：LuBan.Web.Core.Attributes
+*文件名： CappedResponseStream
+*版本号： V1.0.0.0
+*唯一标识：f4e2ba0a-063f-4ce2-9311-a0fd9715c57e
+*当前的用户域：WALLE
+*创建人：yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/9/11
+*描述：封顶响应缓冲流：在指定字节上限内缓冲写入，超限后直通原流。
+*
+*=================================================
+*修改标记
+*修改时间：2026/9/11
+*修改人： yswenli
+*版本号： V1.0.0.0
+*描述：封顶响应缓冲流：在指定字节上限内缓冲写入，超限后直通原流。
+*
+*****************************************************************************/
+
 namespace LuBan.Web.Core.Attributes;
 
 /// <summary>
@@ -26,6 +50,11 @@ internal sealed class CappedResponseStream : Stream
     /// </summary>
     public bool IsCommitted => _committed;
 
+    /// <summary>
+    /// 包装底层响应流，在指定字节上限内缓冲写入，超限后改为直通底层流。
+    /// </summary>
+    /// <param name="inner">被包装的底层响应流。</param>
+    /// <param name="limit">缓冲捕获的最大字节数，超出即视为截断。</param>
     public CappedResponseStream(Stream inner, int limit)
     {
         _inner = inner;
@@ -38,9 +67,21 @@ internal sealed class CappedResponseStream : Stream
     /// </summary>
     public byte[] GetBufferedContent() => _buffer.ToArray();
 
+    /// <summary>
+    /// 该包装流仅用于写出响应，不支持读取，恒为 <c>false</c>。
+    /// </summary>
     public override bool CanRead => false;
+    /// <summary>
+    /// 该包装流不支持定位，恒为 <c>false</c>。
+    /// </summary>
     public override bool CanSeek => false;
+    /// <summary>
+    /// 该包装流支持写入，恒为 <c>true</c>；写入内容先进入缓冲或直通底层流。
+    /// </summary>
     public override bool CanWrite => true;
+    /// <summary>
+    /// 该包装流不维护长度，访问即抛出不支持操作异常。
+    /// </summary>
     public override long Length => throw new NotSupportedException();
     public override long Position
     {
@@ -48,6 +89,9 @@ internal sealed class CappedResponseStream : Stream
         set => throw new NotSupportedException();
     }
 
+    /// <summary>
+    /// 同步刷新保持空实现，避免在禁止同步 IO 的宿主上写底层流导致响应被截断。
+    /// </summary>
     public override void Flush()
     {
         // 禁止对底层流执行同步 Flush/Write：Kestrel 默认 AllowSynchronousIO=false，
@@ -55,6 +99,10 @@ internal sealed class CappedResponseStream : Stream
         // 数据在 FlushAsync 或中间件末尾交付，此处保持空实现。
     }
 
+    /// <summary>
+    /// 异步刷新时把尚未交付的缓冲内容写入底层流并切换为直写模式，随后刷新底层流。
+    /// </summary>
+    /// <param name="cancellationToken">取消令牌。</param>
     public override async Task FlushAsync(CancellationToken cancellationToken)
     {
         // 显式异步刷新代表调用方要求数据立即送达客户端（如 SSE / 分块传输）。
@@ -70,18 +118,40 @@ internal sealed class CappedResponseStream : Stream
         await _inner.FlushAsync(cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// 该包装流不支持读取，调用即抛出不支持操作异常。
+    /// </summary>
     public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
 
+    /// <summary>
+    /// 该包装流不支持定位，调用即抛出不支持操作异常。
+    /// </summary>
     public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
 
+    /// <summary>
+    /// 该包装流不支持设置长度，调用即抛出不支持操作异常。
+    /// </summary>
     public override void SetLength(long value) => throw new NotSupportedException();
 
+    /// <summary>
+    /// 同步写入转调异步实现执行，规避宿主禁止同步 IO 的限制。
+    /// </summary>
+    /// <param name="buffer">待写入的字节数组。</param>
+    /// <param name="offset">写入数据在数组中的起始下标。</param>
+    /// <param name="count">写入的字节数。</param>
     public override void Write(byte[] buffer, int offset, int count)
     {
         // 统一委托到异步实现：同步写底层流会触发 AllowSynchronousIO=false 限制并中断响应。
         WriteAsync(buffer, offset, count, CancellationToken.None).GetAwaiter().GetResult();
     }
 
+    /// <summary>
+    /// 在上限内累计写入缓冲区；超出上限时标记截断并把全部内容写入底层流。
+    /// </summary>
+    /// <param name="buffer">待写入的字节数组。</param>
+    /// <param name="offset">写入数据在数组中的起始下标。</param>
+    /// <param name="count">写入的字节数。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
     public override async Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
     {
         if (count == 0) return;

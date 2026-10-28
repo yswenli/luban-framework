@@ -1,13 +1,19 @@
 /****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：Walle
 *命名空间：LuBan.AIAgent.Tools.Git
 *文件名： GitToolPlugin
+*版本号： V1.0.0.0
+*唯一标识：e810ebb6-1627-40ec-a640-52a53537fd70
+*当前的用户域：WALLE
+*创建人：yswenli
+*电子邮箱：yswenli@outlook.com
 *创建时间：2026/10/9
 *描述：Git 版本控制工具插件与工具组
+*
 *****************************************************************************/
-using LuBan.AIAgent.Abstractions;
-using LuBan.AIAgent.Abstractions.Models;
 
 namespace LuBan.AIAgent.Tools.Git;
 

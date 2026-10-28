@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -112,11 +112,18 @@ public class AsyncReaderWriterLock : IDisposable
     {
         private AsyncReaderWriterLock? _lock;
 
+        /// <summary>
+        /// 创建读锁释放器，用于在离开作用域时归还读锁。
+        /// </summary>
+        /// <param name="rwLock">该释放器所归属的异步读写锁。</param>
         public ReaderLockReleaser(AsyncReaderWriterLock rwLock)
         {
             _lock = rwLock;
         }
 
+        /// <summary>
+        /// 归还一次读锁；读计数归零时释放写锁以放行等待中的写操作。
+        /// </summary>
         public void Dispose()
         {
             var rwLock = _lock;
@@ -132,11 +139,18 @@ public class AsyncReaderWriterLock : IDisposable
     {
         private AsyncReaderWriterLock? _lock;
 
+        /// <summary>
+        /// 创建写锁释放器，用于在离开作用域时归还写锁。
+        /// </summary>
+        /// <param name="rwLock">该释放器所归属的异步读写锁。</param>
         public WriterLockReleaser(AsyncReaderWriterLock rwLock)
         {
             _lock = rwLock;
         }
 
+        /// <summary>
+        /// 释放写锁，唤醒等待中的读操作或下一个写操作。
+        /// </summary>
         public void Dispose()
         {
             var rwLock = _lock;

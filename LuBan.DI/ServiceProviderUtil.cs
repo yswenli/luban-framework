@@ -4,7 +4,7 @@
 *机器名称：WALLE
 *公司名称：Walle
 *命名空间：LuBan.DI
-*文件名： ServiceProvider
+*文件名： ServiceProviderUtil
 *版本号： V1.0.0.0
 *唯一标识：f1e96015-a10d-48d3-a33e-7938c16b8e2a
 *当前的用户域：WALLE

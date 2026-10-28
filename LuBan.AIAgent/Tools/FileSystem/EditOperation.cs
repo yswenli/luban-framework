@@ -1,11 +1,20 @@
 /****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：Walle
 *命名空间：LuBan.AIAgent.Tools.FileSystem
 *文件名： EditOperation
+*版本号： V1.0.0.0
+*唯一标识：3d2662fb-6b06-4365-8bdb-2e2eb25b415b
+*当前的用户域：WALLE
+*创建人：yswenli
+*电子邮箱：yswenli@outlook.com
 *创建时间：2026/10/9
 *描述：批量编辑的单条替换操作
+*
 *****************************************************************************/
+
 namespace LuBan.AIAgent.Tools.FileSystem;
 
 /// <summary>

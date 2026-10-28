@@ -21,12 +21,6 @@
 *描述：本地长期记忆工具插件
 *
 *****************************************************************************/
-using System.ComponentModel;
-using System.Text.Json;
-using LuBan.AIAgent.Abstractions;
-using LuBan.AIAgent.Configuration;
-using LuBan.AIAgent.LocalMemory;
-using Microsoft.Extensions.Options;
 
 namespace LuBan.AIAgent.Tools.LocalMemory;
 
@@ -128,6 +122,13 @@ public class LocalMemoryToolGroup
     [Description("基于语义相似度搜索本地长期记忆")]
     [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026", 
         Justification = "JSON 序列化仅用于简单结果类型，已通过 JsonSerializerOptions 处理")]
+    /// <summary>
+    /// 按语义相似度检索本地长期记忆，返回命中条目的 JSON。
+    /// </summary>
+    /// <param name="query">查询文本，不能为空。</param>
+    /// <param name="category">可选的类别过滤条件。</param>
+    /// <param name="topK">返回条数上限，留空则取配置的默认值。</param>
+    /// <returns>成功时正文为记忆数组 JSON，失败时携带错误信息。</returns>
     public async Task<ToolResult<string>> SearchAsync(string query, string? category = null, int? topK = null)
     {
         if (string.IsNullOrWhiteSpace(query))
@@ -167,6 +168,12 @@ public class LocalMemoryToolGroup
     [Description("列出本地长期记忆条目")]
     [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026", 
         Justification = "JSON 序列化仅用于简单结果类型，已通过 JsonSerializerOptions 处理")]
+    /// <summary>
+    /// 列出本地长期记忆条目。
+    /// </summary>
+    /// <param name="category">可选的类别过滤条件。</param>
+    /// <param name="limit">返回的最大条数。</param>
+    /// <returns>成功时正文为记忆数组 JSON，失败时携带错误信息。</returns>
     public async Task<ToolResult<string>> ListAsync(string? category = null, int limit = 100)
     {
         try

@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -24,6 +24,9 @@
 
 namespace LuBan.ApprovalFlow.Entities;
 
+/// <summary>
+/// 审批步骤记录实体，逐条登记节点上的审批、转办等操作流水。
+/// </summary>
 [SugarTable("db_approval_step", "审批步骤记录")]
 public class DbApprovalStep : EntityDataScoreBase
 {

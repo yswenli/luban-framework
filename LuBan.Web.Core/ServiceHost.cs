@@ -171,7 +171,7 @@ internal static class ServiceHost
         var builder = WebApplication.CreateBuilder(args);
         var service = builder.Services;
 
-        service.ConfigureServices(builder.Configuration);
+        service.ConfigureServices(builder.Configuration, builder.Environment.ContentRootPath);
 
         var webApp = builder.Build();
 

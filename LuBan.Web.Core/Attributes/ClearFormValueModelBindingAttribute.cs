@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -29,6 +29,10 @@ namespace LuBan.Web.Core.Attributes;
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, AllowMultiple = false, Inherited = true)]
 public class ClearFormValueModelBindingAttribute : Attribute, IAsyncResourceFilter, IResourceFilter
 {
+    /// <summary>
+    /// 资源执行完成后不做任何处理，表单值提供器已在执行前移除。
+    /// </summary>
+    /// <param name="context">资源执行完成后的上下文。</param>
     public void OnResourceExecuted(ResourceExecutedContext context)
     {
 

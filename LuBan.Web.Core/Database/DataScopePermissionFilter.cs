@@ -1,10 +1,10 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *Author：yswenli
-*命名空间：LuBan.Orm
-*文件名： DBDataFilter
+*命名空间：LuBan.Web.Core.Database
+*文件名： DataScopePermissionFilter
 *版本号： V1.0.0.0
 *唯一标识：87d32167-1ea1-4acc-b847-5c33c307e6ba
 *当前的用户域：WALLE

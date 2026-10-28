@@ -1,10 +1,10 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *公司名称：Walle
 *命名空间：LuBan.Common
-*文件名： EmailSender
+*文件名： EmailUtil
 *版本号： V1.0.0.0
 *唯一标识：9f6d8866-23ee-416a-8019-b1246abede2a
 *当前的用户域：WALLE
@@ -21,8 +21,6 @@
 *描述：发送邮件
 *
 *****************************************************************************/
-using System.Net.Mail;
-using System.Net.Mime;
 
 namespace LuBan.Common;
 
@@ -112,7 +110,6 @@ public class EmailSender : IDisposable
             };
         }
     }
-
 
     /// <summary>
     /// 发送邮件

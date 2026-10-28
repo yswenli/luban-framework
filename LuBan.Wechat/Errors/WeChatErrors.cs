@@ -24,8 +24,6 @@
 
 namespace LuBan.Wechat.Errors;
 
-using LuBan.Common.Errors;
-
 /// <summary>
 /// 微信模块错误码定义（81001-81013）。
 /// 涵盖微信 API 调用失败、配置缺失等场景。

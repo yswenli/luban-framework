@@ -1,24 +1,24 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c) YSWenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *Author：yswenli
 *命名空间：LuBan.Reporting
-*文件名： GloabUsing
+*文件名： GlobalUsings
 *版本号： V1.0.0.0
 *唯一标识：fd8596d5-d4a9-4044-997a-34a53b693bc3
 *当前的用户域：WALLE
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2025/2/24 11:20:57
-*描述：
+*描述：项目级全局 using 声明，集中管理常用命名空间。
 *
 *=================================================
 *修改标记
 *修改时间：2025/2/24 11:20:57
 *修改人： yswenli
 *版本号： V1.0.0.0
-*描述：
+*描述：项目级全局 using 声明，集中管理常用命名空间。
 *
 *****************************************************************************/
 global using LuBan.Common;
@@ -45,3 +45,6 @@ global using System.Security.Cryptography;
 global using System.Text;
 global using System.Text.Json;
 global using System.Text.RegularExpressions;
+
+// 由代码文件上移的命名空间（2026-10-28 规范化）
+global using System.Collections.Concurrent;

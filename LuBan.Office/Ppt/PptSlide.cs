@@ -1,9 +1,9 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *Author：yswenli
-*命名空间：LuBan.Office.Pptx
+*命名空间：LuBan.Office.Ppt
 *文件名： PptSlide
 *版本号： V1.0.0.0
 *唯一标识：a28a4045-5f36-423b-99f6-922599c4e85a
@@ -21,6 +21,7 @@
 *描述：幻灯片
 *
 *****************************************************************************/
+
 using Aspose.Slides;
 
 using System.Drawing;
@@ -98,7 +99,6 @@ public class PptSlide
         return _slide.Background.FillFormat.PictureFillFormat.Picture.Image.BinaryData;
     }
 
-
     /// <summary>
     /// 获取全部文本框
     /// </summary>
@@ -145,7 +145,6 @@ public class PptSlide
         yield break;
     }
 
-
     /// <summary>
     /// 获得形状
     /// </summary>
@@ -166,8 +165,6 @@ public class PptSlide
         yield break;
     }
 
-
-
     /// <summary>
     /// 获得形状
     /// </summary>
@@ -182,7 +179,6 @@ public class PptSlide
         }
         return null;
     }
-
 
     /// <summary>
     /// 获取全部文本
@@ -202,8 +198,6 @@ public class PptSlide
         }
         yield break;
     }
-
-
 
     /// <summary>
     /// 添加音频

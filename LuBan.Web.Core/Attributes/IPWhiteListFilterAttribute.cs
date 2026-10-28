@@ -1,9 +1,9 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *公司名称：yswenli
-*命名空间：LuBan.Web.Core.Auth
+*命名空间：LuBan.Web.Core.Attributes
 *文件名： IPWhiteListFilterAttribute
 *版本号： V1.0.0.0
 *唯一标识：3dd4d54a-540a-4f18-96a5-6ac6b822739b
@@ -21,7 +21,6 @@
 *描述：ip白名单限制器
 *
 *****************************************************************************/
-using System.Net;
 
 namespace LuBan.Web.Core.Attributes;
 
@@ -114,6 +113,5 @@ public class IPWhiteListFilterAttribute : BaseFilterAttribute
     {
         await next.Invoke();
     }
-
 
 }

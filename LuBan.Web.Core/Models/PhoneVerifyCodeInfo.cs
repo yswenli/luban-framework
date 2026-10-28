@@ -23,10 +23,25 @@
 *****************************************************************************/
 namespace LuBan.Web.Core.Models;
 
+/// <summary>
+/// 手机验证码的缓存信息，记录验证码、生成时间、使用状态与有效期。
+/// </summary>
 public class PhoneVerifyCodeInfo
 {
+    /// <summary>
+    /// 下发给用户的验证码内容。
+    /// </summary>
     public string Code { get; set; }
+    /// <summary>
+    /// 验证码的生成时间。
+    /// </summary>
     public DateTime CreateTime { get; set; }
+    /// <summary>
+    /// 验证码是否已被使用，已使用的不能再次校验通过。
+    /// </summary>
     public bool IsUsed { get; set; }
+    /// <summary>
+    /// 验证码的有效期，单位为分钟。
+    /// </summary>
     public int ExpireMinutes { get; set; }
 }

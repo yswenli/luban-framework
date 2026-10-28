@@ -6,7 +6,7 @@
 *命名空间：LuBan.AIAgent.Hosting
 *文件名： IAgentAttachmentOrchestrator
 *版本号： V1.0.0.0
-*唯一标识：附件编排接口
+*唯一标识：ba7e22b6-7cc1-43a3-80e6-ea65901da6b3
 *当前的用户域：WALLE
 *创建人：yswenli
 *电子邮箱：yswenli@outlook.com

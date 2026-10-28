@@ -1,9 +1,9 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：YSWENLI
 *公司名称：yswenli
-*命名空间：LuBan.Web.Core.Swagger
+*命名空间：LuBan.Web.Core.Swagger.Doc
 *文件名： ISwaggerDocGenerator
 *版本号： V1.0.0.0
 *唯一标识：035f5e05-afe3-455b-9093-5a3b927f25bd

@@ -1,9 +1,9 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *Author：yswenli
-*命名空间：LuBan.Web.Core.AspNetCore
+*命名空间：LuBan.Web.Core.AspNetCore.SignalR
 *文件名： SignalROptions
 *版本号： V1.0.0.0
 *唯一标识：17948d22-5c33-4ce6-9eb4-87bddc7d4bb4

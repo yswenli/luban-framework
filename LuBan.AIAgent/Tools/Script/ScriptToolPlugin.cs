@@ -21,7 +21,6 @@
 *描述：脚本工具插件
 *
 *****************************************************************************/
-using LuBan.AIAgent.Abstractions;
 
 namespace LuBan.AIAgent.Tools.Script;
 
@@ -133,6 +132,13 @@ public class ScriptToolGroup
     [Description("执行 Shell 命令。执行环境自动探测（Windows 优先 pwsh > powershell > cmd，类 Unix 优先 bash），返回值中的 shell/shellPath/platform 字段会告知实际使用的解释器；命令请按该解释器语法编写。")]
     [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026", 
         Justification = "JSON 序列化仅用于简单结果类型，已通过 JsonSerializerOptions 处理")]
+    /// <summary>
+    /// 在自动探测的 Shell 环境中执行命令，返回退出码与输出。
+    /// </summary>
+    /// <param name="command">待执行的命令文本，需符合所选解释器语法。</param>
+    /// <param name="workingDirectory">命令的工作目录；为空时用默认目录。</param>
+    /// <param name="cancellationToken">取消令牌，取消时终止外部进程。</param>
+    /// <returns>包含 shell、exitCode 与标准输出的工具结果。</returns>
     public async Task<ToolResult<string>> RunShellAsync(
         string command, string? workingDirectory = null, CancellationToken cancellationToken = default)
     {
@@ -230,6 +236,13 @@ public class ScriptToolGroup
     [Description("在嵌入式 Lua 沙箱中执行脚本。沙箱无文件系统与系统命令能力，结果通过 print 输出（也可用 return 返回末尾表达式）。")]
     [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026", 
         Justification = "JSON 序列化仅用于简单结果类型，已通过 JsonSerializerOptions 处理")]
+    /// <summary>
+    /// 在内嵌 Lua 沙箱中执行脚本，输出取自 print 与末尾表达式。
+    /// </summary>
+    /// <param name="script">待执行的 Lua 脚本内容。</param>
+    /// <param name="workingDirectory">保留参数，沙箱无文件系统访问，不生效。</param>
+    /// <param name="cancellationToken">取消令牌，仅在执行前检查。</param>
+    /// <returns>包含标准输出与执行状态的工具结果。</returns>
     public async Task<ToolResult<string>> RunLuaAsync(
         string script, string? workingDirectory = null, CancellationToken cancellationToken = default)
     {
@@ -293,6 +306,13 @@ public class ScriptToolGroup
 [Description("执行 Python 脚本")]
 [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026", 
     Justification = "JSON 序列化仅用于简单结果类型，已通过 JsonSerializerOptions 处理")]
+/// <summary>
+/// 调用外部 Python 解释器执行脚本，返回退出码与输出。
+/// </summary>
+/// <param name="script">待执行的 Python 脚本内容。</param>
+/// <param name="workingDirectory">脚本的工作目录；为空时用默认目录。</param>
+/// <param name="cancellationToken">取消令牌，取消时终止外部进程。</param>
+/// <returns>包含 exitCode 与标准输出的工具结果。</returns>
 public async Task<ToolResult<string>> RunPythonAsync(
     string script, string? workingDirectory = null, CancellationToken cancellationToken = default)
 {

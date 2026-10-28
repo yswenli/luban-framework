@@ -1,9 +1,9 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：YSWENLI
 *公司名称：yswenli
-*命名空间：LuBan.Web.Core
+*命名空间：LuBan.Web.Core.Utils
 *文件名： DownloadFileUtil
 *版本号： V1.0.0.0
 *唯一标识：624e2ec3-984e-4e0f-8b64-e99ac4342eef

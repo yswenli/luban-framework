@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ 2023-2024 Oceania All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -11,14 +11,14 @@
 *创建人： WALLE
 *电子邮箱：yswenli@outlook.com
 *创建时间：2022/7/5 14:51:12
-*描述：
+*描述：ReceiveVideo 类
 *
 *=================================================
 *修改标记
 *修改时间：2022/7/5 14:51:12
 *修改人： yswenli
 *版本号： V1.0.0.0
-*描述：
+*描述：ReceiveVideo 类
 *
 *****************************************************************************/
 
@@ -29,8 +29,14 @@ namespace LuBan.Wechat.Models
 /// </summary>
     public class ReceiveVideo : Receive
     {
+        /// <summary>
+        /// 视频消息的素材 ID，可调用素材接口下载视频（协议字段 MediaId）。
+        /// </summary>
         public string MediaId { get; set; }
 
+        /// <summary>
+        /// 视频消息缩略图的素材 ID（协议字段 ThumbMediaId）。
+        /// </summary>
         public string ThumbMediaId { get; set; }
     }
 }

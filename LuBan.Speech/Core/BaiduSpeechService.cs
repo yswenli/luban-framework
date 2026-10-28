@@ -1,10 +1,10 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *Author：yswenli
-*命名空间：LuBan.Speech
-*文件名： BaiduSpeech
+*命名空间：LuBan.Speech.Core
+*文件名： BaiduSpeechService
 *版本号： V1.0.0.0
 *唯一标识：e7000da0-a81a-459e-9d16-2fbc2dc6263d
 *当前的用户域：WALLE

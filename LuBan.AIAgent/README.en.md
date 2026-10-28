@@ -532,13 +532,13 @@ Brings "session scope + run loop + profile + attachment orchestration + capabili
 | Component | Description |
 |------|------|
 | `AddLuBanAgentHost()` | Registers the host and default seams (all `TryAdd`): `SessionRuntimeManager` (singleton), `IAgentHost` (scoped), profile / workspace / user / model-selection resolvers, attachment orchestration, capability gate, session initializer, and `ICommandCatalog` (singleton) |
-| `AddLuBanAgentOpenAI(configuration)` | Registers `IChatClient` from `LuBanAgent:Models` (`Provider` / `Model` / `ApiKey` / `BaseUrl`); when incomplete it only records a `ChatClientFactoryWarning` — no registration and no throw |
+| `AddLuBanAgentOpenAI(configuration)` | Builds one client per provider from the `LuBanAgent:Models` array (`Provider` / `Model` / `ApiKey` / `BaseUrl`) and registers `IChatClient` + `IProviderRouter`; duplicate providers must share credentials; when incomplete it only records a `ChatClientFactoryWarning` — no registration and no throw |
 | `IAgentHost` | Host entry point: `InitializeAsync` / `Reset` / `RunStreamingAsync(AgentRunRequest)`; **must be resolved as Scoped**, holds no session state itself. If a turn is running for that session, `Reset` only flags a deferred reload (never interrupting the turn); the agent is released when the turn finishes and rebuilt with the latest configuration on the next turn |
 | `AgentRunRequest` | One-turn input: `Input` / `AttachmentPaths` / `SessionId` / `PermissionMode` / `ConfirmHandler` / `OnPlannedAction` / `OnUserDenied` |
 | `AgentStreamEvent` | UI-agnostic output events: `TextDeltaEvent` / `ThinkingDeltaEvent` / `ToolCallStartedEvent` / `ToolCallCompletedEvent` / `ToolCallFailedEvent` / `ErrorEvent` / `OrchestrationProgressEvent` / `AttachmentAddedEvent` |
 | `SessionRuntimeManager` / `SessionRuntime` | Per-session DI scope with a serial run loop (`EnqueueAsync`), reload flag (`RequestReload`), last-active tracking and disposal |
 | `IAgentProfile` / `AgentProfileBase` | Agent configuration (system prompt, tool groups, retrieval mode) and agent creation flow; `DefaultAgentProfile` is the general-purpose assistant |
-| `IAgentWorkspaceResolver` / `WorkspaceDescriptor` | Resolves the workspace per session (`Id` / `Name` / `RootPath` / `Type`); defaults to `LuBanAgent:WorkspaceRoot`, falling back to the process working directory |
+| `IAgentWorkspaceResolver` / `WorkspaceDescriptor` | Resolves the workspace per session (`Id` / `Name` / `RootPath` / `Type`); defaults to `LuBanAgent:WorkspaceRoot`, falling back to the process working directory (Web hosts go through `LuBan.Web.Core`, which resolves relative values against the site `ContentRootPath`) |
 | `IAgentProfileResolver` / `IAgentUserResolver` / `IAgentModelSelection` | Profile selection, user id (defaults to `IUserContext.UserId`, falling back to `local`), qualified model name (defaults to `LuBanAgent:DefaultModel`) |
 | `IAgentAttachmentOrchestrator` / `AgentAttachmentResolver` | `@reference` extraction, attachment processing and capability gate, merge/dedup of UI paths and references; parsing rules come from the orchestrator, so CLI / desktop / web / A2A behave identically |
 | `IModelCapabilityGate` / `IModelCapabilityProbe` | Model attachment-capability check and one-turn vision probe (default: allow all, no probe) |
@@ -570,9 +570,17 @@ await foreach (var e in host.RunStreamingAsync(new AgentRunRequest { Input = "he
 ```json
 {
   "LuBanAgent": {
+    // absolute path or relative path; Web.Core hosts resolve relatives against the site ContentRootPath
+    "WorkspaceRoot": ".",
+    // optional; defaults to the first entry of Models
     "DefaultModel": "openai:gpt-4o",
     "SystemPrompt": "You are a helpful assistant.",
     "MaxToolLoopIterations": 10,
+    // array: one provider:model pair per entry; duplicate providers must share ApiKey/BaseUrl
+    "Models": [
+      { "Provider": "openai", "Model": "gpt-4o", "ApiKey": "sk-***" },
+      { "Provider": "deepseek", "Model": "deepseek-v4-pro", "ApiKey": "sk-***" }
+    ],
     "Session": {
       "CompactTargetMessages": 20,
       "CompactThreshold": 10

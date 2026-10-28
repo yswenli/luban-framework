@@ -11,14 +11,14 @@
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2023/3/15 17:35:05
-*描述：
+*描述：泛型对象快速属性复制工具。
 *
 *=================================================
 *修改标记
 *修改时间：2023/3/15 17:35:05
 *修改人： yswenli
 *版本号： V1.0.0.0
-*描述：
+*描述：泛型对象快速属性复制工具。
 *
 *****************************************************************************/
 
@@ -34,6 +34,10 @@ namespace LuBan.Common;
 [RequiresUnreferencedCode("FastCopy uses Expression trees with reflection to copy properties. TIn and TOut must be rooted.")]
 [UnconditionalSuppressMessage("ReflectionAnalysis", "IL2060:MakeGenericMethod",
     Justification = "FastCopy 内部使用 Expression trees，由 [RequiresUnreferencedCode] 类级注解覆盖。")]
+/// <summary>
+/// 泛型属性复制器：首次使用时用表达式树编译并缓存委托，
+/// 把 <c>TIn</c> 与 <c>TOut</c> 同名的可写属性复制到新建的 <c>TOut</c> 上。
+/// </summary>
 public static class FastCopy<TIn, TOut>
 {
     private static readonly Func<TIn, TOut> cache = GetFunc();

@@ -1,11 +1,19 @@
 /****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：Walle
 *命名空间：LuBan.AIAgent.LogAnalysis
 *文件名： LogSummaryFormatter
+*版本号： V1.0.0.0
+*唯一标识：930cbf9f-98fe-4c11-aff9-b459971b6df1
+*当前的用户域：WALLE
+*创建人：yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/10/9
 *描述：LogSummary → Markdown 概览渲染（附件与 LogStats 共用）
+*
 *****************************************************************************/
-using System.Globalization;
 
 namespace LuBan.AIAgent.LogAnalysis;
 

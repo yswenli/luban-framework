@@ -6,7 +6,7 @@
 *命名空间：LuBan.AIAgent.Hosting
 *文件名： AgentProfileBase
 *版本号： V1.0.0.0
-*唯一标识：Agent 抽象基类
+*唯一标识：7f036953-0000-460e-ab3e-a56445202d37
 *当前的用户域：WALLE
 *创建人：yswenli
 *电子邮箱：yswenli@outlook.com
@@ -21,11 +21,6 @@
 *描述：Agent 配置抽象基类，定义不同类型 Agent 的系统提示词、工具组、检索模式及创建流程
 *
 *****************************************************************************/
-using LuBan.AIAgent.Abstractions;
-using LuBan.AIAgent.Configuration;
-using LuBan.AIAgent.MCP;
-using LuBan.AIAgent.Rules;
-using LuBan.AIAgent.Skills;
 
 namespace LuBan.AIAgent.Hosting;
 

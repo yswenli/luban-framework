@@ -1,9 +1,9 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：YSWENLI
 *公司名称：yswenli
-*命名空间：yswenli.Comon.DataProcessing
+*命名空间：LuBan.Web.Core.Controllers
 *文件名： CommonController
 *版本号： V1.0.0.0
 *唯一标识：df6193ea-6e56-4c51-89f2-b61680366c23
@@ -21,7 +21,6 @@
 *描述：数据库配置的通用接口
 *
 *****************************************************************************/
-using System.Web;
 
 namespace LuBan.Web.Core.Controllers;
 

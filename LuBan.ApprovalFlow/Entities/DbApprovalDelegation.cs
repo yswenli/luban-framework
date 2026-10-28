@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -24,6 +24,9 @@
 
 namespace LuBan.ApprovalFlow.Entities;
 
+/// <summary>
+/// 审批委托配置实体，记录委托人与受托人及其生效时间范围。
+/// </summary>
 [SugarTable("db_approval_delegation", "审批委托配置")]
 public class DbApprovalDelegation : EntityDataScoreBase
 {

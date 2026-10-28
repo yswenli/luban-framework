@@ -14,7 +14,6 @@
 *描述：插件清单 plugin.json 的对象模型（PRD §3.2）
 *
 *****************************************************************************/
-using System.Text.Json.Serialization;
 
 namespace LuBan.AIAgent.Plugins;
 

@@ -21,9 +21,6 @@
 *描述：基于 stdio JSON-RPC 的外部 MCP 客户端
 *
 *****************************************************************************/
-using System.Diagnostics;
-using System.Text.Json;
-using System.Text.Json.Nodes;
 
 namespace LuBan.AIAgent.MCP;
 
@@ -364,6 +361,9 @@ public class StdioMCPClient : IMCPClient, IDisposable, IAsyncDisposable
         _ => JsonValue.Create(value)
     };
 
+    /// <summary>
+    /// 同步断开子进程连接并释放 RPC 锁。
+    /// </summary>
     public void Dispose()
     {
         DisconnectAsync().GetAwaiter().GetResult();
@@ -371,6 +371,9 @@ public class StdioMCPClient : IMCPClient, IDisposable, IAsyncDisposable
         GC.SuppressFinalize(this);
     }
 
+    /// <summary>
+    /// 异步断开子进程连接并释放 RPC 锁。
+    /// </summary>
     public async ValueTask DisposeAsync()
     {
         await DisconnectAsync();

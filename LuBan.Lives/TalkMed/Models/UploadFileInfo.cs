@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -30,12 +30,21 @@ namespace LuBan.Lives.TalkMed.Models;
 /// </summary>
 public class UploadFileInfo
 {
+    /// <summary>
+    /// 上传文件的记录 Id（接口字段 id）。
+    /// </summary>
     [DataMember(Name = "id")]
     public int Id { get; set; }
 
+    /// <summary>
+    /// 上传文件在服务端的存储路径（接口字段 path）。
+    /// </summary>
     [DataMember(Name = "path")]
     public string Path { get; set; }
 
+    /// <summary>
+    /// 上传文件的可访问地址（接口字段 url）。
+    /// </summary>
     [DataMember(Name = "url")]
     public string Url { get; set; }
 }

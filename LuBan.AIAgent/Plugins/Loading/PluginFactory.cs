@@ -14,8 +14,6 @@
 *描述：插件实例工厂 - 在插件程序集中定位 IPlugin 实现并实例化
 *
 *****************************************************************************/
-using System.Diagnostics.CodeAnalysis;
-using System.Reflection;
 
 namespace LuBan.AIAgent.Plugins.Loading;
 
@@ -95,6 +93,11 @@ public sealed class PluginFactory
         "Trimming",
         "IL2067",
         Justification = "插件程序集由运行时从外部目录加载，不参与宿主裁剪；IsTrimmable 只作用于 LuBan.AIAgent 自身代码。")]
+    /// <summary>
+    /// 通过无参构造创建插件实例。
+    /// </summary>
+    /// <param name="pluginType">实现 <c>IPlugin</c> 的插件类型。</param>
+    /// <returns>新建的插件实例。</returns>
     public IPlugin Instantiate(Type pluginType)
     {
         ArgumentNullException.ThrowIfNull(pluginType);

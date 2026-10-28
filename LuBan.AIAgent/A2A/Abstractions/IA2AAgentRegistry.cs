@@ -14,7 +14,6 @@
 *描述：A2A Agent 注册表，按名称解析描述符与处理句柄
 *
 *****************************************************************************/
-using LuBan.AIAgent.A2A.Models;
 
 namespace LuBan.AIAgent.A2A.Abstractions;
 

@@ -1,10 +1,10 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *Author：yswenli
 *命名空间：LuBan.EMailKit.Models
-*文件名： EMailHeader
+*文件名： Header
 *版本号： V1.0.0.0
 *唯一标识：fb3d3ecc-dbdf-4d27-943c-c39d029241cb
 *当前的用户域：WALLE

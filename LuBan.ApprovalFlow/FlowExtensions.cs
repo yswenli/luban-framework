@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c) YSWenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -21,7 +21,6 @@
 *描述：ASP.NET Core 快速集成扩展
 *
 *****************************************************************************/
-using Microsoft.Extensions.Hosting;
 
 namespace LuBan.ApprovalFlow;
 
@@ -33,12 +32,21 @@ internal class ApprovalFlowWarmupService : IHostedService
     private readonly FlowBuilder _builder;
     private readonly ApprovalFlowOptions _options;
 
+    /// <summary>
+    /// 初始化审批流预热加载服务。
+    /// </summary>
+    /// <param name="builder">流程构建器，用于加载流程定义文件。</param>
+    /// <param name="options">审批流配置项，提供流程定义所在目录。</param>
     public ApprovalFlowWarmupService(FlowBuilder builder, ApprovalFlowOptions options)
     {
         _builder = builder;
         _options = options;
     }
 
+    /// <summary>
+    /// 扫描配置的数据目录并逐个加载其中的 JSON 流程定义文件。
+    /// </summary>
+    /// <param name="cancellationToken">取消令牌。</param>
     public Task StartAsync(CancellationToken cancellationToken)
     {
         var toLoad = new List<string>();
@@ -64,6 +72,10 @@ internal class ApprovalFlowWarmupService : IHostedService
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// 停止预热服务；该服务不持有后台资源，直接返回已完成任务。
+    /// </summary>
+    /// <param name="cancellationToken">取消令牌。</param>
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 }
 

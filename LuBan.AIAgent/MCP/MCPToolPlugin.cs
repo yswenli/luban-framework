@@ -21,10 +21,6 @@
 *描述：将已连接 MCP 客户端的工具并入 Agent 工具注册表
 *
 *****************************************************************************/
-using LuBan.AIAgent.Abstractions;
-using LuBan.AIAgent.Configuration;
-using Microsoft.Extensions.AI;
-using System.Text.Json;
 
 namespace LuBan.AIAgent.MCP;
 
@@ -105,6 +101,12 @@ public class MCPToolPlugin : ILuBanToolPlugin
         private readonly string _name;
         private readonly IToolConfirmationService _confirmationService;
 
+        /// <summary>
+        /// 把单个 MCP 工具包装为 AIFunction，工具名加 <c>mcp_{client}_{tool}</c> 前缀避免冲突。
+        /// </summary>
+        /// <param name="client">提供该工具的 MCP 客户端。</param>
+        /// <param name="tool">待包装的 MCP 工具定义。</param>
+        /// <param name="confirmationService">调用前的确认服务。</param>
         public MCPToolAIFunction(IMCPClient client, MCPTool tool, IToolConfirmationService confirmationService)
         {
             _client = client;
@@ -113,8 +115,14 @@ public class MCPToolPlugin : ILuBanToolPlugin
             _name = Sanitize($"mcp_{client.Name}_{tool.Name}");
         }
 
+        /// <summary>
+        /// 暴露给模型的工具名，已替换非法字符并带 MCP 客户端前缀。
+        /// </summary>
         public override string Name => _name;
 
+        /// <summary>
+        /// 工具描述，直接取自 MCP 工具自身的元数据。
+        /// </summary>
         public override string Description => _tool.Description;
 
         public override JsonElement JsonSchema
@@ -158,16 +166,30 @@ public class MCPToolPlugin : ILuBanToolPlugin
         private readonly MCPRegistry _registry;
         private readonly IToolConfirmationService _confirmationService;
 
+        /// <summary>
+        /// 构造「列出 MCP 资源」工具。
+        /// </summary>
+        /// <param name="registry">用于枚举已连接 MCP 客户端的注册表。</param>
+        /// <param name="confirmationService">调用前的确认服务。</param>
         public McpListResourcesAIFunction(MCPRegistry registry, IToolConfirmationService confirmationService)
         {
             _registry = registry;
             _confirmationService = confirmationService;
         }
 
+        /// <summary>
+        /// 工具名，固定为 <c>mcp_list_resources</c>。
+        /// </summary>
         public override string Name => "mcp_list_resources";
 
+        /// <summary>
+        /// 工具描述文字，说明可按 client 过滤、缺省遍历全部服务器。
+        /// </summary>
         public override string Description => "列出已连接 MCP 服务器可用的资源（client 可选，缺省遍历全部）。";
 
+        /// <summary>
+        /// 工具入参结构，仅含可选的 <c>client</c> 过滤字段。
+        /// </summary>
         public override JsonElement JsonSchema => JsonDocument.Parse(
             """{"type":"object","properties":{"client":{"type":"string","description":"MCP 服务器名称，缺省全部"}}}""").RootElement.Clone();
 
@@ -230,16 +252,30 @@ public class MCPToolPlugin : ILuBanToolPlugin
         private readonly MCPRegistry _registry;
         private readonly IToolConfirmationService _confirmationService;
 
+        /// <summary>
+        /// 构造「读取指定 MCP 资源」工具。
+        /// </summary>
+        /// <param name="registry">用于按名称解析 MCP 客户端的注册表。</param>
+        /// <param name="confirmationService">调用前的确认服务。</param>
         public McpReadResourceAIFunction(MCPRegistry registry, IToolConfirmationService confirmationService)
         {
             _registry = registry;
             _confirmationService = confirmationService;
         }
 
+        /// <summary>
+        /// 工具名，固定为 <c>mcp_read_resource</c>。
+        /// </summary>
         public override string Name => "mcp_read_resource";
 
+        /// <summary>
+        /// 工具描述文字，说明需提供 client 与 uri。
+        /// </summary>
         public override string Description => "读取指定 MCP 资源的完整内容（需 client 与 uri）。";
 
+        /// <summary>
+        /// 工具入参结构，强制要求 <c>client</c> 与 <c>uri</c> 两个字段。
+        /// </summary>
         public override JsonElement JsonSchema => JsonDocument.Parse(
             """{"type":"object","required":["client","uri"],"properties":{"client":{"type":"string"},"uri":{"type":"string"}}}""").RootElement.Clone();
 

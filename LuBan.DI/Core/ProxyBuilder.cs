@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 /****************************************************************************
 *Copyright (c) YSWenli All Rights Reserved.
 *CLR版本： .net10.0
@@ -255,7 +254,6 @@ internal class ProxyBuilder
         packedArr.BeginSet(PackedArgs.MethodTokenPosition);
         il.Emit(OpCodes.Ldc_I4, methodToken);
         packedArr.EndSet(typeof(int));
-
 
         // packed[PackedArgs.ArgsPosition] = args;
         packedArr.BeginSet(PackedArgs.ArgsPosition);
@@ -568,9 +566,21 @@ internal class ProxyBuilder
 
     private sealed class PropertyAccessorInfo
     {
+        /// <summary>
+        /// 接口上属性 get 访问器的方法元数据，生成的代理方法需与之对应。
+        /// </summary>
         public MethodInfo InterfaceGetMethod { get; }
+        /// <summary>
+        /// 接口上属性 set 访问器的方法元数据，生成的代理方法需与之对应。
+        /// </summary>
         public MethodInfo InterfaceSetMethod { get; }
+        /// <summary>
+        /// 正在生成的 get 访问器方法体构建器。
+        /// </summary>
         public MethodBuilder GetMethodBuilder { get; set; }
+        /// <summary>
+        /// 正在生成的 set 访问器方法体构建器。
+        /// </summary>
         public MethodBuilder SetMethodBuilder { get; set; }
 
         /// <summary>
@@ -589,13 +599,37 @@ internal class ProxyBuilder
 
     private sealed class EventAccessorInfo
     {
+        /// <summary>
+        /// 接口上事件 add 访问器的方法元数据，接口未声明该事件时为空。
+        /// </summary>
         public MethodInfo? InterfaceAddMethod { get; }
+        /// <summary>
+        /// 接口上事件 remove 访问器的方法元数据，接口未声明该事件时为空。
+        /// </summary>
         public MethodInfo? InterfaceRemoveMethod { get; }
+        /// <summary>
+        /// 接口上事件 raise 访问器的方法元数据，接口未声明该事件时为空。
+        /// </summary>
         public MethodInfo? InterfaceRaiseMethod { get; }
+        /// <summary>
+        /// 正在生成的 add 访问器方法体构建器。
+        /// </summary>
         public MethodBuilder AddMethodBuilder { get; set; }
+        /// <summary>
+        /// 正在生成的 remove 访问器方法体构建器。
+        /// </summary>
         public MethodBuilder RemoveMethodBuilder { get; set; }
+        /// <summary>
+        /// 正在生成的 raise 访问器方法体构建器。
+        /// </summary>
         public MethodBuilder RaiseMethodBuilder { get; set; }
 
+        /// <summary>
+        /// 记录接口事件的三个访问器方法元数据，供代理生成时匹配与复用。
+        /// </summary>
+        /// <param name="interfaceAddMethod">接口上事件 add 访问器的方法元数据。</param>
+        /// <param name="interfaceRemoveMethod">接口上事件 remove 访问器的方法元数据。</param>
+        /// <param name="interfaceRaiseMethod">接口上事件 raise 访问器的方法元数据。</param>
         public EventAccessorInfo(MethodInfo? interfaceAddMethod, MethodInfo? interfaceRemoveMethod, MethodInfo? interfaceRaiseMethod)
         {
             InterfaceAddMethod = interfaceAddMethod;
@@ -606,6 +640,9 @@ internal class ProxyBuilder
 
     private sealed class MethodInfoEqualityComparer : EqualityComparer<MethodInfo>
     {
+        /// <summary>
+        /// 方法元数据相等比较器的共享实例，按声明类型、返回类型与调用约定等方法签名逐项比较。
+        /// </summary>
         public static readonly MethodInfoEqualityComparer Instance = new();
 
         private MethodInfoEqualityComparer()

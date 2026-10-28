@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c) YSWenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -6,7 +6,7 @@
 *命名空间：LuBan.Reporting.Dynamic.Models
 *文件名： DynamicReportResult
 *版本号： V1.0.0.0
-*唯一标识：
+*唯一标识：d430c533-1201-40f9-9081-6a8567fd384e
 *当前的用户域：WALLE
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com

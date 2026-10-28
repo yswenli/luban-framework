@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -28,8 +28,15 @@ namespace LuBan.EventBus.Core;
 /// ConsoleWriteInfoHandler 处理器类
 /// </summary>
 
+/// <summary>
+/// 把控制台输出事件按事件指定的颜色与时间格式打印到控制台的处理器。
+/// </summary>
 public class ConsoleWriteInfoHandler : IEventHandler<ConsoleWriteInfo>
 {
+    /// <summary>
+    /// 按事件中的颜色与时间开关输出文本：Windows 使用控制台前景色，其它平台使用 ANSI 颜色。
+    /// </summary>
+    /// <param name="eventData">包含待输出文本、颜色与时间格式的控制台输出事件。</param>
     public Task HandleAsync(ConsoleWriteInfo eventData)
     {
         try
@@ -60,6 +67,10 @@ public class ConsoleWriteInfoHandler : IEventHandler<ConsoleWriteInfo>
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// 记录事件处理过程中抛出的异常，避免异常向事件总线传播。
+    /// </summary>
+    /// <param name="exception">事件处理期间捕获的异常。</param>
     public Task OnErrorAsync(Exception exception)
     {
         Logger.Error(exception);

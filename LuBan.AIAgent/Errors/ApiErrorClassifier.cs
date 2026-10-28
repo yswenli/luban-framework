@@ -1,17 +1,19 @@
 /****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：Walle
 *命名空间：LuBan.AIAgent.Errors
 *文件名： ApiErrorClassifier
-*唯一标识：LLM/API 错误分类器
+*版本号： V1.0.0.0
+*唯一标识：03144edc-5f23-4dbb-af0c-77b5b4842f1f
+*当前的用户域：WALLE
+*创建人：yswenli
+*电子邮箱：yswenli@outlook.com
 *创建时间：2026/9/17
 *描述：结构化优先（HTTP 状态码 + error.code）+ 文案关键字兜底的错误分类器
 *
 *****************************************************************************/
-using System.ClientModel;
-using System.Globalization;
-using System.Net.Sockets;
-using System.Text.RegularExpressions;
 
 namespace LuBan.AIAgent.Errors;
 

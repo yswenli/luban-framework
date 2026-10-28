@@ -14,11 +14,6 @@
 *描述：大日志分析工具插件（非 opt-in，工具组名 "log"）
 *
 *****************************************************************************/
-using LuBan.AIAgent.Abstractions;
-using LuBan.AIAgent.Configuration;
-using Microsoft.Extensions.AI;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
 
 namespace LuBan.AIAgent.Tools.Log;
 

@@ -74,6 +74,10 @@ public class MCPRegistry
     /// <param name="workspaceDir">工作区目录</param>
     [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026", 
         Justification = "JSON 序列化仅用于简单配置类型，已通过 JsonSerializerOptions 处理")]
+    /// <summary>
+    /// 从用户级与工作区 <c>.luban-agent/mcps</c> 目录的配置文件重建 MCP 客户端集合。
+    /// </summary>
+    /// <param name="workspaceDir">工作区根目录，其配置优先级高于用户级配置。</param>
     public void LoadFromWorkspace(string workspaceDir)
     {
         var temp = new Dictionary<string, (IMCPClient Client, string Fingerprint)>(StringComparer.OrdinalIgnoreCase);

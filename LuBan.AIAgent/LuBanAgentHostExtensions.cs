@@ -6,7 +6,7 @@
 *命名空间：LuBan.AIAgent
 *文件名： LuBanAgentHostExtensions
 *版本号： V1.0.0.0
-*唯一标识：Agent 宿主注册扩展
+*唯一标识：48d62835-58e8-4fd9-9e43-591bee987786
 *当前的用户域：WALLE
 *创建人：yswenli
 *电子邮箱：yswenli@outlook.com
@@ -14,11 +14,6 @@
 *描述：Agent 宿主注册扩展：AddLuBanAgentHost / AddLuBanAgentOpenAI
 *
 *****************************************************************************/
-using LuBan.AIAgent.Abstractions;
-using LuBan.AIAgent.Hosting;
-using LuBan.AIAgent.Hosting.Commands;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace LuBan.AIAgent;
 

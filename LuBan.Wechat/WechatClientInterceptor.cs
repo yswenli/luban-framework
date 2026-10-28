@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -28,6 +28,12 @@ namespace LuBan.Wechat;
 /// </summary>
 public class WechatClientInterceptor : HttpInterceptor
 {
+    /// <summary>
+    /// 在 HTTP 请求发出前回调，此处不做任何处理直接返回已完成任务。
+    /// </summary>
+    /// <param name="context">当前 HTTP 调用上下文，含请求地址、请求体等信息。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>已完成的空任务。</returns>
     public override Task BeforeCallAsync(HttpInterceptorContext context, CancellationToken cancellationToken)
     {
         return Task.CompletedTask;

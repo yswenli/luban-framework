@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -35,10 +35,29 @@ public class ChineseCalendar
     /// </summary>
     private struct SolarHolidayStruct
     {
+        /// <summary>
+        /// 节日的公历月份（1-12）。
+        /// </summary>
         public int Month;
+        /// <summary>
+        /// 节日的公历日（1-31）。
+        /// </summary>
         public int Day;
+        /// <summary>
+        /// 假期长度（天），仅作为节日数据声明，当前计算逻辑未使用该值。
+        /// </summary>
         public int Recess; //假期长度
+        /// <summary>
+        /// 节日名称，多个名称以空格分隔。
+        /// </summary>
         public string HolidayName;
+        /// <summary>
+        /// 初始化一条公历节日数据。
+        /// </summary>
+        /// <param name="month">公历月份（1-12）。</param>
+        /// <param name="day">公历日（1-31）。</param>
+        /// <param name="recess">假期长度（天）。</param>
+        /// <param name="name">节日名称。</param>
         public SolarHolidayStruct(int month, int day, int recess, string name)
         {
             Month = month;
@@ -53,11 +72,30 @@ public class ChineseCalendar
     /// </summary>
     private struct LunarHolidayStruct
     {
+        /// <summary>
+        /// 节日的农历月份（1-12）；闰月不参与节日匹配。
+        /// </summary>
         public int Month;
+        /// <summary>
+        /// 节日的农历日（1-30）。
+        /// </summary>
         public int Day;
+        /// <summary>
+        /// 假期长度（天），仅作为节日数据声明，当前计算逻辑未使用该值。
+        /// </summary>
         public int Recess;
+        /// <summary>
+        /// 节日名称，多个名称以空格分隔。
+        /// </summary>
         public string HolidayName;
 
+        /// <summary>
+        /// 初始化一条农历节日数据。
+        /// </summary>
+        /// <param name="month">农历月份（1-12）。</param>
+        /// <param name="day">农历日（1-30）。</param>
+        /// <param name="recess">假期长度（天）。</param>
+        /// <param name="name">节日名称。</param>
         public LunarHolidayStruct(int month, int day, int recess, string name)
         {
             Month = month;
@@ -69,11 +107,30 @@ public class ChineseCalendar
 
     private struct WeekHolidayStruct
     {
+        /// <summary>
+        /// 节日所在的公历月份（1-12）。
+        /// </summary>
         public int Month;
+        /// <summary>
+        /// 节日是该月的第几周（从 1 起算，以周日为一周首日）。
+        /// </summary>
         public int WeekAtMonth;
+        /// <summary>
+        /// 星期几：1 为周日、2 为周一，依次到 7 为周六。
+        /// </summary>
         public int WeekDay;
+        /// <summary>
+        /// 节日名称，多个名称以空格分隔。
+        /// </summary>
         public string HolidayName;
 
+        /// <summary>
+        /// 初始化一条“某月第几周第几日”形式的节日数据。
+        /// </summary>
+        /// <param name="month">公历月份（1-12）。</param>
+        /// <param name="weekAtMonth">该月第几周（从 1 起算）。</param>
+        /// <param name="weekDay">星期几（1 为周日，7 为周六）。</param>
+        /// <param name="name">节日名称。</param>
         public WeekHolidayStruct(int month, int weekAtMonth, int weekDay, string name)
         {
             Month = month;

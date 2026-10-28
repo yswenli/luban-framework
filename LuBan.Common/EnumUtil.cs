@@ -1,10 +1,9 @@
-using System.Diagnostics.CodeAnalysis;
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：YSWENLI
 *公司名称：yswenli
-*命名空间：LuBan.Common
+*命名空间：System
 *文件名： EnumUtil
 *版本号： V1.0.0.0
 *唯一标识：f5f2798a-6186-4510-b81e-ac70b0a49615
@@ -23,7 +22,6 @@ using System.Diagnostics.CodeAnalysis;
 *
 *****************************************************************************/
 namespace System;
-
 
 /// <summary>
 /// 枚举工具类
@@ -284,8 +282,6 @@ public static class EnumUtil
     {
         return Enum.GetValues(typeof(TEnum)).Cast<TEnum>().ToDictionary(t => t.ToString(), t => t.ToString());
     }
-
-
 
     private static readonly ConcurrentDictionary<Type, Dictionary<string, object>> _descriptionCache = new();
     /// <summary>

@@ -6,7 +6,7 @@
 *命名空间：LuBan.AIAgent.Hosting
 *文件名： DefaultAgentProfile
 *版本号： V1.0.0.0
-*唯一标识：默认通用助手 Profile
+*唯一标识：94d7b36c-9a59-4c15-9b6a-0e83449c4070
 *当前的用户域：WALLE
 *创建人：yswenli
 *电子邮箱：yswenli@outlook.com

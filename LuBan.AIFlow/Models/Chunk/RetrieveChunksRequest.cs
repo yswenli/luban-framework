@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -29,9 +29,15 @@ namespace LuBan.AIFlow.Models.Chunk;
 /// </summary>
 public class RetrieveChunksRequest
 {
+    /// <summary>
+    /// 用于相似度检索的查询文本（请求参数 query）。
+    /// </summary>
     [JsonPropertyName("query")]
     public string Query { get; set; } = string.Empty;
 
+    /// <summary>
+    /// 返回相似度最高的分块数量，默认 5（请求参数 top_k）。
+    /// </summary>
     [JsonPropertyName("top_k")]
     public int TopK { get; set; } = 5;
 }

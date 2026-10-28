@@ -1,9 +1,9 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：YSWENLI
 *公司名称：yswenli
-*命名空间：LuBan.Web.Core.Logs
+*命名空间：LuBan.Web.Core.Attributes
 *文件名： ApiLogAttribute
 *版本号： V1.0.0.0
 *唯一标识：ec89ef3c-3581-4fb4-8fa7-ffecbf40a694
@@ -30,6 +30,9 @@ namespace LuBan.Web.Core.Attributes;
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, AllowMultiple = false, Inherited = true)]
 public class ApiLogAttribute : BaseFilterAttribute, IAsyncActionFilter, IAsyncExceptionFilter, IAsyncResultFilter, IOrderedFilter
 {
+    /// <summary>
+    /// 过滤器执行顺序，固定为 99999 使该过滤器排在最后执行。
+    /// </summary>
     public new int Order => 99999;
 
     /// <summary>

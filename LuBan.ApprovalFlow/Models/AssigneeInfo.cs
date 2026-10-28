@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -28,9 +28,21 @@ namespace LuBan.ApprovalFlow.Models;
 /// AssigneeInfo 模型类
 /// </summary>
 
+/// <summary>
+/// 审批节点的处理人信息。
+/// </summary>
 public class AssigneeInfo
 {
+    /// <summary>
+    /// 处理人的用户ID。
+    /// </summary>
     public long UserId { get; set; }
+    /// <summary>
+    /// 处理人姓名。
+    /// </summary>
     public string UserName { get; set; } = string.Empty;
+    /// <summary>
+    /// 处理人在该节点中承担的角色，可为空。
+    /// </summary>
     public string? Role { get; set; }
 }

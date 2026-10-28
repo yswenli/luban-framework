@@ -6,7 +6,7 @@
 *命名空间：LuBan.AIAgent.Abstractions
 *文件名： ToolArgsFormatter
 *版本号： V1.0.0.0
-*唯一标识：工具参数摘要格式化
+*唯一标识：0c060d5b-c0b9-4c57-9ad6-3a3a476f283b
 *当前的用户域：WALLE
 *创建人：yswenli
 *电子邮箱：yswenli@outlook.com

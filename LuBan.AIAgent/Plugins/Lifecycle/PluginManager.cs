@@ -14,10 +14,6 @@
 *描述：插件管理器 - 扫描/启停/卸载与 7 步卸载流程（PRD §3.4 / §3.5 / §3.12）
 *
 *****************************************************************************/
-using System.Diagnostics;
-using System.Reflection;
-using System.Runtime.CompilerServices;
-using LuBan.AIAgent.Plugins.Loading;
 
 namespace LuBan.AIAgent.Plugins.Lifecycle;
 
@@ -1160,9 +1156,21 @@ public sealed class PluginManager
     /// </summary>
     private sealed class UnloadProbe
     {
+        /// <summary>
+        /// 插件加载上下文的弱引用，用于验证其可被回收。
+        /// </summary>
         public WeakReference? LoadContextRef { get; set; }
+        /// <summary>
+        /// 插件实例的弱引用。
+        /// </summary>
         public WeakReference? PluginRef { get; set; }
+        /// <summary>
+        /// 插件程序集的弱引用。
+        /// </summary>
         public WeakReference? AssemblyRef { get; set; }
+        /// <summary>
+        /// 插件类型对象的弱引用。
+        /// </summary>
         public WeakReference? PluginTypeRef { get; set; }
 
         /// <summary>
@@ -1184,22 +1192,71 @@ public sealed class PluginManager
     /// </summary>
     private sealed class PluginEntry
     {
+        /// <summary>
+        /// 插件唯一标识，外部插件取清单 Id，内置插件取固定 Id。
+        /// </summary>
         public string Id { get; init; } = string.Empty;
+        /// <summary>
+        /// 是否为随宿主发布的内置插件。
+        /// </summary>
         public bool IsBuiltin { get; init; }
+        /// <summary>
+        /// 外部插件所在目录；内置插件为 null。
+        /// </summary>
         public string? Directory { get; set; }
+        /// <summary>
+        /// 插件清单内容，描述名称、版本、作者与权限声明。
+        /// </summary>
         public PluginManifest? Manifest { get; set; }
+        /// <summary>
+        /// 内置插件实例；外部插件为 null。
+        /// </summary>
         public IPlugin? BuiltinPlugin { get; init; }
+        /// <summary>
+        /// 外部插件加载后得到的实例与程序集句柄。
+        /// </summary>
         public LoadedPlugin? Loaded { get; set; }
+        /// <summary>
+        /// 插件专属宿主作用域，承载其加载上下文与依赖容器。
+        /// </summary>
         public PluginHostScope? Scope { get; set; }
+        /// <summary>
+        /// 插件当前所处的生命周期状态。
+        /// </summary>
         public PluginState State { get; set; } = PluginState.Installed;
+        /// <summary>
+        /// 最近一次加载或启用失败的错误信息。
+        /// </summary>
         public string? LastError { get; set; }
+        /// <summary>
+        /// 该插件的变更是否需重启宿主才能生效。
+        /// </summary>
         public bool RequiresRestart { get; set; }
+        /// <summary>
+        /// 宿主启动时是否应自动启用该插件。
+        /// </summary>
         public bool ShouldEnableOnStartup { get; set; }
+        /// <summary>
+        /// 该插件注册过的侧边栏入口标识集合，卸载时据此清理。
+        /// </summary>
         public HashSet<string> RegisteredSidebarEntries { get; } = new(StringComparer.OrdinalIgnoreCase);
+        /// <summary>
+        /// 该插件注册过的 Skill 标识集合，卸载时据此清理。
+        /// </summary>
         public HashSet<string> RegisteredSkillIds { get; } = new(StringComparer.OrdinalIgnoreCase);
+        /// <summary>
+        /// 该插件注册过的 MCP 服务器名称集合，卸载时据此清理。
+        /// </summary>
         public HashSet<string> RegisteredMcpServers { get; } = new(StringComparer.OrdinalIgnoreCase);
+        /// <summary>
+        /// 该插件注册过的连接器键集合，卸载时据此清理。
+        /// </summary>
         public HashSet<string> RegisteredConnectorKeys { get; } = new(StringComparer.OrdinalIgnoreCase);
 
+        /// <summary>
+        /// 转换为供设置页等界面展示的插件描述快照。
+        /// </summary>
+        /// <returns>含名称、版本、状态与错误信息等字段的插件描述。</returns>
         public PluginDescriptor ToDescriptor() => new()
         {
             Id = Id,

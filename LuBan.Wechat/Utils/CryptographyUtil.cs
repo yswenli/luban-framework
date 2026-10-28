@@ -1,10 +1,10 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
-*CLR版本： 4.0.30319.42000
+*CLR版本： .net10.0
 *机器名称：WALLE
 *公司名称：河之洲
 *命名空间：LuBan.Wechat.Utils
-*文件名： Cryptography
+*文件名： CryptographyUtil
 *版本号： V1.0.0.0
 *唯一标识：ec5028a4-72c0-47a1-865c-db1097ddbc26
 *当前的用户域：WALLE
@@ -30,6 +30,11 @@ namespace LuBan.Wechat.Utils;
 /// </summary>
 public static class CryptographyUtil
 {
+    /// <summary>
+    /// 把 32 位无符号整数从主机字节序转换为网络字节序（大端）。
+    /// </summary>
+    /// <param name="inval">待转换的主机字节序数值。</param>
+    /// <returns>转换后的网络字节序数值。</returns>
     public static UInt32 HostToNetworkOrder(UInt32 inval)
     {
         UInt32 outval = 0;
@@ -38,6 +43,11 @@ public static class CryptographyUtil
         return outval;
     }
 
+    /// <summary>
+    /// 把 32 位有符号整数从主机字节序转换为网络字节序（大端）。
+    /// </summary>
+    /// <param name="inval">待转换的主机字节序数值。</param>
+    /// <returns>转换后的网络字节序数值。</returns>
     public static Int32 HostToNetworkOrder(Int32 inval)
     {
         Int32 outval = 0;
@@ -75,6 +85,13 @@ public static class CryptographyUtil
         return oriMsg;
     }
 
+    /// <summary>
+    /// 按微信消息体格式加密：随机 16 字节 + 4 字节网络字节序明文长度 + 明文 + 接收方 ID，再做 AES-256-CBC 加密并 Base64 编码。
+    /// </summary>
+    /// <param name="Input">待加密的明文字符串。</param>
+    /// <param name="EncodingAESKey">43 位消息加解密密钥，补等号后解码为 32 字节 AES 密钥，前 16 字节同时作为初始向量。</param>
+    /// <param name="corpid">参与打包的接收方 ID，企业微信场景为 CorpId。</param>
+    /// <returns>Base64 编码的密文字符串。</returns>
     public static String AES_encrypt(String Input, string EncodingAESKey, string corpid)
     {
         byte[] Key;

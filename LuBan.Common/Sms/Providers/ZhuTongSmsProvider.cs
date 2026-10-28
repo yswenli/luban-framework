@@ -22,8 +22,6 @@
 *
 *****************************************************************************/
 
-using LuBan.Common.Sms.Models;
-
 namespace LuBan.Common.Sms.Providers;
 
 /// <summary>

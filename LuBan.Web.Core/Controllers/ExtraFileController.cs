@@ -1,10 +1,10 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *Author：yswenli
-*命名空间：LuBan.Web.Core.Controls
-*文件名： BigFileController
+*命名空间：LuBan.Web.Core.Controllers
+*文件名： ExtraFileController
 *版本号： V1.0.0.0
 *唯一标识：00638a4e-c3e2-4d51-af7d-1b577f8f6599
 *当前的用户域：WALLE

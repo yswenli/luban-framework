@@ -6,7 +6,7 @@
 *命名空间：LuBan.AIAgent.Hosting
 *文件名： IAgentProfileResolver
 *版本号： V1.0.0.0
-*唯一标识：Profile 解析接口
+*唯一标识：19f8fefb-4554-428c-8352-3219fba4d1e9
 *当前的用户域：WALLE
 *创建人：yswenli
 *电子邮箱：yswenli@outlook.com

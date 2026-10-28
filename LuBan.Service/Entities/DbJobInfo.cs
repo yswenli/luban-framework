@@ -35,6 +35,9 @@ public class DbJobInfo : EntityBase
     /// </summary>
     [SugarColumn(ColumnDescription = "作业名称", Length = 256,
         IndexGroupNameList = new[] { "Idx_DbJobInfo_Name" })]
+    /// <summary>
+    /// 作业名称，长度 256，带唯一索引 <c>Idx_DbJobInfo_Name</c>。
+    /// </summary>
     public string Name { get; set; }
 
     /// <summary>

@@ -24,14 +24,6 @@
 *      targetCount 入参钳制；摘要先写后归档；工具结果改为只回传统计信息；支持取消令牌。
 *
 *****************************************************************************/
-using System.Text.Json;
-using LuBan.AIAgent.Abstractions;
-using LuBan.AIAgent.Configuration;
-using LuBan.AIAgent.Sessions;
-using Microsoft.Agents.AI;
-using Microsoft.Extensions.AI;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
 
 namespace LuBan.AIAgent.Tools.Context;
 

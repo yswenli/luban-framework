@@ -6,7 +6,7 @@
 *命名空间：LuBan.AIAgent.Hosting
 *文件名： SessionRuntimeSeed
 *版本号： V1.0.0.0
-*唯一标识：会话初始化种子
+*唯一标识：de1e3f2d-f1b3-4395-b91b-8261fa98d2e7
 *当前的用户域：WALLE
 *创建人：yswenli
 *电子邮箱：yswenli@outlook.com

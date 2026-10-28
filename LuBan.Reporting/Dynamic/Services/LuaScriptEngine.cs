@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c) YSWenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -6,7 +6,7 @@
 *命名空间：LuBan.Reporting.Dynamic.Services
 *文件名： LuaScriptEngine
 *版本号： V1.0.0.0
-*唯一标识：
+*唯一标识：404f28cc-8904-4855-81fd-557cc76b8fe2
 *当前的用户域：WALLE
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
@@ -22,8 +22,6 @@
 *
 *****************************************************************************/
 
-using System.Collections.Concurrent;
-
 namespace LuBan.Reporting.Dynamic.Services;
 
 /// <summary>
@@ -34,6 +32,9 @@ public class LuaScriptEngine : IDisposable
     private readonly ConcurrentDictionary<string, Delegate> _customFunctions = new();
     private readonly HttpClient _httpClient;
 
+    /// <summary>
+    /// 创建 Lua 脚本引擎封装，并初始化超时为 30 秒的内部 HTTP 客户端。
+    /// </summary>
     public LuaScriptEngine()
     {
         _httpClient = new HttpClient();
@@ -310,7 +311,6 @@ public class LuaScriptEngine : IDisposable
     {
         return Regex.Replace(str, pattern, replacement, RegexOptions.None, TimeSpan.FromSeconds(5));
     }
-
 
     #endregion
 

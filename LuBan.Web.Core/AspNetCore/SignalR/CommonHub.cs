@@ -1,10 +1,10 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *Author：yswenli
-*命名空间：LuBan.Web.Core.AspNetCore
-*文件名： BaseHub
+*命名空间：LuBan.Web.Core.AspNetCore.SignalR
+*文件名： CommonHub
 *版本号： V1.0.0.0
 *唯一标识：17948d22-5c33-4ce6-9eb4-87bddc7d4bb4
 *当前的用户域：WALLE
@@ -28,6 +28,9 @@ namespace LuBan.Web.Core.AspNetCore.SignalR;
 /// jwt放在请求地址的 query string [access_token]
 /// </summary>
 //[Authorize]
+/// <summary>
+/// 通用 SignalR Hub，连接后自动加入默认组，支持向全部连接、指定组或当前连接推送消息。
+/// </summary>
 public class CommonHub : Hub<IHubClient>, IHubServer
 {
     /// <summary>

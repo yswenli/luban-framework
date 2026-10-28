@@ -3,7 +3,7 @@
 *CLR版本： .net10.0
 *机器名称：WALLE
 *公司名称：Walle
-*命名空间：LuBan.Web.Core.JWT
+*命名空间：LuBan.Web.Core.Jwt
 *文件名： JwtEncryption
 *版本号： V1.0.0.0
 *唯一标识：b2450e72-c354-4081-8140-2c0009a089de
@@ -21,8 +21,6 @@
 *描述：迁移到 System.IdentityModel.Tokens.Jwt，移除 JWT.Standard 依赖
 *
 *****************************************************************************/
-
-using System.IdentityModel.Tokens.Jwt;
 
 namespace LuBan.Web.Core.Jwt;
 
@@ -142,7 +140,6 @@ public class JwtEncryption
         }
         return result;
     }
-
 
     /// <summary>
     /// 获取 JWT 配置

@@ -29,7 +29,17 @@ namespace LuBan.AIAgent.Configuration;
 public class ModelEndpointOptions
 {
     /// <summary>
-    /// API 基础 URL
+    /// Provider 标识（如 deepseek、kimi，大小写不敏感）
+    /// </summary>
+    public string? Provider { get; set; }
+
+    /// <summary>
+    /// 模型标识（如 deepseek-v4-pro）
+    /// </summary>
+    public string? Model { get; set; }
+
+    /// <summary>
+    /// API 基础 URL（可选，缺省用 Provider 内置地址）
     /// </summary>
     public string? BaseUrl { get; set; }
 

@@ -1,10 +1,10 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c) YSWenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *Author：yswenli
 *命名空间：LuBan.Web.Core.Attributes
-*文件名： DistributedLockAtrribute
+*文件名： DistributedLockAttribute
 *版本号： V1.0.0.0
 *唯一标识：c503d03e-c8e5-4b04-90c4-520057988ce9
 *当前的用户域：WALLE
@@ -21,7 +21,6 @@
 *描述：分布式锁
 *
 *****************************************************************************/
-using LuBan.Redis.Interfaces;
 
 namespace LuBan.Web.Core.Attributes;
 
@@ -139,7 +138,6 @@ public class DistributedLockAttribute : BaseFilterAttribute
         }
         await next.Invoke();
     }
-
 
     /// <summary>
     /// 执行业务后

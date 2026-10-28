@@ -1,10 +1,10 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *公司名称：yswenli
-*命名空间：LuBan.Common.AspnetCore
-*文件名： BaseBackGroundService
+*命名空间：LuBan.Service.Interfaces
+*文件名： IJob
 *版本号： V1.0.0.0
 *唯一标识：b6c190aa-2b43-4d71-9ef7-8adc69d1ddef
 *当前的用户域：WALLE

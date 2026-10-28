@@ -21,9 +21,10 @@
 *描述：形状
 *
 *****************************************************************************/
-using Aspose.Slides;
 
 using ShapeType = Aspose.Slides.ShapeType;
+
+using Aspose.Slides;
 
 namespace LuBan.Office.Ppt;
 
@@ -128,7 +129,6 @@ public class PptShape
         return true;
     }
 
-
     /// <summary>
     /// 替换表格内的文本，
     /// https://docs.aspose.com/slides/net/manage-cells/
@@ -222,7 +222,6 @@ public class PptShape
         return false;
     }
 
-
     /// <summary>
     /// 添加或替换图像,
     /// https://docs.aspose.com/slides/net/image/
@@ -274,7 +273,6 @@ public class PptShape
         vf.Volume = AudioVolumeMode.Loud;
         vf.PictureFormat.Picture.Image = _shape.Slide.Presentation.Images[imageIndex];
     }
-
 
     /// <summary>
     /// 替换视频，

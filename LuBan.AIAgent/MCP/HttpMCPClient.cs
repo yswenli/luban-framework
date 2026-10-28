@@ -21,10 +21,6 @@
 *描述：新增 Url 字段、请求头（含 $credential 引用）注入与 Streamable HTTP 传输
 *
 *****************************************************************************/
-using System.Text;
-using System.Text.Json;
-using System.Text.Json.Nodes;
-using LuBan.AIAgent.Configuration;
 
 namespace LuBan.AIAgent.MCP;
 
@@ -225,6 +221,13 @@ public class HttpMCPClient : IMCPClient, IDisposable
     /// <inheritdoc />
     [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage("Trimming", "IL2026", 
         Justification = "JSON 序列化仅用于简单字典类型，已通过 JsonSerializerOptions 处理")]
+    /// <summary>
+    /// 以 JSON-RPC 调用远端 MCP 服务器上的指定工具。
+    /// </summary>
+    /// <param name="toolName">MCP 工具名称。</param>
+    /// <param name="arguments">传递给工具的参数表。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>工具调用结果；失败或无响应时 <c>Success</c> 为 false 并带错误说明。</returns>
     public async Task<MCPToolResult> CallToolAsync(string toolName, Dictionary<string, object?> arguments, CancellationToken cancellationToken = default)
     {
         try

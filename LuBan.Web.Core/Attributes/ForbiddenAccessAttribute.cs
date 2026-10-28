@@ -1,10 +1,10 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
-*CLR版本： 4.0.30319.42000
+*CLR版本： .net10.0
 *机器名称：WALLE
 *公司名称：河之洲
 *命名空间：LuBan.Web.Core.Attributes
-*文件名： ForbiddenAccessAtrribute
+*文件名： ForbiddenAccessAttribute
 *版本号： V1.0.0.0
 *唯一标识：86f234e6-c9d3-4449-b62e-16a2c5457a5e
 *当前的用户域：WALLE

@@ -15,11 +15,6 @@
 *      由 LLM 自行判定是否需要编排（取代旧的自动前哨中间件）
 *
 *****************************************************************************/
-using System.Text.Json;
-using LuBan.AIAgent.Abstractions;
-using LuBan.AIAgent.Orchestration;
-using LuBan.AIAgent.Orchestration.Models;
-using LuBan.AIAgent.Orchestration.Planner;
 
 namespace LuBan.AIAgent.Tools.Orchestration;
 
@@ -55,6 +50,12 @@ public class OrchestrationToolGroup
     [Description("把复合任务拆解为 DAG 任务图谱并登记，返回 graphId 与节点摘要。" +
                  "适用于多步骤、可并行、需要多种工具组合的任务；" +
                  "单一问答、单一工具调用等简单任务不要调用本工具。")]
+    /// <summary>
+    /// 把复合任务拆解为 DAG 任务图谱并登记，返回图谱标识与节点摘要。
+    /// </summary>
+    /// <param name="task">待拆解的复合任务描述。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>规划摘要 JSON；单节点或校验失败时返回标记为不编排的成功结果。</returns>
     public async Task<ToolResult<string>> PlanTaskAsync(
         [Description("复合任务描述")] string task,
         CancellationToken cancellationToken = default)
@@ -133,6 +134,12 @@ public class OrchestrationToolGroup
     /// <returns>编排结果文本。</returns>
     [Description("执行 plan_task 已登记的任务图谱（graphId 来自 plan_task 返回值），" +
                  "调度子代理执行并返回最终结果。必须先调用 plan_task。")]
+    /// <summary>
+    /// 执行已登记的任务图谱，调度子代理完成各节点并汇总结果。
+    /// </summary>
+    /// <param name="graphId"><c>plan_task</c> 返回的图谱标识。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>编排结果文本；图谱失效或执行出错时返回失败结果。</returns>
     public async Task<ToolResult<string>> RunOrchestrationAsync(
         [Description("plan_task 返回的图谱标识")] string graphId,
         CancellationToken cancellationToken = default)

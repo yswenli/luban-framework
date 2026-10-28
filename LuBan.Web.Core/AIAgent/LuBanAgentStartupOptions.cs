@@ -6,7 +6,7 @@
 *命名空间：LuBan.Web.Core.AIAgent
 *文件名： LuBanAgentStartupOptions
 *版本号： V1.0.0.0
-*唯一标识：Agent 配置校验模型
+*唯一标识：fde87925-9837-49e3-bcd9-0dc36a3efc6e
 *当前的用户域：WALLE
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
@@ -28,14 +28,14 @@ public sealed class LuBanAgentStartupOptions
     public string? WorkspaceRoot { get; set; }
 
     /// <summary>
-    /// 默认模型（格式 provider:model）
+    /// 默认模型（格式 provider:model）；可省略，省略时取 Models 第一项
     /// </summary>
     public string? DefaultModel { get; set; }
 
     /// <summary>
-    /// 模型接入点
+    /// 模型接入点列表；每项是一个 provider:model 组合
     /// </summary>
-    public LuBanAgentModelsOptions? Models { get; set; }
+    public List<LuBanAgentModelsOptions>? Models { get; set; }
 }
 
 /// <summary>

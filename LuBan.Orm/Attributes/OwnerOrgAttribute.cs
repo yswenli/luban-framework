@@ -1,10 +1,10 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *Author：yswenli
 *命名空间：LuBan.Orm.Attributes
-*文件名： CustomAttribute
+*文件名： OwnerOrgAttribute
 *版本号： V1.0.0.0
 *唯一标识：17ac920f-0788-4eee-9480-8b747d3201cd
 *当前的用户域：WALLE

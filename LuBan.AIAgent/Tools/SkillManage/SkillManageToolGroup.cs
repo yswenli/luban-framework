@@ -1,15 +1,19 @@
 /****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：Walle
 *命名空间：LuBan.AIAgent.Tools.SkillManage
 *文件名： SkillManageToolGroup
+*版本号： V1.0.0.0
+*唯一标识：7cfb630d-9dbb-4af6-afb1-c5cf63359a14
+*当前的用户域：WALLE
+*创建人：yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/10/14
 *描述：Skill 管理工具实现（WriteSkillAsync / DeleteSkillAsync）
+*
 *****************************************************************************/
-using LuBan.AIAgent.Abstractions;
-using LuBan.AIAgent.Configuration;
-using LuBan.AIAgent.Skills;
-using System.Text;
-using System.Text.RegularExpressions;
 
 namespace LuBan.AIAgent.Tools.SkillManage;
 

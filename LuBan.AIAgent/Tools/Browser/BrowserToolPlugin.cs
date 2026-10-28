@@ -21,7 +21,6 @@
 *描述：浏览器工具插件
 *
 *****************************************************************************/
-using LuBan.AIAgent.Abstractions;
 
 namespace LuBan.AIAgent.Tools.Browser;
 

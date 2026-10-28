@@ -6,7 +6,7 @@
 *命名空间：LuBan.AIAgent.Hosting
 *文件名： SessionRuntime
 *版本号： V1.0.0.0
-*唯一标识：会话运行时
+*唯一标识：f980a6dc-17be-4a5b-a460-987b10911e4a
 *当前的用户域：WALLE
 *创建人：yswenli
 *电子邮箱：yswenli@outlook.com
@@ -15,9 +15,6 @@
 *每个回合在会话临时目录作用域内执行，保证同会话内按序处理、临时文件彼此隔离。
 *
 *****************************************************************************/
-using System.Threading.Channels;
-
-using LuBan.Common.IO;
 
 namespace LuBan.AIAgent.Hosting;
 

@@ -6,7 +6,7 @@
 *命名空间：LuBan.AIAgent.Hosting
 *文件名： AgentHost
 *版本号： V1.0.0.0
-*唯一标识：宿主默认实现
+*唯一标识：09dba94c-8c5c-45d1-9721-66b0a4f0e67e
 *当前的用户域：WALLE
 *创建人：yswenli
 *电子邮箱：yswenli@outlook.com

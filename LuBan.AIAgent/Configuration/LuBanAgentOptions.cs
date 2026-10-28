@@ -49,9 +49,10 @@ public class LuBanAgentOptions
     public int MaxToolLoopIterations { get; set; } = 10;
 
     /// <summary>
-    /// 模型端点配置字典
+    /// 模型端点列表。每项是一个可用的 provider:model 组合；
+    /// 同一 Provider 可配置多个模型，但 ApiKey / BaseUrl 必须一致。
     /// </summary>
-    public Dictionary<string, ModelEndpointOptions> Models { get; set; } = new();
+    public List<ModelEndpointOptions> Models { get; set; } = new();
 
     /// <summary>
     /// 工具组配置

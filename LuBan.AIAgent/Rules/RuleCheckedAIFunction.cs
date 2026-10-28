@@ -22,8 +22,6 @@
 *
 *****************************************************************************/
 
-using Microsoft.Extensions.AI;
-
 namespace LuBan.AIAgent.Rules;
 
 /// <summary>

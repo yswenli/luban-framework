@@ -4,7 +4,7 @@
 *机器名称：WALLE
 *公司名称：Walle
 *命名空间：LuBan.Orm
-*文件名： DbConnectionConfig
+*文件名： DbConnectionOptions
 *版本号： V1.0.0.0
 *唯一标识：a16b3eba-1340-403e-aa6a-691af96a949b
 *当前的用户域：WALLE

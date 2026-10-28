@@ -1,15 +1,19 @@
 /****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：Walle
 *命名空间：LuBan.AIAgent.Tools.ConnectorManage
 *文件名： ConnectorManageToolPlugin
+*版本号： V1.0.0.0
+*唯一标识：8df83af0-853c-42a8-9ec6-91a26979878d
+*当前的用户域：WALLE
+*创建人：yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/10/20
 *描述：连接器管理工具组插件（GroupName="connectormanage"）
+*
 *****************************************************************************/
-using LuBan.AIAgent.Abstractions;
-using LuBan.AIAgent.Configuration;
-using LuBan.AIAgent.Connectors;
-using Microsoft.Extensions.AI;
-using Microsoft.Extensions.Options;
 
 namespace LuBan.AIAgent.Tools.ConnectorManage;
 

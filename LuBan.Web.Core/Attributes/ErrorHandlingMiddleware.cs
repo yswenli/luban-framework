@@ -1,9 +1,9 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：YSWENLI
 *公司名称：yswenli
-*命名空间：LuBan.Web.Core.Logs
+*命名空间：LuBan.Web.Core.Attributes
 *文件名： ErrorHandlingMiddleware
 *版本号： V1.0.0.0
 *唯一标识：5404f4d4-de9e-4d0a-b519-e35f0b304eba

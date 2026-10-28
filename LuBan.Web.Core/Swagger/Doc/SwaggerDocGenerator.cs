@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：YSWENLI
@@ -11,18 +11,16 @@
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2022/6/21 11:21:43
-*描述：
+*描述：Swagger 文档生成器
 *
 *=====================================================================
 *修改标记
 *修改时间：2022/6/21 11:21:43
 *修改人： walle.wen
 *版本号： V1.0.0.0
-*描述：
+*描述：Swagger 文档生成器
 *
 *****************************************************************************/
-using LuBan.Web.Core.Swagger.Doc.Models;
-using System.Text.Json.Nodes;
 
 namespace LuBan.Web.Core.Swagger.Doc;
 
@@ -322,7 +320,6 @@ public class SwaggerDocGenerator : ISwaggerDocGenerator
         }
         return exapmle;
     }
-
 
     /// <summary>
     /// 获取 Body 参数说明，递归扁平化输出所有属性到同一个markdown表格

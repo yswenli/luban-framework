@@ -21,7 +21,6 @@
 *描述：代理组件集
 *
 *****************************************************************************/
-using System.Collections.Concurrent;
 
 namespace LuBan.DI.Core;
 

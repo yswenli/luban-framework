@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -29,9 +29,15 @@ namespace LuBan.AIFlow.Models.Chunk;
 /// </summary>
 public class AddChunkRequest
 {
+    /// <summary>
+    /// 新增分块的文本内容（请求参数 content）。
+    /// </summary>
     [JsonPropertyName("content")]
     public string Content { get; set; } = string.Empty;
 
+    /// <summary>
+    /// 分块的自定义元数据，随分块一并保存（请求参数 metadata）。
+    /// </summary>
     [JsonPropertyName("metadata")]
     public object? Metadata { get; set; }
 }

@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -30,21 +30,36 @@ namespace LuBan.Common.Sms.Models;
 [DataContract]
 public class SmsRequestResult
 {
+    /// <summary>
+    /// 无效号码对应的模板变量节点，当前只包含 <c>var1</c>。
+    /// </summary>
     [DataContract]
     public class TpContent2
     {
 
+        /// <summary>
+        /// 模板变量 1 的取值（接口字段 var1）。
+        /// </summary>
         [DataMember(Name = "var1")]
         public string Var1 { get; set; }
     }
 
+    /// <summary>
+    /// 无效号码列表项（接口字段 invalidList 的元素）。
+    /// </summary>
     [DataContract]
     public class InvalidList2
     {
 
+        /// <summary>
+        /// 判定为无效的手机号（接口字段 mobile）。
+        /// </summary>
         [DataMember(Name = "mobile")]
         public string Mobile { get; set; }
 
+        /// <summary>
+        /// 该号码对应的模板变量（接口字段 tpContent）。
+        /// </summary>
         [DataMember(Name = "tpContent")]
         public TpContent2 TpContent { get; set; }
     }

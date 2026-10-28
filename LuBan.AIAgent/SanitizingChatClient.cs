@@ -31,6 +31,11 @@ public class SanitizingChatClient : IChatClient
     private readonly IChatClient _inner;
     private readonly int _maxConsecutiveToolOnly;
 
+    /// <summary>
+    /// 包装底层聊天客户端，对传入消息做清洗并注入连续纯工具调用的防护提示。
+    /// </summary>
+    /// <param name="inner">真正执行请求的底层聊天客户端。</param>
+    /// <param name="maxConsecutiveToolOnly">允许连续出现的纯工具调用消息条数上限，超出后注入防护提示。</param>
     public SanitizingChatClient(IChatClient inner, int maxConsecutiveToolOnly = 8)
     {
         _inner = inner;
@@ -111,6 +116,12 @@ public class SanitizingChatClient : IChatClient
         }
     }
 
+    /// <summary>
+    /// 按类型与可选键从底层客户端取得扩展服务。
+    /// </summary>
+    /// <param name="serviceType">期望获取的服务类型。</param>
+    /// <param name="key">同一类型下用于区分实例的可选键。</param>
+    /// <returns>底层客户端提供的服务实例；不支持时返回 null。</returns>
     public object? GetService(Type serviceType, object? key = null)
         => _inner.GetService(serviceType, key);
 

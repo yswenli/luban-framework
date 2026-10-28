@@ -1,10 +1,10 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ YSWenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *Author：yswenli
 *命名空间：LuBan.Orm.Generating
-*文件名： SeedDataConst
+*文件名： CSTemplateConst
 *版本号： V1.0.0.0
 *唯一标识：5a01dd6b-c4fb-4352-a878-819885e645a0
 *当前的用户域：WALLE

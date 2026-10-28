@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ 2023-2024 Oceania All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -11,14 +11,14 @@
 *创建人： WALLE
 *电子邮箱：yswenli@outlook.com
 *创建时间：2022/7/5 14:59:51
-*描述：
+*描述：微信视频回复消息实体。
 *
 *=================================================
 *修改标记
 *修改时间：2022/7/5 14:59:51
 *修改人： yswenli
 *版本号： V1.0.0.0
-*描述：
+*描述：微信视频回复消息实体。
 *
 *****************************************************************************/
 
@@ -29,10 +29,19 @@ namespace LuBan.Wechat.Models
     /// </summary>
     public class ReplyVideo : Reply
     {
+        /// <summary>
+        /// 回复视频的素材 ID，需为已上传的视频素材（回复协议字段 MediaId）。
+        /// </summary>
         public string MediaId { get; set; }
 
+        /// <summary>
+        /// 视频标题（回复协议字段 Title）。
+        /// </summary>
         public string Title { get; set; }
 
+        /// <summary>
+        /// 视频描述文本（回复协议字段 Description）。
+        /// </summary>
         public string Description { get; set; }
 
         /// <summary>

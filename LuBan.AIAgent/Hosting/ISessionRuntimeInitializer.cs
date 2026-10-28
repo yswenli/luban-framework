@@ -6,7 +6,7 @@
 *命名空间：LuBan.AIAgent.Hosting
 *文件名： ISessionRuntimeInitializer
 *版本号： V1.0.0.0
-*唯一标识：会话运行时初始化
+*唯一标识：6f6e5d3f-a48f-4fde-bcc3-8500693411a2
 *当前的用户域：WALLE
 *创建人：yswenli
 *电子邮箱：yswenli@outlook.com

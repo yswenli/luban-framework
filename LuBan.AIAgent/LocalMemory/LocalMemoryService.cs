@@ -14,8 +14,6 @@
 *描述：本地长期记忆服务实现
 *
 *****************************************************************************/
-using LuBan.AIAgent.Abstractions;
-using LuBan.AIAgent.Retrieval;
 
 namespace LuBan.AIAgent.LocalMemory;
 

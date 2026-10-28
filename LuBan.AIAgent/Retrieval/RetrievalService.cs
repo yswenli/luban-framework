@@ -24,8 +24,6 @@
 
 namespace LuBan.AIAgent.Retrieval;
 
-using LuBan.AIAgent.Wiki.Extractors;
-
 /// <summary>
 /// 语义检索服务实现
 /// </summary>

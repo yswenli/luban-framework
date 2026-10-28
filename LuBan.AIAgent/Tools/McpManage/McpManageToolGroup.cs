@@ -1,14 +1,19 @@
 /****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：Walle
 *命名空间：LuBan.AIAgent.Tools.McpManage
 *文件名： McpManageToolGroup
+*版本号： V1.0.0.0
+*唯一标识：c5733fa1-c3ea-40a0-b98a-37dde8c9e90e
+*当前的用户域：WALLE
+*创建人：yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/10/14
 *描述：MCP 管理工具实现（WriteMcpServerAsync / DeleteMcpServerAsync / TestMcpServerAsync）
+*
 *****************************************************************************/
-using LuBan.AIAgent.Abstractions;
-using LuBan.AIAgent.Configuration;
-using LuBan.AIAgent.MCP;
-using System.Text.Json;
 
 namespace LuBan.AIAgent.Tools.McpManage;
 
@@ -23,6 +28,14 @@ public class McpManageToolGroup
     private readonly IAgentReloadTrigger? _reloadTrigger;
     private readonly IMcpConfigValueResolver _resolver;
 
+    /// <summary>
+    /// 注入 MCP 注册表、管理工具选项与热重载依赖。
+    /// </summary>
+    /// <param name="registry">MCP 客户端注册表。</param>
+    /// <param name="options">MCP 管理工具的行为选项。</param>
+    /// <param name="mcpOptions">MCP 全局选项。</param>
+    /// <param name="reloadTrigger">配置写入后的热重载触发器，可为 null。</param>
+    /// <param name="resolver">配置值（含凭据引用）解析器，缺省用空实现。</param>
     public McpManageToolGroup(MCPRegistry registry, McpManageToolOptions options, McpOptions mcpOptions, IAgentReloadTrigger? reloadTrigger = null, IMcpConfigValueResolver? resolver = null)
     {
         _registry = registry;

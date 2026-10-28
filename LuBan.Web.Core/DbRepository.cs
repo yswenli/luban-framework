@@ -1,10 +1,10 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *Author：yswenli
 *命名空间：LuBan.Web.Core
-*文件名： DBRepository
+*文件名： DbRepository
 *版本号： V1.0.0.0
 *唯一标识：672a530f-91ac-481d-92f1-ec7b4a1b58ca
 *当前的用户域：WALLE

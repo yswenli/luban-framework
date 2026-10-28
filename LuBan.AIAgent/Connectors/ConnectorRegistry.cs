@@ -119,6 +119,10 @@ public sealed class ConnectorRegistry
     /// </remarks>
     [UnconditionalSuppressMessage("Trimming", "IL2026",
         Justification = "JSON 反序列化仅用于简单配置类型，已通过 JsonSerializerOptions 处理")]
+    /// <summary>
+    /// 从工作区 <c>.luban-agent/connectors</c> 下的 JSON 文件加载连接器声明，文件名即实例名。
+    /// </summary>
+    /// <param name="workspaceDir">工作区根目录；为空或无该子目录时清空后直接返回。</param>
     public void LoadFromWorkspace(string workspaceDir)
     {
         _workspaceEntries.Clear();

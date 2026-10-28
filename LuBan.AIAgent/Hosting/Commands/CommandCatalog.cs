@@ -6,7 +6,7 @@
 *命名空间：LuBan.AIAgent.Hosting.Commands
 *文件名： CommandCatalog
 *版本号： V1.0.0.0
-*唯一标识：默认斜杠命令清单
+*唯一标识：b5f98f51-d5ba-4f8e-94d9-1526f83ad398
 *当前的用户域：WALLE
 *创建人：yswenli
 *电子邮箱：yswenli@outlook.com
@@ -15,7 +15,6 @@
 *以现有 Cli/Codex 代码为准，避免清单漂移。
 *
 *****************************************************************************/
-using System.Collections.ObjectModel;
 
 namespace LuBan.AIAgent.Hosting.Commands;
 

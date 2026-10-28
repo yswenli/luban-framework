@@ -21,7 +21,6 @@
 *描述：集成的redis初始化
 *
 *****************************************************************************/
-using LuBan.Redis.Interfaces;
 
 namespace LuBan.Redis;
 
@@ -147,7 +146,6 @@ public class LuBanRedis : BaseSingleInstance<LuBanRedis>
     {
         return await GetFromCacheAsync(key, async () => await Task.FromResult(t), timeout, withEnv);
     }
-
 
     /// <summary>
     /// 获取或添加缓存
@@ -315,7 +313,6 @@ public class LuBanRedis : BaseSingleInstance<LuBanRedis>
         return await GetFromCacheAsync(key, () => Task.FromResult(t), timeout, withEnv);
     }
 
-
     /// <summary>
     /// 获取redis list队列
     /// </summary>
@@ -355,7 +352,6 @@ public class LuBanRedis : BaseSingleInstance<LuBanRedis>
 
     #endregion
 
-
     #region redis pub/sub 
 
     /// <summary>
@@ -389,7 +385,6 @@ public class LuBanRedis : BaseSingleInstance<LuBanRedis>
         return _redisClient.GetSubscriber<T>(channel);
     }
 
-
     /// <summary>
     /// 获取Redis键过期监听器
     /// </summary>
@@ -401,7 +396,6 @@ public class LuBanRedis : BaseSingleInstance<LuBanRedis>
     }
 
     #endregion
-
 
     /// <summary>
     /// 获取分布式锁

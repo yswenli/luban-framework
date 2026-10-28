@@ -1,10 +1,10 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ 2023-2024 Oceania All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *公司名称：Walle
 *命名空间：LuBan.Wechat.Models
-*文件名： EnumReceiveMsgType
+*文件名： ConfigParaResult
 *版本号： V1.0.0.0
 *唯一标识：9fb5f914-f0ca-4eb5-a283-e9014072be67
 *当前的用户域：WALLE

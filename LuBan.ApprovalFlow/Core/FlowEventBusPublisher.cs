@@ -1,9 +1,18 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c) YSWenli All Rights Reserved.
 *CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：Walle
 *命名空间：LuBan.ApprovalFlow.Core
 *文件名： FlowEventBusPublisher
+*版本号： V1.0.0.0
+*唯一标识：6888534d-e744-4918-88ba-9c51abce2948
+*当前的用户域：WALLE
+*创建人：yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/7/11
 *描述：审批流 EventBus 事件发布器
+*
 *****************************************************************************/
 
 namespace LuBan.ApprovalFlow.Core;

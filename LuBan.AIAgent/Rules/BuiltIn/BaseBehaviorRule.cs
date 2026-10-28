@@ -1,6 +1,3 @@
-using LuBan.AIAgent.Configuration;
-using Microsoft.Extensions.Options;
-
 /****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0

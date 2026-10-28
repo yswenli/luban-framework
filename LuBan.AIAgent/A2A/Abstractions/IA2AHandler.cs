@@ -14,7 +14,6 @@
 *描述：A2A 处理句柄抽象，不泄漏 SDK 类型，由 agent 侧映射到 SDK IAgentHandler
 *
 *****************************************************************************/
-using LuBan.AIAgent.A2A.Models;
 
 namespace LuBan.AIAgent.A2A.Abstractions;
 

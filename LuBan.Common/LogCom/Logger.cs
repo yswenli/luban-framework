@@ -3,7 +3,7 @@
 *CLR版本： .net10.0
 *机器名称：WALLE
 *Author：yswenli
-*命名空间：LuBan.Common.Logs
+*命名空间：System
 *文件名： Logger
 *版本号： V1.0.0.0
 *唯一标识：02884b7f-495c-432f-b914-e8b287a11395

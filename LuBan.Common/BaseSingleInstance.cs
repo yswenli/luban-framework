@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：YSWENLI
@@ -24,10 +24,16 @@
 
 namespace LuBan.Common;
 
+/// <summary>
+/// 泛型懒加载单例基类：通过 <c>Instance</c> 提供按需创建、线程安全的 <c>T</c> 实例。
+/// </summary>
 public abstract class BaseSingleInstance<T> where T : new()
 {
     static readonly Lazy<T> _lazy = new Lazy<T>(() => new T(), LazyThreadSafetyMode.ExecutionAndPublication);
 
+    /// <summary>
+    /// 单例实例，首次访问时由 <c>Lazy</c> 创建。
+    /// </summary>
     public static T Instance => _lazy.Value;
 }
 

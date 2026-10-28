@@ -1,13 +1,20 @@
 /****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：Walle
 *命名空间：LuBan.AIAgent.Errors
 *文件名： ResilientChatClient
-*唯一标识：LLM 调用容错重试中间件
+*版本号： V1.0.0.0
+*唯一标识：99438ab0-4443-409f-b540-1cc1a2089f1d
+*当前的用户域：WALLE
+*创建人：yswenli
+*电子邮箱：yswenli@outlook.com
 *创建时间：2026/9/17
 *描述：对瞬时错误按配置自动退避重试，最终失败抛出携带分类结果的 AgentApiException
 *
 *****************************************************************************/
+
 namespace LuBan.AIAgent.Errors;
 
 /// <summary>

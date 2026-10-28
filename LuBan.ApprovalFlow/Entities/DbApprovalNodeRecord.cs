@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -24,6 +24,9 @@
 
 namespace LuBan.ApprovalFlow.Entities;
 
+/// <summary>
+/// 审批节点记录实体，保存流程实例中各节点的状态与会签统计。
+/// </summary>
 [SugarTable("db_approval_node_record", "审批节点记录")]
 public class DbApprovalNodeRecord : EntityDataScoreBase
 {

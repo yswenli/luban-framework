@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -29,21 +29,39 @@ namespace LuBan.AIFlow.Models.ChatAssistant;
 /// </summary>
 public class ListChatAssistantsQuery
 {
+    /// <summary>
+    /// 查询页码，从 1 开始（请求参数 page）。
+    /// </summary>
     [JsonPropertyName("page")]
     public int Page { get; set; } = 1;
 
+    /// <summary>
+    /// 每页返回的记录条数，默认 30（请求参数 page_size）。
+    /// </summary>
     [JsonPropertyName("page_size")]
     public int PageSize { get; set; } = 30;
 
+    /// <summary>
+    /// 排序字段，默认按创建时间排序（请求参数 orderby）。
+    /// </summary>
     [JsonPropertyName("orderby")]
     public string OrderBy { get; set; } = "create_time";
 
+    /// <summary>
+    /// 是否按降序排列，默认降序（请求参数 desc）。
+    /// </summary>
     [JsonPropertyName("desc")]
     public bool Desc { get; set; } = true;
 
+    /// <summary>
+    /// 按聊天助手名称过滤，为空表示不限制（请求参数 name）。
+    /// </summary>
     [JsonPropertyName("name")]
     public string? Name { get; set; }
 
+    /// <summary>
+    /// 按聊天助手标识过滤，为空表示不限制（请求参数 id）。
+    /// </summary>
     [JsonPropertyName("id")]
     public string? Id { get; set; }
 }

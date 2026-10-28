@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -67,3 +67,32 @@ global using System.Text;
 global using System.Text.Json;
 global using System.Text.RegularExpressions;
 global using System.Threading.Channels;
+
+// 由代码文件上移的命名空间（2026-10-28 规范化）
+global using LuBan.AIAgent.A2A.Abstractions;
+global using LuBan.AIAgent.A2A.Models;
+global using LuBan.AIAgent.Abstractions.Models;
+global using LuBan.AIAgent.Configuration.Providers;
+global using LuBan.AIAgent.Defaults;
+global using LuBan.AIAgent.Hosting;
+global using LuBan.AIAgent.Hosting.Commands;
+global using LuBan.AIAgent.Orchestration;
+global using LuBan.AIAgent.Orchestration.Planner;
+global using LuBan.AIAgent.Retrieval;
+global using LuBan.AIAgent.Wiki;
+global using LuBan.AIAgent.Wiki.Extractors;
+global using LuBan.Common.IO;
+global using Microsoft.Extensions.DependencyInjection.Extensions;
+global using MoonSharp.Interpreter;
+global using OpenAI;
+global using SkiaSharp;
+global using System.ClientModel;
+global using System.Collections.ObjectModel;
+global using System.Globalization;
+global using System.IO.Compression;
+global using System.Net;
+global using System.Net.Sockets;
+global using System.Runtime.InteropServices;
+global using System.Runtime.Loader;
+global using System.Text.Json.Nodes;
+global using System.Text.Json.Serialization;

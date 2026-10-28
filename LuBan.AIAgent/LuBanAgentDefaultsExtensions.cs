@@ -1,14 +1,19 @@
-/***************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：Walle
 *命名空间：LuBan.AIAgent
 *文件名： LuBanAgentDefaultsExtensions
+*版本号： V1.0.0.0
+*唯一标识：57593539-cec6-404c-a939-b54369ef2c90
+*当前的用户域：WALLE
+*创建人：yswenli
+*电子邮箱：yswenli@outlook.com
 *创建时间：2026/10/14
 *描述：LuBan Agent「开箱即用」注册扩展：AddLuBanAgent + 框架契约的默认实现
 *
 *****************************************************************************/
-using LuBan.AIAgent.Defaults;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace LuBan.AIAgent;
 

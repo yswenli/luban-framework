@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c) YSWenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -28,8 +28,20 @@ namespace LuBan.PdfKit;
 /// </summary>
 public class TextChunk
 {
+    /// <summary>
+    /// 文本块左边界横坐标，取自文本基线起点，参照 PDF 坐标系（原点在左下角）。
+    /// </summary>
     public float Left { get; set; }
+    /// <summary>
+    /// 文本块基线（下边界）的纵坐标，参照 PDF 坐标系（原点在左下角）。
+    /// </summary>
     public float Bottom { get; set; }
+    /// <summary>
+    /// 文本块宽度，即从左边界到上沿终点的横向跨度。
+    /// </summary>
     public float Width { get; set; }
+    /// <summary>
+    /// 文本块高度，即从基线到下沿终点的纵向跨度。
+    /// </summary>
     public float Height { get; set; }
 }

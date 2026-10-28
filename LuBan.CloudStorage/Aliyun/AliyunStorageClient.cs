@@ -21,8 +21,6 @@
 *描述：阿里云存储
 *
 *****************************************************************************/
-using Aliyun.OSS;
-using Aliyun.OSS.Common;
 
 namespace LuBan.CloudStorage.Aliyun;
 
@@ -33,7 +31,6 @@ public class AliyunStorageClient : ICloudStorageClient
 {
     CloudStorageOptions _option;
     OssClient _ossClient;
-
 
     /// <summary>
     /// 阿里云存储
@@ -107,7 +104,6 @@ public class AliyunStorageClient : ICloudStorageClient
     }
 
     #endregion
-
 
     /// <summary>
     /// 下载文件流
@@ -273,7 +269,6 @@ public class AliyunStorageClient : ICloudStorageClient
         }
         return false;
     }
-
 
     /// <summary>
     /// 删除文件

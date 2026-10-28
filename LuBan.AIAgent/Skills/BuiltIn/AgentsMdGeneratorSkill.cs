@@ -106,6 +106,10 @@ public class AgentsMdGeneratorSkill : SkillBase
 3. **工具与API**（Markdown 表格）
 4. **边界**：合并「禁止行为」与「异常处理」
 
+## 固定补充章节（两种模式都必须输出，置于全文末尾）
+
+标题必须为 `## Skill 流程遵守`，正文写明：当用户调用 `brainstorming`、`grilling`（grill-me）等流程型 skill 时，必须严格按 skill 指示的步骤与顺序执行，不得擅自增删步骤、跳过环节或改写流程；与「方案确认」等通用协作规则冲突时，以 skill 的流程为准。
+
 ## 写作要求
 
 - 纯技术文档风格，不写抒情、鼓励、寒暄类文字。

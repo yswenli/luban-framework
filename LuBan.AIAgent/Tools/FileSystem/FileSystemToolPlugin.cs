@@ -256,6 +256,14 @@ public class FileSystemToolGroup
 
     private static class GlobMatcher
     {
+        /// <summary>
+        /// 用已编译的通配正则判断路径是否命中；按需只比对文件名或比对工作区相对路径。
+        /// </summary>
+        /// <param name="path">待判断的文件绝对路径。</param>
+        /// <param name="regex">由 glob 模式编译出的正则。</param>
+        /// <param name="rootPath">工作区根路径，用于计算相对路径。</param>
+        /// <param name="matchFullPath">为 true 时比对相对路径，否则只比对文件名。</param>
+        /// <returns>命中返回 true。</returns>
         public static bool IsMatch(string path, Regex regex, string rootPath, bool matchFullPath)
         {
             if (!matchFullPath)
@@ -268,12 +276,22 @@ public class FileSystemToolGroup
             return regex.IsMatch(relativePath);
         }
 
+        /// <summary>
+        /// 把 glob 模式编译为忽略大小写的正则，<c>*</c> 不跨目录、<c>**</c> 跨目录。
+        /// </summary>
+        /// <param name="pattern">glob 模式文本。</param>
+        /// <returns>可用于路径匹配的已编译正则。</returns>
         public static Regex CompileGlobPattern(string pattern)
         {
             var regexPattern = GlobToRegex(pattern);
             return new Regex(regexPattern, RegexOptions.IgnoreCase | RegexOptions.Compiled);
         }
 
+        /// <summary>
+        /// 判断模式是否只描述文件名而不含任何路径分隔符。
+        /// </summary>
+        /// <param name="pattern">glob 模式文本。</param>
+        /// <returns>不含路径分隔符时返回 true。</returns>
         public static bool IsFileNameOnly(string pattern)
             => !pattern.Contains('/') && !pattern.Contains('\\');
 

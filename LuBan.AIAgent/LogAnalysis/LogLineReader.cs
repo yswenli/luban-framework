@@ -1,11 +1,19 @@
 /****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：Walle
 *命名空间：LuBan.AIAgent.LogAnalysis
 *文件名： LogLineReader
+*版本号： V1.0.0.0
+*唯一标识：0d8bd932-5b22-4b8d-92ad-cc1cc51e42ad
+*当前的用户域：WALLE
+*创建人：yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/10/9
 *描述：字节块流式行读取器（恒定内存）
+*
 *****************************************************************************/
-using System.Runtime.CompilerServices;
 
 namespace LuBan.AIAgent.LogAnalysis;
 
@@ -29,12 +37,22 @@ internal sealed class LogLineReader
     private readonly string _filePath;
     private readonly int _maxLineBytes;
 
+    /// <summary>
+    /// 指定待读取的日志文件与单行字节上限。
+    /// </summary>
+    /// <param name="filePath">日志文件路径。</param>
+    /// <param name="maxLineBytes">单行保留的最大字节数，超出部分丢弃并标记截断。</param>
     public LogLineReader(string filePath, int maxLineBytes)
     {
         _filePath = filePath;
         _maxLineBytes = Math.Max(1, maxLineBytes);
     }
 
+    /// <summary>
+    /// 以恒定内存逐行读取文件，超长行截断后继续扫描。
+    /// </summary>
+    /// <param name="ct">取消令牌。</param>
+    /// <returns>逐行产出的日志行序列，行号从 1 起。</returns>
     public async IAsyncEnumerable<LogLine> ReadAsync([EnumeratorCancellation] CancellationToken ct = default)
     {
         await using var stream = new FileStream(

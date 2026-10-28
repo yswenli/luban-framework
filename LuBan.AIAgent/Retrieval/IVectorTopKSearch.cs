@@ -6,7 +6,7 @@
 *命名空间：LuBan.AIAgent.Retrieval
 *文件名： IVectorTopKSearch
 *版本号： V1.0.0.0
-*唯一标识：向量存储 top-K 检索扩展接口
+*唯一标识：c9fab6b4-2562-4f57-95a0-8f694e88bd98
 *当前的用户域：WALLE
 *创建人：yswenli
 *电子邮箱：yswenli@outlook.com

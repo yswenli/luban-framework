@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ 2023-2024 Oceania All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -11,14 +11,14 @@
 *创建人： WALLE
 *电子邮箱：yswenli@outlook.com
 *创建时间：2022/7/5 14:58:54
-*描述：
+*描述：ReplyVoice 类
 *
 *=================================================
 *修改标记
 *修改时间：2022/7/5 14:58:54
 *修改人： yswenli
 *版本号： V1.0.0.0
-*描述：
+*描述：ReplyVoice 类
 *
 *****************************************************************************/
 
@@ -29,8 +29,14 @@ namespace LuBan.Wechat.Models
 /// </summary>
     public class ReplyVoice : Reply
     {
+        /// <summary>
+        /// 回复语音的素材 ID，需为已上传的语音素材（回复协议字段 MediaId）。
+        /// </summary>
         public string MediaId { get; set; }
 
+        /// <summary>
+        /// 构造语音回复消息，并把消息类型置为 voice。
+        /// </summary>
         public ReplyVoice()
         {
             base.MsgType = EnumReplyMsgType.voice;

@@ -1,9 +1,9 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *公司名称：yswenli
-*命名空间：LuBan.Common
+*命名空间：System
 *文件名： BaseService
 *版本号： V1.0.0.0
 *唯一标识：b3deeffd-31c4-456b-9e1b-dcc3dfffa06e
@@ -21,7 +21,6 @@
 *描述：基础业务实现类
 *
 *****************************************************************************/
-using LuBan.Common.Errors;
 using Result = LuBan.Common.Data.Result;
 
 namespace System;
@@ -155,7 +154,6 @@ public abstract class BaseService
         return ErrorResult("系统异常，详情请在管理系统中查阅", ex, FrameworkErrors.System.InternalError.Code, args);
     }
 
-
     /// <summary>
     /// 返回失败
     /// </summary>
@@ -186,7 +184,6 @@ public abstract class BaseService
     {
         return new Fail();
     }
-
 
     /// <summary>
     /// 快捷业务处理

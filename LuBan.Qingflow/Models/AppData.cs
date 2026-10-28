@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ YSWenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -11,14 +11,14 @@
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2024/12/23 17:57:15
-*描述：
+*描述：应用数据
 *
 *=================================================
 *修改标记
 *修改时间：2024/12/23 17:57:15
 *修改人： yswenli
 *版本号： V1.0.0.0
-*描述：
+*描述：应用数据
 *
 *****************************************************************************/
 namespace LuBan.Qingflow.Models;
@@ -578,6 +578,9 @@ public class ChartDataListInputQuery
 }
 
 
+/// <summary>
+/// 图表数据列表接口的过滤条件，包含分页、字段查询与模糊搜索。
+/// </summary>
 public class ChartDataListInputFilter
 {
     /// <summary>
@@ -614,6 +617,9 @@ public class ChartDataListInputFilter
 }
 
 
+/// <summary>
+/// 图表数据列表接口的精确字段查询条件，按字段ID与关键词匹配。
+/// </summary>
 public class ChartDataListInputAccurateQuery
 {
     /// <summary>

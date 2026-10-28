@@ -14,7 +14,6 @@
 *描述：A2A 传输抽象，统一进程内与远程调用
 *
 *****************************************************************************/
-using LuBan.AIAgent.A2A.Models;
 
 namespace LuBan.AIAgent.A2A.Abstractions;
 

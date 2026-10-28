@@ -1,9 +1,9 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：YSWENLI
 *公司名称：yswenli
-*命名空间：LuBan.Web.Core.JWT
+*命名空间：LuBan.Web.Core.Jwt
 *文件名： JwtConfigureService
 *版本号： V1.0.0.0
 *唯一标识：e59171c1-bc7b-4bb0-8ecb-52c6cf9a468f

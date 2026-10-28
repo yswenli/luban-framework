@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：YSWENLI
@@ -237,6 +237,11 @@ public class Searcher
     }
 
     // --- static cache util function
+    /// <summary>
+    /// 从流起始处读取固定长度的索引头（<c>HeaderInfoLength</c> 字节）。
+    /// </summary>
+    /// <param name="stream">ip2region 数据库流。</param>
+    /// <returns>解析得到的索引头。</returns>
     public static Header LoadHeader(Stream stream)
     {
         if (stream.CanRead)
@@ -245,10 +250,20 @@ public class Searcher
         stream.ReadExactly(buffer, 0, HeaderInfoLength);
         return new Header(buffer);
     }
+    /// <summary>
+    /// 打开数据库文件并读取其索引头。
+    /// </summary>
+    /// <param name="dbPath">数据库文件路径。</param>
+    /// <returns>解析得到的索引头。</returns>
     public static Header LoadHeaderFromFile(string dbPath)
     {
         using (var fs = File.OpenRead(dbPath)) return LoadHeader(fs);
     }
+    /// <summary>
+    /// 跳过索引头，读取 <c>VectorIndexRows × VectorIndexCols × SegmentIndexSize</c> 字节的向量索引。
+    /// </summary>
+    /// <param name="stream">ip2region 数据库流。</param>
+    /// <returns>向量索引缓冲区；读取长度不足时抛出 <c>IOException</c>。</returns>
     public static byte[] LoadVectorIndex(Stream stream)
     {
         if (stream.CanRead)
@@ -259,10 +274,20 @@ public class Searcher
         if (rLen != len) throw new IOException("incomplete read: read bytes should be " + len);
         return buff;
     }
+    /// <summary>
+    /// 打开数据库文件并读取其向量索引。
+    /// </summary>
+    /// <param name="dbPath">数据库文件路径。</param>
+    /// <returns>向量索引缓冲区。</returns>
     public static byte[] LoadVectorIndexFromFile(string dbPath)
     {
         using (var fs = File.OpenRead(dbPath)) return LoadVectorIndex(fs);
     }
+    /// <summary>
+    /// 从流起始处把全部内容读入字节数组。
+    /// </summary>
+    /// <param name="stream">ip2region 数据库流。</param>
+    /// <returns>数据库完整内容。</returns>
     public static byte[] LoadContent(Stream stream)
     {
         if (stream.CanRead)
@@ -274,11 +299,22 @@ public class Searcher
         }
     }
 
+    /// <summary>
+    /// 打开数据库文件并把全部内容读入字节数组。
+    /// </summary>
+    /// <param name="dbPath">数据库文件路径。</param>
+    /// <returns>数据库完整内容。</returns>
     public static byte[] LoadContentFromFile(string dbPath)
     {
         using (var fs = File.OpenRead(dbPath)) return LoadContent(fs);
     }
 
+    /// <summary>
+    /// 读取偏移处的 2 字节值；因第二个字节未左移就被掩码清零，实际只返回首字节（高字节恒为 0）。
+    /// </summary>
+    /// <param name="b">字节缓冲区。</param>
+    /// <param name="offset">起始偏移。</param>
+    /// <returns>按小端拼接后的整数值。</returns>
     public static int GetInt2(byte[] b, int offset)
     {
         return (
@@ -286,6 +322,12 @@ public class Searcher
             (b[offset] & 0x0000FF00)
         );
     }
+    /// <summary>
+    /// 按小端序（低字节在前）读取 4 字节有符号整数。
+    /// </summary>
+    /// <param name="b">字节缓冲区。</param>
+    /// <param name="offset">起始偏移。</param>
+    /// <returns>解析出的 32 位整数。</returns>
     public static int GetInt(byte[] b, int offset)
     {
         return (
@@ -295,6 +337,12 @@ public class Searcher
             (int)((b[offset] << 24) & 0xFF000000)
         );
     }
+    /// <summary>
+    /// 按小端序读取 4 字节并零扩展为 <c>long</c>，即按无符号 32 位解释。
+    /// </summary>
+    /// <param name="b">字节缓冲区。</param>
+    /// <param name="offset">起始偏移。</param>
+    /// <returns>取值 0 到 4294967295 之间的长整型 IP 数值。</returns>
     public static long GetIntLong(byte[] b, int offset)
     {
         return (
@@ -306,14 +354,27 @@ public class Searcher
     }
 
     /* long int to ip string */
+    /// <summary>
+    /// 把 32 位整数按高位到低位的顺序拆成点分十进制 IP 文本。
+    /// </summary>
+    /// <param name="ip">IP 的数值形式。</param>
+    /// <returns>形如 <c>1.2.3.4</c> 的字符串。</returns>
     public static string Long2ip(long ip)
     {
         return string.Join(".", (ip >> 24) & 0xFF, (ip >> 16) & 0xFF, (ip >> 8) & 0xFF, (ip) & 0xFF);
     }
 
+    /// <summary>
+    /// <c>checkIP</c> 组装 IP 时各段使用的左移位数，依次为 24、16、8、0。
+    /// </summary>
     public static byte[] shiftIndex = { 24, 16, 8, 0 };
 
     /* check the specified ip address */
+    /// <summary>
+    /// 校验并解析点分十进制 IPv4 为 32 位无符号整数；段数不为 4 或任一段大于 255 时抛出异常。
+    /// </summary>
+    /// <param name="ip">待解析的 IPv4 字符串。</param>
+    /// <returns>IP 对应的长整型数值。</returns>
     public static long checkIP(String ip)
     {
         String[]

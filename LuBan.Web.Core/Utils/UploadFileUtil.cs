@@ -1,9 +1,9 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：YSWENLI
 *公司名称：yswenli
-*命名空间：LuBan.Web.Core
+*命名空间：System
 *文件名： UploadFileUtil
 *版本号： V1.0.0.0
 *唯一标识：0a20a67c-d7b0-43b3-95a5-7cd06ad1c163
@@ -21,7 +21,6 @@
 *描述：aspnetcore中文件上传处理工具类
 *
 *****************************************************************************/
-using LuBan.Common.Errors;
 
 namespace System;
 
@@ -69,7 +68,6 @@ public static class UploadFileUtil
            || !_uploadOptions.ExtensionNames.Contains(suffix))
             throw FriendlyError.Ex(FrameworkErrors.File.FileTypeNotAllowed);
     }
-
 
     /// <summary>
     /// 保存客户端上传的文件
@@ -244,7 +242,6 @@ public static class UploadFileUtil
         return dt.ToList<T>(convertNames);
     }
 
-
     /// <summary>
     /// 接收文件并返回流
     /// </summary>
@@ -259,7 +256,6 @@ public static class UploadFileUtil
         return ms;
     }
 
-
     /// <summary>
     /// 接收文件并返回流
     /// </summary>
@@ -273,7 +269,6 @@ public static class UploadFileUtil
         ms.Seek(0, SeekOrigin.Begin);
         return ms;
     }
-
 
     /// <summary>
     /// 保存为内存流
@@ -402,7 +397,6 @@ public static class UploadFileUtil
         return fileList;
     }
 
-
     /// <summary>
     /// 接收文件并返回DataSet
     /// </summary>
@@ -448,6 +442,5 @@ public static class UploadFileUtil
         }
         return ds;
     }
-
 
 }

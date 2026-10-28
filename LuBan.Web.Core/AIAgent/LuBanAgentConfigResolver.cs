@@ -2,11 +2,11 @@
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
-*公司名称：yswenli
+*公司名称：Walle
 *命名空间：LuBan.Web.Core.AIAgent
 *文件名： LuBanAgentConfigResolver
 *版本号： V1.0.0.0
-*唯一标识：Agent 配置解析
+*唯一标识：db88b16a-59f7-4870-8d8b-d858c8179af2
 *当前的用户域：WALLE
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
@@ -14,8 +14,6 @@
 *描述：LuBan Agent 配置解析与校验（db_config 优先，回退宿主配置）
 *
 *****************************************************************************/
-
-using LuBan.AIAgent.Configuration.Providers;
 
 namespace LuBan.Web.Core.AIAgent;
 
@@ -88,33 +86,141 @@ public static class LuBanAgentConfigResolver
     /// </summary>
     /// <param name="options">待校验配置</param>
     /// <returns>合法返回 null，否则返回中文原因</returns>
+    /// <remarks>
+    /// <para><c>Models</c> 为数组，每项是一个 <c>provider:model</c> 组合；同一 Provider 可配置多个模型，
+    /// 但 <c>ApiKey</c> / <c>BaseUrl</c> 必须一致（运行期每个 Provider 只建一个客户端）。</para>
+    /// <para><c>DefaultModel</c> 可省略，省略时由 <see cref="CreateEffectiveConfiguration"/> 取数组第一项；
+    /// 一旦配置，则必须是合法 <c>provider:model</c> 且能在数组中找到对应项。</para>
+    /// </remarks>
     public static string? Validate(LuBanAgentStartupOptions? options)
     {
         if (options is null) return "未找到 LuBanAgent 配置";
-        if (options.Models is null) return "缺少 LuBanAgent:Models 配置";
 
-        var provider = options.Models.Provider;
-        if (string.IsNullOrWhiteSpace(provider)) return "缺少 Models.Provider";
-        if (!ProviderDefaults.ProviderIds.Any(p => string.Equals(p, provider, StringComparison.OrdinalIgnoreCase)))
-            return $"Provider '{provider}' 不在框架已知列表内（可用：{string.Join(", ", ProviderDefaults.ProviderIds)}）";
+        var models = options.Models;
+        if (models is null || models.Count == 0) return "缺少 LuBanAgent:Models 配置";
 
-        if (string.IsNullOrWhiteSpace(options.Models.Model)) return "缺少 Models.Model";
-        if (string.IsNullOrWhiteSpace(options.Models.ApiKey)) return "缺少 Models.ApiKey";
-
-        var baseUrl = options.Models.BaseUrl;
-        if (!string.IsNullOrWhiteSpace(baseUrl))
+        for (var i = 0; i < models.Count; i++)
         {
-            // 非法 BaseUrl 会在首次解析 IChatClient 时才抛，启动期是唯一能提前拦住的地方
-            if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out var uri) ||
-                (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
-                return "Models.BaseUrl 不是合法的 http(s) 地址";
+            var item = models[i];
+            var label = $"Models[{i}]";
+            if (item is null) return $"{label} 为空";
+
+            var provider = item.Provider?.Trim();
+            if (string.IsNullOrWhiteSpace(provider)) return $"缺少 {label}.Provider";
+            if (!ProviderDefaults.ProviderIds.Any(p => string.Equals(p, provider, StringComparison.OrdinalIgnoreCase)))
+                return $"{label}.Provider '{provider}' 不在框架已知列表内（可用：{string.Join(", ", ProviderDefaults.ProviderIds)}）";
+
+            if (string.IsNullOrWhiteSpace(item.Model)) return $"缺少 {label}.Model";
+            if (string.IsNullOrWhiteSpace(item.ApiKey)) return $"缺少 {label}.ApiKey";
+
+            // 非法 BaseUrl 会在解析 IChatClient 时才抛，启动期是唯一能提前拦住的地方
+            if (!IsValidBaseUrl(item.BaseUrl))
+                return $"{label}.BaseUrl 不是合法的 http(s) 地址";
         }
 
-        // DefaultModel 缺失会让 AgentHost 每次请求都抛「未选择模型」，必须在启动期拦下
-        if (string.IsNullOrWhiteSpace(options.DefaultModel)) return "缺少 DefaultModel";
+        // 同一 Provider 允许多个模型，但凭据/端点必须一致，否则无法只建一个客户端
+        foreach (var group in models.GroupBy(m => m.Provider!.Trim(), StringComparer.OrdinalIgnoreCase))
+        {
+            var first = group.First();
+            foreach (var item in group.Skip(1))
+            {
+                if (!SameCredentials(first, item))
+                    return $"Models 中 Provider '{first.Provider}' 出现多条但 ApiKey/BaseUrl 不一致";
+            }
+        }
+
+        // DefaultModel 可省略：省略即取数组第一项（AgentHost 仍要求必须有模型）
+        var defaultModel = options.DefaultModel?.Trim();
+        if (string.IsNullOrEmpty(defaultModel)) return null;
+
+        var idx = defaultModel.IndexOf(':');
+        if (idx <= 0 || idx >= defaultModel.Length - 1)
+            return $"DefaultModel '{defaultModel}' 格式应为 provider:model";
+
+        var dmProvider = defaultModel[..idx];
+        var dmModel = defaultModel[(idx + 1)..];
+        if (!models.Any(m => string.Equals(m.Provider?.Trim(), dmProvider, StringComparison.OrdinalIgnoreCase)
+                             && string.Equals(m.Model?.Trim(), dmModel, StringComparison.Ordinal)))
+        {
+            return $"DefaultModel '{defaultModel}' 未在 Models 数组中找到对应项";
+        }
 
         return null;
     }
+
+    /// <summary>
+    /// 生成运行期实际注册用的配置：相对 <c>WorkspaceRoot</c> 归一化为绝对路径，缺省 <c>DefaultModel</c> 补成第一项。
+    /// </summary>
+    /// <param name="configuration">已通过校验的配置（宿主配置或 db 合并后的配置）</param>
+    /// <param name="contentRootPath">站点内容根；为空时按 <see cref="AppContext.BaseDirectory"/> 解析相对路径</param>
+    /// <returns>需要调整时返回叠加后的新配置，否则原样返回入参</returns>
+    public static IConfiguration CreateEffectiveConfiguration(IConfiguration configuration, string? contentRootPath = null)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+
+        var overrides = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+
+        var rawRoot = configuration[$"{SectionName}:WorkspaceRoot"];
+        var resolvedRoot = ResolveWorkspaceRoot(rawRoot, contentRootPath);
+        if (resolvedRoot is not null && !string.Equals(resolvedRoot, rawRoot, StringComparison.Ordinal))
+            overrides[$"{SectionName}:WorkspaceRoot"] = resolvedRoot;
+
+        var rawDefault = configuration[$"{SectionName}:DefaultModel"];
+        if (string.IsNullOrWhiteSpace(rawDefault))
+        {
+            var firstProvider = configuration[$"{SectionName}:Models:0:Provider"]?.Trim();
+            var firstModel = configuration[$"{SectionName}:Models:0:Model"]?.Trim();
+            if (!string.IsNullOrWhiteSpace(firstProvider) && !string.IsNullOrWhiteSpace(firstModel))
+                overrides[$"{SectionName}:DefaultModel"] = $"{firstProvider}:{firstModel}";
+        }
+
+        if (overrides.Count == 0) return configuration;
+
+        // 后加的源优先：只覆盖这两个键，其余键（含 db 合并结果）保持不变
+        return new ConfigurationBuilder()
+            .AddConfiguration(configuration)
+            .AddInMemoryCollection(overrides)
+            .Build();
+    }
+
+    /// <summary>
+    /// 解析工作区根目录：绝对路径原样规范化；相对路径以站点内容根为基准（非 Web 宿主回退到程序目录）。
+    /// </summary>
+    /// <param name="workspaceRoot">配置值</param>
+    /// <param name="contentRootPath">站点内容根；为空时用 <see cref="AppContext.BaseDirectory"/></param>
+    /// <returns>绝对路径；配置为空时返回 null</returns>
+    public static string? ResolveWorkspaceRoot(string? workspaceRoot, string? contentRootPath = null)
+    {
+        if (string.IsNullOrWhiteSpace(workspaceRoot)) return null;
+
+        var root = workspaceRoot.Trim();
+        if (Path.IsPathRooted(root)) return Path.GetFullPath(root);
+
+        var basePath = string.IsNullOrWhiteSpace(contentRootPath)
+            ? AppContext.BaseDirectory
+            : contentRootPath!.Trim();
+
+        return Path.GetFullPath(Path.Combine(basePath, root));
+    }
+
+    private static bool IsValidBaseUrl(string? baseUrl)
+    {
+        if (string.IsNullOrWhiteSpace(baseUrl)) return true;
+
+        return Uri.TryCreate(baseUrl.Trim(), UriKind.Absolute, out var uri)
+               && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
+    }
+
+    private static bool SameCredentials(LuBanAgentModelsOptions a, LuBanAgentModelsOptions b)
+        => string.Equals(a.ApiKey?.Trim(), b.ApiKey?.Trim(), StringComparison.Ordinal)
+           && string.Equals(NormalizeUrl(EffectiveBaseUrl(a)), NormalizeUrl(EffectiveBaseUrl(b)), StringComparison.OrdinalIgnoreCase);
+
+    private static string? EffectiveBaseUrl(LuBanAgentModelsOptions item)
+        => string.IsNullOrWhiteSpace(item.BaseUrl)
+            ? ProviderDefaults.GetDefaultBaseUrl(item.Provider?.Trim() ?? "")
+            : item.BaseUrl.Trim();
+
+    private static string NormalizeUrl(string? url) => url?.Trim().TrimEnd('/') ?? string.Empty;
 
     private static LuBanAgentResolution ResolveFromDb(IConfiguration configuration, string raw)
     {

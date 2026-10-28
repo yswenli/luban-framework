@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -11,25 +11,40 @@
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2024/9/19 17:13:45
-*描述：
+*描述：VZan 直播接口通用返回结果模型。
 *
 *=================================================
 *修改标记
 *修改时间：2024/9/19 17:13:45
 *修改人： yswenli
 *版本号： V1.0.0.0
-*描述：
+*描述：VZan 直播接口通用返回结果模型。
 *
 *****************************************************************************/
 namespace LuBan.Lives.VZan.Models
 {
+    /// <summary>
+    /// VZan 直播接口的通用返回结构，业务数据由泛型参数给出。
+    /// </summary>
     public class VZResult<T>
     {
+        /// <summary>
+        /// 接口响应状态码（接口字段 code）。
+        /// </summary>
         public int code { get; set; }
+        /// <summary>
+        /// 接口响应提示信息（接口字段 msg）。
+        /// </summary>
         public string msg { get; set; }
+        /// <summary>
+        /// 接口返回的业务数据（接口字段 data）。
+        /// </summary>
         public T data { get; set; }
     }
 
+    /// <summary>
+    /// VZan 直播间的观众信息，含来源、进出时间与观看时长等统计字段。
+    /// </summary>
     [DataContract]
     public class VZLiveUserInfo
     {
@@ -191,6 +206,9 @@ namespace LuBan.Lives.VZan.Models
     }
 
 
+    /// <summary>
+    /// VZan 观众列表的分页结果，含当页记录、总数与下一页分页标识。
+    /// </summary>
     [DataContract]
     public class VZLiveUserList
     {
@@ -213,6 +231,9 @@ namespace LuBan.Lives.VZan.Models
         public string LastId { get; set; }
     }
 
+    /// <summary>
+    /// VZan 平台的用户资料，含身份标识、联系方式与观看统计。
+    /// </summary>
     [DataContract]
     public class VZUserInfo
     {

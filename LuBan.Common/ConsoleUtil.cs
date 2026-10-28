@@ -1,5 +1,4 @@
-using System.Diagnostics.CodeAnalysis;
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：YSWENLI
@@ -61,7 +60,6 @@ public static class ConsoleUtil
     {
         get; set;
     } = true;
-
 
     /// <summary>
     /// 设置控制台标题
@@ -151,6 +149,11 @@ public static class ConsoleUtil
         }
     }
 
+    /// <summary>
+    /// 把 <c>ConsoleColor</c> 映射为 ANSI 前景色转义序列，未覆盖的颜色返回默认色 39。
+    /// </summary>
+    /// <param name="color">要转换的控制台颜色。</param>
+    /// <returns>ANSI 转义序列，如 <c>\x1B[32m</c>。</returns>
     public static string _ToAnsiColor(ConsoleColor color) => color switch
     {
         ConsoleColor.Black => "\x1B[30m",
@@ -191,7 +194,6 @@ public static class ConsoleUtil
         Interlocked.Increment(ref _lineCount);
         WriteLine($"{_lineCount}.{msg}", color: color);
     }
-
 
     /// <summary>
     /// 控制台输出内容
@@ -382,7 +384,6 @@ public static class ConsoleUtil
         GetSubTitle().Write(color: Color.Gray);
     }
 
-
     /// <summary>
     /// 输出名称
     /// </summary>
@@ -401,7 +402,6 @@ public static class ConsoleUtil
         }
         return string.Empty;
     }
-
 
     /// <summary>
     /// 输出名称
@@ -423,7 +423,6 @@ public static class ConsoleUtil
         }
         return string.Empty;
     }
-
 
     /// <summary>
     /// 输出进度
@@ -558,7 +557,6 @@ public static class ConsoleUtil
 
     }
 
-
     /// <summary>
     /// 输出进度
     /// </summary>
@@ -630,8 +628,6 @@ public static class ConsoleUtil
 
         return default;
     }
-
-
 
     /// <summary>
     /// 绘制表格

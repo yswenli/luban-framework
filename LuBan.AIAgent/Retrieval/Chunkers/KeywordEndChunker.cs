@@ -21,7 +21,6 @@
 *描述：关键字结尾切块器
 *
 *****************************************************************************/
-using System.Text.RegularExpressions;
 
 namespace LuBan.AIAgent.Retrieval.Chunkers;
 

@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -33,6 +33,9 @@ public class TemplateMsgInfo
     /// 手机号
     /// </summary>
 
+    /// <summary>
+    /// 接收短信的手机号（接口字段 mobile）。
+    /// </summary>
     [DataMember(Name = "mobile")]
     public string Mobile { get; set; }
 
@@ -40,6 +43,9 @@ public class TemplateMsgInfo
     /// 模板变量内容
     /// </summary>
 
+    /// <summary>
+    /// 模板变量名到取值的映射（接口字段 tpContent）。
+    /// </summary>
     [DataMember(Name = "tpContent")]
     public Dictionary<string, string> TpContent { get; set; }
 }

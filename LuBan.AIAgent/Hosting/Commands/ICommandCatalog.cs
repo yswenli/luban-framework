@@ -6,7 +6,7 @@
 *命名空间：LuBan.AIAgent.Hosting.Commands
 *文件名： ICommandCatalog
 *版本号： V1.0.0.0
-*唯一标识：斜杠命令清单接口
+*唯一标识：29671e64-cfd7-4d4e-82b5-e4b9aed06439
 *当前的用户域：WALLE
 *创建人：yswenli
 *电子邮箱：yswenli@outlook.com

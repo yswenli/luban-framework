@@ -1,9 +1,9 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ 2023-2024 riverland All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：YSWENLI
 *公司名称：riverland
-*命名空间：LuBan.Redis
+*命名空间：LuBan.Redis.Core
 *文件名： RedisClient
 *版本号： V1.0.0.0
 *唯一标识：97f49c78-9aab-4af2-b6a4-5c17f4a013ac
@@ -11,17 +11,16 @@
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2022/7/14 15:20:34
-*描述：
+*描述：redis容器类 此类不要直接new(),需要用RedisHelperBuilder来构造
 *
 *=====================================================================
 *修改标记
 *修改时间：2022/7/14 15:20:34
 *修改人： walle.wen
 *版本号： V1.0.0.0
-*描述：
+*描述：redis容器类 此类不要直接new(),需要用RedisHelperBuilder来构造
 *
 *****************************************************************************/
-using LuBan.Redis.Interfaces;
 
 namespace LuBan.Redis.Core;
 
@@ -45,7 +44,6 @@ public class RedisClient
         options.ReconnectRetryPolicy = new ExponentialRetry(_redisConfig.BusyRetryWaitMS, _redisConfig.BusyRetryWaitMS * _redisConfig.BusyRetry);
         _cnn = ConnectionMultiplexer.Connect(options);
     }
-
 
     /// <summary>
     /// 根据redis使用类型来生成相应的连接字符串

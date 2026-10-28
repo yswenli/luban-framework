@@ -1,10 +1,10 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c) YSWenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *Author：yswenli
 *命名空间：LuBan.ApprovalFlow.Consts
-*文件名： ConstTaskGatewayStatus
+*文件名： ConstTaskGatewayNodeStatus
 *版本号： V1.0.0.0
 *唯一标识：65c34a29-0eca-4c5f-b181-90c54fab8910
 *当前的用户域：WALLE

@@ -6,7 +6,7 @@
 *命名空间：LuBan.AIAgent.Hosting
 *文件名： ToolConfirmationContextExtensions
 *版本号： V1.0.0.0
-*唯一标识：确认上下文扩展
+*唯一标识：ec01003a-4b8b-4dd2-ac7c-c81e892bfdff
 *当前的用户域：WALLE
 *创建人：yswenli
 *电子邮箱：yswenli@outlook.com

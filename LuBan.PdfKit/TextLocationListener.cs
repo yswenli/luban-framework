@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c) YSWenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -31,6 +31,9 @@ namespace LuBan.PdfKit;
 public class TextLocationListener : LocationTextExtractionStrategy
 {
     private readonly string _searchText;
+    /// <summary>
+    /// 本次解析中已匹配到的文本块位置集合，按出现顺序排列。
+    /// </summary>
     public List<TextChunk> FoundTextChunks { get; } = new();
 
     private readonly Queue<(string text, TextRenderInfo info)> _recentChunks = new();
@@ -38,11 +41,20 @@ public class TextLocationListener : LocationTextExtractionStrategy
     bool _begin = false;
     TextChunk _textChunk;
 
+    /// <summary>
+    /// 创建按指定文本内容定位的监听器。
+    /// </summary>
+    /// <param name="searchText">需要在页面中查找的文本内容。</param>
     public TextLocationListener(string searchText)
     {
         _searchText = searchText;
     }
 
+    /// <summary>
+    /// 在文本渲染事件中逐字累积，命中搜索文本的完整序列时记录其位置与尺寸块。
+    /// </summary>
+    /// <param name="data">事件数据，文本渲染事件中为文本渲染信息。</param>
+    /// <param name="type">事件类型，仅处理文本渲染事件。</param>
     public override void EventOccurred(IEventData data, EventType type)
     {
         if (type == EventType.RENDER_TEXT)

@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c) YSWenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -6,7 +6,7 @@
 *命名空间：LuBan.Reporting.Dynamic.Services
 *文件名： DynamicReportService
 *版本号： V1.0.0.0
-*唯一标识：
+*唯一标识：6419d3f3-a86d-4385-8799-eba55f2b5de9
 *当前的用户域：WALLE
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
@@ -32,6 +32,11 @@ public class DynamicReportService
     private readonly DynamicReportRepository _repository;
     private readonly LuaScriptEngine _luaEngine;
 
+    /// <summary>
+    /// 创建动态报表服务，注入报表数据访问层与 Lua 脚本引擎。
+    /// </summary>
+    /// <param name="repository">报表配置与查询执行的数据访问层。</param>
+    /// <param name="luaEngine">报表转换脚本使用的 Lua 引擎。</param>
     public DynamicReportService(DynamicReportRepository repository, LuaScriptEngine luaEngine)
     {
         _repository = repository;

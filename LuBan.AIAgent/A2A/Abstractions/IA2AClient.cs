@@ -14,7 +14,6 @@
 *描述：A2A 远程客户端抽象，用于以客户端角色调用远端 Agent
 *
 *****************************************************************************/
-using LuBan.AIAgent.A2A.Models;
 
 namespace LuBan.AIAgent.A2A.Abstractions;
 

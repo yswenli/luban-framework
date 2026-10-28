@@ -1,9 +1,9 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *公司名称：yswenli
-*命名空间：LuBan.Web.Core
+*命名空间：LuBan.Web.Core.AspNetCore
 *文件名： BadRequestEventListener
 *版本号： V1.0.0.0
 *唯一标识：c6798f76-b9b0-40e4-8ef3-df3f7105ed3e

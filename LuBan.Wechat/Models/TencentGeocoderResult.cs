@@ -1,10 +1,10 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c) YSWenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *Author：yswenli
-*命名空间：LuBan.Wechat
-*文件名： TencentLocationServiceClient
+*命名空间：LuBan.Wechat.Models
+*文件名： TencentGeocoderResult
 *版本号： V1.0.0.0
 *唯一标识：8d549389-72db-4725-8833-7faeebce127e
 *当前的用户域：WALLE
@@ -46,6 +46,9 @@ public class TencentGeocoderResult
     /// </summary>
     public ResultData Result { get; set; }
 
+    /// <summary>
+    /// 逆地址解析的结果数据，包含格式化地址、地址部件与行政区划信息。
+    /// </summary>
     public class ResultData
     {
         /// <summary>
@@ -62,21 +65,60 @@ public class TencentGeocoderResult
         public AdInfoData Ad_Info { get; set; }
         // 可根据需要扩展POI等字段
     }
+    /// <summary>
+    /// 逆地址解析返回的地址部件，按国家、省、市、区、街道逐级拆分。
+    /// </summary>
     public class AddressComponentData
     {
+        /// <summary>
+        /// 国家名称（接口字段 Nation）。
+        /// </summary>
         public string Nation { get; set; }
+        /// <summary>
+        /// 省份名称（接口字段 Province）。
+        /// </summary>
         public string Province { get; set; }
+        /// <summary>
+        /// 城市名称（接口字段 City）。
+        /// </summary>
         public string City { get; set; }
+        /// <summary>
+        /// 区县名称（接口字段 District）。
+        /// </summary>
         public string District { get; set; }
+        /// <summary>
+        /// 街道名称（接口字段 Street）。
+        /// </summary>
         public string Street { get; set; }
+        /// <summary>
+        /// 门牌号（接口字段 Street_Number）。
+        /// </summary>
         public string Street_Number { get; set; }
     }
+    /// <summary>
+    /// 逆地址解析返回的行政区划信息，含行政区划编码与命名。
+    /// </summary>
     public class AdInfoData
     {
+        /// <summary>
+        /// 国家名称（接口字段 Nation）。
+        /// </summary>
         public string Nation { get; set; }
+        /// <summary>
+        /// 行政区划编码，即 adcode（接口字段 Adcode）。
+        /// </summary>
         public string Adcode { get; set; }
+        /// <summary>
+        /// 城市名称（接口字段 City）。
+        /// </summary>
         public string City { get; set; }
+        /// <summary>
+        /// 区县名称（接口字段 District）。
+        /// </summary>
         public string District { get; set; }
+        /// <summary>
+        /// 省份名称（接口字段 Province）。
+        /// </summary>
         public string Province { get; set; }
     }
 }
@@ -108,6 +150,9 @@ public class TencentPlaceSearchResult
     /// </summary>
     public List<PoiData> Data { get; set; }
 
+    /// <summary>
+    /// 地点搜索返回的单个 POI，包含名称、地址、分类、坐标与距离。
+    /// </summary>
     public class PoiData
     {
         /// <summary>
@@ -139,16 +184,40 @@ public class TencentPlaceSearchResult
         /// </summary>
         public double _Distance { get; set; }
     }
+    /// <summary>
+    /// 地点搜索返回的 POI 经纬度坐标。
+    /// </summary>
     public class LocationData
     {
+        /// <summary>
+        /// 纬度（接口字段 Lat）。
+        /// </summary>
         public double Lat { get; set; }
+        /// <summary>
+        /// 经度（接口字段 Lng）。
+        /// </summary>
         public double Lng { get; set; }
     }
+    /// <summary>
+    /// 地点搜索返回的 POI 所属行政区划信息。
+    /// </summary>
     public class AdInfoData
     {
+        /// <summary>
+        /// 行政区划编码，即 adcode（接口字段 Adcode）。
+        /// </summary>
         public string Adcode { get; set; }
+        /// <summary>
+        /// 省份名称（接口字段 Province）。
+        /// </summary>
         public string Province { get; set; }
+        /// <summary>
+        /// 城市名称（接口字段 City）。
+        /// </summary>
         public string City { get; set; }
+        /// <summary>
+        /// 区县名称（接口字段 District）。
+        /// </summary>
         public string District { get; set; }
     }
 }
@@ -171,9 +240,18 @@ public class TencentCoordTranslateResult
     /// </summary>
     public List<LocationData> Locations { get; set; }
 
+    /// <summary>
+    /// 坐标转换后单个位置的经纬度结果。
+    /// </summary>
     public class LocationData
     {
+        /// <summary>
+        /// 转换后的纬度（接口字段 Lat）。
+        /// </summary>
         public double Lat { get; set; }
+        /// <summary>
+        /// 转换后的经度（接口字段 Lng）。
+        /// </summary>
         public double Lng { get; set; }
     }
 }
@@ -204,6 +282,9 @@ public class TencentDistrictResult
     /// </summary>
     public List<DistrictData> Result { get; set; }
 
+    /// <summary>
+    /// 行政区划查询返回的单个区划节点，可递归包含下级区划。
+    /// </summary>
     public class DistrictData
     {
         /// <summary>
@@ -235,9 +316,18 @@ public class TencentDistrictResult
         /// </summary>
         public List<DistrictData> Districts { get; set; }
     }
+    /// <summary>
+    /// 行政区划节点的中心点经纬度。
+    /// </summary>
     public class LocationData
     {
+        /// <summary>
+        /// 中心点纬度（接口字段 Lat）。
+        /// </summary>
         public double Lat { get; set; }
+        /// <summary>
+        /// 中心点经度（接口字段 Lng）。
+        /// </summary>
         public double Lng { get; set; }
     }
 }

@@ -1,10 +1,10 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *公司名称：yswenli
 *命名空间：LuBan.Web.Core.Utils
-*文件名： NacosUtil
+*文件名： NacosConfigureServiceUtil
 *版本号： V1.0.0.0
 *唯一标识：a1e0bc71-dbd4-4928-be01-cadb25b413fd
 *当前的用户域：WALLE
@@ -21,9 +21,6 @@
 *描述：nacos集成工具类
 *
 *****************************************************************************/
-
-
-using Nacos.AspNetCore.V2;
 
 namespace LuBan.Web.Core.Utils;
 
@@ -68,7 +65,6 @@ public static class NacosConfigureServiceUtil
             new NacosConfigInitializerService(sp, nacosConfig, hostingOptions));
     }
 
-
     /// <summary>
     /// 测试专用，初始化nacos config center
     /// </summary>
@@ -91,6 +87,12 @@ public class NacosConfigListener : IListener
 {
     string _nameSpace, _dataId, _group;
 
+    /// <summary>
+    /// 创建 Nacos 配置监听器，记录待接收配置的命名空间、分组与数据标识。
+    /// </summary>
+    /// <param name="nameSpace">Nacos 命名空间。</param>
+    /// <param name="group">配置所在的分组。</param>
+    /// <param name="dataId">配置项的数据标识。</param>
     public NacosConfigListener(string nameSpace, string group, string dataId)
     {
         _nameSpace = nameSpace;
@@ -98,6 +100,10 @@ public class NacosConfigListener : IListener
         _group = group;
     }
 
+    /// <summary>
+    /// 接收 Nacos 推送的最新配置内容并写入本地配置缓存。
+    /// </summary>
+    /// <param name="configInfo">推送过来的配置文本。</param>
     public void ReceiveConfigInfo(string configInfo)
     {
         NacosConfigUtil.Set(_nameSpace, _dataId, _group, configInfo);
@@ -113,6 +119,12 @@ internal class NacosConfigInitializerService : IHostedService
     readonly NacosConfig _nacosConfig;
     readonly HostingOptions _hostingOptions;
 
+    /// <summary>
+    /// 创建 Nacos 配置初始化后台服务，保存启动时拉取配置所需的依赖与配置对象。
+    /// </summary>
+    /// <param name="serviceProvider">用于解析 Nacos 配置服务的服务提供者。</param>
+    /// <param name="nacosConfig">Nacos 连接信息与监听项配置。</param>
+    /// <param name="hostingOptions">宿主配置，用于判断是否启用配置变更监听。</param>
     public NacosConfigInitializerService(IServiceProvider serviceProvider, NacosConfig nacosConfig, HostingOptions hostingOptions)
     {
         _serviceProvider = serviceProvider;
@@ -120,6 +132,10 @@ internal class NacosConfigInitializerService : IHostedService
         _hostingOptions = hostingOptions;
     }
 
+    /// <summary>
+    /// 启动时逐个拉取 Nacos 中的监听配置写入本地缓存，并按配置决定是否注册变更监听。
+    /// </summary>
+    /// <param name="cancellationToken">取消令牌。</param>
     public async Task StartAsync(CancellationToken cancellationToken)
     {
         var configSvc = _serviceProvider.GetRequiredService<INacosConfigService>();
@@ -146,5 +162,9 @@ internal class NacosConfigInitializerService : IHostedService
         }
     }
 
+    /// <summary>
+    /// 停止后台服务时无需额外清理，直接返回已完成的任务。
+    /// </summary>
+    /// <param name="cancellationToken">取消令牌。</param>
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 }

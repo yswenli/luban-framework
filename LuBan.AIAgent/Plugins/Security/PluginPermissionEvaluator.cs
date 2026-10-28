@@ -11,7 +11,6 @@
 *描述：插件权限判定器 - 声明期静态校验 + 运行期越界判定（PRD §3.7）
 *
 *****************************************************************************/
-using LuBan.AIAgent.Plugins.Loading;
 
 namespace LuBan.AIAgent.Plugins.Security;
 

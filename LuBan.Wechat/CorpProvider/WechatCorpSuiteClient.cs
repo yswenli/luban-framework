@@ -1,6 +1,6 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
-*CLR版本： 4.0.30319.42000
+*CLR版本： .net10.0
 *机器名称：WALLE
 *公司名称：河之洲
 *命名空间：LuBan.Wechat.CorpProvider
@@ -22,12 +22,9 @@
 *
 *****************************************************************************/
 
-using LuBan.Wechat.Errors;
-
 using static LuBan.Wechat.Models.WechatCorpOptions;
 
 namespace LuBan.Wechat.CorpProvider;
-
 
 /// <summary>
 /// 企业微信代开发应用模板

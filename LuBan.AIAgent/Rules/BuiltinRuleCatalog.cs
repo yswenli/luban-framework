@@ -6,7 +6,7 @@
 *命名空间：LuBan.AIAgent.Rules
 *文件名： BuiltinRuleCatalog
 *版本号： V1.0.0.0
-*唯一标识：内置 Rule 目录
+*唯一标识：1198e771-1dc4-4c14-b4bb-2b5eb0e36d09
 *当前的用户域：WALLE
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com

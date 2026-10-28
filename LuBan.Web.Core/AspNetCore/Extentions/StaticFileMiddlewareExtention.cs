@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -23,6 +23,9 @@
 *****************************************************************************/
 namespace LuBan.Web.Core.AspNetCore.Extentions;
 
+/// <summary>
+/// 静态文件中间件扩展，按配置注册默认与自定义静态目录并对后台路径做登录校验。
+/// </summary>
 public static class StaticFileMiddlewareExtention
 {
     /// <summary>

@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -24,6 +24,9 @@
 
 namespace LuBan.ApprovalFlow.Entities;
 
+/// <summary>
+/// 审批待办任务实体，记录每位处理人当前的任务及已读、委托状态。
+/// </summary>
 [SugarTable("db_approval_task", "审批待办任务")]
 public class DbApprovalTask : EntityDataScoreBase
 {

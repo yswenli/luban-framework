@@ -1,10 +1,10 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *公司名称：yswenli
 *命名空间：LuBan.Common
-*文件名： BaseService
+*文件名： DictionaryUtil
 *版本号： V1.0.0.0
 *唯一标识：b3deeffd-31c4-456b-9e1b-dcc3dfffa06e
 *当前的用户域：WALLE

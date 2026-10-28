@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c) YSWenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -28,13 +28,35 @@ namespace LuBan.Threading.Core;
 /// </summary>
 public class PoolTaskInfo2
 {
+    /// <summary>
+    /// 任务唯一标识，创建时自动生成。
+    /// </summary>
     public Guid Id { get; } = Guid.NewGuid();
+    /// <summary>
+    /// 任务实际执行的异步委托。
+    /// </summary>
     public Func<Task> Func { get; }
+    /// <summary>
+    /// 任务当前状态，初始为待执行。
+    /// </summary>
     public PoolTaskStatus Status { get; internal set; } = PoolTaskStatus.Pending;
+    /// <summary>
+    /// 任务执行失败时捕获的异常，成功时为空。
+    /// </summary>
     public Exception? Exception { get; internal set; }
+    /// <summary>
+    /// 任务开始执行的时间，尚未开始为空。
+    /// </summary>
     public DateTime? StartTime { get; internal set; }
+    /// <summary>
+    /// 任务结束的时间，尚未结束为空。
+    /// </summary>
     public DateTime? EndTime { get; internal set; }
 
+    /// <summary>
+    /// 用待执行的异步委托包装出任务池任务信息。
+    /// </summary>
+    /// <param name="func">任务实际执行的异步委托。</param>
     public PoolTaskInfo2(Func<Task> func)
     {
         Func = func;

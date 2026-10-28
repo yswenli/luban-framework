@@ -1,10 +1,10 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：YSWENLI
 *公司名称：yswenli
 *命名空间：LuBan.Web.Core
-*文件名： BaseController
+*文件名： BaseApiController
 *版本号： V1.0.0.0
 *唯一标识：739879d4-eade-4a64-8c29-2923cd188768
 *当前的用户域：yswenli
@@ -32,6 +32,9 @@ namespace LuBan.Web.Core;
 [Route(RouteConst.ROUTE_TEMPLATE_API)]
 [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
 //[PraParameterFilter] [NoPraParameterFilter]
+/// <summary>
+/// 需要 JWT 认证的 API 控制器基类，统一了 API 路由模板、认证方案与接口分组。
+/// </summary>
 [ApiExplorerSettings(GroupName = "default")]
 public abstract class BaseApiController : BaseController
 {

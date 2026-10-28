@@ -1,10 +1,10 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *公司名称：Walle
-*命名空间：LuBan.Orm
-*文件名： BasePageInput
+*命名空间：LuBan.Orm.Models
+*文件名： IBasePageInput
 *版本号： V1.0.0.0
 *唯一标识：cf2a42c2-70dc-4983-ad3c-a3c3bb3b8483
 *当前的用户域：WALLE

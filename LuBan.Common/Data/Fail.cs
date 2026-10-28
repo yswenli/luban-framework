@@ -21,10 +21,8 @@
 *描述：api 返回失败结果
 *
 *****************************************************************************/
-using LuBan.Common.Errors;
 
 namespace LuBan.Common.Data;
-
 
 /// <summary>
 /// api 返回失败结果

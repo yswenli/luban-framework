@@ -352,6 +352,11 @@ public static class JobServiceLoader
         bgService.SetCron(cron);
     }
 
+    /// <summary>
+    /// 按任务名（忽略大小写）取任务实例：先查运行中的实例，未命中再用已注册的工厂创建。
+    /// </summary>
+    /// <param name="jobName">任务名称。</param>
+    /// <returns>任务实例；既未运行也未注册时返回 <c>null</c>。</returns>
     public static IJob? GetJobInstance(string jobName)
     {
         // 先从运行中的任务中查找

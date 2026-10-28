@@ -1,7 +1,26 @@
-using LuBan.Common.IO;
-using Microsoft.Extensions.AI;
-using SkiaSharp;
-using System.Text;
+/****************************************************************************
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：Walle
+*命名空间：LuBan.AIAgent.Attachments
+*文件名： DefaultAttachmentProcessor
+*版本号： V1.0.0.0
+*唯一标识：6c2503aa-91c1-4804-80f7-1d323e479db0
+*当前的用户域：WALLE
+*创建人：yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/9/18
+*描述：默认附件处理器：图片走 SkiaSharp 缩放，文本按大小内联或生成指引。
+*
+*=================================================
+*修改标记
+*修改时间：2026/9/18
+*修改人： yswenli
+*版本号： V1.0.0.0
+*描述：默认附件处理器：图片走 SkiaSharp 缩放，文本按大小内联或生成指引。
+*
+*****************************************************************************/
 
 namespace LuBan.AIAgent.Attachments;
 

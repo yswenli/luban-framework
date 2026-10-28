@@ -14,7 +14,6 @@
 *描述：HTML 提取器（正则去标签，降级纯文本）
 *
 *****************************************************************************/
-using System.Text.RegularExpressions;
 
 namespace LuBan.AIAgent.Wiki.Extractors;
 

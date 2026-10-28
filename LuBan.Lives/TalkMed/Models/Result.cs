@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -32,12 +32,21 @@ namespace LuBan.Lives.TalkMed.Models;
 /// </summary>
 public class Result<T>
 {
+    /// <summary>
+    /// 接口响应状态码，0 通常表示成功（接口字段 code）。
+    /// </summary>
     [DataMember(Name = "code")]
     public int Code { get; set; }
 
+    /// <summary>
+    /// 接口返回的业务数据体（接口字段 data）。
+    /// </summary>
     [DataMember(Name = "data")]
     public T Data { get; set; }
 
+    /// <summary>
+    /// 接口响应提示信息（接口字段 message）。
+    /// </summary>
     [DataMember(Name = "message")]
     public string Message { get; set; }
 }

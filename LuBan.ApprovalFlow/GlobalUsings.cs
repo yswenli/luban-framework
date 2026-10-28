@@ -1,10 +1,10 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c) YSWenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *Author：yswenli
 *命名空间：LuBan.ApprovalFlow
-*文件名： GlobalUsing
+*文件名： GlobalUsings
 *版本号： V1.0.0.0
 *唯一标识：f6669d1c-c1ab-4ef7-82a8-0e716d6e5dcf
 *当前的用户域：WALLE
@@ -48,3 +48,8 @@ global using System.ComponentModel.DataAnnotations;
 global using System.Reflection;
 global using System.Text.Json;
 global using System.Text.Json.Serialization;
+
+// 由代码文件上移的命名空间（2026-10-28 规范化）
+global using Microsoft.Extensions.Hosting;
+global using System.Globalization;
+global using System.Text.RegularExpressions;

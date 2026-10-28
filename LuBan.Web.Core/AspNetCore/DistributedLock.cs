@@ -22,9 +22,6 @@
 *      请求路径请改用 CreateAsync 以避免阻塞请求线程导致线程池饥饿。
 *
 *****************************************************************************/
-using System.Threading.Tasks;
-
-using LuBan.Redis.Interfaces;
 
 namespace LuBan.Web.Core.AspNetCore;
 

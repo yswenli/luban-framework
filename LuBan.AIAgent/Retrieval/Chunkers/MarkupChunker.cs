@@ -21,9 +21,6 @@
 *描述：标记语言切块器
 *
 *****************************************************************************/
-using System.Net;
-using System.Text;
-using System.Text.RegularExpressions;
 
 namespace LuBan.AIAgent.Retrieval.Chunkers;
 

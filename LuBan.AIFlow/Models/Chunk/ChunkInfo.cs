@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -29,18 +29,33 @@ namespace LuBan.AIFlow.Models.Chunk;
 /// </summary>
 public class ChunkInfo
 {
+    /// <summary>
+    /// 分块唯一标识（响应字段 id）。
+    /// </summary>
     [JsonPropertyName("id")]
     public string Id { get; set; } = string.Empty;
 
+    /// <summary>
+    /// 分块的文本内容（响应字段 content）。
+    /// </summary>
     [JsonPropertyName("content")]
     public string Content { get; set; } = string.Empty;
 
+    /// <summary>
+    /// 分块的自定义元数据（响应字段 metadata）。
+    /// </summary>
     [JsonPropertyName("metadata")]
     public object Metadata { get; set; } = new();
 
+    /// <summary>
+    /// 分块创建时间，Unix 时间戳秒（响应字段 create_time）。
+    /// </summary>
     [JsonPropertyName("create_time")]
     public long CreateTime { get; set; }
 
+    /// <summary>
+    /// 分块最后更新时间，Unix 时间戳秒（响应字段 update_time）。
+    /// </summary>
     [JsonPropertyName("update_time")]
     public long UpdateTime { get; set; }
 }

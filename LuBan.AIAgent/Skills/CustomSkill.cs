@@ -14,7 +14,6 @@
 *描述：自定义 Skill 适配器，将 CustomSkillConfig 配置包装为 Skill
 *
 *****************************************************************************/
-using LuBan.AIAgent.Configuration;
 
 namespace LuBan.AIAgent.Skills;
 

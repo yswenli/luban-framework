@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ YSWenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -38,6 +38,9 @@ public class QAccessToken
     /// 过期时间
     /// </summary>
 
+    /// <summary>
+    /// 令牌有效期，单位为秒（接口字段 expireTime）。
+    /// </summary>
     [DataMember(Name = "expireTime")]
     public int ExpireTime { get; set; }
 }

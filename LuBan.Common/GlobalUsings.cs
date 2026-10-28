@@ -4,21 +4,21 @@
 *机器名称：WALLE
 *公司名称：Walle
 *命名空间：LuBan.Common
-*文件名： GloabUsing
+*文件名： GlobalUsings
 *版本号： V1.0.0.0
 *唯一标识：ff2081f1-b827-46ab-9708-9a21b0437630
 *当前的用户域：WALLE
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2023/12/1 14:10:10
-*描述：
+*描述：项目级全局 using 声明，集中管理常用命名空间。
 *
 *=================================================
 *修改标记
 *修改时间：2023/12/1 14:10:10
 *修改人： yswenli
 *版本号： V1.0.0.0
-*描述：
+*描述：项目级全局 using 声明，集中管理常用命名空间。
 *
 *****************************************************************************/
 global using Encrypt.Library;
@@ -85,3 +85,22 @@ global using System.Xml.Serialization;
 
 global using ZXing;
 global using ZXing.Common;
+
+// 由代码文件上移的命名空间（2026-10-28 规范化）
+global using AlibabaCloud.SDK.Dysmsapi20170525;
+global using AlibabaCloud.SDK.Dysmsapi20170525.Models;
+global using AlibabaCloud.TeaUtil.Models;
+global using LuBan.Common.Calendar;
+global using LuBan.Common.Http;
+global using LuBan.Common.Sms.Models;
+global using LuBan.Common.Sms.Providers;
+global using Microsoft.Extensions.DependencyInjection;
+global using OtpNet;
+global using System.IO;
+global using System.Net.Mail;
+global using System.Net.Mime;
+global using System.Runtime.Versioning;
+global using System.ServiceProcess;
+global using System.Threading.Channels;
+global using Tea;
+global using UAParser;

@@ -1,10 +1,20 @@
 /****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：Walle
 *命名空间：LuBan.AIAgent.LogAnalysis
 *文件名： LogAggregator
+*版本号： V1.0.0.0
+*唯一标识：e23bd34e-4623-4866-a542-b7307bfa345f
+*当前的用户域：WALLE
+*创建人：yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/10/9
 *描述：单遍流式日志聚合（恒定内存）
+*
 *****************************************************************************/
+
 namespace LuBan.AIAgent.LogAnalysis;
 
 /// <summary>
@@ -109,16 +119,31 @@ internal sealed class LogAggregator : ILogAggregator
         private readonly int _sampleCap;
         private readonly List<long> _samples;
 
+        /// <summary>
+        /// 初始化签名累加器，并把首次出现的行号作为第一个样本。
+        /// </summary>
+        /// <param name="firstLineNumber">该签名首次出现的行号。</param>
+        /// <param name="sampleCap">保留的示例行号上限。</param>
         public SignatureAccumulator(long firstLineNumber, int sampleCap)
         {
             _sampleCap = Math.Max(1, sampleCap);
             _samples = new List<long>(_sampleCap) { firstLineNumber };
         }
 
+        /// <summary>
+        /// 该签名累计出现的次数，初始为首次出现的 1 次。
+        /// </summary>
         public long Count { get; private set; } = 1;
 
+        /// <summary>
+        /// 按出现顺序保留的示例行号，数量不超过样本上限。
+        /// </summary>
         public IReadOnlyList<long> Sample => _samples;
 
+        /// <summary>
+        /// 累加一次出现，并在样本未满时记录该行号。
+        /// </summary>
+        /// <param name="lineNumber">本次出现的行号。</param>
         public void Add(long lineNumber)
         {
             Count++;

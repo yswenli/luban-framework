@@ -14,7 +14,6 @@
 *描述：插件清单校验（PRD §3.2 / §3.4 加载流程第 2 步）
 *
 *****************************************************************************/
-using System.Text.RegularExpressions;
 
 namespace LuBan.AIAgent.Plugins.Loading;
 

@@ -1,10 +1,10 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *公司名称：Walle
 *命名空间：LuBan.Orm
-*文件名： RepositoryExtension
+*文件名： RepositoryExtention
 *版本号： V1.0.0.0
 *唯一标识：b709182b-bbc9-4692-85a0-a9f1fe36d0ac
 *当前的用户域：WALLE

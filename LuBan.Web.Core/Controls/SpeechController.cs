@@ -22,9 +22,6 @@
 *
 *****************************************************************************/
 
-using LuBan.Speech;
-
-
 namespace LuBan.Web.Core.Controls;
 
 /// <summary>

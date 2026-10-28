@@ -6,7 +6,7 @@
 *命名空间：LuBan.AIAgent.Hosting
 *文件名： IAgentWorkspaceResolver
 *版本号： V1.0.0.0
-*唯一标识：工作区解析接口
+*唯一标识：b1d2256b-7ac5-4758-91ac-8129b5d5901c
 *当前的用户域：WALLE
 *创建人：yswenli
 *电子邮箱：yswenli@outlook.com

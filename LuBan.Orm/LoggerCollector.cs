@@ -24,9 +24,6 @@
 
 namespace LuBan.Orm;
 
-using LuBan.Logging.Configuration;
-using Microsoft.Extensions.Options;
-
 /// <summary>
 /// 日志收集器
 /// </summary>
@@ -78,7 +75,6 @@ public class LoggerCollector : BaseSingleInstance<LoggerCollector>
         _dbLogCleaner = new(logLimit);
     }
 
-
     /// <summary>
     /// 启动日志注册事件
     /// </summary>
@@ -89,7 +85,6 @@ public class LoggerCollector : BaseSingleInstance<LoggerCollector>
         Logger.OnCalled += Logger_OnReceived;
         Logger.OnError += Logger_OnReceived;
     }
-
 
     private void Logger_OnReceived(LogInfo obj)
     {

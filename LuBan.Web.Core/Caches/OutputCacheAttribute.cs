@@ -1,10 +1,10 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：YSWENLI
 *公司名称：yswenli
 *命名空间：LuBan.Web.Core.Caches
-*文件名： OutputCache
+*文件名： OutputCacheAttribute
 *版本号： V1.0.0.0
 *唯一标识：b0a11e77-1e2d-4114-aeb0-1523665bdde8
 *当前的用户域：yswenli

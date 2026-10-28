@@ -11,8 +11,6 @@
 *描述：工作区连接器条目 —— .luban-agent/connectors/<name>.json 的对象模型
 *
 *****************************************************************************/
-using System.Text.Json.Serialization;
-using LuBan.AIAgent.Configuration;
 
 namespace LuBan.AIAgent.Connectors;
 

@@ -4,7 +4,7 @@
 *机器名称：WALLE
 *Author：yswenli
 *命名空间：LuBan.Orm
-*文件名： LogCleaner
+*文件名： DbLogCleaner
 *版本号： V1.0.0.0
 *唯一标识：86fd92d0-6e45-40a1-b7fe-ffc0e7173238
 *当前的用户域：WALLE
@@ -21,7 +21,6 @@
 *描述：日志清理器
 *
 *****************************************************************************/
-using LuBan.Logging.Configuration;
 
 namespace LuBan.Orm;
 
@@ -68,7 +67,6 @@ public class DbLogCleaner
             _stated = false;
         }
     }
-
 
     /// <summary>
     /// 清理

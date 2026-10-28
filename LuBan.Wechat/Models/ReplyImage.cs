@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ 2023-2024 Oceania All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -11,14 +11,14 @@
 *创建人： WALLE
 *电子邮箱：yswenli@outlook.com
 *创建时间：2022/7/5 14:58:35
-*描述：
+*描述：ReplyImage 类
 *
 *=================================================
 *修改标记
 *修改时间：2022/7/5 14:58:35
 *修改人： yswenli
 *版本号： V1.0.0.0
-*描述：
+*描述：ReplyImage 类
 *
 *****************************************************************************/
 namespace LuBan.Wechat.Models
@@ -28,8 +28,14 @@ namespace LuBan.Wechat.Models
 /// </summary>
     public class ReplyImage : Reply
     {
+        /// <summary>
+        /// 回复图片的素材 ID，需为已上传的临时或永久图片素材（回复协议字段 MediaId）。
+        /// </summary>
         public string MediaId { get; set; }
 
+        /// <summary>
+        /// 构造图片回复消息，并把消息类型置为 image。
+        /// </summary>
         public ReplyImage()
         {
             base.MsgType = EnumReplyMsgType.image;

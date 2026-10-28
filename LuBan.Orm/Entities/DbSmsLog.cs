@@ -1,10 +1,10 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *Author：yswenli
-*命名空间：LuBan.Models.SysEntities
-*文件名： SysSmsLog
+*命名空间：LuBan.Orm.Entities
+*文件名： DbSmsLog
 *版本号： V1.0.0.0
 *唯一标识：4fb0b423-c5d7-4a0a-967c-5d17a23f6015
 *当前的用户域：WALLE

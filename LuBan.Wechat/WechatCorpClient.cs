@@ -1,6 +1,6 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
-*CLR版本： 4.0.30319.42000
+*CLR版本： .net10.0
 *机器名称：WALLE
 *公司名称：河之洲
 *命名空间：LuBan.Wechat
@@ -21,8 +21,6 @@
 *描述：企业微信客户端
 *
 *****************************************************************************/
-
-using LuBan.Wechat.Errors;
 
 namespace LuBan.Wechat;
 
@@ -45,7 +43,6 @@ public class WechatCorpClient : ICommonClient, IDisposable, IWechatCorpClient
     /// 企业微信自建应用客户端配置
     /// </summary>
     public WechatOptions WechatOptions { get; set; }
-
 
     HttpInterceptorCollection _interceptors;
 
@@ -141,7 +138,6 @@ public class WechatCorpClient : ICommonClient, IDisposable, IWechatCorpClient
         Client.Interceptors.Add(new WechatClientInterceptor());
     }
 
-
     /// <summary>
     /// 获取企业微信AccessToken，仅限自建应用、第三方应用和服务商代开发应用
     /// </summary>
@@ -199,11 +195,18 @@ public class WechatCorpClient : ICommonClient, IDisposable, IWechatCorpClient
         return tokenResult;
     }
 
+    /// <summary>
+    /// 设置客户端公共配置，当前实现未支持并抛出 <c>NotImplementedException</c>。
+    /// </summary>
+    /// <param name="configure">用于修改公共客户端配置的委托。</param>
     public void Configure(Action<CommonClientSettings> configure)
     {
         throw new NotImplementedException();
     }
 
+    /// <summary>
+    /// 释放客户端占用的资源，当前实现未支持并抛出 <c>NotImplementedException</c>。
+    /// </summary>
     public void Dispose()
     {
         throw new NotImplementedException();

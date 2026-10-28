@@ -1,10 +1,10 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *Author：yswenli
 *命名空间：LuBan.Wechat
-*文件名： WechatTenpayClient
+*文件名： WechatClientFactory
 *版本号： V1.0.0.0
 *唯一标识：fb7cb0bf-74ea-4ead-98a5-c821f2518ffd
 *当前的用户域：WALLE
@@ -21,8 +21,6 @@
 *描述：微信接口客户端工具工厂
 *
 *****************************************************************************/
-
-using LuBan.Wechat.Errors;
 
 namespace LuBan.Wechat;
 

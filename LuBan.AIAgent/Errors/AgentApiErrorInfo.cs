@@ -1,13 +1,20 @@
 /****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：Walle
 *命名空间：LuBan.AIAgent.Errors
 *文件名： AgentApiErrorInfo
-*唯一标识：LLM/API 错误分类结果
+*版本号： V1.0.0.0
+*唯一标识：01a6557a-6a0f-4b1f-9222-a780d6d17340
+*当前的用户域：WALLE
+*创建人：yswenli
+*电子邮箱：yswenli@outlook.com
 *创建时间：2026/9/17
 *描述：LLM/API 错误分类结果
 *
 *****************************************************************************/
+
 namespace LuBan.AIAgent.Errors;
 
 /// <summary>

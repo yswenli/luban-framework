@@ -1,9 +1,9 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c) YSWenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *Author：yswenli
-*命名空间：LuBan.AI.Core
+*命名空间：LuBan.AIFlow.Core
 *文件名： DifyAIClient
 *版本号： V1.0.0.0
 *唯一标识：a9a020c0-0510-475a-b8a3-df776d7f0499
@@ -11,25 +11,26 @@
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2025/7/1 14:19:24
-*描述：
+*描述：Dify 平台 AI 客户端实现（IAIClient）。
 *
 *=================================================
 *修改标记
 *修改时间：2025/7/1 14:19:24
 *修改人： yswenli
 *版本号： V1.0.0.0
-*描述：
+*描述：Dify 平台 AI 客户端实现（IAIClient）。
 *
 *****************************************************************************/
-using System.Text;
 
 namespace LuBan.AIFlow.Core;
 
+/// <summary>
+/// Dify 平台 AI 客户端实现，负责调用聊天接口并解析图片识别结果。
+/// </summary>
 public class DifyAIClient : IAIClient
 {
     HttpClientProxy _httpClient;
     Dictionary<string, string> _headers;
-
 
     /// <summary>
     /// AI客户端选项
@@ -58,7 +59,6 @@ public class DifyAIClient : IAIClient
     {
 
     }
-
 
     /// <summary>
     /// 发送聊天消息

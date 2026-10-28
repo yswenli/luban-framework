@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c) YSWenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -6,7 +6,7 @@
 *命名空间：LuBan.Reporting.Dynamic.Repository
 *文件名： DynamicReportRepository
 *版本号： V1.0.0.0
-*唯一标识：
+*唯一标识：858e1fd6-611a-4cd2-98b5-7d3e577b7259
 *当前的用户域：WALLE
 *创建人： yswenli
 *电子邮箱：yswenli@outlook.com
@@ -29,6 +29,10 @@ namespace LuBan.Reporting.Dynamic.Repository;
 /// </summary>
 public class DynamicReportRepository : BaseRepository<DbReportConfig>
 {
+    /// <summary>
+    /// 创建指定租户下的动态报表配置数据访问对象。
+    /// </summary>
+    /// <param name="tenantId">租户 Id，默认使用框架的默认租户。</param>
     public DynamicReportRepository(long tenantId = LuBanOrmConst.DefaultTenantId)
         : base(tenantId)
     {

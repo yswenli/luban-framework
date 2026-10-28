@@ -1,9 +1,9 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright (c) YSWenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *Author：yswenli
-*命名空间：LuBan.Web.Core.Controllers
+*命名空间：LuBan.Web.Core
 *文件名： BaseMobileController
 *版本号： V1.0.0.0
 *唯一标识：91e6467d-8293-4a8f-8f76-12784f802199

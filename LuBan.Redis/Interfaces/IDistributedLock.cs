@@ -21,7 +21,6 @@
 *描述：分布式锁接口
 *
 *****************************************************************************/
-using LuBan.Redis.Core;
 
 namespace LuBan.Redis.Interfaces;
 

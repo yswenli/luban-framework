@@ -1,13 +1,20 @@
 /****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：Walle
 *命名空间：LuBan.AIAgent.Errors
 *文件名： AgentApiException
-*唯一标识：LLM/API 调用失败异常
+*版本号： V1.0.0.0
+*唯一标识：aa020c4e-1762-477d-bfda-912e2bab10c7
+*当前的用户域：WALLE
+*创建人：yswenli
+*电子邮箱：yswenli@outlook.com
 *创建时间：2026/9/17
 *描述：携带分类结果与友好文案的 LLM/API 调用失败异常
 *
 *****************************************************************************/
+
 namespace LuBan.AIAgent.Errors;
 
 /// <summary>

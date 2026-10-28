@@ -21,7 +21,6 @@
 *描述：事件 Channel 接口
 *
 *****************************************************************************/
-using System.Threading.Channels;
 
 namespace LuBan.Common.EventBus;
 

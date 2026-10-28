@@ -14,7 +14,6 @@
 *描述：侧栏条目 - 左侧栏显示的一项
 *
 *****************************************************************************/
-using System.Text.Json.Serialization;
 
 namespace LuBan.AIAgent.Plugins;
 

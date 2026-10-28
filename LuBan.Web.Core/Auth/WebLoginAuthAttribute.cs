@@ -1,10 +1,10 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *公司名称：yswenli
 *命名空间：LuBan.Web.Core.Auth
-*文件名： LoginAuthAttribute
+*文件名： WebLoginAuthAttribute
 *版本号： V1.0.0.0
 *唯一标识：9a1ac990-92de-4b68-8030-165e9ac4a19b
 *当前的用户域：WALLE

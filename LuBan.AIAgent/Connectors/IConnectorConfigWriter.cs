@@ -11,7 +11,6 @@
 *描述：连接器配置写入抽象 —— 工作区连接器声明的落盘入口（宿主可替换）
 *
 *****************************************************************************/
-using LuBan.AIAgent.Abstractions;
 
 namespace LuBan.AIAgent.Connectors;
 

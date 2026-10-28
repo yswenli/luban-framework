@@ -21,7 +21,6 @@
 *描述：向量数学计算工具
 *
 *****************************************************************************/
-using System.Runtime.InteropServices;
 
 namespace LuBan.AIAgent.Retrieval;
 

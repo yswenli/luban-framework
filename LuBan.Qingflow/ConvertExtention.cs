@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ YSWenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -24,6 +24,9 @@
 
 namespace LuBan.Qingflow;
 
+/// <summary>
+/// 轻流应用数据与业务模型之间的转换扩展方法集合。
+/// </summary>
 public static class ConvertExtention
 {
     /// <summary>

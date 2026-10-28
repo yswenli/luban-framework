@@ -1,4 +1,4 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -31,6 +31,11 @@ namespace LuBan.Web.Core.Controls;
 /// </summary>
 static class HtmlSelectEncoder
 {
+    /// <summary>
+    /// 对文本做 HTML 编码，空值返回空字符串。
+    /// </summary>
+    /// <param name="value">待编码的原始文本，可为空。</param>
+    /// <returns>编码后的文本，空输入返回空字符串。</returns>
     public static string HtmlEncode(string? value) =>
         string.IsNullOrEmpty(value) ? "" : System.Web.HttpUtility.HtmlEncode(value);
 }

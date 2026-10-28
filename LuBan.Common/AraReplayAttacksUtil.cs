@@ -1,10 +1,10 @@
-﻿/****************************************************************************
+/****************************************************************************
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
 *公司名称：yswenli
 *命名空间：LuBan.Common
-*文件名： SignatureHelper
+*文件名： AraReplayAttacksUtil
 *版本号： V1.0.0.0
 *唯一标识：d4860cfe-80b8-4cad-adcc-2c730b7e35ad
 *当前的用户域：WALLE
@@ -22,9 +22,6 @@
 *
 *****************************************************************************/
 using Result = LuBan.Common.Data.Result;
-using LuBan.Common.Errors;
-using System.Diagnostics.CodeAnalysis;
-
 
 namespace LuBan.Common;
 
@@ -103,7 +100,6 @@ public static class AraReplayAttacksUtil
 
         var ps = sp.ToString(0, sp.Length - 1);
 
-
         var signature = ps.GetMD5Str();
 
         result = new Success();
@@ -127,7 +123,6 @@ public static class AraReplayAttacksUtil
         var sd = queryStr.ToQueryDic();
         return GetSafeComparisonInfo(sd, out result);
     }
-
 
     /// <summary>
     /// 获取安全较验信息
@@ -164,7 +159,6 @@ public static class AraReplayAttacksUtil
 
         return GetSafeComparisonInfo(sd, out result);
     }
-
 
     /// <summary>
     /// 校验
