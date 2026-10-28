@@ -116,6 +116,11 @@ public class CommonConst
     /// </summary>
     public const string SysSmsCode = "sys-luban-framework:sms";
 
+    /// <summary>
+    /// LuBan Agent 配置（db_config 中整段 JSON，结构与 appsettings 的 LuBanAgent 节一致）
+    /// </summary>
+    public const string SysLuBanAgentCode = "sys-luban-framework:aiagent";
+
 
     /// <summary>
     /// Token过期时间
