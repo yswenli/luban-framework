@@ -22,6 +22,8 @@
 *
 *****************************************************************************/
 
+using LuBan.AIAgent;
+
 namespace LuBan.Web.Core.Utils;
 
 /// <summary>
@@ -110,6 +112,33 @@ public static class StartupUtil
 
             //配置短信
             services.InitSms();
+
+            //配置 Agent（db_config 优先，回退宿主配置；不完整则不启用）
+            try
+            {
+                var agentResolution = LuBanAgentConfigResolver.Resolve(configuration);
+                if (agentResolution.Enabled && agentResolution.Configuration is { } agentConfig)
+                {
+                    services.AddLuBanAgentDefaults(agentConfig);
+                    services.AddLuBanAgentHost();
+                    services.AddLuBanAgentOpenAI(agentConfig);
+
+                    if (!ReferenceEquals(agentConfig, configuration))
+                    {
+                        // D-D：让运行期直接注入 IConfiguration 的 Agent 服务看到同一份值
+                        services.Replace(ServiceDescriptor.Singleton<IConfiguration>(agentConfig));
+                    }
+                }
+                else
+                {
+                    ConsoleUtil.WriteLine($"LuBan Agent 未启用：{agentResolution.DisabledReason}", color: ConsoleColor.Yellow);
+                }
+            }
+            catch (Exception ex)
+            {
+                // Agent 属可选能力：初始化失败只降级为不启用，不得拖垮整个 Web 应用
+                ConsoleUtil.WriteLine($"LuBan Agent 初始化失败，已跳过：{ex}", color: ConsoleColor.Yellow);
+            }
 
             //配置缓存
             services.AddServiceCache();
