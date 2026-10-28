@@ -52,6 +52,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<ProjectReference Include="..\LuBan.AIAgent\LuBan.AIAgent.csproj" />
 		<ProjectReference Include="..\LuBan.ApprovalFlow\LuBan.ApprovalFlow.csproj" />
 		<ProjectReference Include="..\LuBan.CloudStorage\LuBan.CloudStorage.csproj" />
 		<ProjectReference Include="..\LuBan.Reporting\LuBan.Reporting.csproj" />
