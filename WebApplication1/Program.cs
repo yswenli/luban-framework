@@ -20,33 +20,11 @@
 *版本号： V1.0.0.0
 *描述：最小 Agent 端点验证宿主可用性
 *
+*修改时间：2026/10/28
+*修改人： yswenli
+*版本号： V1.0.0.0
+*描述：改用框架标准启动，Agent 注册移至 Web 核心
+*
 *****************************************************************************/
-using LuBan.AIAgent;
-using LuBan.AIAgent.Hosting;
-using LuBan.AIAgent.Sessions;
 
-var builder = WebApplication.CreateBuilder(args);
-
-// ===== 最小 Agent 示例：三行注册 =====
-builder.Services.AddLuBanAgentDefaults(builder.Configuration);
-builder.Services.AddLuBanAgentHost();
-builder.Services.AddLuBanAgentOpenAI(builder.Configuration);
-
-var app = builder.Build();
-
-// ===== 最小 Agent 端点 =====
-app.MapPost("/agent/minimal", async (IAgentHost host, ISessionManager sessions, string prompt, CancellationToken ct) =>
-{
-    var session = await sessions.CreateSessionAsync("minimal", null);
-    await sessions.SetCurrentSessionAsync(session.SessionId);
-    await host.InitializeAsync(session.SessionId, ct);
-
-    var sb = new System.Text.StringBuilder();
-    await foreach (var evt in host.RunStreamingAsync(new AgentRunRequest { Input = prompt, SessionId = session.SessionId }, ct))
-    {
-        if (evt is TextDeltaEvent delta) sb.Append(delta.Delta);
-    }
-    return Results.Text(sb.ToString());
-});
-
-app.Run();
+WebApp.RunWebHost(args);
