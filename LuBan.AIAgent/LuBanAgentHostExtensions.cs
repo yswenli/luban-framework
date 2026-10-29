@@ -56,15 +56,28 @@ public static class LuBanAgentHostExtensions
 
         services.TryAddScoped<IAgentHost, AgentHost>();
         services.TryAddScoped<IAgentProfile, DefaultAgentProfile>();
-        services.TryAddScoped<IAgentWorkspaceResolver, SingleWorkspaceResolver>();
+        services.TryAddScoped<IAgentWorkspaceResolver>(sp =>
+        {
+            // 注册期读不到 IsolateWorkspaceByUser（配置单例稍后才被替换），故「用时求值」；
+            // 未开启隔离时保持单工作区语义（CLI / Codex 行为不变）。
+            var options = sp.GetRequiredService<IOptions<LuBanAgentOptions>>();
+            if (!options.Value.IsolateWorkspaceByUser)
+                return new SingleWorkspaceResolver(options);
+
+            return new PerUserWorkspaceResolver(
+                options,
+                sp.GetRequiredService<IAgentUserResolver>(),
+                sp);
+        });
         services.TryAddScoped<IAgentProfileResolver>(sp =>
             new DefaultAgentProfileResolver(sp.GetRequiredService<IAgentProfile>()));
         services.TryAddScoped<IAgentUserResolver, DefaultAgentUserResolver>();
         services.TryAddScoped<IAgentModelSelection, DefaultAgentModelSelection>();
         services.TryAddScoped<IModelCapabilityGate, AllowAllModelCapabilityGate>();
         services.TryAddScoped<IAgentAttachmentOrchestrator, DefaultAgentAttachmentOrchestrator>();
-        services.TryAddScoped<IAgentAttachmentSourceResolver>(sp =>
+        services.TryAddSingleton<IAgentAttachmentSourceResolver>(sp =>
             new DefaultAttachmentSourceResolver(sp.GetRequiredService<IOptions<LuBanAgentOptions>>()));
+        // broker 必须 Singleton：SSE 请求与确认请求是两个不同的 HTTP scope
         services.TryAddSingleton<IToolConfirmationBroker>(sp =>
             new DefaultToolConfirmationBroker(sp.GetRequiredService<IOptions<LuBanAgentOptions>>()));
         services.TryAddScoped<ISessionRuntimeInitializer, NoOpSessionRuntimeInitializer>();

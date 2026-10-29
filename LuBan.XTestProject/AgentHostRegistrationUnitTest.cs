@@ -1,4 +1,5 @@
 using LuBan.AIAgent;
+using LuBan.AIAgent.Attachments.Ingestion;
 using LuBan.AIAgent.Hosting;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
@@ -91,5 +92,31 @@ public class AgentHostRegistrationUnitTest
         Assert.IsNotNull(scope.ServiceProvider.GetRequiredService<IAgentUserResolver>());
         Assert.IsNotNull(scope.ServiceProvider.GetRequiredService<IModelCapabilityGate>());
         Assert.IsNotNull(scope.ServiceProvider.GetRequiredService<IAgentAttachmentOrchestrator>());
+    }
+
+    [TestMethod]
+    public async Task AttachmentSourceAndConfirmationSeams_AreRegistered()
+    {
+        await using var sp = Build();
+        using var scope = sp.CreateScope();
+
+        Assert.IsInstanceOfType(
+            scope.ServiceProvider.GetRequiredService<IAgentAttachmentSourceResolver>(),
+            typeof(DefaultAttachmentSourceResolver));
+        // broker 必须跨 scope 是同一实例：SSE 请求与确认请求属于不同的 HTTP scope
+        Assert.AreSame(
+            sp.GetRequiredService<IToolConfirmationBroker>(),
+            scope.ServiceProvider.GetRequiredService<IToolConfirmationBroker>());
+    }
+
+    [TestMethod]
+    public async Task WorkspaceResolver_StaysSingle_WhenIsolationDisabled()
+    {
+        await using var sp = Build();
+        using var scope = sp.CreateScope();
+
+        Assert.IsInstanceOfType(
+            scope.ServiceProvider.GetRequiredService<IAgentWorkspaceResolver>(),
+            typeof(SingleWorkspaceResolver));
     }
 }
