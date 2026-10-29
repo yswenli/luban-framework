@@ -93,32 +93,27 @@ public sealed class WebAgentSessionRegistry : ISingleton
         {
             var requested = requestedSessionId.Trim();
 
-            if (IsOwnedBy(requested, userId))
-                return new WebSessionResolution(requested, false, WebSessionStatus.Ok);
-
-            var info = await sessions.GetSessionAsync(requested).ConfigureAwait(false);
-            if (info is null)
-                return new WebSessionResolution(requested, false, WebSessionStatus.NotFound);
-
-            // 权威来源是本注册表；SessionInfo.UserId 只在内存实现下被回填，仅作辅助校验
-            if (!string.Equals(info.UserId, userId.ToString(), StringComparison.Ordinal))
-                return new WebSessionResolution(requested, false, WebSessionStatus.Forbidden);
+            // 归属口径统一走 CheckOwnershipAsync，避免与确认接口分叉
+            var status = await CheckOwnershipAsync(userId, requested, sessions)
+                .ConfigureAwait(false);
+            if (status != WebSessionStatus.Ok)
+                return new WebSessionResolution(requested, false, status);
 
             // 属于本人 → 切换「最后一次」指向
             _sessionIds[userId] = requested;
             return new WebSessionResolution(requested, false, WebSessionStatus.Ok);
         }
 
-        if (_sessionIds.TryGetValue(userId, out var existing))
-            return new WebSessionResolution(existing, false, WebSessionStatus.Ok);
+        if (await TryGetCurrentAsync(userId, sessions).ConfigureAwait(false) is { } current)
+            return new WebSessionResolution(current, false, WebSessionStatus.Ok);
 
         // 同一用户的并发首轮请求只允许创建一个会话
         var gate = _gates.GetOrAdd(userId, _ => new SemaphoreSlim(1, 1));
         await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            if (_sessionIds.TryGetValue(userId, out existing))
-                return new WebSessionResolution(existing, false, WebSessionStatus.Ok);
+            if (await TryGetCurrentAsync(userId, sessions).ConfigureAwait(false) is { } created)
+                return new WebSessionResolution(created, false, WebSessionStatus.Ok);
 
             var session = await sessions.CreateSessionAsync("web", workspaceId: null).ConfigureAwait(false);
 
@@ -130,6 +125,56 @@ public sealed class WebAgentSessionRegistry : ISingleton
         finally
         {
             gate.Release();
+
+            // 建会话只是首轮动作，门用完即回收，避免按用户无限增长。
+            // 不 Dispose：可能仍有等待者持有引用，交给 GC 即可。
+            _gates.TryRemove(new KeyValuePair<long, SemaphoreSlim>(userId, gate));
         }
+    }
+
+    /// <summary>
+    /// 校验会话归属（不改变「最后一次」指向），供对话与确认接口共用。
+    /// </summary>
+    /// <param name="userId">登录用户标识。</param>
+    /// <param name="sessionId">会话标识。</param>
+    /// <param name="sessions">会话管理器。</param>
+    /// <returns>归属状态：<see cref="WebSessionStatus.Ok"/> 表示属于该用户。</returns>
+    public async Task<WebSessionStatus> CheckOwnershipAsync(
+        long userId,
+        string? sessionId,
+        ISessionManager sessions)
+    {
+        ArgumentNullException.ThrowIfNull(sessions);
+        if (userId <= 0) throw new ArgumentOutOfRangeException(nameof(userId), "用户标识必须为正数");
+
+        if (string.IsNullOrWhiteSpace(sessionId))
+            return WebSessionStatus.NotFound;
+
+        var id = sessionId.Trim();
+        if (IsOwnedBy(id, userId))
+            return WebSessionStatus.Ok;
+
+        var info = await sessions.GetSessionAsync(id).ConfigureAwait(false);
+        if (info is null)
+            return WebSessionStatus.NotFound;
+
+        // 权威来源是本注册表；SessionInfo.UserId 只在内存实现下被回填，仅作辅助校验（缺失按拒绝处理）
+        return string.Equals(info.UserId, userId.ToString(), StringComparison.Ordinal)
+            ? WebSessionStatus.Ok
+            : WebSessionStatus.Forbidden;
+    }
+
+    /// <summary>取该用户「最后一次」会话；会话已被删除/清理时丢弃记录并返回 null。</summary>
+    private async Task<string?> TryGetCurrentAsync(long userId, ISessionManager sessions)
+    {
+        if (!_sessionIds.TryGetValue(userId, out var existing))
+            return null;
+
+        // 会话可能已被删除或清理：失效即丢弃，让下一轮重新创建，避免把幽灵会话发给宿主
+        if (await sessions.GetSessionAsync(existing).ConfigureAwait(false) is not null)
+            return existing;
+
+        _sessionIds.TryRemove(new KeyValuePair<long, string>(userId, existing));
+        return null;
     }
 }

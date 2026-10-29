@@ -25,6 +25,13 @@
 *版本号： V1.0.0.1
 *描述：新增 chat / chatstream（SSE）/ confirm 三动作，支持人设与附件
 *
+*修改时间：2026/10/29
+*修改人： yswenli
+*版本号： V1.0.0.2
+*描述：修复 attachments 传 null 时的空引用；chat 异常统一转错误响应；
+*      归属校验与会话解析统一走注册表，避免两处口径分叉；
+*      用户标识改读当前请求声明，去掉对框架静态上下文的依赖
+*
 *****************************************************************************/
 
 using LuBan.AIAgent.Abstractions;
@@ -32,6 +39,7 @@ using LuBan.AIAgent.Configuration;
 using LuBan.AIAgent.Hosting;
 using LuBan.AIAgent.Protocol;
 using LuBan.AIAgent.Sessions;
+using LuBan.Common.Consts;
 using LuBan.Web.Core.AIAgent;
 
 using Microsoft.Extensions.Configuration;
@@ -64,6 +72,12 @@ public class AgentController : BaseApiController
         "LuBan Agent 未启用：请配置 db_config 的 sys-luban-framework:aiagent 或 appsettings 的 LuBanAgent 节";
 
     /// <summary>
+    /// 当前登录用户标识；直接读当前请求的 JWT 声明，不依赖框架静态上下文（便于单测与宿主解耦）。
+    /// </summary>
+    private long CurrentUserId
+        => long.TryParse(HttpContext?.User?.FindFirst(ClaimConst.UserId)?.Value, out var id) ? id : 0;
+
+    /// <summary>
     /// 一轮对话（<b>不装配任何工具</b>），返回正文 + 思考 + 附件摘要。
     /// </summary>
     [DisplayName("对话"), HttpPost("chat"), NoApiLog]
@@ -81,30 +95,46 @@ public class AgentController : BaseApiController
         string? failure = null;
 
         var request = BuildRequest(input!, prepared.SessionId!, enableTools: false);
-        await foreach (var evt in prepared.Host!.RunStreamingAsync(request, cancellationToken)
-                           .ConfigureAwait(false))
+        try
         {
-            switch (evt)
+            await foreach (var evt in prepared.Host!.RunStreamingAsync(request, cancellationToken)
+                               .ConfigureAwait(false))
             {
-                case TextDeltaEvent delta:
-                    content.Append(delta.Delta);
-                    break;
-                case ThinkingDeltaEvent think:
-                    thinking.Append(think.Delta);
-                    break;
-                case AttachmentAddedEvent attachment:
-                    // Web 侧来源一定来自请求的 attachments；Source 为空只可能是本地选择器路径，用文件名兜底
-                    added.Add(new AgentAttachmentAdded(
-                        attachment.Source ?? attachment.FileName,
-                        attachment.FileName, attachment.MediaType, attachment.FileSize));
-                    break;
-                case AttachmentSkippedEvent attachmentSkip:
-                    skipped.Add(new AgentAttachmentSkipped(attachmentSkip.Source, attachmentSkip.Reason));
-                    break;
-                case ErrorEvent modelError:
-                    failure = modelError.Message;
-                    break;
+                switch (evt)
+                {
+                    case TextDeltaEvent delta:
+                        content.Append(delta.Delta);
+                        break;
+                    case ThinkingDeltaEvent think:
+                        thinking.Append(think.Delta);
+                        break;
+                    case AttachmentAddedEvent attachment:
+                        // Web 侧来源一定来自请求的 attachments；Source 为空只可能是本地选择器路径，用文件名兜底
+                        added.Add(new AgentAttachmentAdded(
+                            attachment.Source ?? attachment.FileName,
+                            attachment.FileName, attachment.MediaType, attachment.FileSize));
+                        break;
+                    case AttachmentSkippedEvent attachmentSkip:
+                        skipped.Add(new AgentAttachmentSkipped(attachmentSkip.Source, attachmentSkip.Reason));
+                        break;
+                    case ErrorEvent modelError:
+                        failure = modelError.Message;
+                        break;
+                }
             }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // 客户端已断开，写回没有意义
+            return StatusCode(StatusCodes.Status499ClientClosedRequest, ErrorResult("请求已取消", 499));
+        }
+        catch (Exception ex)
+        {
+            // 与 SSE 口径一致：异常转成错误信息，不把 500 堆栈抛给前端
+            if (content.Length == 0)
+                return StatusCode(StatusCodes.Status502BadGateway, ErrorResult(ex.Message, 502));
+
+            failure = ex.Message;
         }
 
         // 无正文的模型异常按 502 返回；有正文则 200 + error 字段（已产出部分内容，不该丢）
@@ -162,7 +192,7 @@ public class AgentController : BaseApiController
             return StatusCode(StatusCodes.Status400BadRequest,
                 ErrorResult("sessionId 与 confirmationId 不能为空", 400));
 
-        var userId = SessionUser.UserId;
+        var userId = CurrentUserId;
         if (userId <= 0)
             return StatusCode(StatusCodes.Status401Unauthorized, ErrorResult("未登录", 401));
 
@@ -175,7 +205,7 @@ public class AgentController : BaseApiController
                 ErrorResult("result 只能是 allow / deny / allowAll / allowSession", 400));
 
         // 归属校验：拿别人的 confirmationId 不能放行别人的工具调用
-        var ownership = await CheckSessionOwnershipAsync(userId, input.SessionId, cancellationToken)
+        var ownership = await CheckSessionOwnershipAsync(userId, input.SessionId)
             .ConfigureAwait(false);
         if (ownership is { } ownershipError)
             return ownershipError;
@@ -196,8 +226,11 @@ public class AgentController : BaseApiController
             return PreparedRequest.Fail(StatusCode(StatusCodes.Status400BadRequest,
                 ErrorResult("prompt 不能为空", 400)));
 
+        // 前端可能显式传 "attachments": null，先归一成空集合，后面不必逐处判空
+        input!.Attachments ??= [];
+
         // [Authorize] 已拦截匿名请求，这里只做防御性校验
-        var userId = SessionUser.UserId;
+        var userId = CurrentUserId;
         if (userId <= 0)
             return PreparedRequest.Fail(StatusCode(StatusCodes.Status401Unauthorized,
                 ErrorResult("未登录", 401)));
@@ -208,13 +241,13 @@ public class AgentController : BaseApiController
             return PreparedRequest.Fail(StatusCode(StatusCodes.Status503ServiceUnavailable,
                 ErrorResult(AgentDisabled, 503)));
 
-        if (ValidateAttachments(input!) is { } attachmentError)
+        if (ValidateAttachments(input) is { } attachmentError)
             return PreparedRequest.Fail(attachmentError);
 
         var sessions = HttpContext.RequestServices.GetRequiredService<ISessionManager>();
         var registry = HttpContext.RequestServices.GetRequiredService<WebAgentSessionRegistry>();
         var resolution = await registry
-            .ResolveAsync(userId, input!.SessionId, sessions, cancellationToken)
+            .ResolveAsync(userId, input.SessionId, sessions, cancellationToken)
             .ConfigureAwait(false);
 
         if (resolution.Status == WebSessionStatus.NotFound)
@@ -231,7 +264,8 @@ public class AgentController : BaseApiController
     /// <summary>附件数量/开关校验（体积与类型交给框架逐项判定）。</summary>
     private IActionResult? ValidateAttachments(AgentChatInput input)
     {
-        if (input.Attachments.Count == 0)
+        var attachments = input.Attachments ?? [];
+        if (attachments.Count == 0)
             return null;
 
         var options = HttpContext.RequestServices
@@ -240,7 +274,7 @@ public class AgentController : BaseApiController
         if (!options.Enabled)
             return StatusCode(StatusCodes.Status400BadRequest, ErrorResult("附件功能未启用", 400));
 
-        if (options.MaxCount > 0 && input.Attachments.Count > options.MaxCount)
+        if (options.MaxCount > 0 && attachments.Count > options.MaxCount)
             return StatusCode(StatusCodes.Status400BadRequest,
                 ErrorResult($"附件数量超过上限（{options.MaxCount}）", 400));
 
@@ -248,24 +282,22 @@ public class AgentController : BaseApiController
     }
 
     /// <summary>确认接口的会话归属校验；通过返回 null。</summary>
-    private async Task<IActionResult?> CheckSessionOwnershipAsync(
-        long userId, string sessionId, CancellationToken cancellationToken)
+    private async Task<IActionResult?> CheckSessionOwnershipAsync(long userId, string sessionId)
     {
         var registry = HttpContext.RequestServices.GetRequiredService<WebAgentSessionRegistry>();
-        if (registry.IsOwnedBy(sessionId, userId))
-            return null;
-
         var sessions = HttpContext.RequestServices.GetRequiredService<ISessionManager>();
-        var info = await sessions.GetSessionAsync(sessionId).ConfigureAwait(false);
 
-        if (info is null)
-            return StatusCode(StatusCodes.Status404NotFound, ErrorResult(SessionNotFound, 404));
+        // 与 chat/chatstream 同一套归属口径，避免两处判定分叉
+        var status = await registry.CheckOwnershipAsync(userId, sessionId, sessions)
+            .ConfigureAwait(false);
 
-        // 权威来源是注册表；SessionInfo.UserId 只在内存实现下被回填，仅作辅助校验
-        if (!string.Equals(info.UserId, userId.ToString(), StringComparison.Ordinal))
-            return StatusCode(StatusCodes.Status403Forbidden, ErrorResult(SessionForbidden, 403));
-
-        return null;
+        return status switch
+        {
+            WebSessionStatus.Ok => null,
+            WebSessionStatus.NotFound => StatusCode(StatusCodes.Status404NotFound,
+                ErrorResult(SessionNotFound, 404)),
+            _ => StatusCode(StatusCodes.Status403Forbidden, ErrorResult(SessionForbidden, 403))
+        };
     }
 
     /// <summary>构造运行请求；<paramref name="enableTools"/> 为 false 时本轮没有任何工具。</summary>
@@ -274,7 +306,7 @@ public class AgentController : BaseApiController
         Input = input.Prompt.Trim(),
         SessionId = sessionId,
         SystemPrompt = string.IsNullOrWhiteSpace(input.System) ? null : input.System,
-        Attachments = input.Attachments
+        Attachments = (input.Attachments ?? [])
             .Where(a => !string.IsNullOrWhiteSpace(a))
             .ToList(),
         EnableTools = enableTools,
@@ -319,7 +351,7 @@ public class AgentController : BaseApiController
 
             if (failure is not null)
             {
-                yield return new AgentEventFrame("error", new { message = failure });
+                yield return new AgentEventFrame(AgentEventProtocol.Error, new { message = failure });
                 break;
             }
 

@@ -42,6 +42,9 @@ public static class AgentEventProtocol
     /// <summary>结束帧事件名（由传输层构造载荷）。</summary>
     public const string Done = "done";
 
+    /// <summary>错误帧事件名（载荷 <c>{ message }</c>）。</summary>
+    public const string Error = "error";
+
     /// <summary>载荷序列化口径：camelCase、不缩进、不转义中文。</summary>
     public static readonly JsonSerializerOptions PayloadJsonOptions = new()
     {
@@ -63,7 +66,7 @@ public static class AgentEventProtocol
         ToolConfirmationRequestedEvent e => new("tool.confirm", new { confirmationId = e.ConfirmationId, toolName = e.ToolName, arguments = e.Arguments, timeoutSeconds = e.TimeoutSeconds }),
         AttachmentAddedEvent e => new("attachment.added", new { fileName = e.FileName, mediaType = e.MediaType, fileSize = e.FileSize, source = e.Source }),
         AttachmentSkippedEvent e => new("attachment.skipped", new { source = e.Source, reason = e.Reason }),
-        ErrorEvent e => new("error", new { message = e.Message }),
+        ErrorEvent e => new(Error, new { message = e.Message }),
         _ => null
     };
 
