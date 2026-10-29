@@ -1,0 +1,59 @@
+@host = http://localhost:5000
+@token = 粘贴登录后的 JWT
+@sessionId = 粘贴上一轮返回的 sessionId
+
+### 1. 非流式（无工具）
+POST {{host}}/api/agent/chat
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "prompt": "用一句话说明什么是违约责任", "system": "你是合同审查助手，只讲结论" }
+
+### 2. 非流式 + 附件（URL / 绝对路径 / 相对路径各一）
+POST {{host}}/api/agent/chat
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "prompt": "这两个附件讲了什么",
+  "attachments": [
+    "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
+    "C:\\data\\notes.txt",
+    "images/logo.png"
+  ]
+}
+
+### 3. 流式（SSE；客户端需支持流式读取）
+POST {{host}}/api/agent/chatstream
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "prompt": "在工作区建一个 hello.txt，写入 hello，再读出来告诉我内容", "sessionId": "{{sessionId}}" }
+
+### 4. 续用同一会话
+POST {{host}}/api/agent/chatstream
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "prompt": "刚才那个文件的第一行是什么", "sessionId": "{{sessionId}}" }
+
+### 5. 确认（confirmationId 取自 tool.confirm 帧）
+POST {{host}}/api/agent/confirm
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "sessionId": "{{sessionId}}", "confirmationId": "粘贴", "result": "allow" }
+
+### 6. 越权：用别人的 sessionId（预期 403）
+POST {{host}}/api/agent/chat
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "prompt": "hi", "sessionId": "别人的会话" }
+
+### 7. 不存在的会话（预期 404）
+POST {{host}}/api/agent/chat
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "prompt": "hi", "sessionId": "no-such-session" }

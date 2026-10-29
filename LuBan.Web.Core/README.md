@@ -99,7 +99,10 @@ dotnet add package LuBan.Web.Core
       {
         "Provider": "deepseek",
         "Model": "deepseek-chat",
-        "ApiKey": "sk-***"
+        "ApiKey": "sk-***",
+        // 可省略，但仅当 Provider 有内置默认地址时安全（deepseek/openai/kimi/ollama 等）；
+        // 自建网关、代理或内置表外的 Provider 必须显式配置，否则会落到 OpenAI 默认端点
+        "BaseUrl": "https://api.deepseek.com/v1/"
       }
     ]
   }
@@ -108,10 +111,13 @@ dotnet add package LuBan.Web.Core
 
 校验口径：
 
-- `Models` 为数组，每项 `Provider` 必须在框架已知 Provider 列表内（大小写不敏感），`Model` / `ApiKey` 非空，`BaseUrl` 若给出必须是合法 http(s) 地址；
+- `Models` 为数组，每项 `Provider` 非空（大小写不敏感；内置表之外的自定义 Provider 也允许），`Model` / `ApiKey` 非空，`BaseUrl` 若给出必须是合法 http(s) 地址；
+- **内置 Provider 可省略 `BaseUrl`**，省略时取内置地址（见 `ProviderDefaults`）；内置项本身没有内置地址（如 `azure` / `claude` / `gemini`）时 `Endpoint` 为 null，OpenAI SDK 会落到 `https://api.openai.com/v1/`，并输出一条 `ChatClientFactoryWarning`；
+- **内置表之外的 Provider（自建网关、代理、未收录厂商）必须显式配置 `BaseUrl`**，如 `"Provider": "internal-llm"` 配 `"BaseUrl": "http://10.10.0.147:11689/v1"`；缺 `BaseUrl` 的会在启动期判定「不启用」并给出原因，不会静默打到 OpenAI 默认端点；
 - 同一 Provider 可配置多个模型，但 `ApiKey` / `BaseUrl` 必须一致，否则该 Provider 不注册；
 - `DefaultModel` 可省略（省略取数组第一项）；一旦给出，必须是 `provider:model` 且命中 `Models` 中某项；
-- `WorkspaceRoot` 支持绝对路径与相对路径：相对值以站点 `ContentRootPath` 为基准，非 Web 宿主（如单元测试）回退到程序目录。
+- `WorkspaceRoot` 支持绝对路径与相对路径：相对值以站点 `ContentRootPath` 为基准，非 Web 宿主（如单元测试）回退到程序目录；
+  注意 **Windows 上以 `/` 开头的值算绝对路径**（`/aiagent` → 当前盘根 `D:\aiagent`），要落站点内请写 `aiagent` 或 `./aiagent`；
 
 > 升级提示：旧版的扁平对象写法（`"Models": { "Provider": ... }`）不再支持，需改为数组。
 
@@ -211,7 +217,8 @@ var userRepo = repo.Change<SysRole>();
 
 - **后台任务**：`JobsController` + `JobServiceLoader` 管理定时任务，支持运行时动态更新 Cron 表达式
 - **健康检查**：`HealthCheckService` 支持企业微信机器人告警
-- **SSE 流式输出**：`SseStream` 服务端推送
+- **SSE 流式输出**：`SseStream` 服务端推送；`SseEventWriter` / `SseEventPump` 写命名事件帧（`event: <name>` + 单行 JSON `data:`）并在空闲时发注释心跳，不依赖 `WebApp.HttpContext`，便于单测
+- **Agent 会话归属**：`WebAgentSessionRegistry`（`LuBan.Web.Core.AIAgent`）按登录用户维护「最后一次会话」并校验会话归属，避免单例 `ISessionManager` 的进程级指针被多用户互相覆盖
 - **文件上传下载**：`UploadFileUtil` / `DownloadFileUtil` / `ExtraFileController`
 - **图形验证码**：内置验证码生成
 - **API 压测**：`CommonController.StressTest`

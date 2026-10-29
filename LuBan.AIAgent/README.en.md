@@ -388,6 +388,9 @@ AI: [calls WriteConnectorAsync] Created the connector declaration; save the cred
 | `ProcessedAttachment` | Processing result (metadata + text content / thumbnail path + pixel size) |
 | `AttachmentMessageBuilder` | Assembles attachments into a `ChatMessage` (images → base64 `DataContent`; text ≤50KB inlined; >50KB injects only a path hint) |
 | `AttachmentRecord` | Session persistence record (paths and metadata only, no base64) for history replay |
+| `IAgentAttachmentSourceResolver` / `DefaultAttachmentSourceResolver` | Turns caller-provided sources into local files: `http(s)` URLs are downloaded to disk, absolute local paths are read in place (Windows drive / UNC / Linux `/`), `file://` is converted, relative paths resolve against the workspace first and the site content root second; no host allowlist |
+| `AttachmentSourceFailure` | Reason a single source could not be used (`Source` + `Reason`); failures are recorded per item and never abort the turn |
+| `AttachmentEventProjector` | Projects processing results into `AttachmentAddedEvent` / `AttachmentSkippedEvent`: text >50KB gets a `ReadFileAsync` hint when tools are enabled and is reported as skipped when they are not |
 
 ### Rule Interception
 
@@ -534,8 +537,11 @@ Brings "session scope + run loop + profile + attachment orchestration + capabili
 | `AddLuBanAgentHost()` | Registers the host and default seams (all `TryAdd`): `SessionRuntimeManager` (singleton), `IAgentHost` (scoped), profile / workspace / user / model-selection resolvers, attachment orchestration, capability gate, session initializer, and `ICommandCatalog` (singleton) |
 | `AddLuBanAgentOpenAI(configuration)` | Builds one client per provider from the `LuBanAgent:Models` array (`Provider` / `Model` / `ApiKey` / `BaseUrl`) and registers `IChatClient` + `IProviderRouter`; duplicate providers must share credentials; when incomplete it only records a `ChatClientFactoryWarning` — no registration and no throw |
 | `IAgentHost` | Host entry point: `InitializeAsync` / `Reset` / `RunStreamingAsync(AgentRunRequest)`; **must be resolved as Scoped**, holds no session state itself. If a turn is running for that session, `Reset` only flags a deferred reload (never interrupting the turn); the agent is released when the turn finishes and rebuilt with the latest configuration on the next turn |
-| `AgentRunRequest` | One-turn input: `Input` / `AttachmentPaths` / `SessionId` / `PermissionMode` / `ConfirmHandler` / `OnPlannedAction` / `OnUserDenied` |
-| `AgentStreamEvent` | UI-agnostic output events: `TextDeltaEvent` / `ThinkingDeltaEvent` / `ToolCallStartedEvent` / `ToolCallCompletedEvent` / `ToolCallFailedEvent` / `ErrorEvent` / `OrchestrationProgressEvent` / `AttachmentAddedEvent` |
+| `AgentRunRequest` | One-turn input: `Input` / `AttachmentPaths` / `Attachments` (URLs or paths, resolved by the framework) / `SystemPrompt` (per-turn persona override) / `EnableTools` / `SessionId` / `PermissionMode` / `ConfirmHandler` / `ConfirmHandlerAsync` / `OnPlannedAction` / `OnUserDenied` |
+| `AgentStreamEvent` | UI-agnostic output events: `TextDeltaEvent` / `ThinkingDeltaEvent` / `ToolCallStartedEvent` / `ToolCallCompletedEvent` / `ToolCallFailedEvent` / `ToolConfirmationRequestedEvent` / `ErrorEvent` / `OrchestrationProgressEvent` / `AttachmentAddedEvent` / `AttachmentSkippedEvent` |
+| `AgentBuildOverrides` | Per-turn build overrides (`SystemPrompt` + `EnableTools`); compared against the cached agent and rebuilt inside the session's serial region when they change |
+| `AgentEventProtocol` / `AgentEventFrame` | Unified mapping of host events to transport frames (`text.delta` / `tool.*` / `attachment.*`), shared by Web / CLI / Codex |
+| `IToolConfirmationBroker` / `DefaultToolConfirmationBroker` | Cross-request confirmation registry (singleton): SSE pushes `tool.confirm`, a separate HTTP request submits the answer, timeout counts as deny |
 | `SessionRuntimeManager` / `SessionRuntime` | Per-session DI scope with a serial run loop (`EnqueueAsync`), reload flag (`RequestReload`), last-active tracking and disposal |
 | `IAgentProfile` / `AgentProfileBase` | Agent configuration (system prompt, tool groups, retrieval mode) and agent creation flow; `DefaultAgentProfile` is the general-purpose assistant |
 | `IAgentWorkspaceResolver` / `WorkspaceDescriptor` | Resolves the workspace per session (`Id` / `Name` / `RootPath` / `Type`); defaults to `LuBanAgent:WorkspaceRoot`, falling back to the process working directory (Web hosts go through `LuBan.Web.Core`, which resolves relative values against the site `ContentRootPath`) |
@@ -563,6 +569,26 @@ await foreach (var e in host.RunStreamingAsync(new AgentRunRequest { Input = "he
 > The hosting layer is **opt-in**: without `AddLuBanAgentHost()`, the existing `AddLuBanAgent` / `AddLuBanAgentDefaults` + `ILuBanAgentFactory` usage is unchanged.
 > For product behavior (multiple workspaces, persisted sessions, vendor connectors, custom profiles), register your own implementations after `AddLuBanAgentHost()` to override the default seams (all `TryAdd`).
 
+#### Web Event Stream
+
+`AgentEventProtocol` maps `AgentStreamEvent` values to transport frames; the first `session` frame and the final `done` frame are built by the transport layer (they describe the connection, not model output). Web hosts write them with `SseEventWriter` + `SseEventPump` from `LuBan.Web.Core` (named events plus comment heartbeats), and CLI / Codex can reuse the same event names for local rendering.
+
+| Event | Payload (camelCase) | Source |
+|---|---|---|
+| `session` | `{ sessionId, created }` | transport layer |
+| `think.delta` | `{ delta, llmRound }` | `ThinkingDeltaEvent` |
+| `text.delta` | `{ delta, llmRound }` | `TextDeltaEvent` |
+| `tool.started` | `{ callId, name, arguments, llmRound }` | `ToolCallStartedEvent` |
+| `tool.completed` | `{ callId, resultSummary, llmRound }` | `ToolCallCompletedEvent` |
+| `tool.failed` | `{ callId, error, llmRound }` | `ToolCallFailedEvent` |
+| `tool.confirm` | `{ confirmationId, toolName, arguments, timeoutSeconds }` | `ToolConfirmationRequestedEvent` |
+| `attachment.added` | `{ fileName, mediaType, fileSize, source }` | `AttachmentAddedEvent` |
+| `attachment.skipped` | `{ source, reason }` | `AttachmentSkippedEvent` |
+| `error` | `{ message }` | `ErrorEvent` |
+| `done` | `{ sessionId, elapsedMs }` | transport layer |
+
+`OrchestrationProgressEvent` is not mapped (returns null, callers ignore it).
+
 ## Usage Guide
 
 ### 1. Configuration & Registration
@@ -577,13 +603,32 @@ await foreach (var e in host.RunStreamingAsync(new AgentRunRequest { Input = "he
     "SystemPrompt": "You are a helpful assistant.",
     "MaxToolLoopIterations": 10,
     // array: one provider:model pair per entry; duplicate providers must share ApiKey/BaseUrl
+    // BaseUrl is optional but only safe when the provider has a built-in endpoint (deepseek/openai/kimi, ...);
+    // self-hosted gateways, proxies and providers outside the built-in table must set it explicitly,
+    // otherwise the SDK falls back to the OpenAI default endpoint https://api.openai.com/v1/
     "Models": [
-      { "Provider": "openai", "Model": "gpt-4o", "ApiKey": "sk-***" },
-      { "Provider": "deepseek", "Model": "deepseek-v4-pro", "ApiKey": "sk-***" }
+      { "Provider": "openai", "Model": "gpt-4o", "ApiKey": "sk-***", "BaseUrl": "https://api.openai.com/v1/" },
+      { "Provider": "deepseek", "Model": "deepseek-v4-pro", "ApiKey": "sk-***", "BaseUrl": "https://api.deepseek.com/v1/" }
     ],
     "Session": {
       "CompactTargetMessages": 20,
       "CompactThreshold": 10
+    },
+    // one workspace per signed-in user: <WorkspaceRoot>/users/<userId>; default false (CLI / desktop stay single-workspace)
+    "IsolateWorkspaceByUser": false,
+    // attachment source resolution: URL downloads land in <workspace>/.luban-agent/attachments/<sessionId>/<yyyyMMdd>/
+    "Attachments": {
+      "Enabled": true,
+      "MaxCount": 5,
+      "MaxFileBytes": 26214400,      // 25MB hard limit per file
+      "TimeoutSeconds": 30,          // per-URL download timeout
+      "RootDirectory": ".luban-agent/attachments",
+      "ContentRoot": null            // second base for relative paths; Web hosts let LuBan.Web.Core normalize it to an absolute path
+    },
+    // tool confirmation: cross-request registry; timeout counts as deny
+    "Confirmation": {
+      "TimeoutSeconds": 60,
+      "BrokerEnabled": true
     }
   }
 }

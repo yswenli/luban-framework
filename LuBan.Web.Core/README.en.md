@@ -99,7 +99,11 @@ The standard startup chain (`WebApp.RunWebHost`) tries to register LuBan Agent a
       {
         "Provider": "deepseek",
         "Model": "deepseek-chat",
-        "ApiKey": "sk-***"
+        "ApiKey": "sk-***",
+        // optional, but only safe when the provider has a built-in endpoint (deepseek/openai/kimi/ollama, ...);
+        // self-hosted gateways, proxies and providers outside the built-in table must set it explicitly,
+        // otherwise the SDK falls back to the OpenAI default endpoint
+        "BaseUrl": "https://api.deepseek.com/v1/"
       }
     ]
   }
@@ -108,10 +112,13 @@ The standard startup chain (`WebApp.RunWebHost`) tries to register LuBan Agent a
 
 Validation:
 
-- `Models` is an array. Each entry needs a `Provider` from the built-in provider list (case-insensitive) and non-empty `Model` / `ApiKey`; `BaseUrl`, when supplied, must be a valid http(s) URL.
+- `Models` is an array. Each entry needs a non-empty `Provider` (case-insensitive; providers outside the built-in table are allowed as custom providers) and non-empty `Model` / `ApiKey`; `BaseUrl`, when supplied, must be a valid http(s) URL.
+- **Built-in providers may omit `BaseUrl`**; the built-in endpoint is then used (see `ProviderDefaults`). Built-in providers that have no built-in endpoint (`azure` / `claude` / `gemini`) get a null `Endpoint`, so the OpenAI SDK falls back to `https://api.openai.com/v1/` and a `ChatClientFactoryWarning` is emitted.
+- **Providers outside the built-in table (self-hosted gateways, proxies, vendors not listed) must set `BaseUrl` explicitly**, for example `"Provider": "internal-llm"` with `"BaseUrl": "http://10.10.0.147:11689/v1"`. Without it the agent is reported as disabled at startup instead of silently hitting the OpenAI default endpoint.
 - The same provider may appear multiple times for different models, but every entry must share the same `ApiKey` / `BaseUrl`; otherwise that provider is not registered.
 - `DefaultModel` is optional (defaults to the first entry). When present it must be `provider:model` and match an entry in `Models`.
 - `WorkspaceRoot` accepts absolute or relative paths. A relative value is resolved against the site `ContentRootPath`; non-web hosts (for example unit tests) fall back to the program directory.
+  Note that **on Windows a value starting with `/` counts as absolute** (`/aiagent` → the current drive root, e.g. `D:\aiagent`); use `aiagent` or `./aiagent` to keep it inside the site.
 
 > Upgrade note: the legacy flat object form (`"Models": { "Provider": ... }`) is no longer supported — convert it to an array.
 
@@ -211,7 +218,8 @@ Built-in `CommonHub`, supports `IHubClient` / `IHubServer` interfaces and `Simpl
 
 - **Background Jobs**: `JobsController` + `JobServiceLoader` manage scheduled tasks, with runtime dynamic Cron expression updates
 - **Health Checks**: `HealthCheckService` supports WeCom robot alerts
-- **SSE Streaming**: `SseStream` server-side push
+- **SSE Streaming**: `SseStream` server-side push; `SseEventWriter` / `SseEventPump` write named event frames (`event: <name>` + single-line JSON `data:`) with idle comment heartbeats, and do not depend on `WebApp.HttpContext`, so they are easy to unit test
+- **Agent Session Ownership**: `WebAgentSessionRegistry` (`LuBan.Web.Core.AIAgent`) keeps each signed-in user's "last session" and validates ownership, so the process-wide pointer of the singleton `ISessionManager` is not overwritten across users
 - **File Upload/Download**: `UploadFileUtil` / `DownloadFileUtil` / `ExtraFileController`
 - **Graphic Captcha**: Built-in captcha generation
 - **API Stress Testing**: `CommonController.StressTest`

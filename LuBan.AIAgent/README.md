@@ -386,6 +386,9 @@ AI: [调用 WriteConnectorAsync] 已创建连接器声明，凭据请到设置�
 | `ProcessedAttachment` | 处理结果（元数据 + 文本内容 / 缩略图路径 + 像素尺寸） |
 | `AttachmentMessageBuilder` | 把附件装配为 `ChatMessage`（图片 → base64 `DataContent`；≤50KB 文本内联；>50KB 仅注入路径指引） |
 | `AttachmentRecord` | 会话持久化记录（仅存路径与元数据，不存 base64），供历史回放重建 |
+| `IAgentAttachmentSourceResolver` / `DefaultAttachmentSourceResolver` | 把调用方给的来源解析成本地文件：`http(s)` URL 下载落盘、本机绝对路径就地读取（Windows 盘符 / UNC / Linux `/`）、`file://` 转换、相对路径先查工作区再查站点内容根；不设主机白名单 |
+| `AttachmentSourceFailure` | 单个来源取不到的原因（`Source` + `Reason`）；解析失败只记录，不中断本轮 |
+| `AttachmentEventProjector` | 把处理结果投影成 `AttachmentAddedEvent` / `AttachmentSkippedEvent`：>50KB 文本在有工具时给 `ReadFileAsync` 指引，无工具时按跳过处理 |
 
 ### 规则拦截
 
@@ -533,8 +536,11 @@ services.AddConnector<MyVendorConnector>("myVendor", ctx => new MyVendorConnecto
 | `AddLuBanAgentHost()` | 注册宿主与默认接缝（全部 `TryAdd`）：`SessionRuntimeManager`（Singleton）、`IAgentHost`（Scoped）、Profile / 工作区 / 用户 / 模型选择解析、附件编排、能力门禁、会话初始化与 `ICommandCatalog`（Singleton） |
 | `AddLuBanAgentOpenAI(configuration)` | 按 `LuBanAgent:Models` 数组（`Provider` / `Model` / `ApiKey` / `BaseUrl`）为每个 Provider 建客户端，注册 `IChatClient` + `IProviderRouter`；同一 Provider 多条模型必须凭据一致；配置不全时只登记 `ChatClientFactoryWarning`，不注册也不抛 |
 | `IAgentHost` | 宿主入口：`InitializeAsync` / `Reset` / `RunStreamingAsync(AgentRunRequest)`；**必须以 Scoped 解析**，自身不持有会话状态。`Reset` 在该会话有回合运行中时只登记延迟重载（不打断回合），回合收尾后释放 Agent，下一次对话按最新配置重建 |
-| `AgentRunRequest` | 一轮对话入参：`Input` / `AttachmentPaths` / `SessionId` / `PermissionMode` / `ConfirmHandler` / `OnPlannedAction` / `OnUserDenied` |
-| `AgentStreamEvent` | UI 无关输出事件：`TextDeltaEvent` / `ThinkingDeltaEvent` / `ToolCallStartedEvent` / `ToolCallCompletedEvent` / `ToolCallFailedEvent` / `ErrorEvent` / `OrchestrationProgressEvent` / `AttachmentAddedEvent` |
+| `AgentRunRequest` | 一轮对话入参：`Input` / `AttachmentPaths` / `Attachments`（URL 或路径，由框架解析）/ `SystemPrompt`（按轮人设覆盖）/ `EnableTools` / `SessionId` / `PermissionMode` / `ConfirmHandler` / `ConfirmHandlerAsync` / `OnPlannedAction` / `OnUserDenied` |
+| `AgentStreamEvent` | UI 无关输出事件：`TextDeltaEvent` / `ThinkingDeltaEvent` / `ToolCallStartedEvent` / `ToolCallCompletedEvent` / `ToolCallFailedEvent` / `ToolConfirmationRequestedEvent` / `ErrorEvent` / `OrchestrationProgressEvent` / `AttachmentAddedEvent` / `AttachmentSkippedEvent` |
+| `AgentBuildOverrides` | 按轮构建覆盖项（`SystemPrompt` + `EnableTools`）：与缓存 Agent 比对，变化即在该会话的串行区间内重建 |
+| `AgentEventProtocol` / `AgentEventFrame` | 宿主事件 → 传输帧的统一映射（`text.delta` / `tool.*` / `attachment.*` 等），Web / CLI / Codex 共用一套事件名 |
+| `IToolConfirmationBroker` / `DefaultToolConfirmationBroker` | 跨请求确认登记簿（Singleton）：SSE 推 `tool.confirm`，另一个 HTTP 请求回结果，超时按拒绝 |
 | `SessionRuntimeManager` / `SessionRuntime` | 按会话维护独立 DI scope 与串行运行循环（`EnqueueAsync`）、重载标记（`RequestReload`）、活动时间与释放 |
 | `IAgentProfile` / `AgentProfileBase` | Agent 配置（系统提示词、工具组、检索模式）与建 Agent 流程；`DefaultAgentProfile` 为通用助手 |
 | `IAgentWorkspaceResolver` / `WorkspaceDescriptor` | 按会话解析工作区（`Id` / `Name` / `RootPath` / `Type`）；默认读 `LuBanAgent:WorkspaceRoot`，缺省为进程当前目录（Web 宿主经 `LuBan.Web.Core` 归一化：相对值按站点 `ContentRootPath`） |
@@ -562,6 +568,26 @@ await foreach (var e in host.RunStreamingAsync(new AgentRunRequest { Input = "�
 > 宿主层是 **opt-in**：不调用 `AddLuBanAgentHost` 时，`AddLuBanAgent` / `AddLuBanAgentDefaults` + `ILuBanAgentFactory` 的既有用法完全不变。
 > 需要产品行为（多工作区、持久化会话、厂商连接器、自定义 Profile）时，在 `AddLuBanAgentHost()` 之后注册自己的实现覆盖默认接缝即可（全部 `TryAdd`）。
 
+#### Web 端事件流
+
+`AgentEventProtocol` 把 `AgentStreamEvent` 映射成传输帧；首帧 `session` 与末帧 `done` 由传输层自己构造（它们描述的是连接而不是模型输出）。Web 侧用 `LuBan.Web.Core` 的 `SseEventWriter` + `SseEventPump` 写出（命名事件 + 注释心跳），CLI / Codex 可复用同一套事件名做本地渲染。
+
+| 事件名 | 载荷（camelCase） | 来源 |
+|---|---|---|
+| `session` | `{ sessionId, created }` | 传输层 |
+| `think.delta` | `{ delta, llmRound }` | `ThinkingDeltaEvent` |
+| `text.delta` | `{ delta, llmRound }` | `TextDeltaEvent` |
+| `tool.started` | `{ callId, name, arguments, llmRound }` | `ToolCallStartedEvent` |
+| `tool.completed` | `{ callId, resultSummary, llmRound }` | `ToolCallCompletedEvent` |
+| `tool.failed` | `{ callId, error, llmRound }` | `ToolCallFailedEvent` |
+| `tool.confirm` | `{ confirmationId, toolName, arguments, timeoutSeconds }` | `ToolConfirmationRequestedEvent` |
+| `attachment.added` | `{ fileName, mediaType, fileSize, source }` | `AttachmentAddedEvent` |
+| `attachment.skipped` | `{ source, reason }` | `AttachmentSkippedEvent` |
+| `error` | `{ message }` | `ErrorEvent` |
+| `done` | `{ sessionId, elapsedMs }` | 传输层 |
+
+`OrchestrationProgressEvent` 不映射（返回 null，调用方忽略）。
+
 ## 使用指南
 
 ### 1. 配置与注册
@@ -576,13 +602,31 @@ await foreach (var e in host.RunStreamingAsync(new AgentRunRequest { Input = "�
     "SystemPrompt": "你是一个智能助手。",
     "MaxToolLoopIterations": 10,
     // 数组：每项一个 provider:model 组合；同一 Provider 多条时 ApiKey/BaseUrl 必须一致
+    // BaseUrl 可省略，但仅当 Provider 有内置地址时安全（deepseek/openai/kimi 等）；
+    // 自建网关、代理或内置表外的 Provider 必须显式配置，否则会落到 OpenAI 默认端点 https://api.openai.com/v1/
     "Models": [
-      { "Provider": "openai", "Model": "gpt-4o", "ApiKey": "sk-***" },
-      { "Provider": "deepseek", "Model": "deepseek-v4-pro", "ApiKey": "sk-***" }
+      { "Provider": "openai", "Model": "gpt-4o", "ApiKey": "sk-***", "BaseUrl": "https://api.openai.com/v1/" },
+      { "Provider": "deepseek", "Model": "deepseek-v4-pro", "ApiKey": "sk-***", "BaseUrl": "https://api.deepseek.com/v1/" }
     ],
     "Session": {
       "CompactTargetMessages": 20,
       "CompactThreshold": 10
+    },
+    // 每个登录用户一个工作区：<WorkspaceRoot>/users/<userId>；默认 false（CLI / 桌面端保持单工作区）
+    "IsolateWorkspaceByUser": false,
+    // 附件来源解析：URL 下载落 <工作区>/.luban-agent/attachments/<sessionId>/<yyyyMMdd>/
+    "Attachments": {
+      "Enabled": true,
+      "MaxCount": 5,
+      "MaxFileBytes": 26214400,      // 25MB，单文件硬上限
+      "TimeoutSeconds": 30,          // 单个 URL 下载超时
+      "RootDirectory": ".luban-agent/attachments",
+      "ContentRoot": null            // 相对路径第二基准；Web 宿主由 LuBan.Web.Core 归一化为绝对路径
+    },
+    // 工具确认：跨请求登记簿；超时按拒绝
+    "Confirmation": {
+      "TimeoutSeconds": 60,
+      "BrokerEnabled": true
     }
   }
 }
