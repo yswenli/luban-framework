@@ -30,8 +30,8 @@ public class AgentHostResetUnitTest
         var consumer = ConsumeAsync(host, "s1");
 
         await WaitUntilAsync(
-            () => runtimes.Get("s1") is { IsRunning: true },
-            "回合进入运行状态");
+            () => runtimes.Get("s1") is { IsRunning: true, Agent: not null },
+            "回合进入运行状态且 Agent 已构建");
 
         var runtime = runtimes.Get("s1")!;
         Assert.IsNotNull(runtime.Agent, "回合运行中不应释放 Agent");

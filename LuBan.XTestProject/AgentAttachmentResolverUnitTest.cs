@@ -1,4 +1,5 @@
 using LuBan.AIAgent.Attachments;
+using LuBan.AIAgent.Attachments.Ingestion;
 using LuBan.AIAgent.Hosting;
 using Microsoft.Extensions.AI;
 
@@ -86,9 +87,13 @@ public class AgentAttachmentResolverUnitTest
     {
         var orchestrator = new StubOrchestrator([@"C:\tmp\ref.png"]);
         var host = new AgentHost(
-            null!, null!, null!, null!, null!,
+            null!, null!, new StubWorkspaceResolver(), null!, null!,
             new StubModelSelection("p:m"),
-            orchestrator);
+            orchestrator,
+            new StubSourceResolver(),
+            null!,
+            Microsoft.Extensions.Options.Options.Create(
+                new LuBan.AIAgent.Configuration.LuBanAgentOptions()));
 
         var events = new List<AgentStreamEvent>();
         await foreach (var evt in host.RunStreamingAsync(new AgentRunRequest
@@ -105,10 +110,30 @@ public class AgentAttachmentResolverUnitTest
         CollectionAssert.AreEqual(
             new[] { @"C:\tmp\ui.png", @"C:\tmp\ref.png" },
             orchestrator.ProcessedPaths.ToArray(),
-            "宿主必须把合并后的路径交给 ProcessAsync");
+            "宿主必须把合并后的来源交给处理管线");
         Assert.AreEqual(1, events.Count);
         Assert.IsInstanceOfType<ErrorEvent>(events[0]);
         StringAssert.Contains(((ErrorEvent)events[0]).Message, "stop");
+    }
+
+    private sealed class StubWorkspaceResolver : IAgentWorkspaceResolver
+    {
+        public Task<WorkspaceDescriptor> ResolveAsync(string sessionId, CancellationToken ct = default)
+            => Task.FromResult(new WorkspaceDescriptor("w", "W", Path.GetTempPath(), "normal"));
+    }
+
+    /// <summary>把来源原样当成本地路径返回，便于断言宿主传给来源解析器的列表。</summary>
+    private sealed class StubSourceResolver : IAgentAttachmentSourceResolver
+    {
+        public Task<AttachmentSourceResult> ResolveAsync(
+            IReadOnlyList<string> sources, AttachmentSourceContext context, CancellationToken ct = default)
+        {
+            var resolved = sources
+                .Select(s => new ResolvedAttachment(s, s, Path.GetFileName(s), "image/png", 10))
+                .ToList();
+            return Task.FromResult(new AttachmentSourceResult(
+                resolved, Array.Empty<AttachmentSourceFailure>()));
+        }
     }
 
     private sealed class StubModelSelection(string qualifiedModelName) : IAgentModelSelection

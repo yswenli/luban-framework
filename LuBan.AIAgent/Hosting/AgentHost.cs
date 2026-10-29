@@ -14,6 +14,10 @@
 *描述：Agent 宿主默认实现：按会话路由到会话运行时并输出 UI 无关事件
 *
 *****************************************************************************/using LuBan.AIAgent.Attachments;
+using LuBan.AIAgent.Attachments.Ingestion;
+using LuBan.AIAgent.Configuration;
+
+using Microsoft.Extensions.Options;
 
 namespace LuBan.AIAgent.Hosting;
 
@@ -28,7 +32,10 @@ public sealed class AgentHost(
     IAgentProfileResolver profileResolver,
     IAgentUserResolver userResolver,
     IAgentModelSelection modelSelection,
-    IAgentAttachmentOrchestrator attachments) : IAgentHost
+    IAgentAttachmentOrchestrator attachments,
+    IAgentAttachmentSourceResolver attachmentSources,
+    IToolConfirmationBroker confirmations,
+    IOptions<LuBanAgentOptions> options) : IAgentHost
 {
     /// <inheritdoc />
     public IServiceProvider Services => services;
@@ -42,7 +49,14 @@ public sealed class AgentHost(
     /// <inheritdoc />
     public async Task InitializeAsync(
         string sessionId, CancellationToken ct = default, AgentBuildOverrides? overrides = null)
-        => await EnsureRuntimeAsync(sessionId, ct, overrides).ConfigureAwait(false);
+    {
+        var workspace = await workspaceResolver.ResolveAsync(sessionId, ct).ConfigureAwait(false);
+        var runtime = runtimes.Get(sessionId)
+            ?? runtimes.GetOrCreate(
+                sessionId, userResolver.ResolveUserId(services), workspace.Id, workspace.RootPath);
+
+        await EnsureAgentAsync(runtime, workspace, ct, NormalizeOverrides(overrides)).ConfigureAwait(false);
+    }
 
     /// <inheritdoc />
     public void Reset(string? sessionId = null)
@@ -87,24 +101,14 @@ public sealed class AgentHost(
         return RunStreamingCoreAsync(request, ct);
     }
 
-    /// <summary>
-    /// 取（或创建）指定会话的运行时，并确保其 Agent 已按该会话自身绑定的工作区构建。
-    /// </summary>
+    /// <summary>取（或创建）会话运行时；<b>不</b>建 Agent（建 Agent 下沉到回合串行区间）。</summary>
     /// <param name="sessionId">会话标识。</param>
-    /// <param name="ct">取消令牌。</param>
-    /// <param name="overrides">本轮构建覆盖项；null 表示不覆盖。</param>
-    private async Task<SessionRuntime> EnsureRuntimeAsync(
-        string sessionId, CancellationToken ct, AgentBuildOverrides? overrides = null)
-    {
-        var runtime = runtimes.Get(sessionId);
-        if (runtime?.Agent is not null && (runtime.BuildOverrides?.Matches(overrides) ?? overrides is null))
-            return runtime;
-
-        var workspace = await workspaceResolver.ResolveAsync(sessionId, ct).ConfigureAwait(false);
-        runtime = runtimes.GetOrCreate(sessionId, userResolver.ResolveUserId(services), workspace.Id, workspace.RootPath);
-        await EnsureAgentAsync(runtime, workspace, ct, overrides).ConfigureAwait(false);
-        return runtime;
-    }
+    /// <param name="workspace">本次解析到的工作区（仅创建运行时时写入）。</param>
+    /// <returns>会话运行时。</returns>
+    private SessionRuntime GetRuntime(string sessionId, WorkspaceDescriptor workspace)
+        => runtimes.Get(sessionId)
+           ?? runtimes.GetOrCreate(
+               sessionId, userResolver.ResolveUserId(services), workspace.Id, workspace.RootPath);
 
     /// <summary>运行一轮对话的主体（异步迭代器：参数/配置异常在首次 MoveNext 时抛出）。</summary>
     private async IAsyncEnumerable<AgentStreamEvent> RunStreamingCoreAsync(
@@ -123,48 +127,51 @@ public sealed class AgentHost(
         var resolved = AgentAttachmentResolver.Resolve(request, attachments);
         request = request with { Input = resolved.Text, AttachmentPaths = resolved.Paths };
 
-        IReadOnlyList<ProcessedAttachment> processed = Array.Empty<ProcessedAttachment>();
-        if (request.AttachmentPaths.Count > 0)
+        // 请求线程只做「解析工作区 + 附件前置 + 取运行时」；建 Agent 下沉到回合串行区间（C12）。
+        // 工作区必须先解析：附件相对路径以其根目录为第一基准。
+        var workspace = await workspaceResolver.ResolveAsync(sid, ct).ConfigureAwait(false);
+
+        AttachmentPreparation? preparation = null;
+        string? preparationFailure = null;
+        try
         {
-            string? failure = null;
-            try
-            {
-                var processedResult = await attachments.ProcessAsync(request.AttachmentPaths, ct);
-                processed = processedResult.Processed;
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                failure = $"附件处理失败: {ex.Message}";
-            }
-
-            if (failure != null)
-            {
-                yield return new ErrorEvent(failure);
-                yield break;
-            }
-
-            if (attachments.Validate(modelId, processed) is { } unsupported)
-            {
-                yield return new ErrorEvent(unsupported);
-                yield break;
-            }
-
-            foreach (var a in processed)
-                yield return new AttachmentAddedEvent(a.Info.FileName, a.Info.MediaType, a.Info.FileSize);
+            preparation = await PrepareAttachmentsAsync(request, workspace, sid, ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            preparationFailure = $"附件处理失败: {ex.Message}";
         }
 
-        var runtime = await EnsureRuntimeAsync(sid, ct);
+        if (preparationFailure is not null)
+        {
+            yield return new ErrorEvent(preparationFailure);
+            yield break;
+        }
+
+        foreach (var evt in preparation!.Events)
+            yield return evt;
+
+        var processed = preparation.Attached;
+
+        if (attachments.Validate(modelId, processed) is { } unsupported)
+        {
+            yield return new ErrorEvent(unsupported);
+            yield break;
+        }
 
         var hasImage = processed.Any(a => a.Info.Kind == AttachmentKind.Image);
         var probe = attachments.CreateProbe(modelId, hasImage);
 
+        // 附件全部就绪后才创建会话运行时：附件失败不应留下空转的 scope
+        var runtime = GetRuntime(sid, workspace);
+
         if (probe is null || !probe.IsProbing)
         {
-            await foreach (var evt in RunInRuntimeAsync(runtime, request, processed, ct))
+            await foreach (var evt in RunInRuntimeAsync(runtime, workspace, request, processed, ct))
                 yield return evt;
             yield break;
         }
@@ -173,7 +180,7 @@ public sealed class AgentHost(
         Exception? streamError = null;
         var completed = false;
 
-        var enumerator = RunInRuntimeAsync(runtime, request, processed, ct).GetAsyncEnumerator(ct);
+        var enumerator = RunInRuntimeAsync(runtime, workspace, request, processed, ct).GetAsyncEnumerator(ct);
         try
         {
             while (true)
@@ -208,15 +215,101 @@ public sealed class AgentHost(
     }
 
     /// <summary>
+    /// 附件前置：来源解析 → 逐项处理 → 投影成事件。任何单文件失败都只跳过，不终止本轮。
+    /// </summary>
+    /// <param name="request">本轮请求。</param>
+    /// <param name="workspace">当前工作区（相对路径基准）。</param>
+    /// <param name="sessionId">会话标识（URL 落盘子目录）。</param>
+    /// <param name="ct">取消令牌。</param>
+    private async Task<AttachmentPreparation> PrepareAttachmentsAsync(
+        AgentRunRequest request, WorkspaceDescriptor workspace, string sessionId, CancellationToken ct)
+    {
+        // 显式来源优先，@引用/UI 路径一并走同一套解析（本地路径在这里是原样命中）
+        var sources = request.Attachments
+            .Concat(request.AttachmentPaths)
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        if (sources.Count == 0)
+            return AttachmentPreparation.Empty;
+
+        var settings = options.Value.Attachments;
+        if (!settings.Enabled)
+            throw new InvalidOperationException("附件功能未启用");
+
+        if (settings.MaxCount > 0 && sources.Count > settings.MaxCount)
+            throw new InvalidOperationException($"最多附加 {settings.MaxCount} 个文件");
+
+        var context = new AttachmentSourceContext(workspace.RootPath, settings.ContentRoot, sessionId);
+        var sourcesResult = await attachmentSources.ResolveAsync(sources, context, ct).ConfigureAwait(false);
+
+        var processing = sourcesResult.Resolved.Count == 0
+            ? new AttachmentProcessingResult(
+                Array.Empty<ProcessedAttachment>(), Array.Empty<AttachmentSourceFailure>())
+            : await attachments.ProcessAsync(
+                sourcesResult.Resolved.Select(r => r.LocalPath).ToList(), ct).ConfigureAwait(false);
+
+        // 把「本地路径」映射回「调用方给的原始来源」，事件里必须是原始来源而不是落盘名
+        var sourceByLocal = sourcesResult.Resolved
+            .GroupBy(r => Path.GetFullPath(r.LocalPath), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First().Source, StringComparer.OrdinalIgnoreCase);
+
+        var processed = new List<ProcessedAttachment>(processing.Processed.Count);
+        foreach (var item in processing.Processed)
+        {
+            var local = Path.GetFullPath(item.Info.SourcePath);
+            processed.Add(sourceByLocal.TryGetValue(local, out var origin)
+                ? item.WithSource(origin)
+                : item.WithSource(item.Info.SourcePath));
+        }
+
+        var failures = sourcesResult.Failed.Concat(processing.Failed).ToList();
+        var projection = AttachmentEventProjector.Project(processed, failures, request.EnableTools);
+
+        var events = new List<AgentStreamEvent>(projection.Attached.Count + projection.Skipped.Count);
+        foreach (var item in projection.Attached)
+        {
+            events.Add(new AttachmentAddedEvent(
+                item.Info.FileName, item.Info.MediaType, item.Info.FileSize, item.Source));
+        }
+        events.AddRange(projection.Skipped);
+
+        return new AttachmentPreparation(projection.Attached, events);
+    }
+
+    /// <summary>
     /// 把一轮对话入队到指定会话运行时串行执行，并以 Channel 把回合内产生的事件回传为异步流。
     /// </summary>
     private async IAsyncEnumerable<AgentStreamEvent> RunInRuntimeAsync(
         SessionRuntime runtime,
+        WorkspaceDescriptor workspace,
         AgentRunRequest request,
         IReadOnlyList<ProcessedAttachment> processed,
         [EnumeratorCancellation] CancellationToken ct)
     {
         var channel = Channel.CreateUnbounded<AgentStreamEvent>();
+        var overrides = NormalizeOverrides(request);
+
+        // 只有调用方没自带确认回调、且本轮装配了工具时，才接 broker。
+        // 确认回调在「回合内」写事件：ToolConfirmationRequestedEvent 必须跟着本回合的 SSE 流走。
+        AgentRunRequest effective = request;
+        if (request.EnableTools
+            && request.ConfirmHandler is null
+            && request.ConfirmHandlerAsync is null
+            && options.Value.Confirmation.BrokerEnabled)
+        {
+            effective = request with
+            {
+                ConfirmHandlerAsync = async (toolName, arguments, token) =>
+                {
+                    var pending = confirmations.Register(runtime.SessionId, toolName, arguments);
+                    channel.Writer.TryWrite(new ToolConfirmationRequestedEvent(
+                        pending.ConfirmationId, toolName, arguments, confirmations.TimeoutSeconds));
+                    return await confirmations.WaitAsync(pending, token).ConfigureAwait(false);
+                }
+            };
+        }
 
         await runtime.EnqueueAsync(new RuntimeTurn
         {
@@ -226,7 +319,11 @@ public sealed class AgentHost(
             {
                 try
                 {
-                    await foreach (var evt in RunCoreAsync(runtime, sessionContext, request, processed, token))
+                    // 覆盖项比对与重建必须在串行区间内：此时上一回合已结束，
+                    // Dispose 旧 Agent 不会命中正在使用中的实例（C12）。
+                    await EnsureAgentAsync(runtime, workspace, token, overrides).ConfigureAwait(false);
+
+                    await foreach (var evt in RunCoreAsync(runtime, sessionContext, effective, processed, token))
                         channel.Writer.TryWrite(evt);
                     channel.Writer.TryComplete();
                 }
@@ -310,11 +407,6 @@ public sealed class AgentHost(
         SessionRuntime runtime, WorkspaceDescriptor workspace, CancellationToken ct,
         AgentBuildOverrides? overrides = null)
     {
-        // 全默认的覆盖项等价于「不覆盖」，归一化成 null，
-        // 免得每轮拿 non-null 去比缓存里的 null 触发无意义重建
-        if (overrides is { IsDefault: true })
-            overrides = null;
-
         if (runtime.Agent is not null
             && runtime.Workspace?.Id == workspace.Id
             && (runtime.BuildOverrides?.Matches(overrides) ?? overrides is null))
@@ -362,6 +454,22 @@ public sealed class AgentHost(
         runtime.BuildOverrides = overrides;
     }
 
+    /// <summary>把「全默认」覆盖项归一化成 null，避免每轮拿 non-null 去比缓存里的 null 而误重建。</summary>
+    /// <param name="request">本轮请求。</param>
+    /// <returns>归一化后的覆盖项。</returns>
+    private static AgentBuildOverrides? NormalizeOverrides(AgentRunRequest request)
+        => NormalizeOverrides(new AgentBuildOverrides
+        {
+            SystemPrompt = request.SystemPrompt,
+            EnableTools = request.EnableTools
+        });
+
+    /// <summary>把「全默认」覆盖项归一化成 null。</summary>
+    /// <param name="overrides">覆盖项。</param>
+    /// <returns>归一化后的覆盖项。</returns>
+    private static AgentBuildOverrides? NormalizeOverrides(AgentBuildOverrides? overrides)
+        => overrides is null || overrides.IsDefault ? null : overrides;
+
     private async IAsyncEnumerable<AgentStreamEvent> RunCoreAsync(
         SessionRuntime runtime,
         ISessionContext sessionContext,
@@ -380,10 +488,15 @@ public sealed class AgentHost(
         // 统一装配：模式策略由框架分发，回调仅在需要人工确认时被调用；
         // 授权记忆（本轮/本会话）由框架依据返回值处理。
         // 路径检查器基于本会话上下文（EffectiveRoot/AllowedRoots，含 worktree），实现会话级隔离。
-        context.ConfigureForTurn(
+        var asyncConfirm = request.ConfirmHandlerAsync
+            ?? (request.ConfirmHandler is { } sync
+                ? (name, args, _) => Task.FromResult(sync(name, args))
+                : null);
+
+        context.ConfigureForTurnAsync(
             request.PermissionMode,
             ct,
-            request.ConfirmHandler,
+            asyncConfirm,
             sessionContext: sessionContext,
             onPlannedAction: request.OnPlannedAction,
             onUserDenied: request.OnUserDenied);

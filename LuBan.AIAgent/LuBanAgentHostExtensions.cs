@@ -15,6 +15,10 @@
 *
 *****************************************************************************/
 
+using LuBan.AIAgent.Attachments.Ingestion;
+
+using Microsoft.Extensions.Options;
+
 namespace LuBan.AIAgent;
 
 /// <summary>Agent 宿主注册扩展。</summary>
@@ -40,6 +44,8 @@ public static class LuBanAgentHostExtensions
     /// <item><description>IAgentModelSelection（Scoped）：读 LuBanAgent:DefaultModel。</description></item>
     /// <item><description>IModelCapabilityGate（Scoped）：默认放行所有附件。</description></item>
     /// <item><description>IAgentAttachmentOrchestrator（Scoped）：默认逐文件处理。</description></item>
+    /// <item><description>IAgentAttachmentSourceResolver（Scoped）：默认解析 URL / 本地路径 / 相对路径。</description></item>
+    /// <item><description>IToolConfirmationBroker（Singleton）：进程内工具确认登记簿。</description></item>
     /// <item><description>ISessionRuntimeInitializer（Scoped）：空实现，宿主可替换为产品初始化。</description></item>
     /// <item><description>ICommandCatalog（Singleton）：斜杠命令清单。</description></item>
     /// </list>
@@ -57,6 +63,10 @@ public static class LuBanAgentHostExtensions
         services.TryAddScoped<IAgentModelSelection, DefaultAgentModelSelection>();
         services.TryAddScoped<IModelCapabilityGate, AllowAllModelCapabilityGate>();
         services.TryAddScoped<IAgentAttachmentOrchestrator, DefaultAgentAttachmentOrchestrator>();
+        services.TryAddScoped<IAgentAttachmentSourceResolver>(sp =>
+            new DefaultAttachmentSourceResolver(sp.GetRequiredService<IOptions<LuBanAgentOptions>>()));
+        services.TryAddSingleton<IToolConfirmationBroker>(sp =>
+            new DefaultToolConfirmationBroker(sp.GetRequiredService<IOptions<LuBanAgentOptions>>()));
         services.TryAddScoped<ISessionRuntimeInitializer, NoOpSessionRuntimeInitializer>();
         services.TryAddSingleton<ICommandCatalog, CommandCatalog>();
 

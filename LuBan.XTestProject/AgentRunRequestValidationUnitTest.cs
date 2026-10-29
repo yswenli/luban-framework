@@ -66,7 +66,7 @@ public class AgentRunRequestValidationUnitTest
     [TestMethod]
     public void AgentHost_RunStreamingAsync_NullRequest_Throws()
     {
-        var host = new AgentHost(null!, null!, null!, null!, null!, null!, null!);
+        var host = new AgentHost(null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
 
         Assert.ThrowsExactly<ArgumentNullException>(() => host.RunStreamingAsync(null!));
     }

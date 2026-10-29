@@ -48,4 +48,19 @@ public sealed class ProcessedAttachment
     /// 调用方给的原始附件来源（URL 或路径）；由来源解析阶段回填，用于事件与响应回传。
     /// </summary>
     public string? Source { get; init; }
+
+    /// <summary>
+    /// 回填调用方给的原始来源（URL 或路径）。来源解析完成后由宿主调用。
+    /// </summary>
+    /// <param name="source">原始来源；null 表示未知。</param>
+    /// <returns>带来源的副本。</returns>
+    public ProcessedAttachment WithSource(string? source) => new()
+    {
+        Info = Info,
+        Content = Content,
+        IsLargeText = IsLargeText,
+        ThumbnailPath = ThumbnailPath,
+        PixelSize = PixelSize,
+        Source = source
+    };
 }
