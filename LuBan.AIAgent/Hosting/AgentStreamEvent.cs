@@ -109,5 +109,26 @@ public sealed record OrchestrationProgressEvent(
 /// <param name="FileName">文件名。</param>
 /// <param name="MediaType">MIME 类型。</param>
 /// <param name="FileSize">字节数。</param>
+/// <param name="Source">调用方给的原始来源（URL 或路径）；来自本地选择器时可为 null。</param>
 public sealed record AttachmentAddedEvent(
-    string FileName, string MediaType, long FileSize) : AgentStreamEvent;
+    string FileName, string MediaType, long FileSize, string? Source = null) : AgentStreamEvent;
+
+/// <summary>
+/// 需要用户确认的工具调用（Web 经 SSE 下发，前端另调 HTTP 接口回结果）。
+/// </summary>
+/// <param name="ConfirmationId">本次确认标识（框架生成，非 callId）。</param>
+/// <param name="ToolName">工具方法名。</param>
+/// <param name="Arguments">工具参数。</param>
+/// <param name="TimeoutSeconds">等待上限，超时按拒绝处理。</param>
+public sealed record ToolConfirmationRequestedEvent(
+    string ConfirmationId,
+    string ToolName,
+    IReadOnlyDictionary<string, object?> Arguments,
+    int TimeoutSeconds) : AgentStreamEvent;
+
+/// <summary>
+/// 附件被跳过（下载失败 / 路径不存在 / 类型不支持 / 超限 / 处理失败）。
+/// </summary>
+/// <param name="Source">调用方给的原始来源。</param>
+/// <param name="Reason">跳过原因（中文短句）。</param>
+public sealed record AttachmentSkippedEvent(string Source, string Reason) : AgentStreamEvent;

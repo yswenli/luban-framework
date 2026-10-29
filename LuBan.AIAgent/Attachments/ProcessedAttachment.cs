@@ -43,4 +43,9 @@ public sealed class ProcessedAttachment
 
     /// <summary>图片像素尺寸（仅图片；格式 "宽x高"），未知为 null。</summary>
     public string? PixelSize { get; init; }
+
+    /// <summary>
+    /// 调用方给的原始附件来源（URL 或路径）；由来源解析阶段回填，用于事件与响应回传。
+    /// </summary>
+    public string? Source { get; init; }
 }
