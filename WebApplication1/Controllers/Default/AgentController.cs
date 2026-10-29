@@ -24,11 +24,11 @@
 
 using LuBan.AIAgent.Hosting;
 using LuBan.AIAgent.Sessions;
+using LuBan.Web.Core.AIAgent;
 
 using System.Text;
 
 using WebApplication1.Models.Entities;
-using WebApplication1.Services.Agent;
 
 namespace WebApplication1.Controllers.Default;
 
@@ -67,7 +67,8 @@ public class AgentController : BaseApiController
         var registry = HttpContext.RequestServices.GetRequiredService<WebAgentSessionRegistry>();
 
         // 每用户固定一个会话；不调用 SetCurrentSessionAsync（单例实现里它是进程级指针，多用户会互相覆盖）
-        var sessionId = await registry.GetOrCreateSessionIdAsync(userId, sessions, "web", cancellationToken);
+        var resolution = await registry.ResolveAsync(userId, null, sessions, cancellationToken);
+        var sessionId = resolution.SessionId;
         await host.InitializeAsync(sessionId, cancellationToken);
 
         var sb = new StringBuilder();
