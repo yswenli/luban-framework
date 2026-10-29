@@ -21,6 +21,12 @@
 *描述：写/删接入 IToolConfirmationService（Default/AcceptEdits 必确认、Plan 记计划）；
 *      workspaceRoot 改可选并由宿主工作区兜底；补 [Description] 提升工具可发现性
 *
+*修改时间：2026/10/29
+*修改人： yswenli
+*版本号： V1.0.0.2
+*描述：删除路径补 Skill Id 正则校验（防 .. 越界删除）；确认弹窗补正文摘要；
+*      ResolveWorkspaceRoot/ConfirmOrBlockAsync 收敛到 ManageToolSupport
+*
 *****************************************************************************/
 
 namespace LuBan.AIAgent.Tools.SkillManage;
@@ -111,7 +117,7 @@ public class SkillManageToolGroup
         if (totalBytes > _options.MaxSkillFileBytes)
             return ToolResult.Fail<string>($"Skill 内容超过上限 {_options.MaxSkillFileBytes / 1024}KB。");
 
-        var root = ResolveWorkspaceRoot(workspaceRoot);
+        var root = ManageToolSupport.ResolveWorkspaceRoot(workspaceRoot, _defaultWorkspaceRoot);
         if (root is null)
             return ToolResult.Fail<string>("未获取到工作区根目录，无法写入 Skill。请传入 workspaceRoot，或确认宿主已设置工作区。");
 
@@ -119,12 +125,15 @@ public class SkillManageToolGroup
         var skillFile = Path.Combine(skillDir, "SKILL.md");
 
         // 写操作需确认（Default / AcceptEdits 必确认；Plan 记计划；Bypass 放行）
-        if (await ConfirmOrBlockAsync(nameof(WriteSkillAsync), skillDir, new Dictionary<string, object?>
-            {
-                ["id"] = id,
-                ["name"] = name,
-                ["overwrite"] = overwrite
-            }).ConfigureAwait(false) is { } blocked)
+        if (await ManageToolSupport.ConfirmOrBlockAsync(_confirmationService, nameof(WriteSkillAsync), skillDir,
+                new Dictionary<string, object?>
+                {
+                    ["id"] = id,
+                    ["name"] = name,
+                    ["overwrite"] = overwrite,
+                    // 正文可能很长，只给摘要，避免挤掉上面的关键字段
+                    ["content"] = ManageToolSupport.BuildContentSummary(content)
+                }).ConfigureAwait(false) is { } blocked)
         {
             return blocked;
         }
@@ -174,14 +183,14 @@ public class SkillManageToolGroup
         [Description("工作区根目录；省略时使用宿主当前工作区，通常无需传")]
         string? workspaceRoot = null)
     {
-        if (string.IsNullOrWhiteSpace(id))
-            return ToolResult.Fail<string>("Skill Id 不能为空。");
+        if (string.IsNullOrWhiteSpace(id) || !IdPattern.IsMatch(id))
+            return ToolResult.Fail<string>($"Skill Id 不合法，需匹配: {IdPattern}");
 
         // 内置不可删
         if (_registry.IsBuiltin(id))
             return ToolResult.Fail<string>($"Skill '{id}' 为内置，不可删除。");
 
-        var root = ResolveWorkspaceRoot(workspaceRoot);
+        var root = ManageToolSupport.ResolveWorkspaceRoot(workspaceRoot, _defaultWorkspaceRoot);
         if (root is null)
             return ToolResult.Fail<string>("未获取到工作区根目录，无法删除 Skill。请传入 workspaceRoot，或确认宿主已设置工作区。");
 
@@ -190,10 +199,11 @@ public class SkillManageToolGroup
             return ToolResult.Fail<string>($"Skill '{id}' 不存在。");
 
         // 删除操作始终需要确认
-        if (await ConfirmOrBlockAsync(nameof(DeleteSkillAsync), skillDir, new Dictionary<string, object?>
-            {
-                ["id"] = id
-            }).ConfigureAwait(false) is { } blocked)
+        if (await ManageToolSupport.ConfirmOrBlockAsync(_confirmationService, nameof(DeleteSkillAsync), skillDir,
+                new Dictionary<string, object?>
+                {
+                    ["id"] = id
+                }).ConfigureAwait(false) is { } blocked)
         {
             return blocked;
         }
@@ -214,52 +224,8 @@ public class SkillManageToolGroup
     }
 
     /// <summary>
-    /// 统一的确认前置检查。返回非 null 表示调用方应立即把该结果返回给 LLM：
-    /// Plan 模式下返回"已记录计划、未执行"，被拒绝时返回"用户取消"，两者语义不可混用。
+    /// 清洗 frontmatter 值（去换行/冒号），避免破坏 YAML 结构。
     /// </summary>
-    /// <param name="toolName">工具名（框架约定用 C# 方法名，与 AlwaysConfirmTools 默认项对齐）。</param>
-    /// <param name="path">操作目标路径（用于路径级授权判定）。</param>
-    /// <param name="arguments">工具参数（供确认 UI 展示）。</param>
-    /// <returns>允许执行时返回 null，否则返回应直接回给 LLM 的结果。</returns>
-    private async Task<ToolResult<string>?> ConfirmOrBlockAsync(
-        string toolName, string path, Dictionary<string, object?> arguments)
-    {
-        // 未注入确认服务（程序化直调）时不做确认，保持旧行为
-        if (_confirmationService is null)
-            return null;
-
-        var outcome = await _confirmationService.EvaluateAsync(toolName, path, arguments)
-            .ConfigureAwait(false);
-
-        return outcome switch
-        {
-            EnumConfirmationOutcome.Allowed => null,
-            EnumConfirmationOutcome.Planned => ToolResult.Plan<string>(),
-            _ => ToolResult.Denied<string>()
-        };
-    }
-
-    /// <summary>
-    /// 解析工作区根：显式参数优先，其次宿主提供者；统一返回绝对路径。
-    /// </summary>
-    /// <param name="workspaceRoot">模型/调用方显式给出的工作区根。</param>
-    /// <returns>绝对路径；取不到返回 null。</returns>
-    private string? ResolveWorkspaceRoot(string? workspaceRoot)
-    {
-        var root = !string.IsNullOrWhiteSpace(workspaceRoot) ? workspaceRoot : _defaultWorkspaceRoot?.Invoke();
-        if (string.IsNullOrWhiteSpace(root))
-            return null;
-
-        try
-        {
-            return Path.GetFullPath(root);
-        }
-        catch
-        {
-            return root;
-        }
-    }
-
     private static string SanitizeFrontmatterValue(string value)
     {
         if (string.IsNullOrEmpty(value)) return "";

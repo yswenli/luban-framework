@@ -21,6 +21,12 @@
 *描述：写/删接入 IToolConfirmationService（Default/AcceptEdits 必确认、Plan 记计划）；
 *      workspaceRoot 改可选并由宿主工作区兜底；command/args/transport 等改可选；补 [Description]
 *
+*修改时间：2026/10/29
+*修改人： yswenli
+*版本号： V1.0.0.2
+*描述：删除路径补 MCP 名称合法性校验（防 .. 越界删除）；确认弹窗补启动参数；
+*      ResolveWorkspaceRoot/ConfirmOrBlockAsync 收敛到 ManageToolSupport
+*
 *****************************************************************************/
 
 namespace LuBan.AIAgent.Tools.McpManage;
@@ -186,7 +192,7 @@ public class McpManageToolGroup
         if (existing != null && !overwrite)
             return ToolResult.Fail<string>($"MCP '{config.Name}' 已存在，需设置 overwrite=true 覆盖。");
 
-        var root = ResolveWorkspaceRoot(workspaceRoot);
+        var root = ManageToolSupport.ResolveWorkspaceRoot(workspaceRoot, _defaultWorkspaceRoot);
         if (root is null)
             return ToolResult.Fail<string>("未获取到工作区根目录，无法写入 MCP 配置。请传入 workspaceRoot，或确认宿主已设置工作区。");
 
@@ -196,14 +202,17 @@ public class McpManageToolGroup
         if (confirmWrite)
         {
             // 写操作需确认（Default / AcceptEdits 必确认；Plan 记计划；Bypass 放行）
-            if (await ConfirmOrBlockAsync(nameof(WriteMcpServerAsync), configFile, new Dictionary<string, object?>
-                {
-                    ["name"] = config.Name,
-                    ["transport"] = config.Transport,
-                    ["command"] = config.Command,
-                    ["url"] = config.Url,
-                    ["overwrite"] = overwrite
-                }).ConfigureAwait(false) is { } blocked)
+            if (await ManageToolSupport.ConfirmOrBlockAsync(_confirmationService, nameof(WriteMcpServerAsync), configFile,
+                    new Dictionary<string, object?>
+                    {
+                        ["name"] = config.Name,
+                        ["transport"] = config.Transport,
+                        ["command"] = config.Command,
+                        // 数组直接塞进弹窗只会显示类型名，展开成可读命令行
+                        ["args"] = config.Args.Count == 0 ? null : string.Join(" ", config.Args),
+                        ["url"] = config.Url,
+                        ["overwrite"] = overwrite
+                    }).ConfigureAwait(false) is { } blocked)
             {
                 return blocked;
             }
@@ -242,10 +251,13 @@ public class McpManageToolGroup
         if (string.IsNullOrWhiteSpace(name))
             return ToolResult.Fail<string>("MCP 名称不能为空。");
 
+        if (!IsValidFileName(name))
+            return ToolResult.Fail<string>("MCP 名称不能包含路径分隔符或非法文件名字符。");
+
         if (_registry.IsBuiltin(name))
             return ToolResult.Fail<string>($"MCP '{name}' 为内置，不可删除。");
 
-        var root = ResolveWorkspaceRoot(workspaceRoot);
+        var root = ManageToolSupport.ResolveWorkspaceRoot(workspaceRoot, _defaultWorkspaceRoot);
         if (root is null)
             return ToolResult.Fail<string>("未获取到工作区根目录，无法删除 MCP 配置。请传入 workspaceRoot，或确认宿主已设置工作区。");
 
@@ -254,10 +266,11 @@ public class McpManageToolGroup
             return ToolResult.Fail<string>($"MCP '{name}' 配置文件不存在。");
 
         // 删除操作始终需要确认
-        if (await ConfirmOrBlockAsync(nameof(DeleteMcpServerAsync), configFile, new Dictionary<string, object?>
-            {
-                ["name"] = name
-            }).ConfigureAwait(false) is { } blocked)
+        if (await ManageToolSupport.ConfirmOrBlockAsync(_confirmationService, nameof(DeleteMcpServerAsync), configFile,
+                new Dictionary<string, object?>
+                {
+                    ["name"] = name
+                }).ConfigureAwait(false) is { } blocked)
         {
             return blocked;
         }
@@ -366,52 +379,6 @@ public class McpManageToolGroup
                 catch { }
                 d.Dispose();
             }
-        }
-    }
-
-    /// <summary>
-    /// 统一的确认前置检查。返回非 null 表示调用方应立即把该结果返回给 LLM。
-    /// </summary>
-    /// <param name="toolName">工具名（框架约定用 C# 方法名，与 AlwaysConfirmTools 默认项对齐）。</param>
-    /// <param name="path">操作目标路径（用于路径级授权判定）。</param>
-    /// <param name="arguments">工具参数（供确认 UI 展示）。</param>
-    /// <returns>允许执行时返回 null，否则返回应直接回给 LLM 的结果。</returns>
-    private async Task<ToolResult<string>?> ConfirmOrBlockAsync(
-        string toolName, string path, Dictionary<string, object?> arguments)
-    {
-        // 未注入确认服务（程序化直调）时不做确认，保持旧行为
-        if (_confirmationService is null)
-            return null;
-
-        var outcome = await _confirmationService.EvaluateAsync(toolName, path, arguments)
-            .ConfigureAwait(false);
-
-        return outcome switch
-        {
-            EnumConfirmationOutcome.Allowed => null,
-            EnumConfirmationOutcome.Planned => ToolResult.Plan<string>(),
-            _ => ToolResult.Denied<string>()
-        };
-    }
-
-    /// <summary>
-    /// 解析工作区根：显式参数优先，其次宿主提供者；统一返回绝对路径。
-    /// </summary>
-    /// <param name="workspaceRoot">显式给出的工作区根。</param>
-    /// <returns>绝对路径；取不到返回 null。</returns>
-    private string? ResolveWorkspaceRoot(string? workspaceRoot)
-    {
-        var root = !string.IsNullOrWhiteSpace(workspaceRoot) ? workspaceRoot : _defaultWorkspaceRoot?.Invoke();
-        if (string.IsNullOrWhiteSpace(root))
-            return null;
-
-        try
-        {
-            return Path.GetFullPath(root);
-        }
-        catch
-        {
-            return root;
         }
     }
 

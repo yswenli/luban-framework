@@ -66,7 +66,8 @@ public class SkillManageToolPlugin : ILuBanToolPlugin
 
         var toolGroup = new SkillManageToolGroup(registry, _options, reloadTrigger, confirmationService, workspaceRootProvider);
 
-        // 写/删工具不启用工作区根兜底（需显式传 path），但相对路径锚定仍生效
+        // 写/删工具不做"缺参即兜底到工作区根"（缺参会由必填参数守卫直接提示），
+        // 但相对路径锚定仍生效；workspaceRoot 的兜底由工具内 ManageToolSupport 完成
         return new List<AIFunction>
         {
             AIFunctionFactoryHelper.Create(toolGroup, nameof(SkillManageToolGroup.WriteSkillAsync), workspaceRootProvider, fallbackToWorkspaceRootWhenMissing: false),

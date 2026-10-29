@@ -111,6 +111,19 @@ public class SkillCatalogInjectionUnitTest
     }
 
     [TestMethod]
+    public async Task CreateAsync_无可用Skill时不注入空清单()
+    {
+        var options = new LuBanAgentOptions { SystemPrompt = "基线提示词" };
+        var (factory, client) = CreateFactory(options, new SkillRegistry(Array.Empty<ISkill>()));
+
+        var agent = await factory.CreateAsync(systemPrompt: "自定义提示词");
+        await agent.RunAsync("你好");
+
+        var instructions = client.LastOptions?.Instructions;
+        Assert.AreEqual("自定义提示词", instructions?.Trim(), "0 个 Skill 时不应注入只含「当前无可用 Skill」的空清单");
+    }
+
+    [TestMethod]
     public async Task CreateAsync_无Skill注册表时不注入清单()
     {
         var options = new LuBanAgentOptions { SystemPrompt = "基线提示词" };

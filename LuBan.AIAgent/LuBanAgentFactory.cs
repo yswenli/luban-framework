@@ -72,14 +72,16 @@ public class LuBanAgentFactory : ILuBanAgentFactory, IScoped
         var opts = _options.Value;
         var instructions = systemPrompt ?? opts.SystemPrompt ?? "你是一个智能助手。";
 
-        // 注入 Skill 清单：只要 CatalogEnabled 就注入，显式 systemPrompt 也不例外。
+        // 注入 Skill 清单：只要 CatalogEnabled 且确有 Skill 就注入，显式 systemPrompt 也不例外。
         // 旧实现仅在 systemPrompt 为空时注入，而产品侧 Profile（NormalAgentProfile/LlmWikiAgentProfile）
         // 始终显式传 prompt，导致系统提示词里从来没有 Skill 目录，模型只能盲猜或额外调 ListSkills。
         var skillToolOptions = toolsOptions?.Skill ?? opts.Tools.Skill;
         if (skillToolOptions.CatalogEnabled)
         {
             var skillRegistry = _serviceProvider.GetService<Skills.SkillRegistry>();
-            if (skillRegistry != null)
+            // 0 个 Skill 时不注入：清单里只有"当前无可用 Skill"，纯属噪声，
+            // 还会让模型误以为有清单就必须先用 UseSkill。
+            if (skillRegistry != null && skillRegistry.GetAll().Count > 0)
             {
                 var catalog = skillRegistry.BuildCatalogPrompt(skillToolOptions.CatalogMaxEntries);
                 instructions = $"{instructions}\n\n{catalog}";

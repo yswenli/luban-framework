@@ -6,7 +6,8 @@
 *唯一标识：通用 Skill/MCP 管理工具确认链路单测
 *创建时间：2026/10/29
 *描述：验证 Skill/MCP 写删接入 IToolConfirmationService（Default 弹确认、拒绝不落盘、
-*      Plan 记计划）、workspaceRoot 可选兜底、工具描述与必填参数集合。
+*      Plan 记计划）、workspaceRoot 可选兜底与相对路径锚定、非法 Id/名称拦截、
+*      确认弹窗参数完整性、工具描述与必填参数集合。
 *
 *****************************************************************************/
 using LuBan.AIAgent.Abstractions;
@@ -239,6 +240,80 @@ public class ManageToolConfirmationUnitTest
         }
     }
 
+    [TestMethod]
+    public async Task WriteSkillAsync_确认参数含正文摘要()
+    {
+        var confirmation = new RecordingConfirmation();
+        var workspace = CreateWorkspace("luban-skillmanage-");
+        try
+        {
+            var group = CreateSkillGroup(confirmation.Build());
+
+            var result = await group.WriteSkillAsync("demo", "Demo", "示例", "正文内容", workspaceRoot: workspace);
+
+            Assert.IsTrue(result.IsSuccess, result.Message);
+
+            var args = confirmation.Calls.Single().Arguments;
+            Assert.IsTrue(args.TryGetValue("content", out var preview), "确认弹窗应带正文摘要");
+            var text = preview?.ToString() ?? "";
+            StringAssert.Contains(text, "正文内容");
+            StringAssert.Contains(text, "共 4 字", "摘要需带总字数，便于用户判断规模");
+        }
+        finally
+        {
+            TryDelete(workspace);
+        }
+    }
+
+    [TestMethod]
+    public async Task WriteSkillAsync_相对workspaceRoot锚定到宿主工作区()
+    {
+        var confirmation = new RecordingConfirmation();
+        var workspace = CreateWorkspace("luban-skillmanage-");
+        try
+        {
+            // 宿主工作区 = workspace，模型给相对路径 sub-ws
+            var group = CreateSkillGroup(confirmation.Build(), () => workspace);
+
+            var result = await group.WriteSkillAsync("demo", "Demo", "示例", "正文", workspaceRoot: "sub-ws");
+
+            Assert.IsTrue(result.IsSuccess, result.Message);
+            Assert.IsTrue(
+                File.Exists(Path.Combine(workspace, "sub-ws", ".luban-agent", "skills", "demo", "SKILL.md")),
+                "相对 workspaceRoot 必须锚定到宿主工作区，而不是进程当前目录");
+        }
+        finally
+        {
+            TryDelete(workspace);
+        }
+    }
+
+    [TestMethod]
+    public async Task DeleteSkillAsync_非法Id被拒绝且不弹确认()
+    {
+        var confirmation = new RecordingConfirmation();
+        var workspace = CreateWorkspace("luban-skillmanage-");
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(workspace, ".luban-agent", "skills"));
+            var victim = Path.Combine(workspace, ".luban-agent", "keep");
+            Directory.CreateDirectory(victim);
+
+            var group = CreateSkillGroup(confirmation.Build());
+
+            // "../keep" 会逃出 skills 目录
+            var result = await group.DeleteSkillAsync("../keep", workspace);
+
+            Assert.IsFalse(result.IsSuccess);
+            Assert.AreEqual(0, confirmation.Calls.Count, "非法 Id 应在请求确认前被拦下");
+            Assert.IsTrue(Directory.Exists(victim), "越界路径不得被删除");
+        }
+        finally
+        {
+            TryDelete(workspace);
+        }
+    }
+
     // ────────────────────────── MCP ──────────────────────────
 
     [TestMethod]
@@ -301,6 +376,56 @@ public class ManageToolConfirmationUnitTest
             Assert.IsFalse(result.IsSuccess);
             Assert.AreEqual("DeleteMcpServerAsync", confirmation.Calls.Single().ToolName);
             Assert.IsTrue(File.Exists(Path.Combine(workspace, ".luban-agent", "mcps", "demo.json")), "拒绝后不得删除");
+        }
+        finally
+        {
+            TryDelete(workspace);
+        }
+    }
+
+    [TestMethod]
+    public async Task WriteMcpServerAsync_确认参数含启动参数()
+    {
+        var confirmation = new RecordingConfirmation();
+        var workspace = CreateWorkspace("luban-mcpmanage-");
+        try
+        {
+            var group = CreateMcpGroup(confirmation.Build());
+
+            var result = await group.WriteMcpServerAsync(
+                name: "demo", command: "npx", args: new[] { "-y", "pkg" }, transport: "stdio", workspaceRoot: workspace);
+
+            Assert.IsTrue(result.IsSuccess, result.Message);
+
+            var args = confirmation.Calls.Single().Arguments;
+            Assert.IsTrue(args.TryGetValue("args", out var joined), "确认弹窗应带启动参数");
+            Assert.AreEqual("-y pkg", joined?.ToString(), "参数数组应展开成可读命令行");
+        }
+        finally
+        {
+            TryDelete(workspace);
+        }
+    }
+
+    [TestMethod]
+    public async Task DeleteMcpServerAsync_非法名称被拒绝且不弹确认()
+    {
+        var confirmation = new RecordingConfirmation();
+        var workspace = CreateWorkspace("luban-mcpmanage-");
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(workspace, ".luban-agent", "mcps"));
+            var victim = Path.Combine(workspace, ".luban-agent", "keep.json");
+            await File.WriteAllTextAsync(victim, "{}");
+
+            var group = CreateMcpGroup(confirmation.Build());
+
+            // "../keep" 会逃出 mcps 目录
+            var result = await group.DeleteMcpServerAsync("../keep", workspace);
+
+            Assert.IsFalse(result.IsSuccess);
+            Assert.AreEqual(0, confirmation.Calls.Count, "非法名称应在请求确认前被拦下");
+            Assert.IsTrue(File.Exists(victim), "越界路径不得被删除");
         }
         finally
         {
