@@ -15,10 +15,10 @@
 *
 *=================================================
 *修改标记
-*修改时间：2023/12/4 14:21:20
+*修改时间：2026/10/29
 *修改人： yswenli
-*版本号： V1.0.0.0
-*描述：Represents a LuBan agent that wraps a ChatClientAgent and manages its session.
+*版本号： V1.0.0.1
+*描述：实现 IDisposable，随会话运行时卸载/重建释放内部 Agent 与会话资源
 *
 *****************************************************************************/
 namespace LuBan.AIAgent;
@@ -26,7 +26,7 @@ namespace LuBan.AIAgent;
 /// <summary>
 /// Represents a LuBan agent that wraps a ChatClientAgent and manages its session.
 /// </summary>
-public class LuBanAgent
+public class LuBanAgent : IDisposable
 {
     /// <summary>
     /// <see cref="AgentResponseUpdate.AdditionalProperties"/> 中承载 LLM 轮次号的键。
@@ -42,6 +42,7 @@ public class LuBanAgent
     private readonly Abstractions.ISessionContext? _sessionContext;
     private AgentSession? _session;
     private readonly SemaphoreSlim _sessionLock = new(1, 1);
+    private int _disposed;
 
     /// <summary>
     /// Represents a LuBan agent that wraps a ChatClientAgent and manages its session.
@@ -308,5 +309,28 @@ public class LuBanAgent
             Logger.Warn($"自动检索失败，跳过检索注入: {ex.Message}", ex);
             return input;
         }
+    }
+
+    /// <summary>
+    /// 释放本实例持有的可释放资源（会话与内部锁）。
+    /// </summary>
+    /// <remarks>
+    /// 会话运行时卸载或重建 Agent 时必须调用。内部 <see cref="ChatClientAgent"/> 本身不可释放，
+    /// 它依赖的 <c>IChatClient</c> 等由会话级 DI scope 持有，随 scope 释放。
+    /// 释放后本实例不可再用。
+    /// </remarks>
+    public void Dispose()
+    {
+        if (Interlocked.Exchange(ref _disposed, 1) == 1) return;
+
+        if (_session is IDisposable disposableSession)
+        {
+            try { disposableSession.Dispose(); }
+            catch (Exception ex) { Logger.Warn("释放 Agent 会话失败", ex); }
+        }
+        _session = null;
+
+        _sessionLock.Dispose();
+        GC.SuppressFinalize(this);
     }
 }

@@ -14,6 +14,13 @@
 *描述：单个会话的运行时：拥有会话级 DI scope、回合队列与串行运行循环，
 *每个回合在会话临时目录作用域内执行，保证同会话内按序处理、临时文件彼此隔离。
 *
+*=================================================
+*修改标记
+*修改时间：2026/10/29
+*修改人： yswenli
+*版本号： V1.0.0.1
+*描述：DisposeAsync 显式释放会话缓存的 Agent（不在 DI 容器内，scope 管不到）
+*
 *****************************************************************************/
 
 namespace LuBan.AIAgent.Hosting;
@@ -137,6 +144,15 @@ public sealed class SessionRuntime : IAsyncDisposable
             try { await _loop; } catch { }
         }
         _cts.Dispose();
+
+        // 会话缓存的 Agent 不在 DI 容器内，scope.Dispose 释放不到，必须显式释放
+        if (Agent is { } agent)
+        {
+            Agent = null;
+            try { agent.Dispose(); }
+            catch (Exception ex) { Logger.Warn($"释放会话 Agent 失败: {SessionId}", ex); }
+        }
+
         _scope.Dispose();
     }
 }
