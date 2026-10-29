@@ -92,6 +92,14 @@ public class LuBanAgentOptions
     public string? WorkspaceRoot { get; set; }
 
     /// <summary>
+    /// 是否按登录用户隔离工作区（&lt;WorkspaceRoot&gt;/users/&lt;userId&gt;）。默认 false，CLI/Codex 语义不变。
+    /// </summary>
+    public bool IsolateWorkspaceByUser { get; set; }
+
+    /// <summary>附件来源解析与落盘配置。</summary>
+    public AttachmentsOptions Attachments { get; set; } = new();
+
+    /// <summary>
     /// 工具调用确认策略配置（工具名分类集合，可在配置文件中覆盖以适配自定义工具）
     /// </summary>
     public ToolConfirmationOptions Confirmation { get; set; } = new();
@@ -141,6 +149,12 @@ public class ToolConfirmationOptions
     /// 留空时使用内置默认集合。
     /// </summary>
     public string[] ReadOnlyTools { get; set; } = [];
+
+    /// <summary>Web 端工具确认等待上限（秒），超时按拒绝处理。默认 60。</summary>
+    public int TimeoutSeconds { get; set; } = 60;
+
+    /// <summary>是否向宿主暴露确认 broker；关闭时确认回调直接拒绝。默认 true。</summary>
+    public bool BrokerEnabled { get; set; } = true;
 }
 
 /// <summary>

@@ -89,6 +89,8 @@ public static class LuBanAgentConfigResolver
     /// <remarks>
     /// <para><c>Models</c> 为数组，每项是一个 <c>provider:model</c> 组合；同一 Provider 可配置多个模型，
     /// 但 <c>ApiKey</c> / <c>BaseUrl</c> 必须一致（运行期每个 Provider 只建一个客户端）。</para>
+    /// <para><c>Provider</c> 不限于内置表：内置项可省略 <c>BaseUrl</c>（有内置端点），表外项（自建网关、代理、
+    /// 未收录的厂商）只要显式配了合法 <c>BaseUrl</c> 即视为自定义 Provider 放行。</para>
     /// <para><c>DefaultModel</c> 可省略，省略时由 <see cref="CreateEffectiveConfiguration"/> 取数组第一项；
     /// 一旦配置，则必须是合法 <c>provider:model</c> 且能在数组中找到对应项。</para>
     /// </remarks>
@@ -107,8 +109,13 @@ public static class LuBanAgentConfigResolver
 
             var provider = item.Provider?.Trim();
             if (string.IsNullOrWhiteSpace(provider)) return $"缺少 {label}.Provider";
-            if (!ProviderDefaults.ProviderIds.Any(p => string.Equals(p, provider, StringComparison.OrdinalIgnoreCase)))
-                return $"{label}.Provider '{provider}' 不在框架已知列表内（可用：{string.Join(", ", ProviderDefaults.ProviderIds)}）";
+
+            // 内置 Provider 有内置端点，可省略 BaseUrl；表外 Provider（自建网关/代理）必须显式给出，
+            // 否则 OpenAI SDK 会静默落到 https://api.openai.com/v1/，启动期是唯一能提前拦住的地方
+            var isBuiltInProvider = ProviderDefaults.ProviderIds
+                .Any(p => string.Equals(p, provider, StringComparison.OrdinalIgnoreCase));
+            if (!isBuiltInProvider && string.IsNullOrWhiteSpace(item.BaseUrl))
+                return $"{label}.Provider '{provider}' 是自定义 Provider，必须显式配置 BaseUrl（内置可用：{string.Join(", ", ProviderDefaults.ProviderIds)}）";
 
             if (string.IsNullOrWhiteSpace(item.Model)) return $"缺少 {label}.Model";
             if (string.IsNullOrWhiteSpace(item.ApiKey)) return $"缺少 {label}.ApiKey";
@@ -149,7 +156,7 @@ public static class LuBanAgentConfigResolver
     }
 
     /// <summary>
-    /// 生成运行期实际注册用的配置：相对 <c>WorkspaceRoot</c> 归一化为绝对路径，缺省 <c>DefaultModel</c> 补成第一项。
+    /// 生成运行期实际注册用的配置：相对 <c>WorkspaceRoot</c> / <c>Attachments:ContentRoot</c> 归一化为绝对路径，缺省 <c>DefaultModel</c> 补成第一项。
     /// </summary>
     /// <param name="configuration">已通过校验的配置（宿主配置或 db 合并后的配置）</param>
     /// <param name="contentRootPath">站点内容根；为空时按 <see cref="AppContext.BaseDirectory"/> 解析相对路径</param>
@@ -165,6 +172,14 @@ public static class LuBanAgentConfigResolver
         if (resolvedRoot is not null && !string.Equals(resolvedRoot, rawRoot, StringComparison.Ordinal))
             overrides[$"{SectionName}:WorkspaceRoot"] = resolvedRoot;
 
+        var rawContentRoot = configuration[$"{SectionName}:Attachments:ContentRoot"];
+        var resolvedContentRoot = ResolveWorkspaceRoot(rawContentRoot, contentRootPath);
+        if (resolvedContentRoot is not null && !string.Equals(resolvedContentRoot, rawContentRoot, StringComparison.Ordinal))
+            overrides[$"{SectionName}:Attachments:ContentRoot"] = resolvedContentRoot;
+        else if (rawContentRoot is { Length: 0 })
+            // 链式配置（AddConfiguration）会把空串当缺失吞掉，显式保留以维持「留空=不启用站点相对解析」语义
+            overrides[$"{SectionName}:Attachments:ContentRoot"] = "";
+
         var rawDefault = configuration[$"{SectionName}:DefaultModel"];
         if (string.IsNullOrWhiteSpace(rawDefault))
         {
@@ -176,7 +191,7 @@ public static class LuBanAgentConfigResolver
 
         if (overrides.Count == 0) return configuration;
 
-        // 后加的源优先：只覆盖这两个键，其余键（含 db 合并结果）保持不变
+        // 后加的源优先：只覆盖 WorkspaceRoot / DefaultModel / Attachments:ContentRoot，其余键（含 db 合并结果）保持不变
         return new ConfigurationBuilder()
             .AddConfiguration(configuration)
             .AddInMemoryCollection(overrides)
@@ -186,6 +201,10 @@ public static class LuBanAgentConfigResolver
     /// <summary>
     /// 解析工作区根目录：绝对路径原样规范化；相对路径以站点内容根为基准（非 Web 宿主回退到程序目录）。
     /// </summary>
+    /// <remarks>
+    /// Windows 上以 <c>/</c> 开头的值会被 <see cref="Path.IsPathRooted"/> 判为绝对路径（<c>/aiagent</c> → 当前盘根），
+    /// 要落到站点内应写 <c>aiagent</c> 或 <c>./aiagent</c>。
+    /// </remarks>
     /// <param name="workspaceRoot">配置值</param>
     /// <param name="contentRootPath">站点内容根；为空时用 <see cref="AppContext.BaseDirectory"/></param>
     /// <returns>绝对路径；配置为空时返回 null</returns>

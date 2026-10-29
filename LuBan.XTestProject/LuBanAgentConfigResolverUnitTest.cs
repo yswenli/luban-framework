@@ -102,14 +102,30 @@ public class LuBanAgentConfigResolverUnitTest
     }
 
     [TestMethod]
-    public void Resolve_UnknownProvider_DisabledEvenWithValidBaseUrl()
+    public void Resolve_CustomProviderWithBaseUrl_Enabled()
     {
+        // 内置表之外的 Provider（自建网关/代理）显式配了 BaseUrl 就必须放行
         var dbJson = """
-            {"Models":[{"Provider":"no-such-provider","Model":"m","ApiKey":"sk","BaseUrl":"https://api.example.com/v1/"}],"DefaultModel":"no-such-provider:m"}
+            {"Models":[{"Provider":"internal-llm","Model":"deepseek-v4-pro","ApiKey":"sk","BaseUrl":"http://10.10.0.147:11689/v1"}],"DefaultModel":"internal-llm:deepseek-v4-pro"}
+            """;
+        var resolution = ResolveWithHost(Host(), _ => dbJson);
+
+        Assert.IsTrue(resolution.Enabled, $"自定义 Provider 配了 BaseUrl 应放行，实际原因：{resolution.DisabledReason}");
+        Assert.AreEqual("internal-llm", resolution.Configuration!["LuBanAgent:Models:0:Provider"]);
+        Assert.AreEqual("internal-llm:deepseek-v4-pro", resolution.Configuration!["LuBanAgent:DefaultModel"]);
+    }
+
+    [TestMethod]
+    public void Resolve_CustomProviderWithoutBaseUrl_Disabled()
+    {
+        // 没有内置地址又没写 BaseUrl：SDK 会静默落到 api.openai.com，必须在启动期拦住
+        var dbJson = """
+            {"Models":[{"Provider":"no-such-provider","Model":"m","ApiKey":"sk"}],"DefaultModel":"no-such-provider:m"}
             """;
         var resolution = ResolveWithHost(Host(), _ => dbJson);
 
         Assert.IsFalse(resolution.Enabled);
+        StringAssert.Contains(resolution.DisabledReason, "BaseUrl");
         StringAssert.Contains(resolution.DisabledReason, "no-such-provider");
     }
 
@@ -346,5 +362,36 @@ public class LuBanAgentConfigResolverUnitTest
         var effective = LuBanAgentConfigResolver.CreateEffectiveConfiguration(host, @"C:\site");
 
         Assert.AreSame(host, effective);
+    }
+
+    [TestMethod]
+    public void CreateEffectiveConfiguration_NormalizesAttachmentContentRoot()
+    {
+        var host = Host(
+            ("LuBanAgent:WorkspaceRoot", "aiagent"),
+            ("LuBanAgent:Attachments:ContentRoot", "wwwroot"),
+            ("LuBanAgent:Models:0:Provider", "openai"),
+            ("LuBanAgent:Models:0:Model", "gpt-4o"),
+            ("LuBanAgent:Models:0:ApiKey", "sk-x"));
+
+        var effective = LuBanAgentConfigResolver.CreateEffectiveConfiguration(host, @"D:\site");
+
+        Assert.AreEqual(@"D:\site\aiagent", effective["LuBanAgent:WorkspaceRoot"]);
+        Assert.AreEqual(@"D:\site\wwwroot", effective["LuBanAgent:Attachments:ContentRoot"]);
+    }
+
+    [TestMethod]
+    public void CreateEffectiveConfiguration_LeavesEmptyContentRootAlone()
+    {
+        var host = Host(
+            ("LuBanAgent:WorkspaceRoot", @"D:\ws"),
+            ("LuBanAgent:Attachments:ContentRoot", ""),
+            ("LuBanAgent:Models:0:Provider", "openai"),
+            ("LuBanAgent:Models:0:Model", "gpt-4o"),
+            ("LuBanAgent:Models:0:ApiKey", "sk-x"));
+
+        var effective = LuBanAgentConfigResolver.CreateEffectiveConfiguration(host, @"D:\site");
+
+        Assert.AreEqual("", effective["LuBanAgent:Attachments:ContentRoot"]);
     }
 }
