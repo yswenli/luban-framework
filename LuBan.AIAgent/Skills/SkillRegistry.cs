@@ -298,7 +298,7 @@ public class SkillRegistry
             sb.AppendLine($"\n... 共 {all.Count} 个 Skill，已截断。");
 
         sb.AppendLine();
-        sb.AppendLine("使用 `UseSkillAsync` 工具加载指定 Skill 的详细指令。");
+        sb.AppendLine("使用 `UseSkill` 工具加载指定 Skill 的详细指令。");
 
         return sb.ToString();
     }

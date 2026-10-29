@@ -444,6 +444,12 @@ public class ToolConfirmationService : IToolConfirmationService
     /// <summary>
     /// 内置默认：删除类工具名，任何放行策略下都必须确认。
     /// </summary>
+    /// <remarks>
+    /// 命名约定：这里放的是<b>C# 方法名</b>（保留 <c>Async</c> 后缀），与各工具组调用
+    /// <see cref="IToolConfirmationService.EvaluateAsync"/> 时传入的 <c>nameof(XxxAsync)</c> 对齐；
+    /// 不是暴露给模型的工具名（M.E.AI 会把尾部 <c>Async</c> 裁掉）。
+    /// 新增工具组时务必按同一约定传名，否则名单永不命中。
+    /// </remarks>
     private static readonly string[] DefaultAlwaysConfirmTools =
     [
         "DeleteFileAsync", "DeleteDirectoryAsync",

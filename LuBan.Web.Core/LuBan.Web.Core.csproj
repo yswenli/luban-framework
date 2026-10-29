@@ -32,7 +32,7 @@
 
 	<ItemGroup>
 		<PackageReference Include="Ben.Demystifier" Version="0.4.1" />
-		<PackageReference Include="Lazy.Captcha.Core" Version="2.2.7" />
+		<PackageReference Include="Lazy.Captcha.Core" Version="2.2.8" />
 		<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.14" />
 		<PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.14" />
 		<PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.14" />

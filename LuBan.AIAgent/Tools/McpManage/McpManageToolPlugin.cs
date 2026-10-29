@@ -25,6 +25,7 @@ public class McpManageToolPlugin : ILuBanToolPlugin
     private readonly McpManageToolOptions _options;
     private readonly McpOptions _mcpOptions;
     private readonly IWorkspaceContext? _workspaceContext;
+    private readonly string? _workspaceRootFallback;
 
     /// <summary>
     /// 从全局选项读取 MCP 管理配置，并保留可选的工作区上下文。
@@ -36,6 +37,8 @@ public class McpManageToolPlugin : ILuBanToolPlugin
         _options = options.Value.Tools.McpManage;
         _mcpOptions = options.Value.Mcp;
         _workspaceContext = workspaceContext;
+        // 工作区上下文缺失时回退全局配置（与 FileSystemToolPlugin 同口径）
+        _workspaceRootFallback = options.Value.WorkspaceRoot;
     }
 
     /// <summary>
@@ -58,10 +61,14 @@ public class McpManageToolPlugin : ILuBanToolPlugin
         var registry = sp.GetRequiredService<MCPRegistry>();
         var reloadTrigger = sp.GetService<IAgentReloadTrigger>();
         var resolver = sp.GetService<IMcpConfigValueResolver>();
+        // 写/删必须经确认服务（Default/AcceptEdits 弹确认、Plan 记计划、Bypass 放行）；测试连接不确认
+        var confirmationService = sp.GetRequiredService<IToolConfirmationService>();
 
-        var toolGroup = new McpManageToolGroup(registry, _options, _mcpOptions, reloadTrigger, resolver);
+        // 工作区根：会话上下文优先，缺失回退全局配置；作为工具省略 workspaceRoot 时的兜底
+        Func<string?> workspaceRootProvider = () => _workspaceContext?.RootPath ?? _workspaceRootFallback;
 
-        Func<string?> workspaceRootProvider = () => _workspaceContext?.RootPath;
+        var toolGroup = new McpManageToolGroup(
+            registry, _options, _mcpOptions, reloadTrigger, resolver, confirmationService, workspaceRootProvider);
 
         return new List<AIFunction>
         {

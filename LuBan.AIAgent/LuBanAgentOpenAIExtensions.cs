@@ -43,6 +43,11 @@ public static class LuBanAgentOpenAIExtensions
     /// 同一 Provider 可配置多个模型，但 <c>ApiKey</c> / <c>BaseUrl</c> 必须一致；不一致时跳过该 Provider 并写入
     /// <see cref="ChatClientFactoryWarning"/>。未配置完整时，宿主可自行注册 <see cref="IChatClient"/>。
     /// </para>
+    /// <para>
+    /// <c>BaseUrl</c> 可省略，但只在 Provider 有内置地址（见 <c>ProviderDefaults</c>，如 deepseek/openai/kimi）时才安全；
+    /// 自建网关、代理或表外的 Provider 省略后 <see cref="OpenAIClientOptions.Endpoint"/> 为 null，SDK 会落到
+    /// <c>https://api.openai.com/v1/</c>。该情况会写入 <see cref="ChatClientFactoryWarning"/>，不会静默失败。
+    /// </para>
     /// </remarks>
     public static IServiceCollection AddLuBanAgentOpenAI(
         this IServiceCollection services,
@@ -85,6 +90,14 @@ public static class LuBanAgentOpenAIExtensions
             }
 
             var baseUrl = ResolveBaseUrl(first);
+            if (string.IsNullOrWhiteSpace(baseUrl))
+            {
+                // 没有内置默认地址：OpenAI SDK 会把 Endpoint 落到 https://api.openai.com/v1/，
+                // 自建网关/代理漏配 BaseUrl 时会变成「静默打错端点」，这里提前给出启动期提示。
+                warnings.Add($"Provider '{first.Provider}' 未配置 BaseUrl 且无内置默认地址，将使用 OpenAI 默认端点 https://api.openai.com/v1/；" +
+                             "自建网关或代理请显式配置 BaseUrl。");
+            }
+
             Uri? endpoint = null;
             if (!string.IsNullOrWhiteSpace(baseUrl)
                 && (!Uri.TryCreate(baseUrl, UriKind.Absolute, out endpoint)

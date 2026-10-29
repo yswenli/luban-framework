@@ -24,6 +24,7 @@ public class SkillManageToolPlugin : ILuBanToolPlugin
 {
     private readonly SkillManageToolOptions _options;
     private readonly IWorkspaceContext? _workspaceContext;
+    private readonly string? _workspaceRootFallback;
 
     /// <summary>
     /// 从全局选项读取 Skill 管理配置，并保留可选的工作区上下文。
@@ -34,6 +35,8 @@ public class SkillManageToolPlugin : ILuBanToolPlugin
     {
         _options = options.Value.Tools.SkillManage;
         _workspaceContext = workspaceContext;
+        // 工作区上下文缺失时回退全局配置（与 FileSystemToolPlugin 同口径）
+        _workspaceRootFallback = options.Value.WorkspaceRoot;
     }
 
     /// <summary>
@@ -55,10 +58,13 @@ public class SkillManageToolPlugin : ILuBanToolPlugin
     {
         var registry = sp.GetRequiredService<SkillRegistry>();
         var reloadTrigger = sp.GetService<IAgentReloadTrigger>();
+        // 写/删必须经确认服务（Default/AcceptEdits 弹确认、Plan 记计划、Bypass 放行）
+        var confirmationService = sp.GetRequiredService<IToolConfirmationService>();
 
-        var toolGroup = new SkillManageToolGroup(registry, _options, reloadTrigger);
+        // 工作区根：会话上下文优先，缺失回退全局配置；作为工具省略 workspaceRoot 时的兜底
+        Func<string?> workspaceRootProvider = () => _workspaceContext?.RootPath ?? _workspaceRootFallback;
 
-        Func<string?> workspaceRootProvider = () => _workspaceContext?.RootPath;
+        var toolGroup = new SkillManageToolGroup(registry, _options, reloadTrigger, confirmationService, workspaceRootProvider);
 
         // 写/删工具不启用工作区根兜底（需显式传 path），但相对路径锚定仍生效
         return new List<AIFunction>

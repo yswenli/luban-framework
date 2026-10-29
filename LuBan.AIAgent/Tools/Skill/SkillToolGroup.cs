@@ -41,7 +41,10 @@ public class SkillToolGroup
     /// </summary>
     /// <param name="keyword">搜索关键词，为空时列出全部。</param>
     /// <returns>Skill 列表。</returns>
-    public ToolResult<List<SkillInfo>> ListSkillsAsync(string? keyword = null)
+    [Description("列出当前可用的 Skill（含内置与工作区级）。可传 keyword 按 Id/名称/描述模糊过滤；返回每项的 id/name/description，用 UseSkill 加载指定 Skill 的完整指令模板。")]
+    public ToolResult<List<SkillInfo>> ListSkillsAsync(
+        [Description("可选过滤关键词；省略则返回全部 Skill")]
+        string? keyword = null)
     {
         var skills = string.IsNullOrWhiteSpace(keyword)
             ? _registry.GetAll()
@@ -67,7 +70,10 @@ public class SkillToolGroup
     /// </summary>
     /// <param name="id">Skill Id。</param>
     /// <returns>Skill 指令模板。</returns>
-    public ToolResult<SkillDetail> UseSkillAsync(string id)
+    [Description("加载指定 Skill 的完整指令模板（Markdown），随后按模板要求执行任务。id 取自 ListSkills 的结果；内置 Skill 同样可用。")]
+    public ToolResult<SkillDetail> UseSkillAsync(
+        [Description("要加载的 Skill Id，如 api-review")]
+        string id)
     {
         if (string.IsNullOrWhiteSpace(id))
             return ToolResult.Fail<SkillDetail>("Skill Id 不能为空。");
