@@ -28,6 +28,18 @@ public sealed record AgentRunRequest
     /// <summary>附件文件绝对路径列表。</summary>
     public IReadOnlyList<string> AttachmentPaths { get; init; } = [];
 
+    /// <summary>
+    /// 未解析的附件来源（http(s) URL / 本机绝对路径 / 相对路径）。
+    /// 由 <c>IAgentAttachmentSourceResolver</c> 解析后并入 <see cref="AttachmentPaths"/>。
+    /// </summary>
+    public IReadOnlyList<string> Attachments { get; init; } = [];
+
+    /// <summary>本轮人设/规则覆盖；null 用 Profile 默认提示词。</summary>
+    public string? SystemPrompt { get; init; }
+
+    /// <summary>false 时本轮不装配任何工具（非流式接口用）。默认 true。</summary>
+    public bool EnableTools { get; init; } = true;
+
     /// <summary>目标会话标识；null 表示当前活动会话。</summary>
     public string? SessionId { get; init; }
 
@@ -38,6 +50,9 @@ public sealed record AgentRunRequest
     /// 工具确认处理器；null 时沿用框架既有语义（未设置确认回调的工具调用一律拒绝）。
     /// </summary>
     public Func<string, IReadOnlyDictionary<string, object?>, ConfirmResult>? ConfirmHandler { get; init; }
+
+    /// <summary>异步确认回调；与 <see cref="ConfirmHandler"/> 同时给出时以本字段为准。</summary>
+    public Func<string, IReadOnlyDictionary<string, object?>, CancellationToken, Task<ConfirmResult>>? ConfirmHandlerAsync { get; init; }
 
     /// <summary>Plan 模式下计划项回调。</summary>
     public Action<string, IReadOnlyDictionary<string, object?>>? OnPlannedAction { get; init; }

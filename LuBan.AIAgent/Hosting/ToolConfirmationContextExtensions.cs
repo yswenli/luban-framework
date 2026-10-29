@@ -60,4 +60,37 @@ public static class ToolConfirmationContextExtensions
         context.OnPlannedAction = onPlannedAction;
         context.OnUserDenied = onUserDenied;
     }
+
+    /// <summary>
+    /// 异步版本的回合装配：<see cref="ToolConfirmationContext.Callback"/> 直接接收异步回调，
+    /// 不经过 <c>Task.FromResult</c> 包装，避免确认期间占用 agent 线程。
+    /// </summary>
+    /// <param name="context">DI 单例确认上下文。</param>
+    /// <param name="mode">本轮权限模式。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <param name="confirmCallback">异步确认回调。</param>
+    /// <param name="sessionContext">会话上下文；提供时做会话级路径检查。</param>
+    /// <param name="onPlannedAction">Plan 模式计划项回调。</param>
+    /// <param name="onUserDenied">用户明确拒绝工具调用时的回调。</param>
+    /// <remarks>
+    /// 有意不做同名重载：调用方传 <c>null</c> 字面量时会与同步版二义。
+    /// </remarks>
+    public static void ConfigureForTurnAsync(
+        this ToolConfirmationContext context,
+        ToolPermissionMode mode,
+        CancellationToken cancellationToken,
+        Func<string, IReadOnlyDictionary<string, object?>, CancellationToken, Task<ConfirmResult>>? confirmCallback,
+        ISessionContext? sessionContext = null,
+        Action<string, IReadOnlyDictionary<string, object?>>? onPlannedAction = null,
+        Action<string, IReadOnlyDictionary<string, object?>>? onUserDenied = null)
+    {
+        context.Mode = mode;
+        context.CancellationToken = cancellationToken;
+        context.WorkspacePathChecker = sessionContext is null ? null : sessionContext.IsWithinEffectiveRoot;
+        context.Callback = confirmCallback is null
+            ? null
+            : (toolName, args) => confirmCallback(toolName, args, cancellationToken);
+        context.OnPlannedAction = onPlannedAction;
+        context.OnUserDenied = onUserDenied;
+    }
 }
