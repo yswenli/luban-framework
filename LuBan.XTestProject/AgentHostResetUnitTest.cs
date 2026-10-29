@@ -202,7 +202,8 @@ public class AgentHostResetUnitTest
             LuBan.AIAgent.Abstractions.ToolPluginRegistry pluginRegistry,
             LuBan.AIAgent.Skills.SkillRegistry skillRegistry,
             LuBan.AIAgent.MCP.MCPRegistry mcpRegistry,
-            CancellationToken ct = default)
+            CancellationToken ct = default,
+            AgentBuildOverrides? overrides = null)
             => Task.FromResult(new LuBanAgent(new ChatClientAgent(chatClient, new ChatClientAgentOptions
             {
                 Name = "TestAgent",

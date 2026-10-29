@@ -75,6 +75,7 @@ public abstract class AgentProfileBase : IAgentProfile
     /// <param name="skillRegistry">Skill 注册表</param>
     /// <param name="mcpRegistry">MCP 注册表</param>
     /// <param name="cancellationToken">取消令牌。</param>
+    /// <param name="overrides">本轮构建覆盖项（人设 / 工具开关）；null 表示不覆盖。</param>
     /// <returns>LuBanAgent 实例</returns>
     public virtual async Task<LuBanAgent> CreateAgentAsync(
         ILuBanAgentFactory factory,
@@ -84,7 +85,8 @@ public abstract class AgentProfileBase : IAgentProfile
         ToolPluginRegistry pluginRegistry,
         SkillRegistry skillRegistry,
         MCPRegistry mcpRegistry,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        AgentBuildOverrides? overrides = null)
     {
         // 加载工作区级别的组件（三级优先级：硬编码 > 工作区文件 > config.json）
         skillRegistry.LoadFromWorkspace(workspace.RootPath);
@@ -95,24 +97,49 @@ public abstract class AgentProfileBase : IAgentProfile
         
         ruleEngine.LoadFromWorkspace(workspace.RootPath);
 
+        var enableTools = overrides?.EnableTools ?? true;
+
         // 将工作区上下文注入系统提示词
-        var fullPrompt = BuildFullPrompt(workspace, ruleEngine);
+        var fullPrompt = BuildFullPrompt(workspace, ruleEngine, overrides);
 
         return await factory.CreateAsync(
             modelName: modelName,
             systemPrompt: fullPrompt,
-            toolGroups: ToolGroups,
+            // 空数组 = 一个组都不选（ToolPluginRegistry.GetPlugins 的既有语义）
+            toolGroups: enableTools ? ToolGroups : [],
             retrievalMode: RetrievalMode,
             useSessionHistory: true,
-            toolsOptions: BuildToolOptions());
+            toolsOptions: ResolveToolOptions(overrides));
+    }
+
+    /// <summary>
+    /// 按本轮覆盖项解析工具参数。禁用工具时同时压掉 Skill 目录注入，
+    /// 否则系统提示词仍会教模型去调一个看不见的工具。
+    /// </summary>
+    /// <param name="overrides">本轮构建覆盖项。</param>
+    /// <returns>工具参数。</returns>
+    protected ToolGroupOptions ResolveToolOptions(AgentBuildOverrides? overrides)
+    {
+        var options = BuildToolOptions();
+        if (overrides is { EnableTools: false })
+            options.Skill.CatalogEnabled = false;
+        return options;
     }
 
     /// <summary>
     /// 构建包含工作区上下文的完整系统提示词。
     /// </summary>
-    private string BuildFullPrompt(WorkspaceDescriptor workspace, LuBan.AIAgent.Rules.RuleEngine ruleEngine)
+    /// <param name="workspace">工作区信息。</param>
+    /// <param name="ruleEngine">规则引擎。</param>
+    /// <param name="overrides">本轮构建覆盖项；<c>SystemPrompt</c> 非空时替换默认人设。</param>
+    /// <returns>完整系统提示词。</returns>
+    protected string BuildFullPrompt(
+        WorkspaceDescriptor workspace,
+        LuBan.AIAgent.Rules.RuleEngine ruleEngine,
+        AgentBuildOverrides? overrides = null)
     {
-        var sb = new System.Text.StringBuilder(SystemPrompt);
+        var enableTools = overrides?.EnableTools ?? true;
+        var sb = new System.Text.StringBuilder(overrides?.SystemPrompt ?? SystemPrompt);
         sb.AppendLine();
         sb.AppendLine();
         sb.AppendLine("## 当前工作区");
@@ -120,23 +147,27 @@ public abstract class AgentProfileBase : IAgentProfile
         sb.AppendLine($"- 根目录: {workspace.RootPath}");
         sb.AppendLine($"- 类型: {workspace.Type}");
         sb.AppendLine();
-        sb.AppendLine("## 路径使用说明");
-        sb.AppendLine("- 搜索文件/内容时，rootPath 参数请使用工作区根目录的绝对路径，或使用 \".\" （已设置为根目录）");
-        sb.AppendLine($"- 示例: Grep(rootPath=\"{workspace.RootPath}\", pattern=\"关键字\")");
-        sb.AppendLine("- 示例: ListDirectory(path=\".\") 或 ListDirectory(path=\"" + workspace.RootPath + "\")");
-        sb.AppendLine();
-        sb.AppendLine("## 临时文件管理");
-        sb.AppendLine("- 临时文件（脚本、截图、中间产物）统一存放于工作区的 `.luban-agent/temp/` 目录");
-        sb.AppendLine($"- 示例: WriteFileAsync(path=\".luban-agent/temp/script.py\", content=\"...\")");
-        sb.AppendLine($"- 示例: ScreenshotAsync(path=\".luban-agent/temp/screenshot.png\")");
-        sb.AppendLine("- 临时目录会自动创建，无需手动创建");
-        sb.AppendLine("- 使用相对路径 `.luban-agent/temp/` 或绝对路径结合工作区根目录");
-        sb.AppendLine();
-        sb.AppendLine("## 长期记忆");
-        sb.AppendLine("- 使用保存记忆工具（SaveAsync）把值得长期记住的信息写入记忆库，后续对话会自动召回");
-        sb.AppendLine("- 适合保存：用户偏好与习惯、明确的项目决策与约束、用户显式要求\"记住\"的内容");
-        sb.AppendLine("- 不要保存：闲聊客套、一次性上下文、可从代码或文档直接获得的事实");
-        sb.AppendLine("- category 用简短英文小写（如 fact、preference、todo、project）；跨工作区通用的用 global");
+
+        if (enableTools)
+        {
+            sb.AppendLine("## 路径使用说明");
+            sb.AppendLine("- 搜索文件/内容时，rootPath 参数请使用工作区根目录的绝对路径，或使用 \".\" （已设置为根目录）");
+            sb.AppendLine($"- 示例: Grep(rootPath=\"{workspace.RootPath}\", pattern=\"关键字\")");
+            sb.AppendLine("- 示例: ListDirectory(path=\".\") 或 ListDirectory(path=\"" + workspace.RootPath + "\")");
+            sb.AppendLine();
+            sb.AppendLine("## 临时文件管理");
+            sb.AppendLine("- 临时文件（脚本、截图、中间产物）统一存放于工作区的 `.luban-agent/temp/` 目录");
+            sb.AppendLine($"- 示例: WriteFileAsync(path=\".luban-agent/temp/script.py\", content=\"...\")");
+            sb.AppendLine($"- 示例: ScreenshotAsync(path=\".luban-agent/temp/screenshot.png\")");
+            sb.AppendLine("- 临时目录会自动创建，无需手动创建");
+            sb.AppendLine("- 使用相对路径 `.luban-agent/temp/` 或绝对路径结合工作区根目录");
+            sb.AppendLine();
+            sb.AppendLine("## 长期记忆");
+            sb.AppendLine("- 使用保存记忆工具（SaveAsync）把值得长期记住的信息写入记忆库，后续对话会自动召回");
+            sb.AppendLine("- 适合保存：用户偏好与习惯、明确的项目决策与约束、用户显式要求\"记住\"的内容");
+            sb.AppendLine("- 不要保存：闲聊客套、一次性上下文、可从代码或文档直接获得的事实");
+            sb.AppendLine("- category 用简短英文小写（如 fact、preference、todo、project）；跨工作区通用的用 global");
+        }
 
         if (ruleEngine.GetRule("base-behavior") is LuBan.AIAgent.Rules.IContentRule contentRule
             && !string.IsNullOrWhiteSpace(contentRule.Content))

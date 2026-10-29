@@ -40,8 +40,9 @@ public sealed class AgentHost(
     public bool IsInitialized => CurrentSessionId is { Length: > 0 } id && runtimes.Get(id)?.Agent is not null;
 
     /// <inheritdoc />
-    public async Task InitializeAsync(string sessionId, CancellationToken ct = default)
-        => await EnsureRuntimeAsync(sessionId, ct).ConfigureAwait(false);
+    public async Task InitializeAsync(
+        string sessionId, CancellationToken ct = default, AgentBuildOverrides? overrides = null)
+        => await EnsureRuntimeAsync(sessionId, ct, overrides).ConfigureAwait(false);
 
     /// <inheritdoc />
     public void Reset(string? sessionId = null)
@@ -76,6 +77,7 @@ public sealed class AgentHost(
         }
         runtime.Agent = null;
         runtime.Workspace = null;
+        runtime.BuildOverrides = null;
     }
 
     /// <inheritdoc />
@@ -88,15 +90,19 @@ public sealed class AgentHost(
     /// <summary>
     /// 取（或创建）指定会话的运行时，并确保其 Agent 已按该会话自身绑定的工作区构建。
     /// </summary>
-    private async Task<SessionRuntime> EnsureRuntimeAsync(string sessionId, CancellationToken ct)
+    /// <param name="sessionId">会话标识。</param>
+    /// <param name="ct">取消令牌。</param>
+    /// <param name="overrides">本轮构建覆盖项；null 表示不覆盖。</param>
+    private async Task<SessionRuntime> EnsureRuntimeAsync(
+        string sessionId, CancellationToken ct, AgentBuildOverrides? overrides = null)
     {
         var runtime = runtimes.Get(sessionId);
-        if (runtime?.Agent is not null)
+        if (runtime?.Agent is not null && (runtime.BuildOverrides?.Matches(overrides) ?? overrides is null))
             return runtime;
 
         var workspace = await workspaceResolver.ResolveAsync(sessionId, ct).ConfigureAwait(false);
         runtime = runtimes.GetOrCreate(sessionId, userResolver.ResolveUserId(services), workspace.Id, workspace.RootPath);
-        await EnsureAgentAsync(runtime, workspace, ct).ConfigureAwait(false);
+        await EnsureAgentAsync(runtime, workspace, ct, overrides).ConfigureAwait(false);
         return runtime;
     }
 
@@ -300,9 +306,18 @@ public sealed class AgentHost(
     }
 
     /// <summary>确保指定会话运行时内已按工作区构建 Agent。</summary>
-    private async Task EnsureAgentAsync(SessionRuntime runtime, WorkspaceDescriptor workspace, CancellationToken ct)
+    private async Task EnsureAgentAsync(
+        SessionRuntime runtime, WorkspaceDescriptor workspace, CancellationToken ct,
+        AgentBuildOverrides? overrides = null)
     {
-        if (runtime.Agent is not null && runtime.Workspace?.Id == workspace.Id)
+        // 全默认的覆盖项等价于「不覆盖」，归一化成 null，
+        // 免得每轮拿 non-null 去比缓存里的 null 触发无意义重建
+        if (overrides is { IsDefault: true })
+            overrides = null;
+
+        if (runtime.Agent is not null
+            && runtime.Workspace?.Id == workspace.Id
+            && (runtime.BuildOverrides?.Matches(overrides) ?? overrides is null))
             return;
 
         var sp = runtime.Services;
@@ -334,7 +349,7 @@ public sealed class AgentHost(
 
         var newAgent = await profile.CreateAgentAsync(
             agentFactory, modelName, workspace,
-            ruleEngine, pluginRegistry, skillRegistry, mcpRegistry, ct).ConfigureAwait(false);
+            ruleEngine, pluginRegistry, skillRegistry, mcpRegistry, ct, overrides).ConfigureAwait(false);
 
         // 释放旧 Agent 实例，避免重建时连接/句柄等资源泄漏
         if (runtime.Agent is IDisposable oldAgent)
@@ -344,6 +359,7 @@ public sealed class AgentHost(
         }
         runtime.Agent = newAgent;
         runtime.Workspace = workspace;
+        runtime.BuildOverrides = overrides;
     }
 
     private async IAsyncEnumerable<AgentStreamEvent> RunCoreAsync(

@@ -47,6 +47,9 @@ public sealed class SessionRuntime : IAsyncDisposable
     /// <summary>本会话 Agent 绑定的工作区（用于切换工作区后重建）。</summary>
     public WorkspaceDescriptor? Workspace { get; set; }
 
+    /// <summary>本会话 Agent 当前绑定的构建覆盖项（人设 / 工具开关）；变化时需重建。</summary>
+    public AgentBuildOverrides? BuildOverrides { get; set; }
+
     /// <summary>标记：回合结束后需重载 Agent 上下文。</summary>
     public bool PendingReload => Volatile.Read(ref _pendingReload) == 1;
 

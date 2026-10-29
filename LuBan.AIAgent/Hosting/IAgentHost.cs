@@ -34,7 +34,10 @@ public interface IAgentHost
     string? CurrentSessionId { get; }
 
     /// <summary>确保指定会话的 Agent 已构建（首次对话前调用）。</summary>
-    Task InitializeAsync(string sessionId, CancellationToken ct = default);
+    /// <param name="sessionId">会话标识。</param>
+    /// <param name="ct">取消令牌。</param>
+    /// <param name="overrides">本轮构建覆盖项（人设 / 工具开关）；null 表示不覆盖。</param>
+    Task InitializeAsync(string sessionId, CancellationToken ct = default, AgentBuildOverrides? overrides = null);
 
     /// <summary>
     /// 重置指定会话的 Agent 缓存；null 表示当前会话。

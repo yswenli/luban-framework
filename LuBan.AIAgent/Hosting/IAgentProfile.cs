@@ -36,6 +36,7 @@ public interface IAgentProfile
     /// <param name="skillRegistry">Skill 注册表。</param>
     /// <param name="mcpRegistry">MCP 注册表。</param>
     /// <param name="ct">取消令牌。</param>
+    /// <param name="overrides">本轮构建覆盖项（人设 / 工具开关）；null 表示不覆盖。</param>
     Task<LuBanAgent> CreateAgentAsync(
         ILuBanAgentFactory factory,
         string modelName,
@@ -44,5 +45,6 @@ public interface IAgentProfile
         ToolPluginRegistry pluginRegistry,
         SkillRegistry skillRegistry,
         MCPRegistry mcpRegistry,
-        CancellationToken ct = default);
+        CancellationToken ct = default,
+        AgentBuildOverrides? overrides = null);
 }
