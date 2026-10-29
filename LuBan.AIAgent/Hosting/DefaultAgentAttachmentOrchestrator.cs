@@ -13,6 +13,13 @@
 *创建时间：2026/10/26
 *描述：默认附件编排：引用解析、逐文件容错处理、能力门禁与视觉探测
 *
+*=================================================
+*修改标记
+*修改时间：2026/10/29
+*修改人： yswenli
+*版本号： V1.0.0.1
+*描述：超 MaxCount 改为截断 + 跳过项（原实现抛异常会让整轮对话失败）
+*
 *****************************************************************************/
 
 using LuBan.AIAgent.Attachments;
@@ -40,14 +47,22 @@ public sealed class DefaultAgentAttachmentOrchestrator(
             return new AttachmentProcessingResult(
                 Array.Empty<ProcessedAttachment>(), Array.Empty<AttachmentSourceFailure>());
 
+        // 与 AgentHost 同口径：超出上限只跳过，不抛异常（抛异常会让整轮对话失败）
         var maxCount = options.Value.Attachments.MaxCount;
+        var overflow = new List<AttachmentSourceFailure>();
+        IReadOnlyList<string> effectivePaths = paths;
+
         if (maxCount > 0 && paths.Count > maxCount)
-            throw new InvalidOperationException($"最多附加 {maxCount} 个文件");
+        {
+            var reason = AttachmentEventProjector.MaxCountExceededReason(maxCount);
+            overflow.AddRange(paths.Skip(maxCount).Select(path => new AttachmentSourceFailure(path, reason)));
+            effectivePaths = paths.Take(maxCount).ToList();
+        }
 
-        var processed = new List<ProcessedAttachment>(paths.Count);
-        var failed = new List<AttachmentSourceFailure>();
+        var processed = new List<ProcessedAttachment>(effectivePaths.Count);
+        var failed = new List<AttachmentSourceFailure>(overflow);
 
-        foreach (var path in paths)
+        foreach (var path in effectivePaths)
         {
             ct.ThrowIfCancellationRequested();
             try

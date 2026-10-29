@@ -17,8 +17,8 @@
 *修改标记
 *修改时间：2026/10/29
 *修改人： yswenli
-*版本号： V1.0.0.0
-*描述：附件前置结果与事件投影
+*版本号： V1.0.0.1
+*描述：新增超限跳过原因文案 MaxCountExceededReason
 *
 *****************************************************************************/
 
@@ -59,6 +59,14 @@ public static class AttachmentEventProjector
     /// <summary>非流式（无工具）跳过超大文本时的固定文案（与设计 §5.1 一致）。</summary>
     public const string LargeTextWithoutToolsReason =
         "文件过大（超过 50KB），非流式接口不支持，请改用 chatstream 或分段提问";
+
+    /// <summary>
+    /// 附件数量超过 <c>Attachments.MaxCount</c> 时，被截断项的统一原因文案。
+    /// </summary>
+    /// <param name="maxCount">配置的上限值。</param>
+    /// <returns>可直接回传给前端的提示文本。</returns>
+    public static string MaxCountExceededReason(int maxCount)
+        => $"超出附件上限（最多 {maxCount} 个），本轮已跳过";
 
     /// <summary>投影。</summary>
     /// <param name="processed">处理成功的附件。</param>

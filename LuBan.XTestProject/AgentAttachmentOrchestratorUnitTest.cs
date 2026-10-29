@@ -67,12 +67,18 @@ public class AgentAttachmentOrchestratorUnitTest
     }
 
     [TestMethod]
-    public async Task OverMaxCount_Throws()
+    public async Task OverMaxCount_TruncatesAndReportsFailure()
     {
         var sut = Build(maxCount: 1);
 
-        await Assert.ThrowsExactlyAsync<InvalidOperationException>(
-            () => sut.ProcessAsync(new[] { "a.txt", "b.txt" }));
+        // 超限不再抛异常：保留前 1 个，其余记为跳过（正文 @引用 与 UI 附件合并后极易超限）
+        var result = await sut.ProcessAsync(new[] { "a.txt", "b.txt" });
+
+        Assert.AreEqual(1, result.Processed.Count);
+        Assert.AreEqual("a.txt", result.Processed[0].Info.SourcePath, "保留的应是最先出现的来源");
+        Assert.AreEqual(1, result.Failed.Count);
+        Assert.AreEqual("b.txt", result.Failed[0].Source);
+        StringAssert.Contains(result.Failed[0].Reason, "超出附件上限");
     }
 
     private sealed class FakeProcessor : IAttachmentProcessor

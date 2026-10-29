@@ -50,17 +50,19 @@ public class AgentRunRequestValidationUnitTest
     }
 
     [TestMethod]
-    public async Task DefaultOrchestrator_ProcessAsync_MoreThanFive_Throws()
+    public async Task DefaultOrchestrator_ProcessAsync_MoreThanFive_TruncatesAndSkips()
     {
         var processor = new FakeProcessor();
         var orchestrator = new DefaultAgentAttachmentOrchestrator(processor, new AllowAllModelCapabilityGate(), Options.Create(new LuBanAgentOptions()));
         var paths = Enumerable.Range(0, 6).Select(i => $@"C:\tmp\f{i}.txt").ToArray();
 
-        var ex = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
-            () => orchestrator.ProcessAsync(paths));
+        // 超限不再抛异常（会让整轮对话失败），改为保留前 5 个 + 其余记为跳过
+        var result = await orchestrator.ProcessAsync(paths);
 
-        StringAssert.Contains(ex.Message, "最多附加 5 个文件");
-        Assert.AreEqual(0, processor.Calls);
+        Assert.AreEqual(5, processor.Calls, "只处理上限内的前 5 个");
+        Assert.AreEqual(0, result.Processed.Count);
+        Assert.AreEqual(6, result.Failed.Count, "5 个处理失败 + 1 个超限跳过");
+        Assert.IsTrue(result.Failed.Any(f => f.Reason.Contains("超出附件上限")), "超限项必须带可读原因");
     }
 
     [TestMethod]

@@ -13,6 +13,13 @@
 *创建时间：2026/10/26
 *描述：Agent 宿主默认实现：按会话路由到会话运行时并输出 UI 无关事件
 *
+*=================================================
+*修改标记
+*修改时间：2026/10/29
+*修改人： yswenli
+*版本号： V1.0.0.1
+*描述：附件超 MaxCount 改为截断 + 跳过事件（原实现抛异常会导致整轮对话失败）
+*
 *****************************************************************************/using LuBan.AIAgent.Attachments;
 using LuBan.AIAgent.Attachments.Ingestion;
 using LuBan.AIAgent.Configuration;
@@ -238,8 +245,17 @@ public sealed class AgentHost(
         if (!settings.Enabled)
             throw new InvalidOperationException("附件功能未启用");
 
+        // 超出上限不整轮失败：保留前 N 个（UI 附件在前，与合并口径一致），
+        // 其余折成跳过项下发。正文 @引用 与 UI 附件合并后很容易超限，
+        // 早期实现此处直接抛异常，导致「附件满额 + 正文再写一个 @文件」整轮无回复。
+        var overflow = new List<AttachmentSourceFailure>();
         if (settings.MaxCount > 0 && sources.Count > settings.MaxCount)
-            throw new InvalidOperationException($"最多附加 {settings.MaxCount} 个文件");
+        {
+            var reason = AttachmentEventProjector.MaxCountExceededReason(settings.MaxCount);
+            overflow.AddRange(sources.Skip(settings.MaxCount)
+                .Select(source => new AttachmentSourceFailure(source, reason)));
+            sources = sources.Take(settings.MaxCount).ToList();
+        }
 
         var context = new AttachmentSourceContext(workspace.RootPath, settings.ContentRoot, sessionId);
         var sourcesResult = await attachmentSources.ResolveAsync(sources, context, ct).ConfigureAwait(false);
@@ -264,7 +280,7 @@ public sealed class AgentHost(
                 : item.WithSource(item.Info.SourcePath));
         }
 
-        var failures = sourcesResult.Failed.Concat(processing.Failed).ToList();
+        var failures = sourcesResult.Failed.Concat(processing.Failed).Concat(overflow).ToList();
         var projection = AttachmentEventProjector.Project(processed, failures, request.EnableTools);
 
         var events = new List<AgentStreamEvent>(projection.Attached.Count + projection.Skipped.Count);
