@@ -26,6 +26,7 @@ public class McpManageToolPlugin : ILuBanToolPlugin
     private readonly McpOptions _mcpOptions;
     private readonly IWorkspaceContext? _workspaceContext;
     private readonly string? _workspaceRootFallback;
+    private readonly bool _isolateWorkspaceByUser;
 
     /// <summary>
     /// 从全局选项读取 MCP 管理配置，并保留可选的工作区上下文。
@@ -39,6 +40,8 @@ public class McpManageToolPlugin : ILuBanToolPlugin
         _workspaceContext = workspaceContext;
         // 工作区上下文缺失时回退全局配置（与 FileSystemToolPlugin 同口径）
         _workspaceRootFallback = options.Value.WorkspaceRoot;
+        // 按用户隔离时，绝对路径同样不得越出用户工作区
+        _isolateWorkspaceByUser = options.Value.IsolateWorkspaceByUser;
     }
 
     /// <summary>
@@ -68,7 +71,8 @@ public class McpManageToolPlugin : ILuBanToolPlugin
         Func<string?> workspaceRootProvider = () => _workspaceContext?.RootPath ?? _workspaceRootFallback;
 
         var toolGroup = new McpManageToolGroup(
-            registry, _options, _mcpOptions, reloadTrigger, resolver, confirmationService, workspaceRootProvider);
+            registry, _options, _mcpOptions, reloadTrigger, resolver, confirmationService, workspaceRootProvider,
+            _isolateWorkspaceByUser);
 
         return new List<AIFunction>
         {

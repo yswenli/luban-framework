@@ -28,6 +28,11 @@
 *      ResolveWorkspaceRoot/ConfirmOrBlockAsync 收敛到 ManageToolSupport；
 *      workspaceRoot 相对路径锚定后必须仍在宿主工作区内（防跨用户穿越）
 *
+*修改时间：2026/10/29
+*修改人： yswenli
+*版本号： V1.0.0.3
+*描述：新增 requireWorkspaceContainment 开关，隔离宿主下绝对路径也不得越出宿主工作区
+*
 *****************************************************************************/
 
 namespace LuBan.AIAgent.Tools.McpManage;
@@ -53,6 +58,7 @@ public class McpManageToolGroup
     private readonly IMcpConfigValueResolver _resolver;
     private readonly IToolConfirmationService? _confirmationService;
     private readonly Func<string?>? _defaultWorkspaceRoot;
+    private readonly bool _requireWorkspaceContainment;
 
     /// <summary>
     /// 注入 MCP 注册表、管理工具选项与热重载依赖。
@@ -64,6 +70,9 @@ public class McpManageToolGroup
     /// <param name="resolver">配置值（含凭据引用）解析器，缺省用空实现。</param>
     /// <param name="confirmationService">工具调用确认服务；为 null 表示不做确认（仅供程序化直调，宿主插件必须传入）。</param>
     /// <param name="defaultWorkspaceRoot">工作区根提供者（惰性求值）；工具参数省略 workspaceRoot 时用它兜底。</param>
+    /// <param name="requireWorkspaceContainment">
+    /// 是否要求 workspaceRoot（含绝对路径）必须落在宿主工作区内；宿主开启按用户隔离时必须传 true。
+    /// </param>
     public McpManageToolGroup(
         MCPRegistry registry,
         McpManageToolOptions options,
@@ -71,7 +80,8 @@ public class McpManageToolGroup
         IAgentReloadTrigger? reloadTrigger = null,
         IMcpConfigValueResolver? resolver = null,
         IToolConfirmationService? confirmationService = null,
-        Func<string?>? defaultWorkspaceRoot = null)
+        Func<string?>? defaultWorkspaceRoot = null,
+        bool requireWorkspaceContainment = false)
     {
         _registry = registry;
         _options = options;
@@ -80,6 +90,7 @@ public class McpManageToolGroup
         _resolver = resolver ?? NullMcpConfigValueResolver.Instance;
         _confirmationService = confirmationService;
         _defaultWorkspaceRoot = defaultWorkspaceRoot;
+        _requireWorkspaceContainment = requireWorkspaceContainment;
     }
 
     /// <summary>
@@ -193,7 +204,8 @@ public class McpManageToolGroup
         if (existing != null && !overwrite)
             return ToolResult.Fail<string>($"MCP '{config.Name}' 已存在，需设置 overwrite=true 覆盖。");
 
-        var (root, rootError) = ManageToolSupport.ResolveWorkspaceRoot(workspaceRoot, _defaultWorkspaceRoot);
+        var (root, rootError) = ManageToolSupport.ResolveWorkspaceRoot(
+            workspaceRoot, _defaultWorkspaceRoot, _requireWorkspaceContainment);
         if (rootError is not null)
             return ToolResult.Fail<string>(rootError);
 
@@ -261,7 +273,8 @@ public class McpManageToolGroup
         if (_registry.IsBuiltin(name))
             return ToolResult.Fail<string>($"MCP '{name}' 为内置，不可删除。");
 
-        var (root, rootError) = ManageToolSupport.ResolveWorkspaceRoot(workspaceRoot, _defaultWorkspaceRoot);
+        var (root, rootError) = ManageToolSupport.ResolveWorkspaceRoot(
+            workspaceRoot, _defaultWorkspaceRoot, _requireWorkspaceContainment);
         if (rootError is not null)
             return ToolResult.Fail<string>(rootError);
 

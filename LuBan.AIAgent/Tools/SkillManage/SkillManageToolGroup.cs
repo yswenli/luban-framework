@@ -28,6 +28,11 @@
 *      ResolveWorkspaceRoot/ConfirmOrBlockAsync 收敛到 ManageToolSupport；
 *      workspaceRoot 相对路径锚定后必须仍在宿主工作区内（防跨用户穿越）
 *
+*修改时间：2026/10/29
+*修改人： yswenli
+*版本号： V1.0.0.3
+*描述：新增 requireWorkspaceContainment 开关，隔离宿主下绝对路径也不得越出宿主工作区
+*
 *****************************************************************************/
 
 namespace LuBan.AIAgent.Tools.SkillManage;
@@ -49,6 +54,7 @@ public class SkillManageToolGroup
     private readonly IAgentReloadTrigger? _reloadTrigger;
     private readonly IToolConfirmationService? _confirmationService;
     private readonly Func<string?>? _defaultWorkspaceRoot;
+    private readonly bool _requireWorkspaceContainment;
 
     // Skill Id 合法性正则：小写字母/数字/下划线/中划线，首字符必须为字母/数字，最长 64
     private static readonly Regex IdPattern = new(@"^[a-z0-9][a-z0-9_-]{0,63}$", RegexOptions.Compiled);
@@ -61,18 +67,23 @@ public class SkillManageToolGroup
     /// <param name="reloadTrigger">写入/删除后的热重载触发器，可为 null。</param>
     /// <param name="confirmationService">工具调用确认服务；为 null 表示不做确认（仅供程序化直调，宿主插件必须传入）。</param>
     /// <param name="defaultWorkspaceRoot">工作区根提供者（惰性求值）；工具参数省略 workspaceRoot 时用它兜底。</param>
+    /// <param name="requireWorkspaceContainment">
+    /// 是否要求 workspaceRoot（含绝对路径）必须落在宿主工作区内；宿主开启按用户隔离时必须传 true。
+    /// </param>
     public SkillManageToolGroup(
         SkillRegistry registry,
         SkillManageToolOptions options,
         IAgentReloadTrigger? reloadTrigger = null,
         IToolConfirmationService? confirmationService = null,
-        Func<string?>? defaultWorkspaceRoot = null)
+        Func<string?>? defaultWorkspaceRoot = null,
+        bool requireWorkspaceContainment = false)
     {
         _registry = registry;
         _options = options;
         _reloadTrigger = reloadTrigger;
         _confirmationService = confirmationService;
         _defaultWorkspaceRoot = defaultWorkspaceRoot;
+        _requireWorkspaceContainment = requireWorkspaceContainment;
     }
 
     /// <summary>
@@ -118,7 +129,8 @@ public class SkillManageToolGroup
         if (totalBytes > _options.MaxSkillFileBytes)
             return ToolResult.Fail<string>($"Skill 内容超过上限 {_options.MaxSkillFileBytes / 1024}KB。");
 
-        var (root, rootError) = ManageToolSupport.ResolveWorkspaceRoot(workspaceRoot, _defaultWorkspaceRoot);
+        var (root, rootError) = ManageToolSupport.ResolveWorkspaceRoot(
+            workspaceRoot, _defaultWorkspaceRoot, _requireWorkspaceContainment);
         if (rootError is not null)
             return ToolResult.Fail<string>(rootError);
 
@@ -194,7 +206,8 @@ public class SkillManageToolGroup
         if (_registry.IsBuiltin(id))
             return ToolResult.Fail<string>($"Skill '{id}' 为内置，不可删除。");
 
-        var (root, rootError) = ManageToolSupport.ResolveWorkspaceRoot(workspaceRoot, _defaultWorkspaceRoot);
+        var (root, rootError) = ManageToolSupport.ResolveWorkspaceRoot(
+            workspaceRoot, _defaultWorkspaceRoot, _requireWorkspaceContainment);
         if (rootError is not null)
             return ToolResult.Fail<string>(rootError);
 

@@ -6,8 +6,8 @@
 *唯一标识：通用 Skill/MCP 管理工具确认链路单测
 *创建时间：2026/10/29
 *描述：验证 Skill/MCP 写删接入 IToolConfirmationService（Default 弹确认、拒绝不落盘、
-*      Plan 记计划）、workspaceRoot 可选兜底与相对路径锚定、非法 Id/名称拦截、
-*      确认弹窗参数完整性、工具描述与必填参数集合。
+*      Plan 记计划）、workspaceRoot 可选兜底与相对路径锚定、隔离宿主下绝对路径包含性校验、
+*      非法 Id/名称拦截、确认弹窗参数完整性、工具描述与必填参数集合。
 *
 *****************************************************************************/
 using LuBan.AIAgent.Abstractions;
@@ -78,16 +78,19 @@ public class ManageToolConfirmationUnitTest
     }
 
     private static SkillManageToolGroup CreateSkillGroup(
-        IToolConfirmationService? confirmation, Func<string?>? defaultWorkspaceRoot = null)
+        IToolConfirmationService? confirmation, Func<string?>? defaultWorkspaceRoot = null,
+        bool requireContainment = false)
         => new(
             new SkillRegistry(Array.Empty<ISkill>()),
             new SkillManageToolOptions(),
             null,
             confirmation,
-            defaultWorkspaceRoot);
+            defaultWorkspaceRoot,
+            requireContainment);
 
     private static McpManageToolGroup CreateMcpGroup(
-        IToolConfirmationService? confirmation, Func<string?>? defaultWorkspaceRoot = null)
+        IToolConfirmationService? confirmation, Func<string?>? defaultWorkspaceRoot = null,
+        bool requireContainment = false)
     {
         var registry = new MCPRegistry(
             Array.Empty<IMCPClient>(),
@@ -101,7 +104,8 @@ public class ManageToolConfirmationUnitTest
             null,
             new CredentialValueResolver(new StubCredentialStore()),
             confirmation,
-            defaultWorkspaceRoot);
+            defaultWorkspaceRoot,
+            requireContainment);
     }
 
     // ────────────────────────── Skill ──────────────────────────
@@ -366,6 +370,105 @@ public class ManageToolConfirmationUnitTest
         }
     }
 
+    [TestMethod]
+    public async Task WriteSkillAsync_隔离宿主下绝对路径越界被拒绝()
+    {
+        var confirmation = new RecordingConfirmation();
+        var workspace = CreateWorkspace("luban-skillmanage-");
+        var otherUser = CreateWorkspace("luban-skillmanage-user2-");
+        try
+        {
+            // 模拟 <ws>/users/<userId> 与 <ws>/users/<otherUserId>：绝对路径直接指向他人的用户工作区
+            var group = CreateSkillGroup(confirmation.Build(), () => workspace, requireContainment: true);
+
+            var result = await group.WriteSkillAsync("demo", "Demo", "示例", "正文", workspaceRoot: otherUser);
+
+            Assert.IsFalse(result.IsSuccess);
+            StringAssert.Contains(result.Message, "不能越出宿主工作区");
+            Assert.AreEqual(0, confirmation.Calls.Count, "越界应在请求确认前被拦下");
+            Assert.IsFalse(File.Exists(Path.Combine(otherUser, ".luban-agent", "skills", "demo", "SKILL.md")),
+                "他人工作区不得被写入");
+        }
+        finally
+        {
+            TryDelete(workspace);
+            TryDelete(otherUser);
+        }
+    }
+
+    [TestMethod]
+    public async Task DeleteSkillAsync_隔离宿主下绝对路径越界被拒绝()
+    {
+        var confirmation = new RecordingConfirmation();
+        var workspace = CreateWorkspace("luban-skillmanage-");
+        var otherUser = CreateWorkspace("luban-skillmanage-user2-");
+        try
+        {
+            var victimSkillDir = Path.Combine(otherUser, ".luban-agent", "skills", "demo");
+            Directory.CreateDirectory(victimSkillDir);
+
+            var group = CreateSkillGroup(confirmation.Build(), () => workspace, requireContainment: true);
+
+            var result = await group.DeleteSkillAsync("demo", otherUser);
+
+            Assert.IsFalse(result.IsSuccess);
+            StringAssert.Contains(result.Message, "不能越出宿主工作区");
+            Assert.AreEqual(0, confirmation.Calls.Count);
+            Assert.IsTrue(Directory.Exists(victimSkillDir), "他人工作区的 Skill 不得被删除");
+        }
+        finally
+        {
+            TryDelete(workspace);
+            TryDelete(otherUser);
+        }
+    }
+
+    [TestMethod]
+    public async Task WriteSkillAsync_隔离宿主下工作区内绝对路径仍允许()
+    {
+        var confirmation = new RecordingConfirmation();
+        var workspace = CreateWorkspace("luban-skillmanage-");
+        try
+        {
+            // 隔离只拦「越出工作区」，指向工作区内子目录的绝对路径必须照常放行
+            var project = Path.Combine(workspace, "my-project");
+            var group = CreateSkillGroup(confirmation.Build(), () => workspace, requireContainment: true);
+
+            var result = await group.WriteSkillAsync("demo", "Demo", "示例", "正文", workspaceRoot: project);
+
+            Assert.IsTrue(result.IsSuccess, result.Message);
+            Assert.AreEqual(1, confirmation.Calls.Count);
+            Assert.IsTrue(File.Exists(Path.Combine(project, ".luban-agent", "skills", "demo", "SKILL.md")));
+        }
+        finally
+        {
+            TryDelete(workspace);
+        }
+    }
+
+    [TestMethod]
+    public async Task WriteSkillAsync_未开隔离时绝对路径仍可跨项目()
+    {
+        var confirmation = new RecordingConfirmation();
+        var workspace = CreateWorkspace("luban-skillmanage-");
+        var otherProject = CreateWorkspace("luban-skillmanage-project-");
+        try
+        {
+            // 单用户宿主（CLI / Codex）保留「跨项目传绝对路径」的既有用法
+            var group = CreateSkillGroup(confirmation.Build(), () => workspace, requireContainment: false);
+
+            var result = await group.WriteSkillAsync("demo", "Demo", "示例", "正文", workspaceRoot: otherProject);
+
+            Assert.IsTrue(result.IsSuccess, result.Message);
+            Assert.IsTrue(File.Exists(Path.Combine(otherProject, ".luban-agent", "skills", "demo", "SKILL.md")));
+        }
+        finally
+        {
+            TryDelete(workspace);
+            TryDelete(otherProject);
+        }
+    }
+
     // ────────────────────────── MCP ──────────────────────────
 
     [TestMethod]
@@ -506,6 +609,62 @@ public class ManageToolConfirmationUnitTest
         finally
         {
             TryDelete(workspace);
+        }
+    }
+
+    [TestMethod]
+    public async Task WriteMcpServerAsync_隔离宿主下绝对路径越界被拒绝()
+    {
+        var confirmation = new RecordingConfirmation();
+        var workspace = CreateWorkspace("luban-mcpmanage-");
+        var otherUser = CreateWorkspace("luban-mcpmanage-user2-");
+        try
+        {
+            // 隔离宿主：绝对路径指向他人工作区必须被拒（否则 MCP 命令会在受害用户下轮启动）
+            var group = CreateMcpGroup(confirmation.Build(), () => workspace, requireContainment: true);
+
+            var result = await group.WriteMcpServerAsync(
+                name: "pwn", command: "cmd.exe", transport: "stdio", workspaceRoot: otherUser);
+
+            Assert.IsFalse(result.IsSuccess);
+            StringAssert.Contains(result.Message, "不能越出宿主工作区");
+            Assert.AreEqual(0, confirmation.Calls.Count, "越界应在请求确认前被拦下");
+            Assert.IsFalse(File.Exists(Path.Combine(otherUser, ".luban-agent", "mcps", "pwn.json")),
+                "他人工作区不得被写入 MCP 配置");
+        }
+        finally
+        {
+            TryDelete(workspace);
+            TryDelete(otherUser);
+        }
+    }
+
+    [TestMethod]
+    public async Task DeleteMcpServerAsync_隔离宿主下绝对路径越界被拒绝()
+    {
+        var confirmation = new RecordingConfirmation();
+        var workspace = CreateWorkspace("luban-mcpmanage-");
+        var otherUser = CreateWorkspace("luban-mcpmanage-user2-");
+        try
+        {
+            var victimDir = Path.Combine(otherUser, ".luban-agent", "mcps");
+            Directory.CreateDirectory(victimDir);
+            var victimFile = Path.Combine(victimDir, "demo.json");
+            File.WriteAllText(victimFile, "{}");
+
+            var group = CreateMcpGroup(confirmation.Build(), () => workspace, requireContainment: true);
+
+            var result = await group.DeleteMcpServerAsync("demo", otherUser);
+
+            Assert.IsFalse(result.IsSuccess);
+            StringAssert.Contains(result.Message, "不能越出宿主工作区");
+            Assert.AreEqual(0, confirmation.Calls.Count);
+            Assert.IsTrue(File.Exists(victimFile), "他人工作区的 MCP 配置不得被删除");
+        }
+        finally
+        {
+            TryDelete(workspace);
+            TryDelete(otherUser);
         }
     }
 

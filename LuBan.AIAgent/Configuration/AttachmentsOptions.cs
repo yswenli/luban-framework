@@ -30,7 +30,7 @@ public class AttachmentsOptions
     /// <summary>是否启用附件能力；关闭时宿主应直接拒绝带附件的请求。</summary>
     public bool Enabled { get; set; } = true;
 
-    /// <summary>单轮附件来源数上限；超出由宿主报错。</summary>
+    /// <summary>单轮附件来源数上限（≤0 表示不限）；超出部分由宿主截断并下发 <c>attachment.skipped</c>。</summary>
     public int MaxCount { get; set; } = 5;
 
     /// <summary>单文件大小上限（字节）：URL 下载闸门，也是本地文件闸门。默认 25MB。</summary>
