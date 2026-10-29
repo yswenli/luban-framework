@@ -162,6 +162,19 @@ data: {"sessionId":"b1f2c3...","elapsedMs":8421}
 
 ## 8. 验收记录（设计 §11 的 18 条）
 
+**本轮已做的机械验证**（`dotnet run` + 真实 JWT：`UserId=1300000000101` / `TenantId=1300000000001`）：
+
+| 请求 | 结果 |
+|---|---|
+| `POST /api/agent/chat {"prompt":"hi"}` | `503` + JSON（Agent 未启用时降级正确） |
+| `POST /api/agent/chatstream {"prompt":"hi"}` | `503` + `application/json`（**不是**空 SSE） |
+| `POST /api/agent/chat {}` | `400 prompt 不能为空` |
+| `POST /api/agent/confirm {}` | `400 sessionId 与 confirmationId 不能为空`（不新建会话） |
+| 无 token 请求三个端点 | `403` |
+| 站点日志检索 `api/agent` | 0 条（`[NoApiLog]` 生效） |
+
+**未做**：下表 1–9、11–13、15–18 需要可用的模型凭据与登录会话（当前站点 `LuBanAgent` 的 `DefaultModel` 指向 `internal-llm:deepseek-v4-pro`，而 `Models` 里只有 `deepseek:deepseek-v4-pro`，启动即降级为「未启用」；`ApiKey` 也是占位值）。这些条目需在具备真实模型的环境里按 `agent-chat-api.http` 手工过一遍。
+
 | # | 验收点 | 结果 | 备注 |
 |---|---|---|---|
 | 1 | `chat` 带 `system` 生效 | ☐ | |
@@ -173,11 +186,11 @@ data: {"sessionId":"b1f2c3...","elapsedMs":8421}
 | 7 | 60s 不答 → `tool.failed`（拒绝），模型继续，`done` | ☐ | |
 | 8 | A 用户传 B 的 `sessionId` → 403；确认别人 `confirmationId` → 403/404 | ☐ | |
 | 9 | 附件数超 `MaxCount` → 400 且不产生 Agent 调用 | ☐ | |
-| 10 | Agent 未启用 → 两个接口 503，`chatstream` 返回 JSON | ☐ | |
+| 10 | Agent 未启用 → 两个接口 503，`chatstream` 返回 JSON | ✅ | 两个端点均 503 + `application/json` |
 | 11 | 客户端中途断开 → 本轮取消，未答确认自动拒绝，无残留 pending | ☐ | |
 | 12 | 不存在的 `sessionId` → 404；不传再调 → 200 新会话 | ☐ | |
 | 13 | 同会话并发两次 `chatstream`（不同 `system`）→ 均正常结束 | ☐ | |
-| 14 | 日志里搜不到 `system` 全文与附件来源 | ☐ | 对应 `[NoApiLog]` |
+| 14 | 日志里搜不到 `system` 全文与附件来源 | ✅ | 站点日志无 `api/agent` 记录（`[NoApiLog]`） |
 | 15 | 用户 A 的 `ListDirectory` 只看到 `users/<A>`；读 `users/<B>` 被拒或要求确认 | ☐ | |
 | 16 | CLI 不开 `IsolateWorkspaceByUser` 行为不变 | ☐ | |
 | 17 | `chat` 下模型看不到任何工具（提示词无 Skill 目录 / 工具段，`tools.Count == 0`） | ☐ | 反目标级要求 |

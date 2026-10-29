@@ -367,4 +367,6 @@ FodyWeavers.xsd
 /docs
 *.db
 /WebApplication1/LuBan.db
+# Agent 运行时工作区（会话文件、附件落盘、.luban-agent 配置），不进版本库
+/WebApplication1/aiagent/
 .worktrees/
