@@ -112,6 +112,88 @@ public class WebAgentSessionRegistryUnitTest
         Assert.IsFalse(sut.IsOwnedBy(current.SessionId, 1));
     }
 
+    [TestMethod]
+    public async Task CheckOwnership_RegistryHit_ReturnsOk()
+    {
+        var sessions = new FakeSessionManager();
+        var sut = new WebAgentSessionRegistry();
+        var created = await sut.ResolveAsync(1, null, sessions);
+
+        var status = await sut.CheckOwnershipAsync(1, created.SessionId, sessions);
+
+        Assert.AreEqual(WebSessionStatus.Ok, status);
+    }
+
+    [TestMethod]
+    public async Task CheckOwnership_SameUserNonCurrentSession_ReturnsOkWithoutSwitching()
+    {
+        var sessions = new FakeSessionManager();
+        sessions.Seed("mine-old", userId: "1");
+        var sut = new WebAgentSessionRegistry();
+        var current = await sut.ResolveAsync(1, null, sessions);
+
+        var status = await sut.CheckOwnershipAsync(1, "mine-old", sessions);
+
+        Assert.AreEqual(WebSessionStatus.Ok, status);
+        // 确认接口只校验归属，不得把用户的「最后一次」会话改掉
+        Assert.IsTrue(sut.IsOwnedBy(current.SessionId, 1));
+        Assert.IsFalse(sut.IsOwnedBy("mine-old", 1));
+    }
+
+    [TestMethod]
+    public async Task CheckOwnership_OtherUsersSession_ReturnsForbidden()
+    {
+        var sessions = new FakeSessionManager();
+        sessions.Seed("other-1", userId: "2");
+        var sut = new WebAgentSessionRegistry();
+
+        var status = await sut.CheckOwnershipAsync(1, "other-1", sessions);
+
+        Assert.AreEqual(WebSessionStatus.Forbidden, status);
+    }
+
+    [TestMethod]
+    public async Task CheckOwnership_MissingOrBlank_ReturnsNotFound()
+    {
+        var sessions = new FakeSessionManager();
+        var sut = new WebAgentSessionRegistry();
+
+        Assert.AreEqual(WebSessionStatus.NotFound, await sut.CheckOwnershipAsync(1, "no-such", sessions));
+        Assert.AreEqual(WebSessionStatus.NotFound, await sut.CheckOwnershipAsync(1, "  ", sessions));
+        Assert.AreEqual(WebSessionStatus.NotFound, await sut.CheckOwnershipAsync(1, null, sessions));
+    }
+
+    [TestMethod]
+    public async Task LastSessionDeleted_CreatesNewOnNextTurn()
+    {
+        var sessions = new FakeSessionManager();
+        var sut = new WebAgentSessionRegistry();
+        var first = await sut.ResolveAsync(1, null, sessions);
+
+        await sessions.DeleteSessionAsync(first.SessionId);
+        var second = await sut.ResolveAsync(1, null, sessions);
+
+        Assert.IsTrue(second.Created);
+        Assert.AreNotEqual(first.SessionId, second.SessionId);
+        Assert.AreEqual(2, sessions.Created.Count);
+    }
+
+    [TestMethod]
+    public async Task CreateGate_IsReleasedAfterFirstTurn()
+    {
+        var sessions = new FakeSessionManager();
+        var sut = new WebAgentSessionRegistry();
+
+        await sut.ResolveAsync(1, null, sessions);
+
+        // 首轮建会话用的门必须回收，否则按用户线性增长
+        var field = typeof(WebAgentSessionRegistry)
+            .GetField("_gates", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+        var gates = (System.Collections.ICollection)field.GetValue(sut)!;
+
+        Assert.AreEqual(0, gates.Count);
+    }
+
     private sealed class FakeSessionManager : ISessionManager
     {
         private readonly Dictionary<string, SessionInfo> _store = new(StringComparer.Ordinal);
@@ -135,7 +217,11 @@ public class WebAgentSessionRegistryUnitTest
 
         public Task<IEnumerable<SessionInfo>> GetUserSessionsAsync() => throw new NotSupportedException();
         public Task UpdateSessionTitleAsync(string sessionId, string title) => throw new NotSupportedException();
-        public Task DeleteSessionAsync(string sessionId) => throw new NotSupportedException();
+        public Task DeleteSessionAsync(string sessionId)
+        {
+            _store.Remove(sessionId);
+            return Task.CompletedTask;
+        }
         public Task<SessionMessage> AddMessageAsync(string sessionId, string role, string content, int? tokens = null,
             string? thinking = null, string? attachments = null, string? toolCalls = null)
             => throw new NotSupportedException();
