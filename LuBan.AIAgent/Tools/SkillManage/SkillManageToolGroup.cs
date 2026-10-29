@@ -25,7 +25,8 @@
 *修改人： yswenli
 *版本号： V1.0.0.2
 *描述：删除路径补 Skill Id 正则校验（防 .. 越界删除）；确认弹窗补正文摘要；
-*      ResolveWorkspaceRoot/ConfirmOrBlockAsync 收敛到 ManageToolSupport
+*      ResolveWorkspaceRoot/ConfirmOrBlockAsync 收敛到 ManageToolSupport；
+*      workspaceRoot 相对路径锚定后必须仍在宿主工作区内（防跨用户穿越）
 *
 *****************************************************************************/
 
@@ -96,7 +97,7 @@ public class SkillManageToolGroup
         string content,
         [Description("同名 Skill 已存在时必须传 true 才会覆盖；首次创建可省略（默认 false）")]
         bool overwrite = false,
-        [Description("工作区根目录；省略时使用宿主当前工作区，通常无需传")]
+        [Description("工作区根目录；省略时使用宿主当前工作区（推荐省略），相对路径不得越出宿主工作区")]
         string? workspaceRoot = null)
     {
         // 校验 Id
@@ -117,7 +118,10 @@ public class SkillManageToolGroup
         if (totalBytes > _options.MaxSkillFileBytes)
             return ToolResult.Fail<string>($"Skill 内容超过上限 {_options.MaxSkillFileBytes / 1024}KB。");
 
-        var root = ManageToolSupport.ResolveWorkspaceRoot(workspaceRoot, _defaultWorkspaceRoot);
+        var (root, rootError) = ManageToolSupport.ResolveWorkspaceRoot(workspaceRoot, _defaultWorkspaceRoot);
+        if (rootError is not null)
+            return ToolResult.Fail<string>(rootError);
+
         if (root is null)
             return ToolResult.Fail<string>("未获取到工作区根目录，无法写入 Skill。请传入 workspaceRoot，或确认宿主已设置工作区。");
 
@@ -180,7 +184,7 @@ public class SkillManageToolGroup
     public async Task<ToolResult<string>> DeleteSkillAsync(
         [Description("要删除的 Skill Id（须为工作区级，非内置）")]
         string id,
-        [Description("工作区根目录；省略时使用宿主当前工作区，通常无需传")]
+        [Description("工作区根目录；省略时使用宿主当前工作区（推荐省略），相对路径不得越出宿主工作区")]
         string? workspaceRoot = null)
     {
         if (string.IsNullOrWhiteSpace(id) || !IdPattern.IsMatch(id))
@@ -190,7 +194,10 @@ public class SkillManageToolGroup
         if (_registry.IsBuiltin(id))
             return ToolResult.Fail<string>($"Skill '{id}' 为内置，不可删除。");
 
-        var root = ManageToolSupport.ResolveWorkspaceRoot(workspaceRoot, _defaultWorkspaceRoot);
+        var (root, rootError) = ManageToolSupport.ResolveWorkspaceRoot(workspaceRoot, _defaultWorkspaceRoot);
+        if (rootError is not null)
+            return ToolResult.Fail<string>(rootError);
+
         if (root is null)
             return ToolResult.Fail<string>("未获取到工作区根目录，无法删除 Skill。请传入 workspaceRoot，或确认宿主已设置工作区。");
 

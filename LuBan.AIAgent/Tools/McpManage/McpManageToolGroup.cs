@@ -25,7 +25,8 @@
 *修改人： yswenli
 *版本号： V1.0.0.2
 *描述：删除路径补 MCP 名称合法性校验（防 .. 越界删除）；确认弹窗补启动参数；
-*      ResolveWorkspaceRoot/ConfirmOrBlockAsync 收敛到 ManageToolSupport
+*      ResolveWorkspaceRoot/ConfirmOrBlockAsync 收敛到 ManageToolSupport；
+*      workspaceRoot 相对路径锚定后必须仍在宿主工作区内（防跨用户穿越）
 *
 *****************************************************************************/
 
@@ -119,7 +120,7 @@ public class McpManageToolGroup
         string? description = null,
         [Description("同名配置已存在时必须传 true 才会覆盖；首次创建可省略（默认 false）")]
         bool overwrite = false,
-        [Description("工作区根目录；省略时使用宿主当前工作区，通常无需传")]
+        [Description("工作区根目录；省略时使用宿主当前工作区（推荐省略），相对路径不得越出宿主工作区")]
         string? workspaceRoot = null,
         [Description("http / sse 传输的服务器 URL（stdio 传输忽略）")]
         string? url = null,
@@ -192,7 +193,10 @@ public class McpManageToolGroup
         if (existing != null && !overwrite)
             return ToolResult.Fail<string>($"MCP '{config.Name}' 已存在，需设置 overwrite=true 覆盖。");
 
-        var root = ManageToolSupport.ResolveWorkspaceRoot(workspaceRoot, _defaultWorkspaceRoot);
+        var (root, rootError) = ManageToolSupport.ResolveWorkspaceRoot(workspaceRoot, _defaultWorkspaceRoot);
+        if (rootError is not null)
+            return ToolResult.Fail<string>(rootError);
+
         if (root is null)
             return ToolResult.Fail<string>("未获取到工作区根目录，无法写入 MCP 配置。请传入 workspaceRoot，或确认宿主已设置工作区。");
 
@@ -245,7 +249,7 @@ public class McpManageToolGroup
     public async Task<ToolResult<string>> DeleteMcpServerAsync(
         [Description("要删除的 MCP 服务器名称（对应配置文件名）")]
         string name,
-        [Description("工作区根目录；省略时使用宿主当前工作区，通常无需传")]
+        [Description("工作区根目录；省略时使用宿主当前工作区（推荐省略），相对路径不得越出宿主工作区")]
         string? workspaceRoot = null)
     {
         if (string.IsNullOrWhiteSpace(name))
@@ -257,7 +261,10 @@ public class McpManageToolGroup
         if (_registry.IsBuiltin(name))
             return ToolResult.Fail<string>($"MCP '{name}' 为内置，不可删除。");
 
-        var root = ManageToolSupport.ResolveWorkspaceRoot(workspaceRoot, _defaultWorkspaceRoot);
+        var (root, rootError) = ManageToolSupport.ResolveWorkspaceRoot(workspaceRoot, _defaultWorkspaceRoot);
+        if (rootError is not null)
+            return ToolResult.Fail<string>(rootError);
+
         if (root is null)
             return ToolResult.Fail<string>("未获取到工作区根目录，无法删除 MCP 配置。请传入 workspaceRoot，或确认宿主已设置工作区。");
 

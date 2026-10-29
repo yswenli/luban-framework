@@ -65,43 +65,90 @@ internal static class ManageToolSupport
     /// </summary>
     /// <remarks>
     /// 模型给的<b>相对路径</b>（如 <c>my-project</c>）先锚定到宿主工作区再取绝对路径，
-    /// 避免按进程当前目录解析（GUI 宿主常为 bin 输出目录）而写到工作区之外。
-    /// 绝对路径原样透传。
+    /// 避免按进程当前目录解析（GUI 宿主常为 bin 输出目录）而写到工作区之外；
+    /// 锚定结果必须仍落在宿主工作区内，<c>../other-user</c> 这类穿越会被拒绝。
+    /// 绝对路径原样透传（单用户宿主存在「跨项目传绝对路径」的既有用法）。
     /// </remarks>
     /// <param name="workspaceRoot">模型/调用方显式给出的工作区根。</param>
     /// <param name="defaultWorkspaceRoot">宿主工作区根提供者（惰性求值）。</param>
-    /// <returns>绝对路径；取不到返回 null。</returns>
-    public static string? ResolveWorkspaceRoot(string? workspaceRoot, Func<string?>? defaultWorkspaceRoot)
+    /// <returns>
+    /// <c>Root</c>：解析出的绝对路径（取不到为 null）；
+    /// <c>Error</c>：越界时的可直接回给 LLM 的提示（无错误为 null）。
+    /// </returns>
+    public static (string? Root, string? Error) ResolveWorkspaceRoot(
+        string? workspaceRoot, Func<string?>? defaultWorkspaceRoot)
     {
         var explicitRoot = string.IsNullOrWhiteSpace(workspaceRoot) ? null : workspaceRoot!.Trim();
         var fallbackRoot = defaultWorkspaceRoot?.Invoke();
 
-        string? root;
+        // 未显式给出：完全信任宿主（它不会把自己指到工作区外）
         if (explicitRoot is null)
+            return (GetFullPathOrSelf(fallbackRoot), null);
+
+        // 绝对路径：保持既有透传语义
+        if (Path.IsPathFullyQualified(explicitRoot))
+            return (GetFullPathOrSelf(explicitRoot), null);
+
+        // 相对路径：无宿主基准时无法判断是否越界，按进程当前目录处理（保持旧行为）
+        if (string.IsNullOrWhiteSpace(fallbackRoot))
+            return (GetFullPathOrSelf(explicitRoot), null);
+
+        var anchor = GetFullPathOrSelf(fallbackRoot);
+        if (anchor is null)
+            return (GetFullPathOrSelf(explicitRoot), null);
+
+        var candidate = GetFullPathOrSelf(Path.Combine(anchor, explicitRoot));
+        if (candidate is null)
+            return (GetFullPathOrSelf(explicitRoot), null);
+
+        // 锚定后必须仍在宿主工作区内：挡住 ../ 穿越到 users/<其他用户>
+        if (!IsWithinRoot(anchor, candidate))
         {
-            root = fallbackRoot;
-        }
-        else if (!Path.IsPathFullyQualified(explicitRoot) && !string.IsNullOrWhiteSpace(fallbackRoot))
-        {
-            // 相对路径锚定到宿主工作区（不能用 Path.IsPathRooted：Windows 上 "/x" 也算 rooted）
-            root = Path.Combine(fallbackRoot, explicitRoot);
-        }
-        else
-        {
-            root = explicitRoot;
+            return (null, $"workspaceRoot 不能越出宿主工作区：{explicitRoot}（工作区为 {anchor}）。" +
+                          "请省略该参数或使用工作区内的相对路径。");
         }
 
-        if (string.IsNullOrWhiteSpace(root))
+        return (candidate, null);
+    }
+
+    /// <summary>
+    /// 取绝对路径；空白/null 返回 null，非法路径原样返回（交由后续 IO 报错）。
+    /// </summary>
+    private static string? GetFullPathOrSelf(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
             return null;
 
         try
         {
-            return Path.GetFullPath(root);
+            return Path.GetFullPath(path);
         }
         catch
         {
-            return root;
+            return path;
         }
+    }
+
+    /// <summary>
+    /// 判断路径是否落在根之下（含相等）。
+    /// </summary>
+    /// <remarks>
+    /// 必须带目录分隔符比较，否则 <c>C:\ws-evil</c> 会被误判成在 <c>C:\ws</c> 内。
+    /// </remarks>
+    private static bool IsWithinRoot(string root, string path)
+    {
+        var normalizedRoot = root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var normalizedPath = path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+        if (string.Equals(normalizedRoot, normalizedPath, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        // 根为盘符根（C:\）时自身已带分隔符，避免拼出 "C:\\"
+        var prefix = normalizedRoot.EndsWith(Path.DirectorySeparatorChar)
+            ? normalizedRoot
+            : normalizedRoot + Path.DirectorySeparatorChar;
+
+        return normalizedPath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>

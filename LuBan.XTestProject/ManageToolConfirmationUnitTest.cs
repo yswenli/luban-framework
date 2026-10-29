@@ -314,6 +314,58 @@ public class ManageToolConfirmationUnitTest
         }
     }
 
+    [TestMethod]
+    public async Task WriteSkillAsync_相对workspaceRoot越界被拒绝()
+    {
+        var confirmation = new RecordingConfirmation();
+        var workspace = CreateWorkspace("luban-skillmanage-");
+        try
+        {
+            // 宿主工作区 = <tmp>/luban-skillmanage-xxx；"../xxx" 会穿到同级目录
+            var group = CreateSkillGroup(confirmation.Build(), () => workspace);
+
+            var result = await group.WriteSkillAsync("demo", "Demo", "示例", "正文", workspaceRoot: "../escape");
+
+            Assert.IsFalse(result.IsSuccess);
+            StringAssert.Contains(result.Message, "不能越出宿主工作区");
+            Assert.AreEqual(0, confirmation.Calls.Count, "越界应在请求确认前被拦下");
+            Assert.IsFalse(Directory.Exists(Path.Combine(Path.GetDirectoryName(workspace)!, "escape")), "不得在宿主工作区外落盘");
+        }
+        finally
+        {
+            TryDelete(workspace);
+        }
+    }
+
+    [TestMethod]
+    public async Task DeleteSkillAsync_相对workspaceRoot越界被拒绝()
+    {
+        var confirmation = new RecordingConfirmation();
+        var workspace = CreateWorkspace("luban-skillmanage-");
+        var outside = CreateWorkspace("luban-skillmanage-outside-");
+        try
+        {
+            // 目标 Ultra：宿主工作区外的同名 Skill 目录
+            var victimSkillDir = Path.Combine(outside, ".luban-agent", "skills", "demo");
+            Directory.CreateDirectory(victimSkillDir);
+
+            var group = CreateSkillGroup(confirmation.Build(), () => workspace);
+            var relative = Path.Combine("..", Path.GetFileName(outside));
+
+            var result = await group.DeleteSkillAsync("demo", relative);
+
+            Assert.IsFalse(result.IsSuccess);
+            StringAssert.Contains(result.Message, "不能越出宿主工作区");
+            Assert.AreEqual(0, confirmation.Calls.Count);
+            Assert.IsTrue(Directory.Exists(victimSkillDir), "工作区外的 Skill 不得被删除");
+        }
+        finally
+        {
+            TryDelete(workspace);
+            TryDelete(outside);
+        }
+    }
+
     // ────────────────────────── MCP ──────────────────────────
 
     [TestMethod]
@@ -426,6 +478,30 @@ public class ManageToolConfirmationUnitTest
             Assert.IsFalse(result.IsSuccess);
             Assert.AreEqual(0, confirmation.Calls.Count, "非法名称应在请求确认前被拦下");
             Assert.IsTrue(File.Exists(victim), "越界路径不得被删除");
+        }
+        finally
+        {
+            TryDelete(workspace);
+        }
+    }
+
+    [TestMethod]
+    public async Task WriteMcpServerAsync_相对workspaceRoot越界被拒绝()
+    {
+        var confirmation = new RecordingConfirmation();
+        var workspace = CreateWorkspace("luban-mcpmanage-");
+        try
+        {
+            var group = CreateMcpGroup(confirmation.Build(), () => workspace);
+
+            var result = await group.WriteMcpServerAsync(
+                name: "pwn", command: "cmd.exe", transport: "stdio", workspaceRoot: "../escape");
+
+            Assert.IsFalse(result.IsSuccess);
+            StringAssert.Contains(result.Message, "不能越出宿主工作区");
+            Assert.AreEqual(0, confirmation.Calls.Count, "越界应在请求确认前被拦下");
+            Assert.IsFalse(File.Exists(Path.Combine(Path.GetDirectoryName(workspace)!, "escape", ".luban-agent", "mcps", "pwn.json")),
+                "不得在宿主工作区外落盘");
         }
         finally
         {
