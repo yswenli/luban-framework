@@ -11,41 +11,62 @@
 *创建人：yswenli
 *电子邮箱：yswenli@outlook.com
 *创建时间：2026/10/26
-*描述：默认附件编排：引用解析、逐文件处理、能力门禁与视觉探测
+*描述：默认附件编排：引用解析、逐文件容错处理、能力门禁与视觉探测
 *
-*****************************************************************************/using LuBan.AIAgent.Attachments;
+*****************************************************************************/
+
+using LuBan.AIAgent.Attachments;
+using LuBan.AIAgent.Attachments.Ingestion;
+
+using Microsoft.Extensions.Options;
 
 namespace LuBan.AIAgent.Hosting;
 
 /// <summary>默认附件编排：只做处理与门禁，不解析 @引用（交宿主/产品实现）。</summary>
 public sealed class DefaultAgentAttachmentOrchestrator(
     IAttachmentProcessor processor,
-    IModelCapabilityGate gate) : IAgentAttachmentOrchestrator
+    IModelCapabilityGate gate,
+    IOptions<LuBanAgentOptions> options) : IAgentAttachmentOrchestrator
 {
-    /// <summary>每消息最大附件数。</summary>
-    public const int MaxAttachmentsPerMessage = 5;
-
     /// <inheritdoc />
     public (string Text, IReadOnlyList<string> Paths) ExtractReferences(string input)
         => (input, Array.Empty<string>());
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<ProcessedAttachment>> ProcessAsync(
+    public async Task<AttachmentProcessingResult> ProcessAsync(
         IReadOnlyList<string> paths, CancellationToken ct = default)
     {
         if (paths.Count == 0)
-            return Array.Empty<ProcessedAttachment>();
+            return new AttachmentProcessingResult(
+                Array.Empty<ProcessedAttachment>(), Array.Empty<AttachmentSourceFailure>());
 
-        if (paths.Count > MaxAttachmentsPerMessage)
-            throw new InvalidOperationException($"最多附加 {MaxAttachmentsPerMessage} 个文件");
+        var maxCount = options.Value.Attachments.MaxCount;
+        if (maxCount > 0 && paths.Count > maxCount)
+            throw new InvalidOperationException($"最多附加 {maxCount} 个文件");
 
-        var result = new List<ProcessedAttachment>(paths.Count);
+        var processed = new List<ProcessedAttachment>(paths.Count);
+        var failed = new List<AttachmentSourceFailure>();
+
         foreach (var path in paths)
         {
             ct.ThrowIfCancellationRequested();
-            result.Add(await processor.ProcessAsync(path, generateThumbnail: false, ct).ConfigureAwait(false));
+            try
+            {
+                var item = await processor.ProcessAsync(path, generateThumbnail: false, ct).ConfigureAwait(false);
+                processed.Add(item);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                // fail-soft：单个文件坏掉不该让整轮对话失败
+                failed.Add(new AttachmentSourceFailure(path, $"处理失败: {ex.Message}"));
+            }
         }
-        return result;
+
+        return new AttachmentProcessingResult(processed, failed);
     }
 
     /// <inheritdoc />

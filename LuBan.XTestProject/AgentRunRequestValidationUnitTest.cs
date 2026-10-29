@@ -1,5 +1,8 @@
 using LuBan.AIAgent.Attachments;
+using LuBan.AIAgent.Configuration;
 using LuBan.AIAgent.Hosting;
+
+using Microsoft.Extensions.Options;
 
 namespace LuBan.XTestProject;
 
@@ -26,7 +29,7 @@ public class AgentRunRequestValidationUnitTest
     [TestMethod]
     public void DefaultOrchestrator_ExtractReferences_ReturnsInputUnchanged()
     {
-        var orchestrator = new DefaultAgentAttachmentOrchestrator(new FakeProcessor(), new AllowAllModelCapabilityGate());
+        var orchestrator = new DefaultAgentAttachmentOrchestrator(new FakeProcessor(), new AllowAllModelCapabilityGate(), Options.Create(new LuBanAgentOptions()));
 
         var (text, paths) = orchestrator.ExtractReferences("@a.txt 你好");
 
@@ -38,11 +41,11 @@ public class AgentRunRequestValidationUnitTest
     public async Task DefaultOrchestrator_ProcessAsync_EmptyPaths_ReturnsEmpty()
     {
         var processor = new FakeProcessor();
-        var orchestrator = new DefaultAgentAttachmentOrchestrator(processor, new AllowAllModelCapabilityGate());
+        var orchestrator = new DefaultAgentAttachmentOrchestrator(processor, new AllowAllModelCapabilityGate(), Options.Create(new LuBanAgentOptions()));
 
         var result = await orchestrator.ProcessAsync(Array.Empty<string>());
 
-        Assert.AreEqual(0, result.Count);
+        Assert.AreEqual(0, result.Processed.Count);
         Assert.AreEqual(0, processor.Calls);
     }
 
@@ -50,7 +53,7 @@ public class AgentRunRequestValidationUnitTest
     public async Task DefaultOrchestrator_ProcessAsync_MoreThanFive_Throws()
     {
         var processor = new FakeProcessor();
-        var orchestrator = new DefaultAgentAttachmentOrchestrator(processor, new AllowAllModelCapabilityGate());
+        var orchestrator = new DefaultAgentAttachmentOrchestrator(processor, new AllowAllModelCapabilityGate(), Options.Create(new LuBanAgentOptions()));
         var paths = Enumerable.Range(0, 6).Select(i => $@"C:\tmp\f{i}.txt").ToArray();
 
         var ex = await Assert.ThrowsExactlyAsync<InvalidOperationException>(

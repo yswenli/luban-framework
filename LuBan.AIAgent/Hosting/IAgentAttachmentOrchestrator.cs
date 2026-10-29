@@ -23,8 +23,10 @@ public interface IAgentAttachmentOrchestrator
     /// <summary>从输入文本中剥离 @引用，返回（剩余文本, 已识别路径）；默认实现原样返回。</summary>
     (string Text, IReadOnlyList<string> Paths) ExtractReferences(string input);
 
-    /// <summary>处理附件（逐文件，超过上限抛 <see cref="InvalidOperationException"/>）。</summary>
-    Task<IReadOnlyList<ProcessedAttachment>> ProcessAsync(
+    /// <summary>处理附件（逐文件 fail-soft：单个失败进 <c>Failed</c>，不影响其它项）。</summary>
+    /// <param name="paths">本地绝对路径列表。</param>
+    /// <param name="ct">取消令牌。</param>
+    Task<AttachmentProcessingResult> ProcessAsync(
         IReadOnlyList<string> paths, CancellationToken ct = default);
 
     /// <summary>检查模型能否承载，不能则给出提示；可以则返回 null。</summary>

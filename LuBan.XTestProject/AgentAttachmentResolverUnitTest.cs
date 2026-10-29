@@ -16,7 +16,8 @@ public class AgentAttachmentResolverUnitTest
     public void Resolve_DefaultOrchestrator_KeepsUiPathsAndInput()
     {
         var orchestrator = new DefaultAgentAttachmentOrchestrator(
-            new FakeProcessor(), new AllowAllModelCapabilityGate());
+            new FakeProcessor(), new AllowAllModelCapabilityGate(),
+            Microsoft.Extensions.Options.Options.Create(new LuBan.AIAgent.Configuration.LuBanAgentOptions()));
         var request = new AgentRunRequest
         {
             Input = "@a.png 你好",
@@ -132,7 +133,7 @@ public class AgentAttachmentResolverUnitTest
             return ("看图", referenced);
         }
 
-        public Task<IReadOnlyList<ProcessedAttachment>> ProcessAsync(
+        public Task<AttachmentProcessingResult> ProcessAsync(
             IReadOnlyList<string> paths, CancellationToken ct = default)
         {
             ProcessedPaths = paths;

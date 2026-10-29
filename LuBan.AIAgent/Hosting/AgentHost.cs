@@ -123,7 +123,8 @@ public sealed class AgentHost(
             string? failure = null;
             try
             {
-                processed = await attachments.ProcessAsync(request.AttachmentPaths, ct);
+                var processedResult = await attachments.ProcessAsync(request.AttachmentPaths, ct);
+                processed = processedResult.Processed;
             }
             catch (OperationCanceledException)
             {
