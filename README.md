@@ -10,7 +10,7 @@ LuBan.Framework 是基于 ASP.NET Core 封装的企业级 API 框架，集成了
 
 ---
 
-**Related Projects**: [LuBan.Common](LuBan.Common/README.md) | [LuBan.Threading](LuBan.Threading/README.md) | [LuBan.DI](LuBan.DI/README.md) | [LuBan.Linq](LuBan.Linq/README.md) | [LuBan.Orm](LuBan.Orm/README.md) | [LuBan.EventBus](LuBan.EventBus/README.md) | [LuBan.Service](LuBan.Service/README.md) | [LuBan.Redis](LuBan.Redis/README.md) | [LuBan.Logging](LuBan.Logging/README.md) | [LuBan.CloudStorage](LuBan.CloudStorage/README.md) | [LuBan.E邮件处理库](LuBan.E邮件处理库/README.md) | [LuBan.PdfKit](LuBan.PdfKit/README.md) | [LuBan.Office](LuBan.Office/README.md) | [LuBan.VideoKit](LuBan.VideoKit/README.md) | [LuBan.Lives](LuBan.Lives/README.md) | [LuBan.Speech](LuBan.Speech/README.md) | [LuBan.Wechat](LuBan.Wechat/README.md) | [LuBan.Qingflow](LuBan.Qingflow/README.md) | [LuBan.Web.Core](LuBan.Web.Core/README.md) | [LuBan.ApprovalFlow](LuBan.ApprovalFlow/README.md) | [LuBan.Reporting](LuBan.Reporting/README.md) | [LuBan.AIFlow](LuBan.AIFlow/README.md) | [LuBan.AIAgent](LuBan.AIAgent/README.md)
+**Related Projects**: [LuBan.Common](LuBan.Common/README.md) | [LuBan.Threading](LuBan.Threading/README.md) | [LuBan.DI](LuBan.DI/README.md) | [LuBan.Linq](LuBan.Linq/README.md) | [LuBan.Orm](LuBan.Orm/README.md) | [LuBan.EventBus](LuBan.EventBus/README.md) | [LuBan.Service](LuBan.Service/README.md) | [LuBan.Redis](LuBan.Redis/README.md) | [LuBan.Logging](LuBan.Logging/README.md) | [LuBan.CloudStorage](LuBan.CloudStorage/README.md) | [LuBan.EMailKit](LuBan.EMailKit/README.md) | [LuBan.PdfKit](LuBan.PdfKit/README.md) | [LuBan.Office](LuBan.Office/README.md) | [LuBan.VideoKit](LuBan.VideoKit/README.md) | [LuBan.Lives](LuBan.Lives/README.md) | [LuBan.Speech](LuBan.Speech/README.md) | [LuBan.Wechat](LuBan.Wechat/README.md) | [LuBan.Qingflow](LuBan.Qingflow/README.md) | [LuBan.Web.Core](LuBan.Web.Core/README.md) | [LuBan.ApprovalFlow](LuBan.ApprovalFlow/README.md) | [LuBan.Reporting](LuBan.Reporting/README.md) | [LuBan.AIFlow](LuBan.AIFlow/README.md) | [LuBan.AIAgent](LuBan.AIAgent/README.md)
 
 ---
 
@@ -55,8 +55,8 @@ LuBan.Framework 是基于 ASP.NET Core 封装的企业级 API 框架，集成了
 
 | 组件 | 说明 |
 |------|------|
-| **LuBan.CloudStorage** | 多云存储统一接口：云存储 / 云存储 / 对象存储 |
-| **LuBan.E邮件处理库** | 邮件收发套件：SMTP 发送 / IMAP / POP3 接收 |
+| **LuBan.CloudStorage** | 多云存储统一接口：阿里云 OSS / Azure Blob / MinIO |
+| **LuBan.EMailKit** | 邮件收发套件：SMTP 发送 / IMAP / POP3 接收 |
 | **LuBan.PdfKit** | PDF 工具包：文本替换、图片替换、HTML 转 PDF、图片合并 |
 | **LuBan.Office** | Office 文档自动化：PPT/Word/PDF 创建与编辑（Windows） |
 | **LuBan.VideoKit** | 视频缩略图提取 |
@@ -339,4 +339,4 @@ public class UserController : BaseApiController
 
 ## 许可证
 
-保留所有权利
+本项目采用 Apache License 2.0 授权，详见 [LICENSE](LICENSE)。

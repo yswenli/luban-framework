@@ -1,4 +1,10 @@
 /****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -20,12 +26,8 @@
 *版本号： V1.0.0.1
 *描述：附件超 MaxCount 改为截断 + 跳过事件（原实现抛异常会导致整轮对话失败）
 *
-*****************************************************************************/using LuBan.AIAgent.Attachments;
-using LuBan.AIAgent.Attachments.Ingestion;
-using LuBan.AIAgent.Configuration;
-
-using Microsoft.Extensions.Options;
-
+*****************************************************************************/
+using LuBan.AIAgent.Attachments;
 namespace LuBan.AIAgent.Hosting;
 
 /// <summary>
@@ -33,7 +35,7 @@ namespace LuBan.AIAgent.Hosting;
 /// 所有 per-session 运行态均在 <see cref="SessionRuntime"/> 的会话 scope 内，宿主自身不持有会话状态。
 /// </summary>
 public sealed class AgentHost(
-    IServiceProvider services,
+    DiContainer services,
     SessionRuntimeManager runtimes,
     IAgentWorkspaceResolver workspaceResolver,
     IAgentProfileResolver profileResolver,
@@ -45,7 +47,7 @@ public sealed class AgentHost(
     IOptions<LuBanAgentOptions> options) : IAgentHost
 {
     /// <inheritdoc />
-    public IServiceProvider Services => services;
+    public DiContainer Services => services;
 
     /// <inheritdoc />
     public string? CurrentSessionId => services.GetService<ISessionManager>()?.CurrentSession?.SessionId;
@@ -486,6 +488,26 @@ public sealed class AgentHost(
     private static AgentBuildOverrides? NormalizeOverrides(AgentBuildOverrides? overrides)
         => overrides is null || overrides.IsDefault ? null : overrides;
 
+    /// <summary>
+    /// 把本轮推理强度覆盖转成运行选项；null 表示沿用 Agent 自身配置。
+    /// </summary>
+    /// <param name="request">本轮请求。</param>
+    /// <returns>运行选项或 null。</returns>
+    /// <remarks>
+    /// 运行选项会与 Agent 建时选项合并（Instructions / Tools / Temperature 等保留），
+    /// 因此关闭思考不需要重建 Agent。
+    /// </remarks>
+    private static ChatClientAgentRunOptions? BuildRunOptions(AgentRunRequest request)
+        => request.ReasoningEffort is { } effort
+            ? new ChatClientAgentRunOptions
+            {
+                ChatOptions = new ChatOptions
+                {
+                    Reasoning = new ReasoningOptions { Effort = effort }
+                }
+            }
+            : null;
+
     private async IAsyncEnumerable<AgentStreamEvent> RunCoreAsync(
         SessionRuntime runtime,
         ISessionContext sessionContext,
@@ -519,9 +541,11 @@ public sealed class AgentHost(
 
         try
         {
+            // 本轮推理强度覆盖（如快捷对话关闭思考）走运行选项，不重建 Agent
+            var runOptions = BuildRunOptions(request);
             var updates = processed.Count == 0
-                ? agent.RunStreamingAsync(request.Input, ct)
-                : agent.RunStreamingAsync(request.Input, processed, ct);
+                ? agent.RunStreamingAsync(request.Input, runOptions, ct)
+                : agent.RunStreamingAsync(request.Input, processed, runOptions, ct);
             await foreach (var update in updates)
             {
                 if (update.Contents is null) continue;

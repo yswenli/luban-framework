@@ -1,4 +1,10 @@
 /****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -30,13 +36,13 @@ public class OrchestrationToolGroup
     /// <summary>run_orchestration 工具名（对 LLM 暴露的名称）。</summary>
     public const string RunOrchestrationToolName = "run_orchestration";
 
-    private readonly IServiceProvider _serviceProvider;
+    private readonly DiContainer _serviceProvider;
 
     /// <summary>
     /// 创建 OrchestrationToolGroup 实例。
     /// </summary>
     /// <param name="serviceProvider">服务提供者。</param>
-    public OrchestrationToolGroup(IServiceProvider serviceProvider)
+    public OrchestrationToolGroup(DiContainer serviceProvider)
     {
         _serviceProvider = serviceProvider;
     }

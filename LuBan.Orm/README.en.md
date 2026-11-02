@@ -7,7 +7,7 @@
 > An all-in-one ORM solution — from table creation to queries, from single database to multi-tenancy, all in one package.
 
 ---
-**Related Projects**: [LuBan.Framework](../README.md) | [LuBan.Common](../LuBan.Common/README.md) | [LuBan.DI](../LuBan.DI/README.md) | [LuBan.Linq](../LuBan.Linq/README.md) | [LuBan.Service](../LuBan.Service/README.md) | [LuBan.Web.Core](../LuBan.Web.Core/README.md) | [LuBan.Redis](../LuBan.Redis/README.md)
+**Related Projects**: [LuBan.Framework](../README.md) | [LuBan.Common](../LuBan.Common/README.md) | [LuBan.DI](../LuBan.DI/README.md) | [LuBan.Linq](../LuBan.Linq/README.md) | [LuBan.Service](../LuBan.Service/README.md) | [LuBan.Web.Core](../LuBan.Web.Core/README.md) | [LuBan.Redis](../LuBan.Redis/README.md) | [LuBan.Logging](../LuBan.Logging/README.md)
 ---
 
 ## Why Do You Need It?
@@ -30,21 +30,26 @@ public class Product : EntityBase
     public decimal Price { get; set; }
 }
 
-// Use repository
-public class ProductService : BaseService<Product>
+// Use repository (BaseRepository comes from LuBan.Orm; BaseService<T> lives in LuBan.Service and has no Repository property)
+public class ProductService
 {
+    private readonly BaseRepository<Product> _repo;
+
+    public ProductService(BaseRepository<Product> repo) => _repo = repo;
+
     public async Task<ProductDto> GetByIdAsync(long id)
     {
-        return await Repository.GetByIdAsync(id)
-            .ConvertTo<ProductDto>();
+        var product = await _repo.GetByIdAsync(id);
+        return product.ConvertTo<ProductDto>();
     }
 
-    public async Task<PageResult<ProductDto>> GetPagedAsync(int page, int size)
+    public async Task<PagedList<ProductDto>> GetPagedAsync(int page, int size)
     {
-        return await Repository.AsQueryable()
-            .Where(p => !p.IsDeleted)
+        return await _repo.AsQueryable()
+            .Where(p => !p.IsDelete)
             .OrderByDescending(p => p.CreateTime)
-            .ToPagedList<ProductDto>(page, size);
+            .ToPagedListAsync<Product, ProductDto>(page, size,
+                p => new ProductDto { Id = p.Id, Name = p.Name });
     }
 }
 ```
@@ -67,14 +72,16 @@ dotnet add package LuBan.Orm
 
 ### Database Support
 
-SqlServer, MySQL, Oracle, PostgreSQL, SQLite, DM (Dameng), Kdbndp (KingbaseES), Oscar, OpenGauss, QuestDB, HG, ClickHouse, GBase — **13 databases, plug and play**.
+SqlServer, MySQL, Oracle, PostgreSQL, SQLite, DM (Dameng), Kdbndp (KingbaseES), Oscar, OpenGauss, QuestDB, HG, ClickHouse, GBase — 13 databases.
+
+> Actual database support depends on the SqlSugar driver; `LuBanOrm` only branches explicitly on Oracle / DM / SqlServer (no database creation), MySql (collation) and Kdbndp (PG mode).
 
 ### Core Capabilities
 
 | Category | Features |
 |----------|----------|
-| Initialization | `InitDb` database creation, `InitTables` CodeFirst auto table creation, `InitViews` view initialization, `InitSeeds` seed data population |
-| Multi-Tenancy | Primary DB / Log DB / Tenant DB three-tier isolation, `[SysTable]`, `[LogTable]`, `[Tenant]` attribute routing |
+| Initialization | `LuBanOrm.Init()` as the single entry point: database creation, CodeFirst auto table creation, view initialization, seed data population (governed by `DbSettings`/`TableSettings`/`SeedSettings` switches) |
+| Multi-Tenancy | Primary DB / Log DB / Tenant DB three-tier isolation, `[SysTable]` and `[LogTable]` routing (`[Tenant]` is provided by SqlSugar), connection switching by configId |
 | Global Filters | Soft delete filter, tenant isolation filter, organization filter — all globally effective |
 | Auto Population | Snowflake ID auto-generation, create/modify time, create/modify user audit fields auto-populated |
 | SQL Logging | Colorized SQL output, differential logging |
@@ -106,20 +113,31 @@ EntityTenantId        → Standalone tenant identification entity
 ### Built-in Resources
 
 - **27 built-in entities** — DbUser, DbRole, DbMenu, DbOrg, DbConfig, DbTenant and other system base entities
-- **10 custom attributes** — Table routing, log marking, tenant marking, etc.
-- **7 interfaces** — Repository, unit of work, mapping and other core contracts
-- **17 enums** — Business status, data types and other commonly used enums
+- **10 custom attributes** — table routing (`[SysTable]`/`[LogTable]`), incremental table/seed creation, table ignoring, data ownership, `[UnitOfWork]`, etc. (`[Tenant]` is provided by SqlSugar and is not one of them)
+- **7 interfaces** — repository, unit of work, mapping and other core contracts
+- **20 enums** — business status, data types and other commonly used enums
+
+### Log Collection
+
+| Component | Description |
+|-----------|-------------|
+| `LoggerCollector` | Subscribes to `Logger.OnCalled`/`OnError` events and batch-writes logs to the database |
+| `DbLogCleaner` | Periodically cleans up expired database log records |
+| `DbLogError` | Error log entity (exception type, stack trace, request info) |
+| `DbLogApi` | API call log entity (TraceId, URL, request/response, elapsed time) |
+
+> The collector works by subscribing to the static events of `LuBan.Common.Logger`; call `LoggerCollector.Instance.Start()` at startup to collect logs into the database. When `LuBanLoggingOptions.EnableDb` is `false` (the default), `Start()` returns immediately and nothing is collected.
 
 ## Usage Guide
 
 ### 1. Initialize ORM
 
 ```csharp
-// Initialize database and table structure
-LuBanOrm.InitDb();
-LuBanOrm.InitTables();   // CodeFirst auto table creation
-LuBanOrm.InitViews();    // Initialize views
-LuBanOrm.InitSeeds();    // Populate seed data
+// Initialize ORM (database creation + CodeFirst tables + views + seed data, all governed by config switches)
+LuBanOrm.Init();
+
+// Pass a configuration callback when you need a custom SqlSugarClient
+LuBanOrm.Init(client => { /* custom Aop, filters, etc. */ });
 ```
 
 ### 2. Define Entities
@@ -134,7 +152,7 @@ public class Product : EntityBase
     public string Description { get; set; }
 }
 
-// Tenant table (tenant DB)
+// Tenant table (tenant DB) — [Tenant] is provided by SqlSugar
 [Tenant]
 public class Order : EntityTenant
 {
@@ -173,18 +191,18 @@ public class ProductService
     // Query and map to DTO
     public async Task<ProductDto> GetDtoAsync(long id)
     {
-        return await _repo.GetByIdAsync(id)
-            .ConvertTo<ProductDto>();
+        var product = await _repo.GetByIdAsync(id);
+        return product.ConvertTo<ProductDto>();
     }
 
-    // Soft delete
+    // Soft delete (LogicDeleteAsync accepts an entity, a predicate expression or a list — there is no id overload)
     public async Task DeleteAsync(long id)
     {
-        await _repo.LogicDeleteAsync(id);
+        await _repo.LogicDeleteAsync(p => p.Id == id);
     }
 
     // Paged query
-    public async Task<PageResult<ProductDto>> GetPagedAsync(int page, int size, string? keyword)
+    public async Task<PagedList<ProductDto>> GetPagedAsync(int page, int size, string? keyword)
     {
         var query = _repo.AsQueryable();
         if (!string.IsNullOrEmpty(keyword))
@@ -192,15 +210,17 @@ public class ProductService
 
         return await query
             .OrderByDescending(p => p.CreateTime)
-            .ToPagedList<ProductDto>(page, size);
+            .ToPagedListAsync<Product, ProductDto>(page, size,
+                p => new ProductDto { Id = p.Id, Name = p.Name });
     }
 
-    // Raw SQL
+    // Filtered query, then map
     public async Task<List<ProductDto>> SearchAsync(string keyword)
     {
-        return await _repo.AsQueryable()
+        var list = await _repo.AsQueryable()
             .Where(p => p.Name.Contains(keyword))
-            .ConvertTo<List<ProductDto>>();
+            .ToListAsync();
+        return list.ConvertTo<List<ProductDto>>();
     }
 }
 ```
@@ -217,19 +237,15 @@ public async Task TransferAsync(decimal amount, long fromId, long toId)
     // Auto-commits when method completes, auto-rolls back on exception
 }
 
-// Approach 2: DbTran manual control
-using var tran = new DbTran();
-try
+// Approach 2: DbTran manual control (the constructor takes an ITenant or an ISqlSugarClient)
+var tenant = LuBanOrm.SqlSugarScope.AsTenant();
+using (var tran = new DbTran(tenant))
 {
     await repo1.InsertAsync(entity1);
     await repo2.InsertAsync(entity2);
     tran.Commit();
 }
-catch
-{
-    tran.Rollback();
-    throw;
-}
+// No manual rollback needed on failure: disposing without Commit rolls back automatically, and the exception still propagates
 ```
 
 ### 5. Object Mapping
@@ -241,29 +257,34 @@ services.AddObjectMapper();
 // Convert
 ProductDto dto = product.ConvertTo<ProductDto>();
 
-// Fill (populate target object properties from source)
-dto.FillFrom<Product, ProductDto>(product);
+// Fill (SModel is the fill target, DModel is the data source; returns SModel)
+product.FillFrom<Product, ProductDto>(dto);
 ```
 
 ### 6. Code Generation
 
 ```csharp
-// DBFirst: Generate entity classes from database tables
-CodeGenerator.GenerateEntities(connectionString);
+// DBFirst: generate entity class files for every table in the database, returns the output directory
+var dir = CodeGenerator.GetEntityCSCodeFilePath();
 
-// Generate seed data
-CodeGenerator.GenerateSeeds<Product>();
+// Get the entity code for a single table (returns a string, writes no file)
+var code = CodeGenerator.GetEntityCSCode("DbUser");
+
+// Generate seed data code (a predicate or an ISugarQueryable also works)
+var seed = CodeGenerator.GetSeedDataCSCode(new List<DbUser> { /* ... */ });
 ```
 
 ## Tips
 
-- Use `[SysTable]`, `[LogTable]`, `[Tenant]` attributes to control table routing target databases; ORM handles connection switching automatically
+- Use `[SysTable]` and `[LogTable]` to control the routing target database of a table (`[Tenant]` is provided by SqlSugar and drives tenant sharding); ORM handles connection switching automatically
 - Inheriting `EntityBase` automatically provides snowflake ID, audit fields, and soft delete capabilities — no manual maintenance needed
 - Global query filters take effect automatically; soft-deleted data and non-current tenant data are isolated automatically
-- `ConvertTo<T>()` provides high-performance object mapping, performing far better than AutoMapper
+- `ConvertTo<T>()` is built on Mapster and converts between entities and DTOs in one line
 - Cross-DB transactions are simplest with the `UnitOfWork` attribute; use `DbTran` for fine-grained control in complex scenarios
 - 27 built-in system entities can be used directly or extended through inheritance
 
 ## License
 
-MIT
+Copyright (c) yswenli.
+
+Licensed under the [Apache License 2.0](../LICENSE).

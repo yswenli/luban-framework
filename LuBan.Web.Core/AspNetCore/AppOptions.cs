@@ -1,4 +1,10 @@
 /****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：YSWENLI
@@ -111,6 +117,32 @@ public sealed class AppOptions
     /// 允许的跨域 Origin 列表，为空时允许所有来源（仅建议开发环境使用）
     /// </summary>
     public string[] AllowedOrigins { get; set; } = [];
+
+    /// <summary>
+    /// 行为日志配置
+    /// </summary>
+    public BehaviorLogOptions BehaviorLog { get; set; } = new();
+}
+
+/// <summary>
+/// 行为日志配置
+/// </summary>
+public sealed class BehaviorLogOptions
+{
+    /// <summary>
+    /// 是否启用行为日志采集，关闭后 [BehaviorLog] 不再拦截请求
+    /// </summary>
+    public bool Enable { get; set; } = true;
+
+    /// <summary>
+    /// 库内保留的最大条数，按主键由小到大裁剪，小于等于 0 表示不限制
+    /// </summary>
+    public int MaxRows { get; set; } = 100000;
+
+    /// <summary>
+    /// 每写入多少条检查一次保留上限，避免每次写入都统计总数
+    /// </summary>
+    public int TrimInterval { get; set; } = 1000;
 }
 
 /// <summary>

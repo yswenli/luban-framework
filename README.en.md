@@ -10,7 +10,7 @@ LuBan.Framework is an enterprise-grade API framework built on ASP.NET Core, inte
 
 ---
 
-**Related Projects**: [LuBan.Common](LuBan.Common/README.md) | [LuBan.Threading](LuBan.Threading/README.md) | [LuBan.DI](LuBan.DI/README.md) | [LuBan.Linq](LuBan.Linq/README.md) | [LuBan.Orm](LuBan.Orm/README.md) | [LuBan.EventBus](LuBan.EventBus/README.md) | [LuBan.Service](LuBan.Service/README.md) | [LuBan.Redis](LuBan.Redis/README.md) | [LuBan.LogLib](LuBan.LogLib/README.md) | [LuBan.CloudStorage](LuBan.CloudStorage/README.md) | [LuBan.E邮件处理库](LuBan.E邮件处理库/README.md) | [LuBan.PdfKit](LuBan.PdfKit/README.md) | [LuBan.Office](LuBan.Office/README.md) | [LuBan.VideoKit](LuBan.VideoKit/README.md) | [LuBan.Lives](LuBan.Lives/README.md) | [LuBan.Speech](LuBan.Speech/README.md) | [LuBan.Wechat](LuBan.Wechat/README.md) | [LuBan.Qingflow](LuBan.Qingflow/README.md) | [LuBan.Web.Core](LuBan.Web.Core/README.md) | [LuBan.ApprovalFlow](LuBan.ApprovalFlow/README.md) | [LuBan.Reporting](LuBan.Reporting/README.md) | [LuBan.AIFlow](LuBan.AIFlow/README.md) | [LuBan.AIAgent](LuBan.AIAgent/README.md)
+**Related Projects**: [LuBan.Common](LuBan.Common/README.md) | [LuBan.Threading](LuBan.Threading/README.md) | [LuBan.DI](LuBan.DI/README.md) | [LuBan.Linq](LuBan.Linq/README.md) | [LuBan.Orm](LuBan.Orm/README.md) | [LuBan.EventBus](LuBan.EventBus/README.md) | [LuBan.Service](LuBan.Service/README.md) | [LuBan.Redis](LuBan.Redis/README.md) | [LuBan.Logging](LuBan.Logging/README.md) | [LuBan.CloudStorage](LuBan.CloudStorage/README.md) | [LuBan.EMailKit](LuBan.EMailKit/README.md) | [LuBan.PdfKit](LuBan.PdfKit/README.md) | [LuBan.Office](LuBan.Office/README.md) | [LuBan.VideoKit](LuBan.VideoKit/README.md) | [LuBan.Lives](LuBan.Lives/README.md) | [LuBan.Speech](LuBan.Speech/README.md) | [LuBan.Wechat](LuBan.Wechat/README.md) | [LuBan.Qingflow](LuBan.Qingflow/README.md) | [LuBan.Web.Core](LuBan.Web.Core/README.md) | [LuBan.ApprovalFlow](LuBan.ApprovalFlow/README.md) | [LuBan.Reporting](LuBan.Reporting/README.md) | [LuBan.AIFlow](LuBan.AIFlow/README.md) | [LuBan.AIAgent](LuBan.AIAgent/README.md)
 
 ---
 
@@ -49,14 +49,14 @@ Arranged by dependency hierarchy, from底层 utilities to upper-layer applicatio
 | **LuBan.EventBus** | In-process event bus: publish/subscribe, one-time subscriptions, Channel-driven |
 | **LuBan.Service** | Business service base class + background task scheduling (interval/time-point/cron), with runtime dynamic Cron expression updates |
 | **LuBan.Redis** | Full-featured Redis SDK: distributed locks (Lua reentrant), caching, pub/sub, Stream queues, expiry listening |
-| **LuBan.LogLib** | Database logging: batch API log and error log writing, automatic expiry cleanup |
+| **LuBan.Logging** | File logging provider: based on Microsoft.Extensions.Logging, 100MB/daily rolling, routes categories to 5 files, STJ serialization |
 
 ### Integration Layer
 
 | Component | Description |
 |------|------|
-| **LuBan.CloudStorage** | Multi-cloud storage unified interface: cloud provider OSS / 云存储 / 对象存储 |
-| **LuBan.E邮件处理库** | Email send/receive suite: SMTP send / IMAP / POP3 receive |
+| **LuBan.CloudStorage** | Multi-cloud storage unified interface: Aliyun OSS / Azure Blob / MinIO |
+| **LuBan.EMailKit** | Email send/receive suite: SMTP send / IMAP / POP3 receive |
 | **LuBan.PdfKit** | PDF toolkit: text replacement, image replacement, HTML to PDF, image merge |
 | **LuBan.Office** | Office document automation: PPT/Word/PDF creation & editing (Windows) |
 | **LuBan.VideoKit** | Video thumbnail extraction |
@@ -88,7 +88,7 @@ LuBan.DI ──── LuBan.Linq                                    │
       ↑           ↑                                         │
 LuBan.Orm ────────┘                                         │
       ↑                                                     │
-LuBan.EventBus ── LuBan.Service ── LuBan.LogLib             │
+LuBan.EventBus ── LuBan.Service                             │
                         ↑                                   │
 LuBan.Redis ── LuBan.CloudStorage ── LuBan.EMailKit        │
 LuBan.PdfKit ── LuBan.Office ── LuBan.VideoKit             │
@@ -331,6 +331,7 @@ Error category to HTTP status code mapping:
 [![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
 
 - **Author**: yswenli
+- **Contact**: yswenli@outlook.com
 - **Target Framework**: .NET 10.0
 - **Update Frequency**: Continuous iteration
 
@@ -338,4 +339,4 @@ Error category to HTTP status code mapping:
 
 ## License
 
-All rights reserved
+Licensed under the Apache License 2.0. See [LICENSE](LICENSE) for details.

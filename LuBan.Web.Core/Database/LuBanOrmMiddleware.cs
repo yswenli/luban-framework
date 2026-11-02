@@ -1,4 +1,10 @@
 ﻿/****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
 *Copyright (c) YSWenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -45,7 +51,7 @@ internal class LuBanOrmMiddleware(RequestDelegate next)
         {
             try
             {
-                if (ServiceProviderUtil.GetRequiredService<ISqlSugarClient>() is not SqlSugarScope client)
+                if (DiContainer.Instance.GetRequiredService<ISqlSugarClient>() is not SqlSugarScope client)
                     throw new InvalidOperationException("LuBanOrm初始化失败，未配置LuBanORM");
                 client.CurrentConnectionConfig.IsAutoCloseConnection = true;
                 var provider = client.GetConnectionScope(client.CurrentConnectionConfig.ConfigId);

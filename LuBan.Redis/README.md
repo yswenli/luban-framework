@@ -23,7 +23,7 @@
 ## 快速预览
 
 ```csharp
-// 初始化（自动从 配置中心读取 RedisOptions）
+// 初始化（自动从 Nacos 配置中心读取 RedisOptions）
 var redis = LuBanRedis.Instance;
 
 // 缓存：获取或自动填充
@@ -48,9 +48,9 @@ var subscriber = redis.GetSubscriber("notification");
 subscriber.OnMessageReceived += (sub, msg) => Console.WriteLine(msg);
 await subscriber.StartAsync();
 
-// Stream 消息队列
+// Stream 消息队列（消息类型须为含无参构造的 class，不能用匿名类型）
 var producer = redis.GetRedisProducer("task-stream");
-await producer.PublishAsync(new { TaskId = 1, Name = "数据同步" });
+await producer.PublishAsync(new MyTask { TaskId = 1, Name = "数据同步" });
 
 var consumer = redis.GetRedisConsumer("task-stream", groupName: "worker-group");
 var messages = await consumer.GetMessagesAsync<MyTask>(count: 10);
@@ -69,7 +69,8 @@ dotnet add package LuBan.Redis
 | 快速初始化 | `LuBanRedis` | 单例门面，自动读取配置 |
 | 连接构建 | `RedisClientBuilder` | 支持自定义多实例构建（带缓存） |
 | 缓存 | `RedisCache` | 实现 `IServiceCache`，支持过期、前缀删除 |
-| 分布式锁 | `RedisDistributedLockV3` | Lua 脚本原子操作，支持可重入/非重入 |
+| 分布式锁（可重入） | `RedisDistributedLock` | Hash 结构记录重入计数，同一 token 可重复获取 |
+| 分布式锁（非重入） | `RedisDistributedLockV3` | SET NX PX 单命令加 Lua 脚本原子操作 |
 | 锁令牌 | `DistributedLockToken` | 支持 `using` / `await using` 自动释放 |
 | List 队列 | `RedisQueue<T>` | 入队/出队/阻塞出队/队列状态管理 |
 | Stream 生产者 | `RedisProducer` | 基于 Redis Stream 的消息发布 |
@@ -95,7 +96,10 @@ dotnet add package LuBan.Redis
     "KeepAlive": 180,
     "ConnectTimeout": 10000,
     "ConnectRetry": 1,
-    "CommandTimeout": 60000
+    "BusyRetry": 3,
+    "BusyRetryWaitMS": 1000,
+    "CommandTimeout": 60000,
+    "Extention": ""
   }
 }
 ```
@@ -122,9 +126,9 @@ var reentrantLock = redis.GetDistributedLock("reentrant-key", reentrant: true, t
 ### Stream 消息队列
 
 ```csharp
-// 生产者
+// 生产者（消息类型须为含无参构造的 class）
 var producer = redis.GetRedisProducer("order-events", maxLength: 50000);
-var msgId = await producer.PublishAsync(new { OrderId = 1001, Amount = 99.9m });
+var msgId = await producer.PublishAsync(new OrderEvent { OrderId = 1001, Amount = 99.9m });
 
 // 消费者（消费组模式）
 var consumer = redis.GetRedisConsumer("order-events", groupName: "order-workers");
@@ -175,8 +179,10 @@ var removed = cache.RemoveByPrefix("config:");
 - 非重入锁性能优于可重入锁，无嵌套加锁需求时优先选择非重入模式
 - Stream 消费组的 `groupName` 不能为空，否则退化为普通读取模式
 - 键过期监听需要 Redis 服务端支持 `notify-keyspace-events` 配置（组件会自动设置）
-- `RedisClientBuilder.Build()` 内部使用 `ConcurrentDictionary` 缓存连接，相同配置不会重复创建
+- `RedisClientBuilder.Build()` 内部使用 `ConcurrentDictionary` 缓存连接，缓存键仅为 `config.Masters`：`Masters` 相同即复用同一连接，其余配置项（密码、库号、超时等）不参与比较
 
 ## 许可证
 
-Copyright (c) yswenli. All rights reserved.
+Copyright (c) yswenli.
+
+Licensed under the [Apache License 2.0](../LICENSE).

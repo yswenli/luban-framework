@@ -1,3 +1,33 @@
+/****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：Walle
+*命名空间：LuBan.XTestProject
+*文件名： AgentHostRegistrationUnitTest
+*版本号： V1.0.0.0
+*唯一标识：7af80bfe-efb7-4b64-ba48-0d163fadd80d
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/10/26 17:35:32
+*描述：Agent 宿主 DI 注册契约单元测试（作用域生命周期与默认接缝）
+*
+*=================================================
+*修改标记
+*修改时间：2026/10/26 17:35:32
+*修改人： yswenli
+*版本号： V1.0.0.0
+*描述：Agent 宿主 DI 注册契约单元测试（作用域生命周期与默认接缝）
+*
+*****************************************************************************/
+
 using LuBan.AIAgent;
 using LuBan.AIAgent.Attachments.Ingestion;
 using LuBan.AIAgent.Hosting;
@@ -21,8 +51,8 @@ public class AgentHostRegistrationUnitTest
         services.AddSingleton<IConfiguration>(config);
         services.AddLogging(b => b.AddDebug());
         services.AddSingleton<IChatClient>(new StubChatClient());
-        services.AddLuBanAgentDefaults(config);
-        services.AddLuBanAgentHost();
+        services.AsDiContainer().AddLuBanAgentDefaults(config);
+        services.AsDiContainer().AddLuBanAgentHost();
 
         return services.BuildServiceProvider(new ServiceProviderOptions
         {

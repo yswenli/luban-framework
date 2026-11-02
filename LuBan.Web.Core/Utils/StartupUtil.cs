@@ -1,4 +1,10 @@
 /****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：YSWENLI
@@ -54,8 +60,8 @@ public static class StartupUtil
     {
         try
         {
-            //设置服务提供容器
-            services.InitServiceProvider();
+            //设置全局服务提供容器
+            DiContainer.Instance.ResetServices(services);
 
             //设置全局读写配置工具
             configuration.InitConfigUtil();
@@ -122,7 +128,7 @@ public static class StartupUtil
             services.AddLuBanReporting();
 
             //正在初始化全局DI集合
-            services.BuildProvider();
+            DiContainer.Instance.Rebuild();
 
         }
         catch (Exception ex)

@@ -1,4 +1,10 @@
 /****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -50,7 +56,7 @@ public static class LuBanAgentHostExtensions
     /// <item><description>ICommandCatalog（Singleton）：斜杠命令清单。</description></item>
     /// </list>
     /// </remarks>
-    public static IServiceCollection AddLuBanAgentHost(this IServiceCollection services)
+    public static DiContainer AddLuBanAgentHost(this DiContainer services)
     {
         services.TryAddSingleton<SessionRuntimeManager>();
 
@@ -67,7 +73,7 @@ public static class LuBanAgentHostExtensions
             return new PerUserWorkspaceResolver(
                 options,
                 sp.GetRequiredService<IAgentUserResolver>(),
-                sp);
+                sp.AsDiContainer());
         });
         services.TryAddScoped<IAgentProfileResolver>(sp =>
             new DefaultAgentProfileResolver(sp.GetRequiredService<IAgentProfile>()));

@@ -1,4 +1,10 @@
 ﻿/****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
 *Copyright (c) YSWenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -111,7 +117,7 @@ public abstract class BaseNodeHandler : IFlowNodeHandler
 
         // 优先尝试通过依赖注入获取服务实例
         object? serviceInstance = null;
-        try { serviceInstance = targetType.GetRequiredService(); }
+        try { serviceInstance = DiContainer.Instance.GetRequiredService(targetType); }
         catch (Exception ex) { Logger.Warn($"Failed to get service instance via DI: {ex.Message}"); }
 
         // 如果依赖注入失败，尝试通过反射创建实例

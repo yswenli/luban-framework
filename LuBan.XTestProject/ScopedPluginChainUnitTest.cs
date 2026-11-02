@@ -1,4 +1,10 @@
 /****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *命名空间：LuBan.XTestProject
@@ -25,7 +31,7 @@ public class ScopedPluginChainUnitTest
             .Build();
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddLuBanAgent(config, _ => new MockChatClient("test"));
+        services.AsDiContainer().AddLuBanAgent(config, _ => new MockChatClient("test"));
         // 仅启用 ValidateScopes：本单测未注册宿主负责的 ILocalMemoryStore/具体工厂，
         // 全图 ValidateOnBuild 由 agent 宿主（AgentHostBuilder）启用，那里依赖完整。
         return services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });

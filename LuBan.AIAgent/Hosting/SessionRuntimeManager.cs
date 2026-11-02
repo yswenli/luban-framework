@@ -1,4 +1,10 @@
 /****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -33,7 +39,7 @@ public sealed class SessionRuntimeManager : IAsyncDisposable
     private static readonly TimeSpan SweepInterval = TimeSpan.FromMinutes(1);
 
     private readonly TimeSpan IdleTimeout;
-    private readonly IServiceProvider _root;
+    private readonly DiContainer _root;
     private readonly ConcurrentDictionary<string, SessionRuntime> _runtimes = new();
     private readonly Timer _sweeper;
     private int _disposed;
@@ -43,7 +49,7 @@ public sealed class SessionRuntimeManager : IAsyncDisposable
     /// </summary>
     /// <param name="root">根级 DI 容器（用于派生会话级 scope）。</param>
     /// <param name="configuration">配置（提供空闲卸载阈值，默认 30 分钟）。</param>
-    public SessionRuntimeManager(IServiceProvider root, IConfiguration configuration)
+    public SessionRuntimeManager(DiContainer root, IConfiguration configuration)
     {
         _root = root;
         var minutes = configuration.GetValue<int?>(IdleUnloadMinutesKey) ?? DefaultIdleUnloadMinutes;
@@ -84,7 +90,7 @@ public sealed class SessionRuntimeManager : IAsyncDisposable
         // root 派生 scope 不带身份，必须显式回填用户身份，否则按用户隔离的服务会落到默认用户
         var scope = _root.CreateScope();
 
-        var state = scope.ServiceProvider.GetRequiredService<DefaultContextState>();
+        var state = scope.GetRequiredService<DefaultContextState>();
         state.UserId = userId;
         state.SessionId = sessionId;
         state.WorkspaceId = workspaceId;
@@ -100,13 +106,13 @@ public sealed class SessionRuntimeManager : IAsyncDisposable
 
         // 初始化器是同步前置动作（连接器/插件贡献必须在首轮对话前就绪），
         // 这里阻塞等待是为保持 GetOrCreate 的同步签名；实现不得做长耗时 IO。
-        foreach (var initializer in scope.ServiceProvider.GetServices<ISessionRuntimeInitializer>())
+        foreach (var initializer in scope.GetServices<ISessionRuntimeInitializer>())
         {
             try { initializer.InitializeAsync(seed).GetAwaiter().GetResult(); }
             catch (Exception ex) { Logger.Warn($"会话初始化器执行失败: {initializer.GetType().Name}", ex); }
         }
 
-        var ctx = scope.ServiceProvider.GetRequiredService<ISessionContext>();
+        var ctx = scope.GetRequiredService<ISessionContext>();
         var runtime = new SessionRuntime(scope, sessionId, ctx);
         runtime.Start();
         return runtime;

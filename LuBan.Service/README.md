@@ -25,21 +25,24 @@ LuBan.Service 提供标准化的业务服务基类与后台任务框架，统一
 // 业务服务 — 继承即用
 public class OrderService : BaseService<Order>
 {
-    public async Task<Result<OrderDto>> GetOrderAsync(long id)
+    readonly BaseRepository<Order> _repository = new();
+
+    public async Task<Result> GetOrderAsync(long id)
     {
         return await GetResultAsync(async () =>
         {
-            var order = await Repository.GetByIdAsync(id);
+            var order = await _repository.GetFirstAsync(x => x.Id == id);
             return order.ConvertTo<OrderDto>();
         });
     }
 }
 
 // 后台任务 — 声明即用
-[JobInfo(Name = "数据清理任务", Description = "每日凌晨清理过期数据")]
+[JobInfo("数据清理任务", "每日凌晨清理过期数据")]
 public class DataCleanupJob : BaseJobService
 {
-    protected override TimeSpan Interval => TimeSpan.FromHours(24);
+    // 构造参数为毫秒间隔；也可用 base(2, 0, 0) 指定时间点，或 base("0 0 2 * * *") 指定 cron
+    public DataCleanupJob() : base(24 * 60 * 60 * 1000) { }
 
     public override async Task RunAsync()
     {
@@ -70,8 +73,8 @@ dotnet add package LuBan.Service
 |------|------|
 | 统一返回值 | `SuccessResult()` / `ErrorResult()` 标准化响应格式 |
 | 异常封装 | `GetResult()` / `GetResultAsync()` 内置 try/catch，异常自动包装为错误结果 |
-| 缓存访问 | 通过 DI 注入 `IServiceCache`，开箱即用 |
-| 仓储集成 | `BaseService<T>` 自动关联 `BaseRepository<T>` |
+| 缓存访问 | 静态属性 `ServiceCache` 从 `DiContainer` 解析 `IServiceCache`，开箱即用 |
+| 单例实例 | `BaseService<T> : BaseSingleInstance<T>`，通过 `Instance` 惰性获取单例（**基类不内置仓储属性**，仓储请自行 new 或构造注入） |
 
 ### 后台任务框架
 
@@ -79,7 +82,11 @@ dotnet add package LuBan.Service
 |------|------|
 | 任务接口 | `IJob` 定义标准任务契约（IsRunning、Run、RunAsync、Start、Stop） |
 | 调度引擎 | `BaseBackgroundService` 核心调度逻辑，支持间隔调度、时间点调度与 Cron 表达式调度 |
-| 任务基类 | `BaseJobService` 抽象基类，配置调度参数即可运行 |
+| 任务基类 | `BaseJobService` 抽象基类，构造时传入调度参数（`intervalTime` 毫秒 / `(hour, minute, second)` / cron 字符串）；运行中可用 `SetCron` 改调度 |
+| 子任务基类 | `BaseSubJobService` 定义每隔 `IntervalTime`（默认 100ms）执行一次的子任务，由父任务统一驱动 |
+| 父任务 | `ParentJobService` 框架内置，反射加载全部 `BaseSubJobService` 并按各自间隔轮询执行 |
+| 配置服务 | `JobConfigService` 作业配置（cron / 是否启用 / 备注）的初始化、查询与更新 |
+| 日志服务 | `JobLogService` 记录每次执行的开始/成功/失败，提供分页查询、状态查询与日志清理 |
 | 自动发现 | `JobServiceLoader` 自动扫描所有 `IJob` 实现，无需手动注册 |
 | 任务标记 | `JobInfoAttribute` 声明任务元数据（名称、描述等） |
 
@@ -91,7 +98,7 @@ dotnet add package LuBan.Service
 // 无泛型基类 — 适合不绑定特定实体的服务
 public class ReportService : BaseService
 {
-    public async Task<Result<ReportDto>> GenerateReportAsync(string type)
+    public async Task<Result> GenerateReportAsync(string type)
     {
         return await GetResultAsync(async () =>
         {
@@ -100,21 +107,22 @@ public class ReportService : BaseService
         });
     }
 
-    public Result<string> GetStatus()
+    public Result GetStatus()
     {
         return SuccessResult("系统运行正常");
     }
 }
 
-// 泛型基类 — 自动绑定仓储
+// 泛型基类 — 提供 Instance 单例，仓储需自行持有
 public class UserService : BaseService<DbUser>
 {
-    public async Task<Result<List<UserDto>>> GetAllAsync()
+    readonly BaseRepository<DbUser> _repository = new();
+
+    public async Task<Result> GetAllAsync()
     {
         return await GetResultAsync(async () =>
         {
-            var users = await Repository.AsQueryable()
-                .ToList();
+            var users = await _repository.AsQueryable().ToListAsync();
             return users.ConvertTo<List<UserDto>>();
         });
     }
@@ -125,10 +133,10 @@ public class UserService : BaseService<DbUser>
 
 ```csharp
 // 定义间隔任务
-[JobInfo(Name = "缓存刷新", Description = "每 30 分钟刷新系统缓存")]
+[JobInfo("缓存刷新", "每 30 分钟刷新系统缓存")]
 public class CacheRefreshJob : BaseJobService
 {
-    protected override TimeSpan Interval => TimeSpan.FromMinutes(30);
+    public CacheRefreshJob() : base(30 * 60 * 1000) { }  // 每 30 分钟
 
     public override async Task RunAsync()
     {
@@ -144,6 +152,7 @@ public interface IJob
     Task RunAsync();
     void Start();
     void Stop();
+    void Stop(CancellationToken cancellationToken);  // 支持取消/超时的停止
 }
 ```
 
@@ -201,11 +210,11 @@ job.SetCron("0 15 3 * * *");
 job.Cron = "0 0 12 * * *";  // 属性赋值等价于 SetCron
 ```
 
-通过 HTTP 接口动态管理（内置 `JobsController`）：
+通过 HTTP 接口动态管理（内置 `JobsController`，端点全部为 `[HttpPost]`）：
 
-- `GET api/admin/Jobs/GetJobCron?name=xxx` — 查询 cron 表达式
-- `GET api/admin/Jobs/GetJobNextOccurrence?name=xxx` — 查询下一次执行时间
-- `PUT api/admin/Jobs/UpdateJobCron?name=xxx` — 更新运行中任务的 cron（body: `{ "cron": "0 0 8 * * *" }`）
+- `POST api/admin/Jobs/GetJobCron?name=xxx` — 查询 cron 表达式
+- `POST api/admin/Jobs/GetJobNextOccurrence?name=xxx` — 查询下一次执行时间
+- `POST api/admin/Jobs/UpdateJobConfig?name=xxx&cron=...&isEnabled=...&remark=...` — 更新作业配置（cron 变更即时生效，`isEnabled` 变更会启停作业）
 
 ### 4. 任务自动发现
 
@@ -218,11 +227,13 @@ job.Cron = "0 0 12 * * *";  // 属性赋值等价于 SetCron
 ## 小贴士
 
 - 始终使用 `GetResultAsync()` 包装业务逻辑，自动处理异常并返回统一格式
-- `BaseService<T>` 中的 `Repository` 属性直接可用，无需额外注入
-- 后台任务只需继承 `BaseJobService` 并设置 `Interval`，调度引擎自动处理
-- 使用 `JobInfoAttribute` 为任务添加名称与描述，便于管理与监控
-- `IServiceCache` 通过 DI 注入，可在任何 `BaseService` 子类中使用
+- `BaseService<T>` 只提供 `Instance` 单例与响应封装，**没有内置仓储**；仓储请自行 `new BaseRepository<T>()` 或依赖注入
+- 后台任务继承 `BaseJobService` 时通过构造参数（毫秒间隔 / 时间点 / cron）设置调度，运行中可 `SetCron` 动态调整
+- 使用 `JobInfo("名称", "描述")` 为任务添加名称与描述，便于管理与监控
+- `IServiceCache` 通过静态属性 `ServiceCache` 从 DI 容器解析，可在任何 `BaseService` 子类中使用
 
 ## 许可证
 
-MIT
+Copyright (c) yswenli.
+
+Licensed under the [Apache License 2.0](../LICENSE).

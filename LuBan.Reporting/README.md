@@ -4,7 +4,7 @@
 
 > **作者**: yswenli | **联系邮箱**: yswenli@outlook.com | **代码仓库**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
-> **泛型列表一键导出 Excel/CSV，动态报表支持 SQL + Lua 脚本变换——告别重复的导出代码。**
+> **泛型列表一键导出 Excel/CSV，动态报表支持 SQL + 参数绑定 + Lua 脚本变换——告别重复的导出代码。**
 
 ---
 
@@ -15,7 +15,7 @@
 ## 为什么选择 LuBan.Reporting？
 
 每次写数据导出都要手动拼 Excel？列顺序、日期格式、枚举翻译、布尔值显示……每次都重复造轮子？  
-LuBan.Reporting 用**特性标注 + 泛型反射**自动完成列映射，还支持**动态报表**（可配置 SQL + Lua 脚本），让导出功能从"体力活"变成"配置活"。
+LuBan.Reporting 用**特性标注 + 泛型反射**自动完成列映射，还支持**动态报表**（可配置 SQL + `@参数` 绑定 + Lua 脚本），让导出功能从"体力活"变成"配置活"。
 
 ---
 
@@ -54,6 +54,8 @@ report.Export("orders_2026.xlsx");  // 自动识别 .xlsx / .csv
 |------|------|------|
 | 运行时 | .NET 10.0 | — |
 | 框架依赖 | LuBan.Common, LuBan.Orm | LuBan 基础组件 |
+| 第三方依赖 | MoonSharp 2.0.0 | Lua 脚本引擎（动态报表行变换） |
+| 依赖注入 | `services.AddLuBanReporting()` | 注册 `LuaScriptEngine`（单例）及 `DynamicReportService`/`ReportConfigService`/`DynamicReportRepository`（Scoped） |
 
 ---
 
@@ -72,9 +74,9 @@ dotnet add package LuBan.Reporting
 | 类 | 说明 |
 |----|------|
 | `Report<T>` | 统一入口，根据文件后缀自动选择 Excel 或 CSV |
-| `ReportBase<T>` | 基类，负责反射解析列信息（带缓存） |
-| `ReportExcel<T>` | Excel 导出实现 |
-| `ReportCsv<T>` | CSV 导出实现 |
+| `ReportBase<T>`（internal） | 基类，负责反射解析列信息（带缓存） |
+| `ReportExcel<T>`（internal） | Excel 导出实现 |
+| `ReportCsv<T>`（internal） | CSV 导出实现 |
 | `ReportColumn` | 列信息描述（名称、标题、排序、格式化等） |
 
 ### 特性标注
@@ -94,13 +96,13 @@ dotnet add package LuBan.Reporting
 | `enumValues` | 枚举值翻译 | `"待付款,已付款,已发货"` |
 | `datetimeFormat` | 日期格式 | `"yyyy-MM-dd"` |
 | `enumType` | 自动枚举（从枚举类型获取描述） | `typeof(OrderStatus)` |
-| `custormConvert` | 自定义委托转换 | `Tuple<Type, string>` |
+| `customConvert` | 自定义委托转换（属性 `CustomConvert`） | `Tuple<Type, string>` |
 
 ### 动态报表
 
 | 类 | 说明 |
 |----|------|
-| `DynamicReportService` | 动态报表服务：可配置 SQL 模板 + 列映射 + Lua 变换 |
+| `DynamicReportService` | 动态报表服务：可配置 SQL + 参数绑定 + 列映射 + Lua 变换 |
 | `LuaScriptEngine` | Lua 脚本引擎，支持数据行变换 |
 | `ReportConfigService` | 报表配置管理服务 |
 | `DbReportConfig` | 报表配置实体 |
@@ -122,7 +124,7 @@ public class EmployeeReport
     [ReportDescription("姓名", 2)]
     public string Name { get; set; }
 
-    [ReportDescription("入职日期", 3, datetimeFormat: "yyyy年MM月dd日")]
+    [ReportDescription("入职日期", 3, datetimeFormat: "yyyy-MM-dd")]
     public DateTime HireDate { get; set; }
 
     [ReportDescription("是否在职", 4, boolValues: "在职,离职")]
@@ -183,4 +185,6 @@ var rawResult = await service.ExecuteRawSqlAsync(
 
 ## 许可证
 
-Copyright (c) yswenli. All Rights Reserved.
+Copyright (c) yswenli.
+
+Licensed under the [Apache License 2.0](../LICENSE).

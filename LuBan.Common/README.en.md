@@ -14,7 +14,7 @@ Are you still struggling with these chores?
 
 If so, **LuBan.Common** is built for you.
 
-It's a general-purpose utility class library based on **.NET 8**, packaging the most frequent and tedious enterprise development needs into a handy toolkit: from Excel, HTTP, file IO, caching, logging, to SMS, imaging, QR codes, IP geolocation, pinyin conversion — it covers everything. It's not a framework — it's your **"development power-up"** — just reference it and get to work.
+It's a general-purpose utility class library based on **.NET 10**, packaging the most frequent and tedious enterprise development needs into a handy toolkit: from Excel, HTTP, file IO, caching, logging, to SMS, imaging, QR codes, IP geolocation, pinyin conversion — it covers everything. It's not a framework — it's your **"development power-up"** — just reference it and get to work.
 
 ---
 
@@ -44,7 +44,7 @@ using LuBan.Common.IO;
 
 // Excel instant read
 using var fs = File.OpenRead("orders.xlsx");
-var dt = ExcelUtil.ImportFromStream(fs, v2003: false, sheetName: "sheet1");
+var dt = ExcelUtil.ImportFromStream(fs, sheetName: "sheet1");
 
 // HTTP instant call
 var proxy = new HttpClientProxy();
@@ -95,7 +95,7 @@ Then `using` the appropriate namespace wherever you need it and get to work.
 
 `DateTimeUtil` + `Calendar.ChineseCalendar`
 
-> Formatting, workday calculation, Chinese weekdays, lunar calendar, solar terms, zodiac signs — all covered.
+> Formatting, Chinese weekdays, lunar calendar, solar terms, zodiac signs — all covered.
 
 ### Collections & Data Structures
 
@@ -135,6 +135,8 @@ Note: `MemoryCache<T>`, `IServiceCache`, `Logger` are in the `System` namespace.
 `Logger` (namespace `System`), `LogInfo`, `ApiLogInfo`
 
 > Static calls: `Logger.Info`, `Logger.Error`, `Logger.Debug` — absurdly convenient.
+>
+> `Logger` is built on the `Microsoft.Extensions.Logging.ILogger` abstraction and injected at startup via `SetLogger(ILoggerFactory)` and `SetSerializer(Func<object,string>)`. Log files are produced by the file-logging provider from the LuBan.Logging project (by default under `logs/`, rolling at 100MB or on day change).
 
 ### System & Process
 
@@ -193,9 +195,36 @@ if (result.Code != 200)
 
 ### Security & Anti-Replay
 
-`AraReplayAttacksUtil`, `AntiReplayAttacks.AraInfo`
+`AraReplayAttacksUtil`, `AntiReplayAttacks.AraInfo`, `PasswordUtil`
 
-> API security, anti-replay attack protection.
+> API security, anti-replay attack protection, password hashing and verification.
+
+### Two-Factor Authentication (MFA/2FA)
+
+`OptUtil`
+
+> TOTP (Time-based One-Time Password) two-factor authentication: generate codes, validate codes, and generate a QR code for authenticator apps to scan.
+>
+> Works with standard authenticator apps such as Google Authenticator and Microsoft Authenticator.
+
+**Quick start:**
+
+```csharp
+using LuBan.Common;
+
+// 1. Generate a secret (when the user enables MFA)
+var secret = OptUtil.GenerateSecret();
+
+// 2. Generate a QR code for the user to scan
+var qrCode = OptUtil.GenerateQrCode(secret, "user@example.com", "MyApp");
+
+// 3. Validate the code the user entered
+var userInput = "123456"; // the 6-digit code shown by the authenticator app
+if (OptUtil.ValidateTotp(userInput, secret))
+{
+    // Validation succeeded
+}
+```
 
 ### Configuration & Constants
 
@@ -236,7 +265,7 @@ using System.Data;
 DataTable? dt;
 using (var fs = File.OpenRead("orders.xlsx"))
 {
-    dt = ExcelUtil.ImportFromStream(fs, v2003: false, sheetName: "sheet1", hasHeader: true);
+    dt = ExcelUtil.ImportFromStream(fs, sheetName: "sheet1", hasHeader: true);
 }
 ```
 
@@ -256,11 +285,11 @@ string html = await client.GetAsync("https://api.example.com/data");
 // Generic deserialization
 var user = await client.GetAsync<UserDto>("https://api.example.com/user/1");
 
-// POST object, auto-convert to JSON
-var result = await client.PostAsync("https://api.example.com/order", new { Id = 1, Name = "VIP" });
+// POST object, auto-convert to JSON (this overload is generic, so specify the result type)
+var result = await client.PostAsync<object>("https://api.example.com/order", new { Id = 1, Name = "VIP" });
 
-// Even lazier: string extensions
-string data = await "https://api.example.com/data".HttpGetAsync();
+// Even lazier: string extensions (HttpGetAsync returns raw bytes)
+byte[] data = await "https://api.example.com/data".HttpGetAsync();
 ```
 
 ### Caching: Built-in Expiry, No GC Worries
@@ -306,7 +335,7 @@ Logger.Error("Payment Module", exception, "Payment callback handling failed");
 Logger.Debug("Debug", $"Elapsed {elapsedMs}ms");
 ```
 
-> Make sure a logging configuration file exists in the project root before use.
+> `Logger` is built on `Microsoft.Extensions.Logging.ILogger`: register the file-logging provider from `LuBan.Logging` at startup and inject it with `Logger.SetLogger(ILoggerFactory)`. Log files go to `logs/` by default, rolling at 100MB or on day change.
 
 ### Date & Time: Say Goodbye to Manual Time Logic
 
@@ -314,8 +343,8 @@ Logger.Debug("Debug", $"Elapsed {elapsedMs}ms");
 using LuBan.Common;
 
 var now = DateTimeUtil.Now;
-string weekday = DateTimeUtil.GetChineseWeekDay(now);     // Thursday
-int workDays = DateTimeUtil.GetWorkDays(now, now.AddDays(10));
+string weekday = now.ToChineseCalendar().WeekDayStr;   // 星期四 (Thursday in Chinese)
+string formatted = now.ToDateTimeString();             // 2026-07-31 14:30:00.000
 ```
 
 ### Business Exceptions: Make Errors Elegant Too
@@ -367,12 +396,38 @@ public class UserCreatedHandler : IEventHandler<UserCreatedEvent>
 // The concrete IEventBus implementation is injected by the upper-layer framework or business project
 ```
 
+### Two-Factor Authentication (MFA): An Enterprise Security Baseline
+
+```csharp
+using LuBan.Common;
+
+// Generate a secret and return a QR code for the user to scan
+var secret = OptUtil.GenerateSecret();
+var qrCodeImage = OptUtil.GenerateQrCode(secret, "user@example.com", "MyApp");
+
+// Return the QR code to the front end (ASP.NET Core controller)
+// return File(qrCodeImage, "image/png");
+
+// Validate the code entered by the user (±30 second time tolerance)
+var userCode = "123456";
+if (OptUtil.ValidateTotp(userCode, secret))
+{
+    Console.WriteLine("MFA validation succeeded");
+}
+
+// Or use the existing RandomUtil method
+if (RandomUtil.ValideWFACode(userCode, secret))
+{
+    Console.WriteLine("MFA validation succeeded");
+}
+```
+
 ---
 
 ## Usage Tips
 
 1. **Don't mix up namespaces**: `LuBan.Common` is the root namespace, but specific utilities are spread across `LuBan.Common.Data`, `LuBan.Common.IO`, `LuBan.Common.Http`, `LuBan.Common.Sms`, `LuBan.Common.Errors`, `LuBan.Common.EventBus`, `LuBan.Common.Calendar`, `LuBan.Common.Consts`, `LuBan.Common.IPToRegion`, `LuBan.Common.AntiReplayAttacks`, `LuBan.Common.NPinyin` and other sub-namespaces; `MemoryCache<T>`, `IServiceCache`, `Logger` are in `System`.
-2. **Configure logging first**: `Logger` depends on a logging configuration file, otherwise output targets may not be found.
+2. **Inject logging first**: `Logger` is built on `Microsoft.Extensions.Logging.ILogger`; register the file-logging provider from `LuBan.Logging` at startup and call `Logger.SetLogger(ILoggerFactory)`, otherwise no log output is produced at all (it falls back to `NullLogger`, and `EnableConsoleOutput` defaults to `false`).
 3. **Choose thread safety wisely**: For multi-threaded scenarios, prefer `ThreadSafeList`, concurrent dictionaries, or `MemoryCache<T>`.
 4. **Set cache expiry**: Cache is not infinite memory — set reasonable expiry times based on business needs.
 5. **Use Nacos for configuration**: Use `NacosConfigUtil` for frequently changing configurations to avoid redeploying for config changes.
@@ -381,7 +436,9 @@ public class UserCreatedHandler : IEventHandler<UserCreatedEvent>
 
 ## License
 
-MIT License
+Copyright (c) yswenli.
+
+Licensed under the [Apache License 2.0](../LICENSE).
 
 ---
 

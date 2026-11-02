@@ -1,5 +1,5 @@
 [中文](README.md) | English
-# LuBan.E邮件处理库
+# LuBan.EMailKit
 
 > **Author**: yswenli | **Contact**: yswenli@outlook.com | **Repository**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
@@ -9,11 +9,11 @@
 **Related Projects**: [LuBan.Framework](../README.md) | [LuBan.Common](../LuBan.Common/README.md) | [LuBan.Web.Core](../LuBan.Web.Core/README.md)
 ---
 
-## Why LuBan.E邮件处理库?
+## Why LuBan.EMailKit?
 
 Sending emails is easy, but doing it right is hard: HTML bodies, attachments, CC/BCC, URL attachments, multi-account switching... Tired of wrestling with low-level email protocol APIs every time?
 
-**LuBan.E邮件处理库** provides a clean email send/receive interface:
+**LuBan.EMailKit** provides a clean email send/receive interface:
 - Factory pattern client creation — switch between SMTP/IMAP/POP3 protocols as needed
 - Multiple `SendAsync` overloads — from simple single-recipient to full CC/BCC + attachments
 - URL attachment support (automatically downloads from remote)
@@ -49,7 +49,7 @@ var message = new Message(
 await client.SendAsync(message);
 
 // Receive emails (IMAP/POP3)
-var messages = await client.RecieveAsync();
+var messages = await client.ReceiveAsync();
 ```
 
 ## Installation
@@ -62,7 +62,7 @@ dotnet add package LuBan.EMailKit
 
 | Module | Core Class | Description |
 |--------|------------|-------------|
-| Unified Interface | `IEMailClient` | RecieveAsync / SendAsync |
+| Unified Interface | `IEMailClient` | ReceiveAsync / SendAsync |
 | Factory | `EMailFactory` | Creates protocol-specific clients based on configuration |
 | SMTP Sending | `EMailSmtp` | Email sending via SMTP protocol |
 | IMAP Receiving | `EmailImap` | Email receiving via IMAP protocol |
@@ -82,7 +82,7 @@ dotnet add package LuBan.EMailKit
   "EMailOptions": {
     "EMailClientConfigs": [
       {
-        "ClientType": 0,
+        "ClientType": 1,
         "Host": "smtp.example.com",
         "Port": 465,
         "UseSsl": true,
@@ -94,7 +94,7 @@ dotnet add package LuBan.EMailKit
 }
 ```
 
-`ClientType` enum values: `0` = SMTP, `1` = IMAP, `2` = POP3
+`ClientType` enum values: `0` = None, `1` = SMTP, `2` = POP3, `3` = IMAP
 
 ### Manual Client Creation
 
@@ -134,11 +134,13 @@ await client.SendAsync("user@example.com", "Report", "Please check",
 ## Tips
 
 - `IEMailClient` implements `IDisposable` — call `Dispose()` or use `using` statement when done
-- SMTP clients do not support `RecieveAsync` — use IMAP or POP3 clients for receiving emails
+- SMTP clients do not support `ReceiveAsync` — use IMAP or POP3 clients for receiving emails
 - `EMailFactory.Create()` parameterless version automatically reads the first `EMailClientConfigs` entry from Nacos configuration
 - Attachments support auto-download from remote URLs — useful for sending cloud-stored files as attachments
 - Set `isHtml: true` when sending HTML emails — HTML tags in the body will be rendered correctly
 
 ## License
 
-Copyright (c) yswenli. All rights reserved.
+Copyright (c) yswenli.
+
+Licensed under the [Apache License 2.0](../LICENSE).

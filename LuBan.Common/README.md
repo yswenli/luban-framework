@@ -14,7 +14,7 @@
 
 如果是，那 **LuBan.Common** 就是为你准备的。
 
-它是一个基于 **.NET 8** 的通用工具类库，把企业开发里最高频、最琐碎的需求打包成一套顺手工具：从 Excel、HTTP、文件 IO、缓存、日志，到短信、图像、二维码、IP 归属地、拼音转换，应有尽有。它不是框架，而是你的 **"开发外挂"** —— 直接引用，马上开工。
+它是一个基于 **.NET 10** 的通用工具类库，把企业开发里最高频、最琐碎的需求打包成一套顺手工具：从 Excel、HTTP、文件 IO、缓存、日志，到短信、图像、二维码、IP 归属地、拼音转换，应有尽有。它不是框架，而是你的 **"开发外挂"** —— 直接引用，马上开工。
 
 ---
 
@@ -44,7 +44,7 @@ using LuBan.Common.IO;
 
 // Excel 秒读
 using var fs = File.OpenRead("orders.xlsx");
-var dt = ExcelUtil.ImportFromStream(fs, v2003: false, sheetName: "sheet1");
+var dt = ExcelUtil.ImportFromStream(fs, sheetName: "sheet1");
 
 // HTTP 秒调
 var proxy = new HttpClientProxy();
@@ -95,7 +95,7 @@ dotnet add package LuBan.Common
 
 `DateTimeUtil` + `Calendar.ChineseCalendar`
 
-> 格式化、工作日计算、中文星期、农历、节气、生肖，全搞定。
+> 格式化、中文星期、农历、节气、生肖，全搞定。
 
 ### 集合与数据结构
 
@@ -265,7 +265,7 @@ using System.Data;
 DataTable? dt;
 using (var fs = File.OpenRead("orders.xlsx"))
 {
-    dt = ExcelUtil.ImportFromStream(fs, v2003: false, sheetName: "sheet1", hasHeader: true);
+    dt = ExcelUtil.ImportFromStream(fs, sheetName: "sheet1", hasHeader: true);
 }
 ```
 
@@ -285,11 +285,11 @@ string html = await client.GetAsync("https://api.example.com/data");
 // 泛型反序列化
 var user = await client.GetAsync<UserDto>("https://api.example.com/user/1");
 
-// POST 对象，自动转 JSON
-var result = await client.PostAsync("https://api.example.com/order", new { Id = 1, Name = "VIP" });
+// POST 对象，自动转 JSON（该重载为泛型，需显式指定返回类型）
+var result = await client.PostAsync<object>("https://api.example.com/order", new { Id = 1, Name = "VIP" });
 
-// 更懒的写法：字符串扩展
-string data = await "https://api.example.com/data".HttpGetAsync();
+// 更懒的写法：字符串扩展（HttpGetAsync 返回原始字节）
+byte[] data = await "https://api.example.com/data".HttpGetAsync();
 ```
 
 ### 缓存：自带过期，不用管GC
@@ -343,8 +343,8 @@ Logger.Debug("调试", $"耗时 {elapsedMs}ms");
 using LuBan.Common;
 
 var now = DateTimeUtil.Now;
-string weekday = DateTimeUtil.GetChineseWeekDay(now);     // 星期四
-int workDays = DateTimeUtil.GetWorkDays(now, now.AddDays(10));
+string weekday = now.ToChineseCalendar().WeekDayStr;   // 星期四
+string formatted = now.ToDateTimeString();             // 2026-07-31 14:30:00.000
 ```
 
 ### 业务异常：让错误也优雅
@@ -427,7 +427,7 @@ if (RandomUtil.ValideWFACode(userCode, secret))
 ## 使用小贴士
 
 1. **命名空间别搞错**：`LuBan.Common` 是根命名空间，但具体工具分散在 `LuBan.Common.Data`、`LuBan.Common.IO`、`LuBan.Common.Http`、`LuBan.Common.Sms`、`LuBan.Common.Errors`、`LuBan.Common.EventBus`、`LuBan.Common.Calendar`、`LuBan.Common.Consts`、`LuBan.Common.IPToRegion`、`LuBan.Common.AntiReplayAttacks`、`LuBan.Common.NPinyin` 等子命名空间；`MemoryCache<T>`、`IServiceCache`、`Logger` 位于 `System`。
-2. **日志需注入**：`Logger` 基于 `Microsoft.Extensions.Logging.ILogger`，需在启动时通过 `LuBan.Logging` 注册文件日志 Provider 并调用 `Logger.SetLogger(ILoggerFactory)` 注入，否则日志仅输出到控制台。
+2. **日志需注入**：`Logger` 基于 `Microsoft.Extensions.Logging.ILogger`，需在启动时通过 `LuBan.Logging` 注册文件日志 Provider 并调用 `Logger.SetLogger(ILoggerFactory)` 注入，否则不产生任何日志输出（内部默认为 `NullLogger`，且 `EnableConsoleOutput` 默认 `false`）。
 3. **线程安全要选型**：多线程场景优先 `ThreadSafeList`、并发字典或 `MemoryCache<T>`。
 4. **缓存设过期**：缓存不是无限内存，请按业务设置合理过期时间。
 5. **配置走 Nacos**：经常变化的配置用 `NacosConfigUtil`，避免改配置就发版。
@@ -436,7 +436,9 @@ if (RandomUtil.ValideWFACode(userCode, secret))
 
 ## 许可证
 
-MIT License
+Copyright (c) yswenli.
+
+Licensed under the [Apache License 2.0](../LICENSE).
 
 ---
 

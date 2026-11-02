@@ -1,4 +1,10 @@
 /****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -129,14 +135,27 @@ public class LuBanAgent : IDisposable
     /// <param name="input">用户输入内容。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     /// <returns>流式响应更新序列。</returns>
+    public IAsyncEnumerable<AgentResponseUpdate> RunStreamingAsync(
+        string input,
+        CancellationToken cancellationToken = default)
+        => RunStreamingAsync(input, (ChatClientAgentRunOptions?)null, cancellationToken);
+
+    /// <summary>
+    /// 以字符串输入运行 Agent 并返回流式响应更新，可按轮覆盖聊天选项（如关闭推理）。
+    /// </summary>
+    /// <param name="input">用户输入内容。</param>
+    /// <param name="runOptions">本轮运行选项；null 表示沿用 Agent 自身配置。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>流式响应更新序列。</returns>
     public async IAsyncEnumerable<AgentResponseUpdate> RunStreamingAsync(
         string input,
+        ChatClientAgentRunOptions? runOptions,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var session = await GetOrCreateSessionAsync(cancellationToken);
         input = await PreProcessInputAsync(input, cancellationToken);
         await foreach (var update in StampLlmRoundAsync(
-            _innerAgent.RunStreamingAsync(input, session, cancellationToken: cancellationToken), cancellationToken))
+            _innerAgent.RunStreamingAsync(input, session, runOptions, cancellationToken), cancellationToken))
         {
             yield return update;
         }
@@ -148,9 +167,23 @@ public class LuBanAgent : IDisposable
     /// <param name="input">用户输入文本。</param>
     /// <param name="attachments">已处理的附件列表。</param>
     /// <param name="cancellationToken">取消令牌。</param>
+    public IAsyncEnumerable<AgentResponseUpdate> RunStreamingAsync(
+        string input,
+        IReadOnlyList<Attachments.ProcessedAttachment> attachments,
+        CancellationToken cancellationToken = default)
+        => RunStreamingAsync(input, attachments, null, cancellationToken);
+
+    /// <summary>
+    /// 运行一轮对话（带附件），可按轮覆盖聊天选项（如关闭推理）。
+    /// </summary>
+    /// <param name="input">用户输入文本。</param>
+    /// <param name="attachments">已处理的附件列表。</param>
+    /// <param name="runOptions">本轮运行选项；null 表示沿用 Agent 自身配置。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
     public async IAsyncEnumerable<AgentResponseUpdate> RunStreamingAsync(
         string input,
         IReadOnlyList<Attachments.ProcessedAttachment> attachments,
+        ChatClientAgentRunOptions? runOptions,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var session = await GetOrCreateSessionAsync(cancellationToken);
@@ -166,7 +199,7 @@ public class LuBanAgent : IDisposable
         var messages = new[] { Attachments.AttachmentMessageBuilder.Build(input, attachments) };
 
         await foreach (var update in StampLlmRoundAsync(
-            _innerAgent.RunStreamingAsync(messages, session, cancellationToken: cancellationToken), cancellationToken))
+            _innerAgent.RunStreamingAsync(messages, session, runOptions, cancellationToken), cancellationToken))
         {
             yield return update;
         }

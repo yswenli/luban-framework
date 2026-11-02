@@ -61,7 +61,7 @@ dotnet add package LuBan.Office
 | 创建/打开 | `new PptDocument()` / `PptDocument.Load(path)` | 创建空白或加载已有 PPT |
 | 从 HTML 加载 | `PptDocument.LoadFromHtml(path)` | HTML 转 PPT |
 | 从 PDF 加载 | `PptDocument.LoadFromPdf(path)` | PDF 转 PPT |
-| 添加幻灯片 | `AddSlide()` / `AddSlide(slide)` / `AddSlide(fromIndex)` | 新增/克隆幻灯片 |
+| 添加幻灯片 | `AddSlide(int index = -1)`（插入空白页）/ `AddSlide(PptSlide slide, int index = -1)` / `AddSlide(int fromIndex, int index = -1)` | 新增空白页，或按对象/索引克隆 |
 | 删除幻灯片 | `RemoveSlide(index)` / `RemoveSlide(slide)` | 按索引或对象删除 |
 | 获取幻灯片 | `GetSlide(id)` / `GetSlideByIndex(index)` / `GetSlideByNumber(num)` | 多种方式定位幻灯片 |
 | 替换文本 | `PptDocument.ReplaceText(doc, slideIndex, replaceStrs)` | 批量替换幻灯片文本 |
@@ -69,6 +69,8 @@ dotnet add package LuBan.Office
 | 替换图片 | `PptDocument.ReplaceImage(doc, slideIndex, path, altTxt, ...)` | 按 alt 文本定位替换图片 |
 | 替换视频 | `PptDocument.ReplaceVideo(doc, slideIndex, video, cover, altTxt, ...)` | 按 alt 文本定位替换视频 |
 | 保存 | `Save(path)` / `SaveAsPdf(path)` / `SaveAsHtml(path)` | 多格式导出 |
+
+> **重载绑定提示**：单参 `AddSlide(int index = -1)` 是**插入空白页**；按索引克隆必须写成 `AddSlide(fromIndex: 2)`（双参重载），`AddSlide(2)` 会绑定到单参重载，得到的是第 2 页上的空白页而不是克隆页。
 
 ### PptSlide（幻灯片操作）
 
@@ -101,7 +103,7 @@ dotnet add package LuBan.Office
 | 功能 | API | 说明 |
 |------|-----|------|
 | 替换文本 | `ReplaceText(old, new)` / `ReplaceTexts(dict)` | 全文/批量替换 |
-| 替换图片 | `ReplacePicture(path, pageIndex, imageIndex)` | 替换指定页图片 |
+| 替换图片 | `ReplacePicture(path, pageIndex, oldPictureIndex)` | 替换指定页的指定图片 |
 | 从 HTML 转换 | `ConvertFromHtml(path)` | HTML 转 PDF |
 | 从 URL 转换 | `ConvertFromUrl(url)` | 网页转 PDF |
 
@@ -111,6 +113,9 @@ dotnet add package LuBan.Office
 
 ```csharp
 using var ppt = PptDocument.Load("template.pptx");
+
+// 按索引克隆第 2 页：必须用命名实参走双参重载，单参 AddSlide(2) 是插入空白页
+var copy = ppt.AddSlide(fromIndex: 2);
 
 // 第 0 页替换标题和日期
 PptDocument.ReplaceText(ppt, 0, new[]
@@ -152,12 +157,14 @@ word.Save("contract_filled.docx");
 ## 使用提示
 
 - **平台限制**：LuBan.Office 仅支持 Windows 平台（`SupportedOSPlatform("windows")`）
-- 许可证文件需放置在 `Libs/` 目录下，程序启动时自动加载
+- 许可证文件（`Aspose.Total.lic`）需放置在 `Libs/` 目录下；各文档类在创建文档实例时调用对应的 `License.Instance.SetXxxLicense()` 完成加载，而非程序启动时自动加载
 - PPT 中通过 `AlternativeText`（替代文本）定位形状，建议在模板中预先设置好 alt 文本
-- `PptDocument` 实现了 `IDisposable`，`Dispose` 时会自动调用 `Save()`
+- `PptDocument` 实现了 `IDisposable`，`Dispose` 时会自动调用 `Save()`：`Save()` 不传路径时回退到加载时的原文件路径，因此用 `using` 打开模板后即使已 `Save("output.pptx")`，释放时仍会再写一次源模板（覆盖它）；若不想改动源文件，请先复制模板再操作，或改用 `new PptDocument(stream)` 加载（此时无原路径，`Save()` 会生成时间戳命名的新文件）
 - Word 的 `ReplaceTextWithImage` 支持正则表达式匹配
 - 书签填充时，`bool` 类型属性会自动插入复选框
 
 ## 许可证
 
-Copyright (c) yswenli. All rights reserved.
+Copyright (c) yswenli.
+
+Licensed under the [Apache License 2.0](../LICENSE).

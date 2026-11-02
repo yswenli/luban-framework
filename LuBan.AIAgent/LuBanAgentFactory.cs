@@ -1,4 +1,10 @@
 /****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -32,7 +38,7 @@ public class LuBanAgentFactory : ILuBanAgentFactory, IScoped
     private readonly IProviderRouter? _providerRouter;
     private readonly ToolPluginRegistry _pluginRegistry;
     private readonly IOptions<LuBanAgentOptions> _options;
-    private readonly IServiceProvider _serviceProvider;
+    private readonly DiContainer _serviceProvider;
 
     /// <summary>
     /// 创建 LuBanAgentFactory 实例
@@ -46,7 +52,7 @@ public class LuBanAgentFactory : ILuBanAgentFactory, IScoped
         IChatClient chatClient,
         ToolPluginRegistry pluginRegistry,
         IOptions<LuBanAgentOptions> options,
-        IServiceProvider serviceProvider,
+        DiContainer serviceProvider,
         IProviderRouter? providerRouter = null)
     {
         // 默认客户端统一套容错重试：覆盖主对话、摘要压缩（历史压缩也使用该实例）

@@ -1,4 +1,10 @@
 /****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *命名空间：LuBan.XTestProject
@@ -113,16 +119,16 @@ public class ConnectorRegistryUnitTest
     private static ServiceProvider BuildRoot()
     {
         var services = new ServiceCollection();
-        services.AddConnector<StubConnector>(DemoProviderKey, ctx => new StubConnector(ctx.ProviderKey) { Name = ctx.Name });
+        services.AsDiContainer().AddConnector<StubConnector>(DemoProviderKey, ctx => new StubConnector(ctx.ProviderKey) { Name = ctx.Name });
         // 有工厂但不会被声明的提供方（用于 Available 状态）
-        services.AddConnector<StubConnector>(SpareProviderKey, ctx => new StubConnector(ctx.ProviderKey) { Name = ctx.Name });
+        services.AsDiContainer().AddConnector<StubConnector>(SpareProviderKey, ctx => new StubConnector(ctx.ProviderKey) { Name = ctx.Name });
         return services.BuildServiceProvider();
     }
 
     private static (ConnectorRegistry Registry, FakeConfigReader Reader) CreateRegistry(ServiceProvider root)
     {
         var factories = new ConnectorFactoryRegistry(root.GetServices<ConnectorFactoryRegistration>());
-        var host = new ConnectorInstanceHost(root, factories);
+        var host = new ConnectorInstanceHost(root.AsDiContainer(), factories);
         var reader = new FakeConfigReader();
         var registry = new ConnectorRegistry(host, factories, null, reader, new ConfigurationBuilder().Build());
         return (registry, reader);
@@ -136,7 +142,7 @@ public class ConnectorRegistryUnitTest
     public void AddBuiltinConnectors_RegistersNoVendorConnector()
     {
         var services = new ServiceCollection();
-        services.AddBuiltinConnectors(new ConfigurationBuilder().Build());
+        services.AsDiContainer().AddBuiltinConnectors(new ConfigurationBuilder().Build());
 
         using var root = services.BuildServiceProvider();
         var factories = new ConnectorFactoryRegistry(root.GetServices<ConnectorFactoryRegistration>());
@@ -153,10 +159,10 @@ public class ConnectorRegistryUnitTest
     {
         using var root = BuildRoot();
         var factories = new ConnectorFactoryRegistry(root.GetServices<ConnectorFactoryRegistration>());
-        var host = new ConnectorInstanceHost(root, factories);
+        var host = new ConnectorInstanceHost(root.AsDiContainer(), factories);
         var connector = (StubConnector)host.GetOrCreate(DemoConnectorName, DemoProviderKey)!;
 
-        var client = (StubMcpClient)connector.McpExposures.Single().CreateClient(root, null);
+        var client = (StubMcpClient)connector.McpExposures.Single().CreateClient(root.AsDiContainer(), null);
         client.Dispose();
 
         Assert.IsTrue(client.Disposed);
@@ -174,14 +180,14 @@ public class ConnectorRegistryUnitTest
     {
         using var root = BuildRoot();
         var factories = new ConnectorFactoryRegistry(root.GetServices<ConnectorFactoryRegistration>());
-        var host = new ConnectorInstanceHost(root, factories);
+        var host = new ConnectorInstanceHost(root.AsDiContainer(), factories);
         var connector = (StubConnector)host.GetOrCreate(DemoConnectorName, DemoProviderKey)!;
 
         var sessionA = new MCPRegistry(Array.Empty<IMCPClient>());
         var sessionB = new MCPRegistry(Array.Empty<IMCPClient>());
 
-        sessionA.RegisterPluginClient(connector.McpExposures.Single().CreateClient(root, null));
-        sessionB.RegisterPluginClient(connector.McpExposures.Single().CreateClient(root, null));
+        sessionA.RegisterPluginClient(connector.McpExposures.Single().CreateClient(root.AsDiContainer(), null));
+        sessionB.RegisterPluginClient(connector.McpExposures.Single().CreateClient(root.AsDiContainer(), null));
 
         Assert.IsTrue(sessionA.UnregisterPluginClient(DemoConnectorName));
 
@@ -277,12 +283,12 @@ public class ConnectorRegistryUnitTest
     public void RegisteredFactory_CreatesIndependentConnectorPerInstanceName()
     {
         var services = new ServiceCollection();
-        services.AddBuiltinConnectors(new ConfigurationBuilder().Build());
-        services.AddConnector<StubConnector>(DemoProviderKey, ctx => new StubConnector(ctx.ProviderKey) { Name = ctx.Name });
+        services.AsDiContainer().AddBuiltinConnectors(new ConfigurationBuilder().Build());
+        services.AsDiContainer().AddConnector<StubConnector>(DemoProviderKey, ctx => new StubConnector(ctx.ProviderKey) { Name = ctx.Name });
 
         using var root = services.BuildServiceProvider();
         var factories = new ConnectorFactoryRegistry(root.GetServices<ConnectorFactoryRegistration>());
-        var host = new ConnectorInstanceHost(root, factories);
+        var host = new ConnectorInstanceHost(root.AsDiContainer(), factories);
 
         var primary = host.GetOrCreate("demo1", DemoProviderKey);
         var secondary = host.GetOrCreate("demo2", DemoProviderKey);
@@ -300,8 +306,8 @@ public class ConnectorRegistryUnitTest
         // 暴露面名（MCP 名）与客户端名均跟随实例名
         Assert.AreEqual("demo1", primary.McpExposures.Single().Name);
         Assert.AreEqual("demo2", secondary.McpExposures.Single().Name);
-        Assert.AreEqual("demo1", primary.McpExposures.Single().CreateClient(root, null).Name);
-        Assert.AreEqual("demo2", secondary.McpExposures.Single().CreateClient(root, null).Name);
+        Assert.AreEqual("demo1", primary.McpExposures.Single().CreateClient(root.AsDiContainer(), null).Name);
+        Assert.AreEqual("demo2", secondary.McpExposures.Single().CreateClient(root.AsDiContainer(), null).Name);
     }
 
     /// <summary>
@@ -314,7 +320,7 @@ public class ConnectorRegistryUnitTest
         var otherCreated = 0;
 
         var services = new ServiceCollection();
-        services.AddConnector<StubConnector>("spy", ctx => new StubConnector(ctx.ProviderKey) { Name = ctx.Name });
+        services.AsDiContainer().AddConnector<StubConnector>("spy", ctx => new StubConnector(ctx.ProviderKey) { Name = ctx.Name });
         services.AddSingleton(new ConnectorFactoryRegistration("other", _ =>
         {
             otherCreated++;
@@ -323,7 +329,7 @@ public class ConnectorRegistryUnitTest
 
         using var root = services.BuildServiceProvider();
         var factories = new ConnectorFactoryRegistry(root.GetServices<ConnectorFactoryRegistration>());
-        var host = new ConnectorInstanceHost(root, factories);
+        var host = new ConnectorInstanceHost(root.AsDiContainer(), factories);
         var reader = new FakeConfigReader();
         var registry = new ConnectorRegistry(host, factories, null, reader, new ConfigurationBuilder().Build());
 
@@ -378,12 +384,12 @@ public class ConnectorRegistryUnitTest
         Captured = new Dictionary<string, IReadOnlyDictionary<string, string?>>(StringComparer.OrdinalIgnoreCase);
 
         var services = new ServiceCollection();
-        services.AddConnector<SettingsCapturingConnector>("demo",
+        services.AsDiContainer().AddConnector<SettingsCapturingConnector>("demo",
             ctx => { Captured[ctx.Name] = ctx.Settings.Values; return new SettingsCapturingConnector(ctx); });
 
         using var root = services.BuildServiceProvider();
         var factories = new ConnectorFactoryRegistry(root.GetServices<ConnectorFactoryRegistration>());
-        var host = new ConnectorInstanceHost(root, factories);
+        var host = new ConnectorInstanceHost(root.AsDiContainer(), factories);
         var reader = new FakeConfigReader();
         var registry = new ConnectorRegistry(host, factories, null, reader, new ConfigurationBuilder().Build());
 

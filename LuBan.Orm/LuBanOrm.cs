@@ -1,4 +1,10 @@
 /****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -55,7 +61,7 @@ public static class LuBanOrm
     {
         if (hasApiService)
         {
-            return ServiceProviderUtil.GetRequiredService<ISqlSugarClient>().Ado.IsValidConnection();
+            return DiContainer.Instance.GetRequiredService<ISqlSugarClient>().Ado.IsValidConnection();
         }
         else
         {
@@ -683,6 +689,29 @@ public static class LuBanOrm
             if (SqlSugarScope.AsTenant().IsAnyConnection(LuBanOrmConst.LogConfigId))
                 configId = LuBanOrmConst.LogConfigId;
         }
+        return GetIsolatedClient(configId);
+    }
+
+    /// <summary>
+    /// 获取独立 SqlSugarClient 实例的运行时类型版本，
+    /// 实体类型在运行时才确定时使用（如反射、审计采集），库配置解析规则与泛型版本一致
+    /// </summary>
+    /// <param name="entityType">实体类型</param>
+    /// <param name="tenantId">租户ID，为空时使用主库</param>
+    /// <returns></returns>
+    public static SqlSugarClient GetIsolatedClient(Type entityType, string? tenantId = null)
+    {
+        var configId = LuBanOrmConst.MainConfigId;
+        if (!string.IsNullOrEmpty(tenantId) && tenantId != "0")
+            configId = tenantId;
+
+        var tenantAttr = entityType.GetCustomAttribute<TenantAttribute>();
+        if (tenantAttr?.configId != null)
+            configId = tenantAttr.configId.ToString();
+
+        if (entityType.IsDefined(typeof(LogTableAttribute), false) && SqlSugarScope.AsTenant().IsAnyConnection(LuBanOrmConst.LogConfigId))
+            configId = LuBanOrmConst.LogConfigId;
+
         return GetIsolatedClient(configId);
     }
 

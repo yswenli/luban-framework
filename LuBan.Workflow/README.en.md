@@ -27,4 +27,6 @@ For approval flow functionality, please use `LuBan.ApprovalFlow` directly.
 
 ## License
 
-All rights reserved.
+Copyright (c) yswenli.
+
+Licensed under the [Apache License 2.0](../LICENSE).

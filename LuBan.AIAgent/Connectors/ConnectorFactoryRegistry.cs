@@ -1,4 +1,10 @@
 /****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *命名空间：LuBan.AIAgent.Connectors
@@ -137,7 +143,7 @@ public sealed class ConnectorFactoryRegistry
 /// </remarks>
 public sealed class ConnectorInstanceHost : IAsyncDisposable
 {
-    private readonly IServiceProvider _root;
+    private readonly DiContainer _root;
     private readonly ConnectorFactoryRegistry _factories;
     private readonly ConcurrentDictionary<string, Lazy<IConnector>> _instances = new(StringComparer.OrdinalIgnoreCase);
     private bool _disposed;
@@ -147,7 +153,7 @@ public sealed class ConnectorInstanceHost : IAsyncDisposable
     /// </summary>
     /// <param name="root">根容器。</param>
     /// <param name="factories">工厂表。</param>
-    public ConnectorInstanceHost(IServiceProvider root, ConnectorFactoryRegistry factories)
+    public ConnectorInstanceHost(DiContainer root, ConnectorFactoryRegistry factories)
     {
         _root = root ?? throw new ArgumentNullException(nameof(root));
         _factories = factories ?? throw new ArgumentNullException(nameof(factories));
@@ -156,7 +162,7 @@ public sealed class ConnectorInstanceHost : IAsyncDisposable
     /// <summary>
     /// 根容器（连接器暴露面工厂解析依赖用）。
     /// </summary>
-    public IServiceProvider Root => _root;
+    public DiContainer Root => _root;
 
     /// <summary>
     /// 取（或创建）指定实例名的连接器。

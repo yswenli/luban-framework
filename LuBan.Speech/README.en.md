@@ -17,9 +17,9 @@ Speech recognition is in increasing demand, but integrating with major speech pl
 **LuBan.Speech** provides a unified speech recognition interface:
 - `ISpeechService` unified interface, supports extending with multiple speech engines
 - Factory pattern to create service instances, configuration-driven
-- Built-in Speech Recognition implementation (`语音识别服务SpeechService`)
+- Built-in Baidu speech recognition implementation (`BaiduSpeechService`)
 - Automatic OAuth 2.0 token management
-- Supports streaming recognition for PCM and other audio formats
+- Supports PCM and other audio formats for speech recognition
 - Singleton pattern, globally reusable
 
 ## Quick Preview
@@ -40,7 +40,7 @@ var speechService = SpeechFactory.Create(new SpeechConfig
 using var audioStream = File.OpenRead("speech.pcm");
 var result = await speechService.RecognitionAsync(audioStream, "pcm");
 
-Console.WriteLine($"Recognition result: {result}");
+Console.WriteLine($"Recognition result: {result.Result}");
 ```
 
 ## Tech Stack
@@ -49,7 +49,7 @@ Console.WriteLine($"Recognition result: {result}");
 |-----------|-------------|
 | LuBan.Service | Service base class |
 | LuBan.Common | Base utility library |
-| .NET | 8.0 |
+| .NET | net10.0 |
 
 ## Installation
 
@@ -63,9 +63,9 @@ dotnet add package LuBan.Speech
 |--------|------------|-------------|
 | Unified Interface | `ISpeechService` | SetConfig / GetToken / RecognitionAsync |
 | Factory | `SpeechFactory` | Create speech service instance based on configuration |
-| 语音识别服务 Implementation | `语音识别服务SpeechService` | Speech Recognition (singleton, OAuth token) |
+| Speech Recognition Implementation | `BaiduSpeechService` | Baidu speech recognition (singleton, OAuth token) |
 | Configuration | `SpeechConfig` | Speech type, ClientId, ClientSecret |
-| Type Enum | `EnumSpeechType` | 语音识别服务, etc. |
+| Type Enum | `EnumSpeechType` | Speech type (currently only `Baidu = 1`) |
 
 ## Detailed Usage
 
@@ -74,7 +74,7 @@ dotnet add package LuBan.Speech
 ```json
 {
   "SpeechConfig": {
-    "SpeechType": 0,
+    "SpeechType": 1,
     "ClientId": "your-baidu-app-id",
     "ClientSecret": "your-baidu-app-secret"
   }
@@ -116,13 +116,15 @@ Default parameters when internally calling Speech Recognition API:
 
 ## Usage Tips
 
-- `语音识别服务SpeechService` uses singleton pattern (`BaseService<语音识别服务SpeechService>`), globally reusable
+- `BaiduSpeechService` uses singleton pattern (`BaseService<BaiduSpeechService>`), globally reusable
 - Audio stream must be PCM format, 16000Hz sample rate, mono channel. Other formats need conversion first
-- `SpeechFactory.Create()` parameterless version reads configuration from `ConfigUtil.Read<SpeechConfig>()`
+- The parameterless `SpeechFactory.Create()` reads configuration via `ConfigUtil.Read<SpeechConfig>()` in the static constructor — read only once per process
 - Speech Recognition API has audio duration limits (usually no more than 60 seconds); long audio needs to be split
-- Speech recognition results are returned as comma-separated strings (multiple candidates)
+- Speech recognition results are returned as a comma-separated string inside `Result.Result` (multiple candidates)
 - Extending with new speech engines only requires implementing the `ISpeechService` interface and registering in `SpeechFactory`
 
 ## License
 
-Copyright (c) yswenli. All rights reserved.
+Copyright (c) yswenli.
+
+Licensed under the [Apache License 2.0](../LICENSE).

@@ -1,3 +1,33 @@
+/****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：Walle
+*命名空间：LuBan.XTestProject
+*文件名： AgentHostResetUnitTest
+*版本号： V1.0.0.0
+*唯一标识：ffc04de6-3e8b-43b3-88d7-8688d91894ba
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/10/27 16:00:46
+*描述：IAgentHost.Reset 运行态语义单元测试（回合运行中延迟卸载）
+*
+*=================================================
+*修改标记
+*修改时间：2026/10/27 16:00:46
+*修改人： yswenli
+*版本号： V1.0.0.0
+*描述：IAgentHost.Reset 运行态语义单元测试（回合运行中延迟卸载）
+*
+*****************************************************************************/
+
 using LuBan.AIAgent;
 using LuBan.AIAgent.Hosting;
 using Microsoft.Agents.AI;
@@ -173,11 +203,11 @@ public class AgentHostResetUnitTest
         services.AddSingleton<IConfiguration>(config);
         services.AddLogging();
         services.AddSingleton<IChatClient>(chatClient);
-        services.AddLuBanAgentDefaults(config);
+        services.AsDiContainer().AddLuBanAgentDefaults(config);
         // 先注册假 Profile（TryAdd 语义下优先于 DefaultAgentProfile）：直接返回基于桩客户端的 Agent，
         // 避免测试依赖工作区组件加载与 Provider 路由。
         services.AddScoped<IAgentProfile>(_ => new FakeProfile(chatClient));
-        services.AddLuBanAgentHost();
+        services.AsDiContainer().AddLuBanAgentHost();
 
         return services.BuildServiceProvider(new ServiceProviderOptions
         {

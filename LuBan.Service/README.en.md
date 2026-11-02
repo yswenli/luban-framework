@@ -25,21 +25,24 @@ LuBan.Service provides standardized business service base classes and a backgrou
 // Business service — inherit and use
 public class OrderService : BaseService<Order>
 {
-    public async Task<Result<OrderDto>> GetOrderAsync(long id)
+    readonly BaseRepository<Order> _repository = new();
+
+    public async Task<Result> GetOrderAsync(long id)
     {
         return await GetResultAsync(async () =>
         {
-            var order = await Repository.GetByIdAsync(id);
+            var order = await _repository.GetFirstAsync(x => x.Id == id);
             return order.ConvertTo<OrderDto>();
         });
     }
 }
 
 // Background task — declare and use
-[JobInfo(Name = "Data Cleanup Task", Description = "Clean up expired data daily at midnight")]
+[JobInfo("Data Cleanup Task", "Clean up expired data daily at midnight")]
 public class DataCleanupJob : BaseJobService
 {
-    protected override TimeSpan Interval => TimeSpan.FromHours(24);
+    // Constructor argument is a millisecond interval; base(2, 0, 0) sets a time point, base("0 0 2 * * *") sets cron
+    public DataCleanupJob() : base(24 * 60 * 60 * 1000) { }
 
     public override async Task RunAsync()
     {
@@ -70,8 +73,8 @@ dotnet add package LuBan.Service
 |---------|-------------|
 | Unified Response | `SuccessResult()` / `ErrorResult()` standardized response format |
 | Exception Wrapping | `GetResult()` / `GetResultAsync()` built-in try/catch, exceptions auto-wrapped as error results |
-| Cache Access | `IServiceCache` injected via DI, ready to use out of the box |
-| Repository Integration | `BaseService<T>` auto-links to `BaseRepository<T>` |
+| Cache Access | Static property `ServiceCache` resolves `IServiceCache` from `DiContainer`, ready to use out of the box |
+| Singleton Instance | `BaseService<T> : BaseSingleInstance<T>` exposes a lazy singleton via `Instance` (**no built-in repository property** — new one up or inject one yourself) |
 
 ### Background Task Framework
 
@@ -79,7 +82,11 @@ dotnet add package LuBan.Service
 |---------|-------------|
 | Task Interface | `IJob` defines standard task contract (IsRunning, Run, RunAsync, Start, Stop) |
 | Scheduling Engine | `BaseBackgroundService` core scheduling logic, supports interval, time-point and Cron expression scheduling |
-| Task Base Class | `BaseJobService` abstract base class — configure scheduling parameters and it runs |
+| Task Base Class | `BaseJobService` abstract base class — pass scheduling parameters to the constructor (`intervalTime` in ms / `(hour, minute, second)` / cron string); `SetCron` reschedules at runtime |
+| Sub-task Base Class | `BaseSubJobService` defines sub-tasks that run once every `IntervalTime` (default 100 ms), driven by a parent task |
+| Parent Task | `ParentJobService` built into the framework, reflectively loads every `BaseSubJobService` and polls them at their own intervals |
+| Configuration Service | `JobConfigService` initializes, queries and updates job configuration (cron / enabled flag / remark) |
+| Log Service | `JobLogService` records start/success/failure of every run, with paged queries, status lookup and log cleanup |
 | Auto Discovery | `JobServiceLoader` auto-scans all `IJob` implementations, no manual registration needed |
 | Task Annotation | `JobInfoAttribute` declares task metadata (name, description, etc.) |
 
@@ -91,7 +98,7 @@ dotnet add package LuBan.Service
 // Non-generic base class — suitable for services not bound to a specific entity
 public class ReportService : BaseService
 {
-    public async Task<Result<ReportDto>> GenerateReportAsync(string type)
+    public async Task<Result> GenerateReportAsync(string type)
     {
         return await GetResultAsync(async () =>
         {
@@ -100,21 +107,22 @@ public class ReportService : BaseService
         });
     }
 
-    public Result<string> GetStatus()
+    public Result GetStatus()
     {
         return SuccessResult("System running normally");
     }
 }
 
-// Generic base class — auto-links repository
+// Generic base class — provides the Instance singleton; hold the repository yourself
 public class UserService : BaseService<DbUser>
 {
-    public async Task<Result<List<UserDto>>> GetAllAsync()
+    readonly BaseRepository<DbUser> _repository = new();
+
+    public async Task<Result> GetAllAsync()
     {
         return await GetResultAsync(async () =>
         {
-            var users = await Repository.AsQueryable()
-                .ToList();
+            var users = await _repository.AsQueryable().ToListAsync();
             return users.ConvertTo<List<UserDto>>();
         });
     }
@@ -125,10 +133,10 @@ public class UserService : BaseService<DbUser>
 
 ```csharp
 // Define interval task
-[JobInfo(Name = "Cache Refresh", Description = "Refresh system cache every 30 minutes")]
+[JobInfo("Cache Refresh", "Refresh system cache every 30 minutes")]
 public class CacheRefreshJob : BaseJobService
 {
-    protected override TimeSpan Interval => TimeSpan.FromMinutes(30);
+    public CacheRefreshJob() : base(30 * 60 * 1000) { }  // Every 30 minutes
 
     public override async Task RunAsync()
     {
@@ -144,6 +152,7 @@ public interface IJob
     Task RunAsync();
     void Start();
     void Stop();
+    void Stop(CancellationToken cancellationToken);  // stop with cancellation/timeout support
 }
 ```
 
@@ -201,11 +210,11 @@ job.SetCron("0 15 3 * * *");
 job.Cron = "0 0 12 * * *";  // Property assignment equivalent to SetCron
 ```
 
-HTTP API for dynamic management (built-in `JobsController`):
+HTTP API for dynamic management (built-in `JobsController`, all endpoints are `[HttpPost]`):
 
-- `GET api/admin/Jobs/GetJobCron?name=xxx` — Query cron expression
-- `GET api/admin/Jobs/GetJobNextOccurrence?name=xxx` — Query next execution time
-- `PUT api/admin/Jobs/UpdateJobCron?name=xxx` — Update cron for running job (body: `{ "cron": "0 0 8 * * *" }`)
+- `POST api/admin/Jobs/GetJobCron?name=xxx` — Query cron expression
+- `POST api/admin/Jobs/GetJobNextOccurrence?name=xxx` — Query next execution time
+- `POST api/admin/Jobs/UpdateJobConfig?name=xxx&cron=...&isEnabled=...&remark=...` — Update job configuration (a cron change takes effect immediately, an `isEnabled` change starts/stops the job)
 
 ### 4. Task Auto-Discovery
 
@@ -218,11 +227,13 @@ HTTP API for dynamic management (built-in `JobsController`):
 ## Tips
 
 - Always use `GetResultAsync()` to wrap business logic for automatic exception handling and unified response format
-- The `Repository` property in `BaseService<T>` is directly available — no additional injection needed
-- Background tasks only need to inherit `BaseJobService` and set `Interval`; the scheduling engine handles the rest
-- Use `JobInfoAttribute` to add names and descriptions to tasks for easier management and monitoring
-- `IServiceCache` is injected via DI and can be used in any `BaseService` subclass
+- `BaseService<T>` only provides the `Instance` singleton and response helpers — **there is no built-in repository**; new up `BaseRepository<T>()` or inject one
+- Derive background tasks from `BaseJobService` and pass scheduling parameters to the constructor (millisecond interval / time point / cron); use `SetCron` to reschedule at runtime
+- Use `JobInfo("Name", "Description")` to add names and descriptions to tasks for easier management and monitoring
+- `IServiceCache` is resolved from the DI container through the static `ServiceCache` property and can be used in any `BaseService` subclass
 
 ## License
 
-MIT
+Copyright (c) yswenli.
+
+Licensed under the [Apache License 2.0](../LICENSE).

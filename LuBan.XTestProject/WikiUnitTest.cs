@@ -1,4 +1,10 @@
 /****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -42,7 +48,7 @@ public class WikiUnitTest
         public string GroupName { get; }
         public string? Description => null;
         public bool IsOptIn { get; }
-        public IReadOnlyList<AIFunction> GetTools(IServiceProvider sp, ToolGroupOptions? toolsOptions = null)
+        public IReadOnlyList<AIFunction> GetTools(DiContainer sp, ToolGroupOptions? toolsOptions = null)
             => Array.Empty<AIFunction>();
         public bool IsEnabled(LuBanAgentOptions options) => true;
     }
@@ -385,7 +391,7 @@ public class WikiUnitTest
         var plugin = new WikiToolPlugin(Options.Create(new LuBanAgentOptions()));
 
         var disabled = new ToolGroupOptions { Wiki = { Enabled = false } };
-        Assert.AreEqual(0, plugin.GetTools(sp, disabled).Count);
+        Assert.AreEqual(0, plugin.GetTools(sp.AsDiContainer(), disabled).Count);
     }
 
     private sealed class StubWikiService : IWikiService

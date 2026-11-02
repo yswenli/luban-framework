@@ -15,7 +15,7 @@ Are you still struggling with these DI issues?
 
 If so, **LuBan.DI** is built for you.
 
-It's a lightweight dependency injection extension library for **.NET 8** that achieves automatic service registration through marker interfaces + attribute annotations + assembly scanning. It also supports AOP proxy interception, giving your services cross-cutting concern capabilities automatically upon injection.
+It's a lightweight dependency injection extension library for **.NET 10** that achieves automatic service registration through marker interfaces + attribute annotations + assembly scanning. It also supports AOP proxy interception, giving your services cross-cutting concern capabilities automatically upon injection.
 
 ---
 
@@ -51,15 +51,38 @@ public class UserService : IUserService, IScoped
 }
 
 // 2. One-line scan registration at startup
-services.AutoInjectAllCustomerServices();
-services.BuildProvider();
+var di = new DiContainer();
+di.AutoInjectAllCustomerServices();
+di.Build().UseAsGlobal();
 
-// 3. Get service anywhere
-var userService = ServiceProviderUtil.GetRequiredService<IUserService>();
+// 3. Get service anywhere (scanning registers the implementation class itself; resolving by interface requires an explicit interface registration)
+var userService = DiContainer.Instance.GetRequiredService<UserService>();
 Console.WriteLine(userService.GetUserName(1));  // User_1
 ```
 
 > No fluff, just productivity.
+
+---
+
+## DiContainer (unified container)
+
+`LuBan.DI.DiContainer` is the framework's unified DI container and implements `IServiceCollection` (registration),
+`IServiceProvider` (resolution), `IServiceScopeFactory` (interoperability), and `IDisposable` / `IAsyncDisposable`.
+
+```csharp
+var di = new DiContainer();
+di.AddSingleton<IFoo, Foo>();
+di.AddScoped<IBar>(d => new Bar(d.GetRequiredService<IFoo>()));
+di.Build();                                  // ValidateScopes + ValidateOnBuild on by default, idempotent
+
+using var scope = di.CreateScope();          // child container, always derived from the root
+var bar = scope.GetRequiredService<IBar>();
+```
+
+- Only root containers created by the host with `new` may call `Build()`; `services.AsDiContainer()` / `provider.AsDiContainer()` are borrowed views and cannot call `Build()`.
+- Views wrapping an external provider do not own or dispose of the wrapped object.
+- `DiContainer.Instance` is the global container entry point; it is the only static entry point process-wide, with no second forwarding layer.
+- Before the container is built, `GetService` returns `null`, and `GetRequiredService` throws `InvalidOperationException`.
 
 ---
 
@@ -86,25 +109,27 @@ dotnet add package LuBan.DI
 | Interface | Namespace | Description |
 |---|---|---|
 | `IDependency` | `LuBan.DI.Interfaces` | Dependency marker base interface (not for direct external inheritance) |
-| `ITransient` | `System` | Transient: new instance created per request |
-| `IScoped` | `System` | Scoped: shared within each request scope |
-| `ISingleton` | `System` | Singleton: globally unique instance |
+| `ITransient` | `LuBan.DI` | Transient: new instance created per request |
+| `IScoped` | `LuBan.DI` | Scoped: shared within each request scope |
+| `ISingleton` | `LuBan.DI` | Singleton: globally unique instance |
 
 > Your service class only needs to implement the corresponding lifetime interface, and the framework will automatically detect and register it.
 
-### Global DI Container — `ServiceProviderUtil`
+### Global DI Container — `DiContainer.Instance`
 
-> Namespace: `System`
+> Namespace: `LuBan.DI`
 
-| Method | Description |
+| Member | Description |
 |---|---|
-| `Services` | Get/set `IServiceCollection` |
-| `InitServiceProvider(IServiceCollection)` | Initialize service collection |
-| `BuildProvider()` / `BuildProvider(IServiceCollection)` | Build `IServiceProvider` |
-| `GetService<T>()` | Get service (may be null) |
-| `GetRequiredService<T>()` | Get service (throws if not found) |
-| `GetRequiredServiceForOnce<T>(Action<IServiceCollection>)` | One-time get (suitable for testing) |
-| `AutoInjectAllCustomerServices(IServiceCollection)` | Auto-scan and register all types marked with DI interfaces |
+| `DiContainer.Instance` | Global container (also implements `IServiceCollection` / `IServiceProvider` / `IServiceScopeFactory`) |
+| `GetService<T>()` / `GetService(Type)` | Get service (returns null if unregistered or not built) |
+| `GetRequiredService<T>()` / `GetRequiredService(Type)` | Get service (throws if unregistered or not built) |
+| `GetServices<T>()` | Get all registrations for a service type |
+| `ResetServices(IServiceCollection)` | Take over an external service collection (e.g. ASP.NET `builder.Services`) |
+| `Build()` | Idempotent build (`ValidateScopes` + `ValidateOnBuild` on by default) |
+| `Rebuild()` | Rebuild and dispose the previous provider every time |
+| `CreateScope()` | Create a child container (always derived from the root) |
+| `UseAsGlobal()` | Make the current instance the global container |
 
 ### Service Scanning — `ServiceDescriptorUtil`
 
@@ -112,9 +137,10 @@ dotnet add package LuBan.DI
 
 | Method | Description |
 |---|---|
-| `AutoInjectAllCustomerServices(IServiceCollection)` | Scan all assemblies, auto-register classes implementing `IDependency` |
+| `AutoInjectAllCustomerServices(this IServiceCollection)` | Scan all assemblies, auto-register classes implementing `IDependency` |
 | `TryGetServiceLifetime(Type)` | Resolve `ServiceLifetime` from marker interface |
 | `Register(IServiceCollection, Type, Type, InjectionAttribute, Type?)` | Manually register a single type |
+| `RegisterService(IServiceCollection, Type, Type, InjectionAttribute)` | Scan entry point: registration scope decided by `Pattern` (currently registers the implementation class only) |
 | `AddDispatchProxy(...)` | Register AOP proxy |
 
 ### Injection Attribute — `InjectionAttribute`
@@ -123,20 +149,20 @@ dotnet add package LuBan.DI
 
 | Property | Description |
 |---|---|
-| `Action` | Registration mode: `Add` (override) or `TryAdd` (skip if exists) |
-| `Pattern` | Registration scope: `Self`, `FirstInterface`, `SelfWithFirstInterface`, `ImplementedInterfaces`, `All` |
-| `Named` | Registration alias (multi-service scenarios) |
+| `Action` | Registration mode: `Add` or `TryAdd`; both behave the same today — an existing registration of the same type is skipped, never overridden |
+| `Pattern` | Registration scope: `Self`, `FirstInterface`, `SelfWithFirstInterface`, `ImplementedInterfaces`, `All`; every value currently registers the implementation class only — interface registration is not effective yet |
+| `Named` | Registration alias (multi-service scenarios; reserved, not effective yet) |
 | `Order` | Registration ordering (higher value = later registration) |
-| `Proxy` | AOP proxy type (must inherit `AspectDispatchProxy`) |
-| `ExceptInterfaces` | List of excluded interfaces |
+| `Proxy` | AOP proxy type (must inherit `AspectDispatchProxy`; only takes effect through the explicit-interface `Register` overload) |
+| `ExceptInterfaces` | List of excluded interfaces (reserved, not effective yet) |
 
 ### AOP Proxy
 
 | Class/Interface | Namespace | Description |
 |---|---|---|
 | `AspectDispatchProxy` | `LuBan.DI.Core` | Abstract proxy base class, implements `Invoke`/`InvokeAsync`/`InvokeAsyncT<T>` |
-| `IDispatchProxy` | `LuBan.Common.DI` | Proxy interception dependency interface (`Target` + `Services`) |
-| `IGlobalDispatchProxy` | `LuBan.Common.DI` | Global proxy interception interface |
+| `IDispatchProxy` | `LuBan.DI.Interfaces` | Proxy interception dependency interface (`Target` + `Services`) |
+| `IGlobalDispatchProxy` | `LuBan.DI.Interfaces` | Global proxy interception interface |
 | `SuppressProxyAttribute` | `LuBan.DI.Attrs` | Mark on class to skip global proxy |
 
 ---
@@ -182,8 +208,9 @@ var builder = WebApplication.CreateBuilder(args);
 // One line scans all assemblies for classes implementing IScoped/ISingleton/ITransient
 builder.Services.AutoInjectAllCustomerServices();
 
-// Build DI container
-builder.Services.BuildProvider();
+// Build the global DI container
+var di = new DiContainer(builder.Services).UseAsGlobal();
+di.Rebuild();   // rebuild every time; use di.Build() for an idempotent build with validation enabled
 
 var app = builder.Build();
 app.Run();
@@ -195,10 +222,10 @@ app.Run();
 using System;
 
 // Get registered services anywhere (without constructor injection)
-var emailService = ServiceProviderUtil.GetRequiredService<EmailService>();
+var emailService = DiContainer.Instance.GetRequiredService<EmailService>();
 emailService.Send("user@example.com");
 
-var configService = ServiceProviderUtil.GetService<ConfigService>();
+var configService = DiContainer.Instance.GetService<ConfigService>();
 var value = configService?.GetConfig("AppName");
 ```
 
@@ -233,9 +260,10 @@ public class InternalWorker : ITransient
 ### AOP Proxy Interception
 
 ```csharp
+using System.Reflection;
 using LuBan.DI.Core;
 using LuBan.DI.Attrs;
-using LuBan.Common.DI;
+using LuBan.DI.Interfaces;
 
 // 1. Define proxy class
 public class LogDispatchProxy : AspectDispatchProxy, IDispatchProxy
@@ -267,15 +295,20 @@ public class LogDispatchProxy : AspectDispatchProxy, IDispatchProxy
     }
 }
 
-// 2. Specify proxy on service
-[Injection(Proxy = typeof(LogDispatchProxy))]
+// 2. Interface + proxy must be registered explicitly: scanning registers the implementation class only,
+//    so [Injection(Proxy = ...)] on the class neither registers the interface nor creates a proxy
 public class UserService : IUserService, IScoped
 {
     public string GetUserName(int id) => $"User_{id}";
 }
 
+var di = new DiContainer();
+ServiceDescriptorUtil.Register(di, typeof(IScoped), typeof(UserService),
+    new InjectionAttribute { Proxy = typeof(LogDispatchProxy) }, typeof(IUserService));
+di.Build().UseAsGlobal();
+
 // 3. Calls automatically go through proxy
-var svc = ServiceProviderUtil.GetRequiredService<IUserService>();
+var svc = DiContainer.Instance.GetRequiredService<IUserService>();
 svc.GetUserName(1);
 // Output:
 // [Before] GetUserName
@@ -299,18 +332,20 @@ public class HealthCheckService : ITransient
 
 ## Usage Tips
 
-1. **Don't mix up namespaces**: `ITransient`/`IScoped`/`ISingleton` are in the `System` namespace; `IDependency` is in `LuBan.DI.Interfaces`; `InjectionAttribute` is in `LuBan.DI.Attrs`; `AspectDispatchProxy` is in `LuBan.DI.Core`.
+1. **Don't mix up namespaces**: `ITransient`/`IScoped`/`ISingleton` are in `LuBan.DI`; `IDependency` is in `LuBan.DI.Interfaces`; `InjectionAttribute` is in `LuBan.DI.Attrs`; `AspectDispatchProxy` is in `LuBan.DI.Core`.
 2. **Scan order**: `AutoInjectAllCustomerServices` scans all types returned by `RuntimeUtil.GetTypes()`, ensure your assemblies are already loaded.
-3. **`BuildProvider` goes last**: Register all services first, then call `BuildProvider()` to build the container.
+3. **Register first, build last**: after registration, call `Build()` (idempotent) or `Rebuild()` (rebuild every time), then call `UseAsGlobal()` to make it the global entry point.
 4. **Proxy classes must inherit `AspectDispatchProxy`**: Also implement `IDispatchProxy` interface to get `Target` and `Services`.
 5. **`[SuppressProxy]` exempts from proxying**: Add this attribute to classes you don't want proxied.
-6. **`Order` controls registration sequence**: Higher values register later, useful for overriding default implementations.
+6. **`Order` controls registration sequence**: Higher values register later; since an existing registration of the same type is skipped, the first one wins — to replace an implementation, change the order or remove the old registration.
 
 ---
 
 ## License
 
-MIT License
+Copyright (c) yswenli.
+
+Licensed under the [Apache License 2.0](../LICENSE).
 
 ---
 

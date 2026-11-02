@@ -1,4 +1,10 @@
 /****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -23,7 +29,7 @@ public class LlmTaskPlanner : ITaskPlanner
 {
     private const int MaxRetries = 1;
     private readonly IChatClient _chatClient;
-    private readonly IServiceProvider _serviceProvider;
+    private readonly DiContainer _serviceProvider;
     private readonly IOptions<LuBanAgentOptions> _options;
 
     /// <summary>
@@ -35,7 +41,7 @@ public class LlmTaskPlanner : ITaskPlanner
     /// <param name="providerRouter">模型提供者路由（可选，配置 PlannerModel 后生效）。</param>
     public LlmTaskPlanner(
         IChatClient chatClient,
-        IServiceProvider serviceProvider,
+        DiContainer serviceProvider,
         IOptions<LuBanAgentOptions> options,
         IProviderRouter? providerRouter = null)
     {

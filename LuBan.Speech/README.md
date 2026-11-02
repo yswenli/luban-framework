@@ -17,9 +17,9 @@
 **LuBan.Speech** 提供了统一的语音识别接口：
 - `ISpeechService` 统一接口，支持扩展多种语音引擎
 - 工厂模式创建服务实例，配置驱动
-- 内置语音识别实现（`语音识别服务SpeechService`）
+- 内置百度语音识别实现（`BaiduSpeechService`）
 - 自动管理 OAuth 2.0 令牌获取
-- 支持 PCM 等音频格式的流式识别
+- 支持 PCM 等音频格式的语音识别
 - 单例模式，全局复用
 
 ## 快速预览
@@ -40,7 +40,7 @@ var speechService = SpeechFactory.Create(new SpeechConfig
 using var audioStream = File.OpenRead("speech.pcm");
 var result = await speechService.RecognitionAsync(audioStream, "pcm");
 
-Console.WriteLine($"识别结果: {result}");
+Console.WriteLine($"识别结果: {result.Result}");
 ```
 
 ## 技术栈
@@ -49,7 +49,7 @@ Console.WriteLine($"识别结果: {result}");
 |------|------|
 | LuBan.Service | 服务基类 |
 | LuBan.Common | 基础工具库 |
-| .NET | 8.0 |
+| .NET | net10.0 |
 
 ## 安装
 
@@ -63,9 +63,9 @@ dotnet add package LuBan.Speech
 |---------|--------|------|
 | 统一接口 | `ISpeechService` | SetConfig / GetToken / RecognitionAsync |
 | 工厂 | `SpeechFactory` | 根据配置创建语音服务实例 |
-| 语音识别服务实现 | `语音识别服务SpeechService` | 语音识别（单例，OAuth 令牌） |
+| 语音识别服务实现 | `BaiduSpeechService` | 百度语音识别（单例，OAuth 令牌） |
 | 配置 | `SpeechConfig` | 语音类型、ClientId、ClientSecret |
-| 类型枚举 | `EnumSpeechType` | 语音识别服务 等 |
+| 类型枚举 | `EnumSpeechType` | 语音类型（当前仅 `Baidu = 1`） |
 
 ## 详细用法
 
@@ -74,7 +74,7 @@ dotnet add package LuBan.Speech
 ```json
 {
   "SpeechConfig": {
-    "SpeechType": 0,
+    "SpeechType": 1,
     "ClientId": "your-baidu-app-id",
     "ClientSecret": "your-baidu-app-secret"
   }
@@ -116,13 +116,15 @@ var result = await speechService.RecognitionAsync(stream);
 
 ## 使用提示
 
-- `语音识别服务SpeechService` 为单例模式（`BaseService<语音识别服务SpeechService>`），全局复用
+- `BaiduSpeechService` 为单例模式（`BaseService<BaiduSpeechService>`），全局复用
 - 音频流需为 PCM 格式，16000Hz 采样率，单声道。其他格式需先转换
-- `SpeechFactory.Create()` 无参版本从 `ConfigUtil.Read<SpeechConfig>()` 读取配置
+- `SpeechFactory.Create()` 无参版本的配置在静态构造函数中经 `ConfigUtil.Read<SpeechConfig>()` 读取，进程内仅读取一次
 - 语音识别 API 对音频时长有限制（通常不超过 60 秒），长音频需分段处理
-- 语音识别结果以逗号分隔的字符串返回（多个候选结果）
+- 语音识别结果以逗号分隔的字符串返回，位于 `Result.Result` 内（多个候选结果）
 - 扩展新语音引擎只需实现 `ISpeechService` 接口并在 `SpeechFactory` 中注册
 
 ## 许可证
 
-Copyright (c) yswenli. All rights reserved.
+Copyright (c) yswenli.
+
+Licensed under the [Apache License 2.0](../LICENSE).

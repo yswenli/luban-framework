@@ -1,4 +1,10 @@
 /****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *命名空间：LuBan.XTestProject
@@ -228,7 +234,7 @@ public class EditToolUnitTest
 
         var plugin = new FileSystemToolPlugin(options);
         // 生产工具名由 AIFunctionFactory 生成：剥离方法名的 "Async" 后缀（MultiEditFileAsync → MultiEditFile）。
-        var inner = plugin.GetTools(provider).Single(t => t.Name == "MultiEditFile");
+        var inner = plugin.GetTools(provider.AsDiContainer()).Single(t => t.Name == "MultiEditFile");
         return new RequiredArgumentGuardAIFunction(inner);
     }
 

@@ -1,4 +1,10 @@
 /****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -20,7 +26,7 @@ namespace LuBan.AIAgent;
 /// <summary>
 /// LuBan Agent「开箱即用」注册扩展。
 /// <para>
-/// <see cref="AddLuBanAgent(IServiceCollection, IConfiguration)"/> 只注册框架内部零件，
+/// <see cref="AddLuBanAgent(DiContainer, IConfiguration)"/> 只注册框架内部零件，
 /// 会话上下文（<see cref="ISessionContext"/>）、本地记忆存储（<see cref="ILocalMemoryStore"/>）
 /// 等契约留给宿主实现——直接用会导致工具组构建期抛 <see cref="InvalidOperationException"/>。
 /// 本扩展在 <c>AddLuBanAgent</c> 之上补齐这些契约的内存/默认实现，使最小宿主三行即可跑通。
@@ -41,10 +47,10 @@ public static class LuBanAgentDefaultsExtensions
     /// <param name="chatClientFactory">ChatClient 工厂方法。</param>
     /// <returns>服务集合。</returns>
     [RequiresUnreferencedCode("AddLuBanAgent loads external plugins via Assembly.Load and GetTypes, which is incompatible with Native AOT trimming.")]
-    public static IServiceCollection AddLuBanAgentDefaults(
-        this IServiceCollection services,
+    public static DiContainer AddLuBanAgentDefaults(
+        this DiContainer services,
         IConfiguration configuration,
-        Func<IServiceProvider, IChatClient> chatClientFactory)
+        Func<DiContainer, IChatClient> chatClientFactory)
     {
         ArgumentNullException.ThrowIfNull(chatClientFactory);
 
@@ -59,10 +65,14 @@ public static class LuBanAgentDefaultsExtensions
     /// <param name="configuration">配置。</param>
     /// <returns>服务集合。</returns>
     [RequiresUnreferencedCode("AddLuBanAgent loads external plugins via Assembly.Load and GetTypes, which is incompatible with Native AOT trimming.")]
-    public static IServiceCollection AddLuBanAgentDefaults(
-        this IServiceCollection services,
+    public static DiContainer AddLuBanAgentDefaults(
+        this DiContainer services,
         IConfiguration configuration)
     {
+        // 让所有经 DI 构造的服务都能拿到当前解析上下文的容器视图。
+        // 必须是 Transient：单例服务拿根视图、Scoped 服务拿所在 scope 视图。
+        services.TryAddTransient<DiContainer>(sp => sp.AsDiContainer());
+
         services.AddLuBanAgent(configuration);
 
         // SubAgentFactory 构造依赖具体类型 LuBanAgentFactory（其 CreateSubAgentAsync 非接口成员），

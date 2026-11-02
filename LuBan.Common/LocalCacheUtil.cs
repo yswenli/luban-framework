@@ -1,4 +1,10 @@
 ﻿/****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：YSWENLI
@@ -28,6 +34,11 @@ namespace LuBan.Common;
 /// </summary>
 public static class LocalCacheUtil
 {
+    /// <summary>
+    /// 缓存字典的命名锁；锁内只做字典读写，序列化与外部回调一律放到锁外
+    /// </summary>
+    const string LockName = "LocalCacheUtil.GetOrSet";
+
     static ConcurrentDictionary<string, LocalCacheItem> _dic;
 
     static PersistenceFile _persistenceUtil;
@@ -72,20 +83,15 @@ public static class LocalCacheUtil
     /// <param name="heralded"></param>
     public static void Set<T>(string key, T t, TimeSpan expire, int heraldTime = 10, bool heralded = false)
     {
-        using var lockInfo = LockerBuilder.Default.Create("LocalCacheUtil.GetOrSet");
-        if (t != null)
+        if (t == null)
         {
-            var item = new LocalCacheItem()
-            {
-                Value = t.ToJson(),
-                ExpireAt = DateTimeUtil.Now.Add(expire),
-                HeraldTime = heraldTime,
-                Heralded = heralded
-            };
-            if (expire.TotalMilliseconds == -1)
-            {
-                item.ExpireAt = DateTime.MaxValue;
-            }
+            return;
+        }
+
+        var item = CreateItem(t, expire, heraldTime, heralded);
+
+        using (LockerBuilder.Default.Create(LockName))
+        {
             _dic.AddOrUpdate(key, item, (k, v) => item);
         }
     }
@@ -98,21 +104,31 @@ public static class LocalCacheUtil
     /// <returns></returns>
     public static T? Get<T>(string key)
     {
-        using var lockInfo = LockerBuilder.Default.Create("LocalCacheUtil.GetOrSet");
-        if (_dic.TryGetValue(key, out LocalCacheItem? cacheItem) && cacheItem != null)
+        string? value = null;
+        var found = false;
+
+        using (LockerBuilder.Default.Create(LockName))
         {
-            if (cacheItem.ExpireAt < DateTimeUtil.Now)
+            if (_dic.TryGetValue(key, out LocalCacheItem? cacheItem) && cacheItem != null)
             {
-                Remove(key);
-            }
-            else
-            {
-                var val = cacheItem.Value;
-                if (string.IsNullOrEmpty(val)) return default;
-                return SerializeUtil.Deserialize<T>(val);
+                if (cacheItem.ExpireAt < DateTimeUtil.Now)
+                {
+                    RemoveItem(key);
+                }
+                else
+                {
+                    value = cacheItem.Value;
+                    found = true;
+                }
             }
         }
-        return default;
+
+        if (!found || string.IsNullOrEmpty(value))
+        {
+            return default;
+        }
+
+        return SerializeUtil.Deserialize<T>(value!);
     }
 
     /// <summary>
@@ -124,16 +140,18 @@ public static class LocalCacheUtil
     /// <param name="heralded"></param>
     public static void SetExpireTime(string key, TimeSpan expire, int heraldTime = 10, bool heralded = false)
     {
-        using var lockInfo = LockerBuilder.Default.Create("LocalCacheUtil.GetOrSet");
-        if (_dic.TryGetValue(key, out LocalCacheItem? cacheItem) && cacheItem != null)
+        using (LockerBuilder.Default.Create(LockName))
         {
-            cacheItem.ExpireAt = DateTimeUtil.Now.Add(expire);
+            if (_dic.TryGetValue(key, out LocalCacheItem? cacheItem) && cacheItem != null)
+            {
+                cacheItem.ExpireAt = DateTimeUtil.Now.Add(expire);
 
-            cacheItem.HeraldTime = heraldTime;
+                cacheItem.HeraldTime = heraldTime;
 
-            cacheItem.Heralded = heralded;
+                cacheItem.Heralded = heralded;
 
-            _dic.AddOrUpdate(key, cacheItem, (k, v) => cacheItem);
+                _dic.AddOrUpdate(key, cacheItem, (k, v) => cacheItem);
+            }
         }
     }
 
@@ -146,16 +164,18 @@ public static class LocalCacheUtil
     /// <param name="heralded"></param>
     public static void SetExpireTime(string key, DateTime expireAt, int heraldTime = 10, bool heralded = false)
     {
-        using var lockInfo = LockerBuilder.Default.Create("LocalCacheUtil.GetOrSet");
-        if (_dic.TryGetValue(key, out LocalCacheItem? cacheItem) && cacheItem != null)
+        using (LockerBuilder.Default.Create(LockName))
         {
-            cacheItem.ExpireAt = expireAt;
+            if (_dic.TryGetValue(key, out LocalCacheItem? cacheItem) && cacheItem != null)
+            {
+                cacheItem.ExpireAt = expireAt;
 
-            cacheItem.HeraldTime = heraldTime;
+                cacheItem.HeraldTime = heraldTime;
 
-            cacheItem.Heralded = heralded;
+                cacheItem.Heralded = heralded;
 
-            _dic.AddOrUpdate(key, cacheItem, (k, v) => cacheItem);
+                _dic.AddOrUpdate(key, cacheItem, (k, v) => cacheItem);
+            }
         }
     }
 
@@ -183,31 +203,10 @@ public static class LocalCacheUtil
     /// <param name="key"></param>
     public static bool Remove(string key)
     {
-        using var lockInfo = LockerBuilder.Default.Create("LocalCacheUtil.GetOrSet");
-        if (_dic.TryRemove(key, out LocalCacheItem? item) && item != null && item.Value != null)
+        using (LockerBuilder.Default.Create(LockName))
         {
-            var type = item.Value.GetType();
-
-            var ief1 = type.GetInterface("IList");
-
-            if (ief1 != null)
-            {
-                var list = (IList)ief1;
-                list.Clear();
-            }
-            else
-            {
-                var ief2 = type.GetInterface("IDictionary");
-
-                if (ief2 != null)
-                {
-                    var list = (IDictionary)ief2;
-                    list.Clear();
-                }
-            }
-            return true;
+            return RemoveItem(key);
         }
-        return false;
     }
 
     static bool _started = true;
@@ -226,7 +225,10 @@ public static class LocalCacheUtil
                     return;
                 }
                 var keys = _dic.Keys;
-                using (var lockInfo = LockerBuilder.Default.Create("LocalCacheUtil.GetOrSet"))
+                var heraldKeys = new List<string>();
+                var expiredItems = new List<(string Key, LocalCacheItem Item)>();
+
+                using (LockerBuilder.Default.Create(LockName))
                 {
                     foreach (var key in keys)
                     {
@@ -234,40 +236,31 @@ public static class LocalCacheUtil
                         {
                             if (item.ExpireAt < DateTimeUtil.Now.AddSeconds(item.HeraldTime) && !item.Heralded)
                             {
-                                OnHerald?.Invoke(key);
-
                                 SetHerald(key, item.HeraldTime, false);
+
+                                heraldKeys.Add(key);
                             }
                             else if (item.ExpireAt < DateTimeUtil.Now)
                             {
-                                if (_dic.TryRemove(key, out LocalCacheItem? lci) && item != null && item.Value != null)
+                                if (RemoveItem(key, out LocalCacheItem? removed) && removed != null)
                                 {
-                                    var type = item.Value.GetType();
-
-                                    var ief1 = type.GetInterface("IList");
-
-                                    if (ief1 != null)
-                                    {
-                                        var list = (IList)ief1;
-                                        list.Clear();
-                                    }
-                                    else
-                                    {
-                                        var ief2 = type.GetInterface("IDictionary");
-
-                                        if (ief2 != null)
-                                        {
-                                            var list = (IDictionary)ief2;
-                                            list.Clear();
-                                        }
-                                    }
-
-                                    OnExpired?.Invoke(key, lci);
+                                    expiredItems.Add((key, removed));
                                 }
                             }
                         }
                     }
                 }
+
+                foreach (var key in heraldKeys)
+                {
+                    OnHerald?.Invoke(key);
+                }
+
+                foreach (var (key, item) in expiredItems)
+                {
+                    OnExpired?.Invoke(key, item);
+                }
+
                 _persistenceUtil.WriteData(_dic);
             }
             catch (Exception ex)
@@ -300,6 +293,7 @@ public static class LocalCacheUtil
         /// 值
         /// </summary>
         public string Value { get; set; }
+
         /// <summary>
         /// 创建时间
         /// </summary>
@@ -328,46 +322,33 @@ public static class LocalCacheUtil
     /// <returns></returns>
     public static T? GetOrSet<T>(string key, T t, TimeSpan expire, int heraldTime = 10, bool heralded = false)
     {
-        using var lockInfo = LockerBuilder.Default.Create("LocalCacheUtil.GetOrSet");
+        var cached = TryRead(key);
 
-        T? old = default;
-
-        if (_dic.TryGetValue(key, out LocalCacheItem? cacheItem) && cacheItem != null)
+        if (cached.Found)
         {
-            if (cacheItem.ExpireAt < DateTimeUtil.Now)
+            if (string.IsNullOrEmpty(cached.Value))
             {
-                Remove(key);
+                return default;
             }
-            else
+
+            var old = SerializeUtil.Deserialize<T>(cached.Value!);
+            if (old != null)
             {
-                var val = cacheItem.Value;
-                if (string.IsNullOrEmpty(val)) return default;
-                old = SerializeUtil.Deserialize<T>(val);
+                return old;
             }
         }
 
-        if (old != null)
+        if (t != null)
         {
-            return old;
-        }
-        else
-        {
-            if (t != null)
-            {
-                var item = new LocalCacheItem()
-                {
-                    Value = t.ToJson(),
-                    ExpireAt = DateTimeUtil.Now.Add(expire),
-                    HeraldTime = heraldTime,
-                    Heralded = heralded
-                };
+            var item = CreateItem(t, expire, heraldTime, heralded);
 
+            using (LockerBuilder.Default.Create(LockName))
+            {
                 _dic.AddOrUpdate(key, item, (k, v) => item);
             }
-
-            return t;
         }
 
+        return t;
     }
 
     /// <summary>
@@ -380,49 +361,38 @@ public static class LocalCacheUtil
     /// <param name="heraldTime"></param>
     /// <param name="heralded"></param>
     /// <returns></returns>
+    /// <remarks>工厂在锁外执行：并发首次访问可能重复执行工厂，以最后一次写入为准</remarks>
     public static T? GetOrSet<T>(string key, Func<string, T> func, TimeSpan expire, int heraldTime = 10, bool heralded = false)
     {
-        using var lockInfo = LockerBuilder.Default.Create("LocalCacheUtil.GetOrSet");
+        var cached = TryRead(key);
 
-        T? old = default;
-
-        if (_dic.TryGetValue(key, out LocalCacheItem? cacheItem) && cacheItem != null)
+        if (cached.Found)
         {
-            if (cacheItem.ExpireAt < DateTimeUtil.Now)
+            if (string.IsNullOrEmpty(cached.Value))
             {
-                Remove(key);
+                return default;
             }
-            else
+
+            var old = SerializeUtil.Deserialize<T>(cached.Value!);
+            if (old != null)
             {
-                var val = cacheItem.Value;
-                if (string.IsNullOrEmpty(val)) return default;
-                old = SerializeUtil.Deserialize<T>(val);
+                return old;
             }
         }
 
-        if (old != null)
-        {
-            return old;
-        }
-        else
-        {
-            var t = func.Invoke(key);
+        var t = func.Invoke(key);
 
-            if (t != null)
+        if (t != null)
+        {
+            var item = CreateItem(t, expire, heraldTime, heralded);
+
+            using (LockerBuilder.Default.Create(LockName))
             {
-                var item = new LocalCacheItem()
-                {
-                    Value = t.ToJson(),
-                    ExpireAt = DateTimeUtil.Now.Add(expire),
-                    HeraldTime = heraldTime,
-                    Heralded = heralded
-                };
-
                 _dic.AddOrUpdate(key, item, (k, v) => item);
             }
-
-            return t;
         }
+
+        return t;
     }
 
     /// <summary>
@@ -433,5 +403,72 @@ public static class LocalCacheUtil
         _started = false;
 
         _timer.Dispose();
+    }
+
+    /// <summary>
+    /// 读取缓存项原始值；过期项在读锁内移除。调用方须自行承担反序列化开销（锁外）
+    /// </summary>
+    static (bool Found, string? Value) TryRead(string key)
+    {
+        using (LockerBuilder.Default.Create(LockName))
+        {
+            if (_dic.TryGetValue(key, out LocalCacheItem? cacheItem) && cacheItem != null)
+            {
+                if (cacheItem.ExpireAt < DateTimeUtil.Now)
+                {
+                    RemoveItem(key);
+
+                    return (false, null);
+                }
+
+                return (true, cacheItem.Value);
+            }
+        }
+
+        return (false, null);
+    }
+
+    /// <summary>
+    /// 组装缓存项（序列化在锁外完成）
+    /// </summary>
+    static LocalCacheItem CreateItem<T>(T t, TimeSpan expire, int heraldTime, bool heralded)
+    {
+        // 调用方均已排除 null（Set 直接返回，GetOrSet 判空后写入）
+        var item = new LocalCacheItem()
+        {
+            Value = t!.ToJson(),
+            ExpireAt = DateTimeUtil.Now.Add(expire),
+            HeraldTime = heraldTime,
+            Heralded = heralded
+        };
+
+        if (expire.TotalMilliseconds == -1)
+        {
+            item.ExpireAt = DateTime.MaxValue;
+        }
+
+        return item;
+    }
+
+    /// <summary>
+    /// 移除缓存项（调用方须已持有 <see cref="LockName"/> 锁）
+    /// </summary>
+    static bool RemoveItem(string key) => RemoveItem(key, out _);
+
+    /// <summary>
+    /// 移除缓存项并返回被移除的实例（调用方须已持有 <see cref="LockName"/> 锁）
+    /// </summary>
+    static bool RemoveItem(string key, out LocalCacheItem? removed)
+    {
+        removed = null;
+
+        if (_dic.TryRemove(key, out LocalCacheItem? item) && item != null && item.Value != null)
+        {
+            removed = item;
+
+            return true;
+        }
+
+        return false;
     }
 }

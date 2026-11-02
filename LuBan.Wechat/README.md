@@ -38,6 +38,7 @@ var corpClient = WechatClientFactory.Create(EnumWechatType.Corp);
 |------|------|------|
 | 运行时 | .NET 10.0 | — |
 | 框架依赖 | LuBan.Web.Core, LuBan.Service, LuBan.Common | LuBan 框架核心 |
+| 第三方依赖 | Encrypt.Library、SKIT.FlurlHttpClient.Common、SKIT.FlurlHttpClient.Wechat.Api 3.17.0、SKIT.FlurlHttpClient.Wechat.Work 3.17.0 | 加解密与微信 API SDK |
 
 ---
 
@@ -57,9 +58,9 @@ dotnet add package LuBan.Wechat
 
 | 方法 | 说明 |
 |------|------|
-| `Create(EnumWechatType)` | 按类型获取客户端（Api/Pay/App/Corp） |
+| `Create(EnumWechatType)` | 按类型获取客户端（Api 公众号 / Pay 支付 / App 小程序 / Corp 企业微信） |
 | `CreateWechatApiClient(options)` | 创建公众号客户端 |
-| `CreateWechatAppClient(options)` | 创建微信 App 客户端 |
+| `CreateWechatAppClient(options)` | 创建小程序客户端（使用 `WxOpenAppId`/`WxOpenAppSecret`） |
 | `CreateWechatTenpayClient(options)` | 创建微信支付客户端 |
 | `CreateWechatCorpClient(options)` | 创建企业微信客户端 |
 
@@ -72,7 +73,7 @@ dotnet add package LuBan.Wechat
 
 ### 消息协议模型
 
-完整的微信消息收发模型（29 个模型类）：
+完整的微信消息收发模型（Models 目录 29 个文件）：
 
 **接收消息（Receive）：**
 - `ReceiveText` — 文本消息
@@ -175,8 +176,8 @@ var signature = WechatCallBackCall.Signature(
 ```csharp
 var client = WechatClientFactory.Create(EnumWechatType.Api) as WechatApiClient;
 
-// 获取用户信息
-var request = new CreateWechatAccessTokenRequest();
+// 获取 AccessToken（CgibinTokenRequest 来自 SKIT.FlurlHttpClient.Wechat.Api）
+var request = new CgibinTokenRequest();
 var response = await client.ExecuteAsync(request);
 ```
 
@@ -191,12 +192,24 @@ var response = await client.ExecuteAsync(request);
   "WechatOptions": {
     "WechatAppId": "wx_your_appid",
     "WechatAppSecret": "your_secret",
+    "EnableCallbackProxy": false,
+    "CallbackProxyDomain": "https://uat-wcforward.luban.com/",
     "WxOpenAppId": "wx_open_appid",
     "WxOpenAppSecret": "wx_open_secret",
-    "CorpId": "your_corp_id",
-    "CorpSecret": "your_corp_secret"
+    "WechatCorpOptions": {
+      "Type": "SelfApp",
+      "SelfAppOptions": {
+        "CorpId": "your_corp_id",
+        "AgentId": 1000002,
+        "AgentSecret": "your_agent_secret",
+        "PushToken": "your_push_token",
+        "PushEncodingAESKey": "your_aes_key"
+      }
+    }
   },
   "WechatPayOptions": {
+    "AppId": "wx_your_appid",
+    "WechatPayUrl": "https://example.com/wechat/pay/callback",
     "MerchantId": "your_merchant_id",
     "MerchantV3Secret": "your_v3_secret",
     "MerchantCertificateSerialNumber": "your_cert_sn",
@@ -205,12 +218,14 @@ var response = await client.ExecuteAsync(request);
 }
 ```
 
+`WechatCorpOptions.Type` 取 `SelfApp`（自建应用，配 `SelfAppOptions`）、`Developers`（第三方/代开发，配 `DevelopersOptions`）或 `SmartHardware`（智慧硬件，配 `SmartHardwareOptions`），三类配置只需填当前类型对应的那一段。
+
 ---
 
 ## 小贴士
 
 1. **客户端缓存**：`WechatClientFactory` 自动缓存客户端实例，无需手动管理生命周期
-2. **拦截器**：所有客户端自动注入 `WechatClientInterceptor`，记录请求/响应日志
+2. **拦截器**：通过 `WechatClientFactory.Create(EnumWechatType)` 创建的客户端会自动注入 `WechatClientInterceptor`，记录请求/响应日志；直接调用 `CreateWechatXxxClient` 则不会注入
 3. **企业微信**：`WechatCorpClient` 同时支持自建应用（`Client`）和第三方代开发（`SuiteClients`）
 4. **回调验证**：`AccessValid()` 方法自动完成 SHA1 签名校验
 5. **XML 解析**：`XmlMsgRevolve` 自动识别消息类型并反序列化为对应子类
@@ -219,4 +234,6 @@ var response = await client.ExecuteAsync(request);
 
 ## 许可证
 
-Copyright (c) yswenli. All Rights Reserved.
+Copyright (c) yswenli.
+
+Licensed under the [Apache License 2.0](../LICENSE).

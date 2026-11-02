@@ -1,4 +1,10 @@
 /****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -76,7 +82,7 @@ public class ToolPluginRegistry
     /// <param name="sp">服务提供者</param>
     /// <param name="groupNames">工具组名称列表，null 表示全部已启用组（不含 opt-in 组）</param>
     /// <returns>AIFunction 列表</returns>
-    public IReadOnlyList<AIFunction> GetAllFunctions(IServiceProvider sp, IEnumerable<string>? groupNames = null)
+    public IReadOnlyList<AIFunction> GetAllFunctions(DiContainer sp, IEnumerable<string>? groupNames = null)
         => GetPlugins(groupNames)
             .SelectMany(p => p.GetTools(sp, null))
             .ToList();

@@ -4,7 +4,7 @@
 
 > **Author**: yswenli | **Contact**: yswenli@outlook.com | **Repository**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
-> **Define workflows in JSON, drive approvals with code — a lightweight approval flow engine supporting countersign, gateway routing, HTTP callbacks, and auto-advancement.**
+> **Define workflows in JSON, drive approvals with code — a lightweight approval flow engine supporting countersign, gateway routing, and HTTP callbacks.**
 
 ---
 
@@ -26,7 +26,7 @@ LuBan.ApprovalFlow is an **embedded** approval flow engine: define workflow stru
 services.AddApprovalFlow();
 
 // 2. Start a flow
-var engine = ServiceProviderUtil.GetRequiredService<ApprovalFlowEngine>();
+var engine = DiContainer.Instance.GetRequiredService<ApprovalFlowEngine>();
 var response = await engine.StartFlowAsync(new StartFlowRequest
 {
     FormPayload = new Dictionary<string, object> { ["amount"] = 50000 },
@@ -69,7 +69,7 @@ dotnet add package LuBan.ApprovalFlow
 ### Core Architecture
 
 ```
-FlowEngine (Singleton, manages thread pool + scheduled checks)
+FlowEngine (Singleton, manages the thread pool)
   └── ApprovalFlowEngine (Core engine, ~700 lines)
         ├── FlowBuilder — Loads workflow definitions from JSON, caches executors
         ├── FlowExecutor — Executes workflow steps
@@ -89,7 +89,7 @@ FlowEngine (Singleton, manages thread pool + scheduled checks)
 
 | Component | Description |
 |-----------|-------------|
-| `FlowEngine` | Singleton engine manager, maintains thread pool, periodically (1 min) checks and auto-advances workflows |
+| `FlowEngine` | Singleton engine manager, maintains the thread pool |
 | `ApprovalFlowEngine` | Core engine: start workflows, process approvals, gateway routing, event triggering |
 | `FlowBuilder` | Loads workflow definitions from JSON files/strings, caches in memory |
 | `FlowExecutor` | Workflow executor, binds workflow definitions and manages runtime state |
@@ -174,7 +174,6 @@ Configure in `appsettings.json` :
 {
   "ApprovalFlowOptions": {
     "DataDir": "data",
-    "AutoApproval": true,
     "ThreadPoolSize": 10
   }
 }
@@ -183,7 +182,7 @@ Configure in `appsettings.json` :
 | Field | Description | Default |
 |-------|-------------|---------|
 | `DataDir` | Workflow definition JSON file directory | `"data"` |
-| `AutoApproval` | Enable auto-approval (FlowEngine scheduled advancement) | `false` |
+| `AutoApproval` | Reserved field: it has no read point in the current code, so enabling it has no auto-approval effect | `false` |
 | `ThreadPoolSize` | Engine thread pool size | `10` |
 
 ---
@@ -194,33 +193,87 @@ Configure in `appsettings.json` :
 
 ```json
 {
-  "Key": "leave_approval",
-  "Name": "Leave Approval",
-  "Nodes": [
-    { "Id": "start", "Type": "Start", "Name": "Start" },
-    { "Id": "manager", "Type": "User", "Name": "Manager Approval", "Assignee": "${managerId}" },
-    { "Id": "gateway1", "Type": "Gateway", "Name": "Amount Check" },
-    { "Id": "director", "Type": "User", "Name": "Director Approval", "Assignee": "${directorId}" },
-    { "Id": "end", "Type": "End", "Name": "End" }
+  "key": "leave_approval",
+  "name": "Leave Approval",
+  "nodes": [
+    { "id": "start", "type": "start-node", "x": 0, "y": 0, "properties": {}, "text": { "value": "Start" } },
+    {
+      "id": "manager",
+      "type": "user-node",
+      "x": 0,
+      "y": 120,
+      "properties": {
+        "role": "Department Manager",
+        "stage": "First review",
+        "multiApproval": false,
+        "aggregationType": "any_approve",
+        "approvePercentage": 100,
+        "assignees": [
+          { "userId": 101, "userName": "Zhang Manager", "role": "Department Manager" }
+        ]
+      },
+      "text": { "value": "Manager Approval" }
+    },
+    {
+      "id": "gateway1",
+      "type": "gateway-node",
+      "x": 0,
+      "y": 240,
+      "properties": {
+        "rules": [
+          {
+            "edgeId": "gw-to-director",
+            "edgeText": "Amount greater than 10,000",
+            "conditions": [
+              { "field": "amount", "operator": ">", "value": "10000", "valueType": "number" }
+            ],
+            "logic": "and"
+          }
+        ],
+        "defaultEdgeId": "gw-to-end",
+        "defaultEdgeText": "Amount at most 10,000"
+      },
+      "text": { "value": "Amount Check" }
+    },
+    {
+      "id": "director",
+      "type": "user-node",
+      "x": 200,
+      "y": 360,
+      "properties": {
+        "role": "Director",
+        "stage": "Second review",
+        "multiApproval": true,
+        "aggregationType": "all_approve",
+        "approvePercentage": 100,
+        "assignees": [
+          { "userId": 201, "userName": "Li Director", "role": "Director" }
+        ]
+      },
+      "text": { "value": "Director Approval" }
+    },
+    { "id": "end", "type": "end-node", "x": 0, "y": 480, "properties": {}, "text": { "value": "End" } }
   ],
-  "Edges": [
-    { "From": "start", "To": "manager" },
-    { "From": "manager", "To": "gateway1" },
-    { "From": "gateway1", "To": "director", "Condition": "amount > 10000" },
-    { "From": "gateway1", "To": "end", "Condition": "amount <= 10000" },
-    { "From": "director", "To": "end" }
+  "edges": [
+    { "id": "e-start-manager", "type": "polyline", "sourceNodeId": "start", "targetNodeId": "manager" },
+    { "id": "e-manager-gw", "type": "polyline", "sourceNodeId": "manager", "targetNodeId": "gateway1" },
+    { "id": "gw-to-director", "type": "polyline", "sourceNodeId": "gateway1", "targetNodeId": "director", "text": { "value": "Passed" } },
+    { "id": "gw-to-end", "type": "polyline", "sourceNodeId": "gateway1", "targetNodeId": "end", "text": { "value": "Passed" } },
+    { "id": "e-director-end", "type": "polyline", "sourceNodeId": "director", "targetNodeId": "end" }
   ]
 }
 ```
 
+Node types are `start-node` / `user-node` / `gateway-node` / `end-node` (`service-node` and `service-gateway-node` also exist); approvers go in `properties.assignees`, gateway conditions in `properties.rules`, and edges connect nodes via `sourceNodeId` / `targetNodeId`.
+
 ### Start Workflow
 
 ```csharp
-var engine = ServiceProviderUtil.GetRequiredService<ApprovalFlowEngine>();
-var repository = ServiceProviderUtil.GetRequiredService<IApprovalRepository>();
+var engine = DiContainer.Instance.GetRequiredService<ApprovalFlowEngine>();
+var repository = DiContainer.Instance.GetRequiredService<IApprovalRepository>();
 
 // Load workflow definition
-var builder = ServiceProviderUtil.GetRequiredService<FlowBuilder>();
+var builder = DiContainer.Instance.GetRequiredService<FlowBuilder>();
 var executor = await builder.CreateExecutorFromJsonFileAsync("data/leave_approval.json");
 var definition = executor.Definition;
 
@@ -259,8 +312,8 @@ var result = await engine.ProcessApprovalAsync(new ProcessApprovalRequest
 
 ## Tips
 
-1. **Auto-advancement**: When `AutoApproval = true`, `FlowEngine` checks in-progress workflows every minute and auto-advances to the next step
-2. **JSON Hot Reload**: `FlowBuilder` supports batch loading `*.json` from a directory, automatically updating cache when files change
+1. **Auto-advancement (not active)**: `AutoApproval` is a reserved field with no read point in the current code, and `FlowEngine`'s monitored-executor list is never populated, so in-progress workflows are not advanced on a schedule
+2. **Batch JSON loading**: `ApprovalFlowWarmupService` scans `*.json` under `DataDir` once at application startup; there is no file watcher, so after editing a definition you must restart or call `CreateExecutorFromJsonFileAsync` again to refresh the cache
 3. **Countersign Mode**: `AggregationEvaluator` supports AND (all pass), OR (any pass), ratio (e.g., 2/3 pass)
 4. **HTTP Callback**: `HttpNodeHandler` can call external APIs within workflows for automation integration
 5. **Approval Delegation**: `DbApprovalDelegation` entity supports proxy approval functionality
@@ -270,4 +323,6 @@ var result = await engine.ProcessApprovalAsync(new ProcessApprovalRequest
 
 ## License
 
-Copyright (c) yswenli. All Rights Reserved.
+Copyright (c) yswenli.
+
+Licensed under the [Apache License 2.0](../LICENSE).

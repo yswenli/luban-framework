@@ -15,7 +15,7 @@
 
 如果是，那 **LuBan.Threading** 就是为你准备的。
 
-它是 **.NET 8** 下的轻量级多线程工具库，零外部依赖，提供命名锁、线程池、任务池、阻塞队列、Task 扩展等一套完整的并发解决方案。不造框架，只做你手里最顺手的那把扳手。
+它是 **.NET 10** 下的轻量级多线程工具库，零外部依赖，提供命名锁、线程池、任务池、阻塞队列、Task 扩展等一套完整的并发解决方案。不造框架，只做你手里最顺手的那把扳手。
 
 ---
 
@@ -109,8 +109,8 @@ dotnet add package LuBan.Threading
 | 方法 | 说明 |
 |---|---|
 | `RunAsync(Action)` | Action 快速转 Task |
-| `Catch(Action<Exception>)` | Task 异常捕获，不中断管道 |
-| `Catch<T>(Func<Exception, T>)` | 带返回值的异常降级 |
+| `Catch(Action<Exception>)` | 捕获异常后回调处理，然后**重抛原异常**（管道不静默吞异常） |
+| `Catch<T>(Func<Exception, T>)` | 带返回值的异常降级，异常时返回回调结果 |
 | `LongRunning(Action)` | 独立长时间运行线程 |
 | `WhileAsync(Action, int)` | 后台独立线程循环执行，可设间隔 |
 | `WhileAsync(Func<bool>, int)` | 循环直到条件不满足 |
@@ -120,6 +120,7 @@ dotnet add package LuBan.Threading
 | `WithCancellationTimeout<T>(Task<T>, TimeSpan, CancellationToken)` | Task 超时 + 取消 |
 | `TimeoutAfterAsync(Func<CancellationToken, Task>, TimeSpan, CancellationToken)` | 带超时的异步操作，超时抛 `TimeoutException` |
 | `WaitForTasks(int, params Task<object>[])` | 等待多个 Task，支持超时 |
+| `WaitForTasksByList<T>(List<T>, Action<T>, int)` | 对列表每项并行执行回调，并等待全部完成（`timeOut > 0` 时超时返回） |
 | `Delay(int, CancellationToken)` | 非阻塞延迟，最小 50ms |
 
 ### 命名锁 — `LockerBuilder`
@@ -190,8 +191,8 @@ dotnet add package LuBan.Threading
 using LuBan.Threading;
 using LuBan.Threading.Core;
 
-// 使用全局默认实例
-await using var locker = await LockerBuilder.Default.GetLockerAsync("order:10086");
+// 使用全局默认实例（LockerReleaser 只实现 IDisposable，用 using 而非 await using）
+using var locker = await LockerBuilder.Default.GetLockerAsync("order:10086");
 try
 {
     // 同一订单号同一时刻只有一个线程能执行
@@ -206,7 +207,7 @@ using (var syncLocker = LockerBuilder.Default.Create("stock:SKU001"))
 }
 
 // 自定义超时
-await using var timedLocker = await LockerBuilder.Default.GetLockerAsync(
+using var timedLocker = await LockerBuilder.Default.GetLockerAsync(
     "payment:pay-001",
     timeout: TimeSpan.FromSeconds(5));
 ```
@@ -330,7 +331,9 @@ if (item != null)
 
 ## 许可证
 
-MIT License
+Copyright (c) yswenli.
+
+Licensed under the [Apache License 2.0](../LICENSE).
 
 ---
 

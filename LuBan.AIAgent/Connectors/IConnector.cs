@@ -1,4 +1,10 @@
 /****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *命名空间：LuBan.AIAgent.Connectors
@@ -73,7 +79,7 @@ public interface IConnector : IAsyncDisposable
 public sealed record ConnectorMcpExposure(
     string Name,
     string Description,
-    Func<IServiceProvider, Plugins.Security.PluginPermissionScope?, MCP.IMCPClient> CreateClient);
+    Func<DiContainer, Plugins.Security.PluginPermissionScope?, MCP.IMCPClient> CreateClient);
 
 /// <summary>
 /// 连接器构建上下文：工厂据此实例化连接器（含实例名与非敏感参数）。
@@ -87,7 +93,7 @@ public sealed class ConnectorBuildContext
     public required string ProviderKey { get; init; }
 
     /// <summary>解析连接器依赖的容器（宿主级单例取根容器）。</summary>
-    public required IServiceProvider Services { get; init; }
+    public required DiContainer Services { get; init; }
 
     /// <summary>非敏感参数（配置来源合并结果）。</summary>
     public ConnectorSettings Settings { get; init; } = ConnectorSettings.Empty;

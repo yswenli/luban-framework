@@ -1,4 +1,10 @@
 /****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -49,8 +55,8 @@ public static class LuBanAgentOpenAIExtensions
     /// <c>https://api.openai.com/v1/</c>。该情况会写入 <see cref="ChatClientFactoryWarning"/>，不会静默失败。
     /// </para>
     /// </remarks>
-    public static IServiceCollection AddLuBanAgentOpenAI(
-        this IServiceCollection services,
+    public static DiContainer AddLuBanAgentOpenAI(
+        this DiContainer services,
         IConfiguration configuration)
     {
         var models = ReadModels(configuration);

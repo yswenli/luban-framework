@@ -12,15 +12,15 @@
 
 ## 为什么选择 LuBan.VideoKit？
 
-在内容管理平台中，视频上传后自动生成封面图是基本需求。手动处理需要调用 视频处理工具，参数复杂、跨平台兼容性差、错误处理繁琐。
+在内容管理平台中，视频上传后自动生成封面图是基本需求。手动处理需要调用 FFmpeg，参数复杂、跨平台兼容性差、错误处理繁琐。
 
-**LuBan.VideoKit** 封装了 视频处理工具 调用，提供极简的视频缩略图提取能力：
+**LuBan.VideoKit** 封装了 FFmpeg 调用，提供极简的视频缩略图提取能力：
 - 支持指定截取时间点（精确到秒）
 - 可配置输出宽度（高度自动按比例缩放）
 - 支持 JPG/PNG 等格式输出
 - 内置图片质量控制（`-q:v 2` 高品质）
 - 提供两种调用方式：输出到文件路径 或 直接获取字节数组
-- 支持从命令行参数解析 视频处理工具 路径
+- 支持从命令行参数解析 FFmpeg 路径
 
 ## 快速预览
 
@@ -53,7 +53,7 @@ VideoUtil.ExtractPoster(
 | 组件 | 说明 |
 |------|------|
 | LuBan.Common | 基础工具库 |
-| .NET | 8.0 |
+| .NET | net10.0 |
 
 ## 安装
 
@@ -61,19 +61,19 @@ VideoUtil.ExtractPoster(
 dotnet add package LuBan.VideoKit
 ```
 
-> 需要系统已安装 视频处理工具。可通过 `VideoUtil.Set视频处理工具Path(args)` 或手动设置 `VideoUtil.视频处理工具Path` 指定路径。
+> 需要系统已安装 FFmpeg。可通过 `VideoUtil.SetFFmpegPath(args)` 或手动设置 `VideoUtil.FFmpegPath` 指定路径；未指定时默认使用 `"ffmpeg"`（依赖系统 PATH）。
 
 ## 功能概览
 
 | 功能 | API | 说明 |
 |------|-----|------|
-| 设置 视频处理工具 路径 | `VideoUtil.Set视频处理工具Path(args)` | 从命令行参数解析 视频处理工具 路径 |
-| 提取封面到文件 | `VideoUtil.ExtractPoster(视频处理工具Path, videoPath, outputPath, ...)` | 指定完整参数提取 |
+| 设置 FFmpeg 路径 | `VideoUtil.SetFFmpegPath(args)` | 从命令行参数解析 FFmpeg 路径 |
+| 提取封面到文件 | `VideoUtil.ExtractPoster(ffmpegPath, videoPath, outputImagePath, ...)` | 指定完整参数提取 |
 | 提取封面到内存 | `VideoUtil.ExtractPoster(videoPath, time, out bytes, ...)` | 直接获取字节数组 |
 
 ## 详细用法
 
-### 配置 视频处理工具 路径
+### 配置 FFmpeg 路径
 
 ```csharp
 // 方式一：从命令行参数读取
@@ -95,9 +95,9 @@ VideoUtil.FFmpegPath = "ffmpeg";
 // 只需确保 VideoUtil.FFmpegPath 已正确设置
 ```
 
-### 视频处理工具 命令参数说明
+### FFmpeg 命令参数说明
 
-内部生成的 视频处理工具 命令：
+内部生成的 FFmpeg 命令：
 ```
 ffmpeg -ss 00:00:03 -i "video.mp4" -vframes 1 -q:v 2 -vf scale=640:-1 -y "output.jpg"
 ```
@@ -112,13 +112,15 @@ ffmpeg -ss 00:00:03 -i "video.mp4" -vframes 1 -q:v 2 -vf scale=640:-1 -y "output
 
 ## 使用提示
 
-- 必须先设置 `VideoUtil.视频处理工具Path`，否则调用会失败
-- 如果 视频处理工具 已添加到系统 PATH 环境变量，设置 `视频处理工具Path = "视频处理工具"` 即可
+- 调用前需确保 `VideoUtil.FFmpegPath` 可用；`SetFFmpegPath` 未取到参数时会把 `FFmpegPath` 兜底为 `"ffmpeg"`（依赖系统 PATH）
+- 如果 FFmpeg 已添加到系统 PATH 环境变量，设置 `FFmpegPath = "ffmpeg"` 即可
 - `screenshotTime` 格式为 `HH:mm:ss`，如 `"00:01:30"` 表示第 1 分 30 秒
 - `imageWidth` 设为 0 或负数时不指定缩放，保持原始分辨率
-- 输出格式由文件后缀决定（`.jpg`、`.png` 等）
+- 文件模式：输出格式由文件后缀决定（`.jpg`、`.png` 等）；内存模式固定输出 `{ticks}.jpeg`，`imageFormat` 参数在该重载中不生效
 - 内存模式（`out byte[]`）会创建临时文件后读取并删除，适合小文件场景
 
 ## 许可证
 
-Copyright (c) yswenli. All rights reserved.
+Copyright (c) yswenli.
+
+Licensed under the [Apache License 2.0](../LICENSE).

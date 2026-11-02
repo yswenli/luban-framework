@@ -76,11 +76,7 @@ the related services throws `InvalidOperationException`.
 dotnet add package LuBan.AIAgent
 ```
 
-Install Playwright browsers (required for browser tools):
-
-```powershell
-npx playwright@1.61.0 install chromium
-```
+Install Playwright browsers (required for browser tools): the first run downloads the driver for the runtime `Microsoft.Playwright` version into `~/.luban-agent/playwright-driver/{version}` via `PlaywrightDriverResolver`; for a manual fallback, run the command produced by `PlaywrightDriverResolver.GetInstallBrowsersHint()` (shaped like `npx playwright@<runtime version> install chromium`) — never hard-code a fixed version.
 
 ## Feature Overview
 
@@ -137,7 +133,7 @@ Skills, MCPs, and Rules use a unified three-tier priority registry pattern:
 | **Browser Tools** | `browser` | Navigate, click, type, screenshot, get content, wait for selector, get URL (Playwright-based) |
 | **File System Tools** | `filesystem` | Read files, write files, edit files (exact string replacement, single/multi/replace-all), list directories, delete files, delete directories, search files (glob), content search (regex), create directories, copy files, move files, get file info; allowed directly inside the workspace, paths outside the workspace are allowed after user confirmation |
 | **Script Tools** | `script` | Execute Shell (adaptive runtime), Lua (embedded sandbox, no external interpreter), Python scripts |
-| **Git Tools** | `git` | 26 fine-grained tools covering status/diff/log/branch/stash/commit/merge/rebase/push, etc.; confirmed-free inside the workspace, per-call confirmation when crossing the boundary; on conflict it returns a file list for the agent to resolve manually |
+| **Git Tools** | `git` | 26 Git tools covering status/diff/log/branch/stash/commit/merge/rebase/push, etc., plus 4 worktree tools (`EnterWorktreeAsync` / `FinishWorktreeAsync` / `AbandonWorktreeAsync` / `WorktreeStatus`), 30 in total; confirmed-free inside the workspace, per-call confirmation when crossing the boundary; on conflict it returns a file list for the agent to resolve manually |
 | **Web Tools** | `web` | Send HTTP requests to fetch web content |
 | **Retrieval Tools** | `retrieval` | Index local code/documents, semantic search |
 | **Context Compaction** | `context` | Compact conversation history to free token budget (LLM-accessible, callable on demand) |
@@ -149,6 +145,7 @@ Skills, MCPs, and Rules use a unified three-tier priority registry pattern:
 | **Skill Consumption Tools** | `skill` | List available Skills (with keyword search), load and use Skill prompt templates; confirmation-free within the workspace root (enabled by default) |
 | **Skill Management Tools** | `skillmanage` | Create/overwrite/delete workspace-level Skills; built-in Skills cannot be overwritten or deleted; write/delete operations require user confirmation (enabled by default) |
 | **MCP Management Tools** | `mcpmanage` | Create/overwrite/delete workspace-level MCP configurations, test MCP connections; built-in MCPs cannot be overwritten or deleted; write/delete operations require user confirmation (enabled by default) |
+| **Connector Management Tools** | `connectormanage` | List connector states (declared / enabled / provider availability), create or overwrite, and delete workspace-level connector declarations; the provider must already be registered and credential parameters must be `$credential:` references; write/delete operations require user confirmation (enabled by default) |
 
 > **Script execution notes**: The Shell tool auto-detects the runtime (on Windows `pwsh` > `powershell` > `cmd`; on Unix-like `bash` > `sh`), adapts argument style and quoting to the interpreter, and returns the actual `shell`/`shellPath`/`platform` in the result. The Lua tool runs on an embedded MoonSharp soft sandbox with no external `lua` interpreter required; the sandbox has no file-system or system-command access, and results are emitted via `print`.
 
@@ -357,7 +354,7 @@ AI: [calls WriteConnectorAsync] Created the connector declaration; save the cred
 | Component | Description |
 |-----------|-------------|
 | `IMCPClient` | MCP client interface, interacts with MCP servers |
-| `McpServerConfig` | External MCP server configuration: `transport` / `command` / `args` / `env` / `url` / `headers` / `environment` / `enabled` |
+| `McpServerConfig` | External MCP server configuration: `transport` / `command` / `args` / `url` / `headers` / `environment` / `enabled` |
 | `StdioMCPClient` | stdio JSON-RPC based external MCP client (injects `environment` via the value resolver before launch) |
 | `HttpMCPClient` | HTTP external MCP client: `sse` uses the SSE event stream plus `/message`, `http` uses **Streamable HTTP** (direct to `url`) |
 | `MCPClientFactory` | Builds external clients from `McpServerConfig.Transport` (the stdio / http / sse dispatch lives in one place) |
@@ -384,7 +381,7 @@ AI: [calls WriteConnectorAsync] Created the connector declaration; save the cred
 | `IAttachmentProcessor` | Attachment processor interface: reports supported types/MIME types and generates thumbnails on demand |
 | `DefaultAttachmentProcessor` | Default implementation: images (PNG/JPEG/GIF/WebP/BMP; TIFF/HEIC require conversion first) and text files; decodes and resizes images, reads text content |
 | `AttachmentInfo` | Attachment metadata (file name, MIME, size, kind, source path) |
-| `AttachmentKind` | Attachment kind enum (Image / Text) |
+| `AttachmentKind` | Attachment kind enum (Image / TextFile) |
 | `ProcessedAttachment` | Processing result (metadata + text content / thumbnail path + pixel size) |
 | `AttachmentMessageBuilder` | Assembles attachments into a `ChatMessage` (images → base64 `DataContent`; text ≤50KB inlined; >50KB injects only a path hint) |
 | `AttachmentRecord` | Session persistence record (paths and metadata only, no base64) for history replay |
@@ -428,6 +425,7 @@ Main Agent parses composite tasks → decomposes into DAG task graph → dispatc
 | `TaskGraph` / `TaskNode` | DAG data models, support dependency declaration, placeholder references, critical nodes, role assignment; `TaskGraph.SharedContext` carries workspace memory/rule context |
 | `SubAgentSpec` | SubAgent specification (prompt, tool groups, workspace root, etc.); its `SharedContext` is appended to the sub-agent system prompt |
 | `OrchestrationToolPlugin` | Tool plugin, exposes orchestration capability to main Agent |
+| `OrchestrationProgress` / `OrchestrationProgressContent` | Orchestration progress event and streaming content carrier (`AIContent`) for live UI rendering while planning and while nodes execute |
 | `ReflectionResult` / `ReplanContext` | Dynamic replanning models, LLM analyzes failures and generates fix graph after critical node failure |
 
 ### Plugin System
@@ -438,7 +436,7 @@ A plugin is an **application-level** install unit (`plugins/<id>/` directory plu
 |------|------|
 | `IPlugin` | Plugin contract: `Id` / `Name` / `Version` / `Description` / `InitializeAsync` / `ShutdownAsync` / `ContributeSkills` |
 | `PluginBase` | Plugin base class (namespace `LuBan.AIAgent.Plugins.Base`), providing `Host` / `SafeLog` / `PostToUi` (wrapped in an invalidation token, plugins must never post to the UI thread directly) and `OnInitializeAsync` / `OnShutdownAsync` hooks |
-| `IPluginHost` | Host capability contract: register/unregister sidebar entries and panels, register/unregister Skills and MCP servers, `RegisterConnector` / `UnregisterConnector`, `PostToUi`, `GetConfig`, plugin logging |
+| `IPluginHost` | Host capability contract: register/unregister sidebar entries and panels, `RegisterCommand`, register/unregister Skills and MCP servers, `RegisterConnector` / `UnregisterConnector`, `PostToUi`, `GetConfig`, plugin logging |
 | `PluginManager` | Singleton manager: `ScanAsync` / `RestoreEnabledAsync` / `GetPlugins` / `EnableAsync` / `DisableAsync` / `InstallAsync` / `UpgradeAsync` / `UninstallAsync`, plus the `Changed` event |
 | `PluginLoader` / `ManifestValidator` | Manifest reading and validation: required fields, id/version regexes, entry assembly existence, `minHostVersion` / `targetApp`, duplicates, `transport`, dependency self-reference; `ValidatePermissions` performs the permission/credential coverage check on its own (used by the pre-load gate, separate from the whole-manifest validation that yields `Error`) |
 | `PluginDependencyResolver` | Dependency topology and cycle detection (validates existence only, never auto-enables) |
@@ -460,8 +458,8 @@ Plugins are third-party code, so the host constrains their access with **directo
 | `PluginScopeContext` | The permission environment (`AsyncLocal`): `Enter(pluginId, permissions)` declares "which plugin identity the current call belongs to", and it nests; `Current == null` means a host-originated call and is always allowed |
 | `PluginPermissionGuard` | The runtime egress guard: `RequireNetwork` / `RequireProcess` / `RequireCredential` / `RequireGit` throw `PluginPermissionDeniedException` on a boundary violation and append to the bounded `RecentDenials` audit; `PluginPermissionGuard.Default` is the fallback instance for non-DI scenarios |
 | `ICredentialStore` / `ConfigurationCredentialStore` | Credential read/write contract plus the default read-only "configuration node `LuBanAgent:Credentials:<key>` + environment-variable fallback" implementation (`SetAsync` throws `NotSupportedException`); desktop hosts should register their own writable implementation to replace it. A canonical key contains colons (`connector:<instanceName>:token`), which is a three-level nested node in `IConfiguration`, so `Keys` flattens paths back to full keys — do not rely on short child names |
-| `CredentialKeys` | Credential key catalog and normalization: connector tokens are uniformly `connector:<instanceName>:token` (e.g. `connector:my-vendor:token`, see `ForConnectorToken`); `Normalize` only normalizes case and separators and carries **no vendor legacy-spelling table** |
-| `ICredentialKeyAliases` | A **host-supplied** alias table (`Aliases` / `EnvironmentVariableNames` / `GetLegacyEnvironmentVariableName`) mapping vendor legacy keys (e.g. `myvendor_pat`) and environment-variable names to canonical keys, used for fallback reads by `CredentialKeys.Normalize`, `ConfigurationCredentialStore`, and `CredentialValueResolver`; a host that registers no aliases falls back to literal keys |
+| `CredentialKeys` | Credential key catalog and normalization: connector tokens are uniformly `connector:<instanceName>:token` (e.g. `connector:my-vendor:token`, see `ForConnectorToken`); `Normalize` only trims surrounding whitespace and lowercases (`Norm`) and carries **no vendor legacy-spelling table** |
+| `ICredentialKeyAliases` | A **host-supplied** alias table (`Resolve` / `GetLegacyAliases` / `GetLegacyEnvironmentVariableName`) that normalizes any spelling of a key (e.g. the vendor legacy key `myvendor_pat`) to its canonical form and returns the legacy spellings and environment-variable name for a canonical key; used for fallback reads by `ConfigurationCredentialStore`, `CredentialValueResolver`, and the credential catalog whitelist. With no implementation registered, `NullCredentialKeyAliases` applies (generic normalization only, no alias fallback) |
 
 Key points:
 
@@ -483,7 +481,7 @@ A connector bundles "external-system I/O + permission gate + MCP exposure" into 
 | `ConnectorBuildContext` / `ConnectorSettings` | Factory inputs (instance name / provider key / services / settings / `IConfiguration`) and the settings bag |
 | `AddConnector<T>` / `AddBuiltinConnectors` | Registers connector **factories** (registered, not enabled); the framework's `AddBuiltinConnectors` only registers infrastructure — **vendor connectors are registered explicitly by the product / plugin** |
 | `ConnectorFactoryRegistry` / `ConnectorInstanceHost` | Factory table (thread-safe, plugins may add/remove at runtime) plus the host-level **singleton** instance cache (connectors are owned by DI; session-scoped MCP clients are derived by name) |
-| `ConnectorRegistry` (scoped) | Resolver: `LoadFromWorkspace` / `GetStates` (4-state catalog) / `ApplyEnabledAsync` / `CreateMcpClient(mcpName, scope)` / `UnregisterAll` |
+| `ConnectorRegistry` (scoped) | Resolver: `LoadFromWorkspace` / `GetStates` (5-state catalog: `Available` / `Declared` / `Enabled` / `Unavailable` / `Error`) / `ApplyEnabledAsync` / `CreateMcpClient(mcpName, scope)` / `UnregisterAll` |
 | `ConnectorConfig` | A `config.json` `connectors[]` item: `name` / `provider` / `enabled` / `settings` |
 | `ConnectorWorkspaceEntry` | Object model of `.luban-agent/connectors/<name>.json`: `name` / `provider` / `settings` / `enabled` (the legacy `{ "enabled": true }`-only shape is still supported) |
 | `IConnectorConfigWriter` / `WorkspaceConnectorConfigWriter` | Connector-declaration write contract plus the framework default (writes the workspace file, rejects plain-text credentials, blocks path traversal); products / desktop hosts may register their own implementation to unify cache invalidation and notification |
@@ -537,7 +535,7 @@ Brings "session scope + run loop + profile + attachment orchestration + capabili
 | `AddLuBanAgentHost()` | Registers the host and default seams (all `TryAdd`): `SessionRuntimeManager` (singleton), `IAgentHost` (scoped), profile / workspace / user / model-selection resolvers, attachment orchestration, capability gate, session initializer, and `ICommandCatalog` (singleton) |
 | `AddLuBanAgentOpenAI(configuration)` | Builds one client per provider from the `LuBanAgent:Models` array (`Provider` / `Model` / `ApiKey` / `BaseUrl`) and registers `IChatClient` + `IProviderRouter`; duplicate providers must share credentials; when incomplete it only records a `ChatClientFactoryWarning` — no registration and no throw |
 | `IAgentHost` | Host entry point: `InitializeAsync` / `Reset` / `RunStreamingAsync(AgentRunRequest)`; **must be resolved as Scoped**, holds no session state itself. If a turn is running for that session, `Reset` only flags a deferred reload (never interrupting the turn); the agent is released when the turn finishes and rebuilt with the latest configuration on the next turn |
-| `AgentRunRequest` | One-turn input: `Input` / `AttachmentPaths` / `Attachments` (URLs or paths, resolved by the framework) / `SystemPrompt` (per-turn persona override) / `EnableTools` / `SessionId` / `PermissionMode` / `ConfirmHandler` / `ConfirmHandlerAsync` / `OnPlannedAction` / `OnUserDenied` |
+| `AgentRunRequest` | One-turn input: `Input` / `AttachmentPaths` / `Attachments` (URLs or paths, resolved by the framework) / `SystemPrompt` (per-turn persona override) / `EnableTools` / `ReasoningEffort` (per-turn reasoning-effort override; set to `None` to disable thinking) / `SessionId` / `PermissionMode` / `ConfirmHandler` / `ConfirmHandlerAsync` / `OnPlannedAction` / `OnUserDenied` |
 | `AgentStreamEvent` | UI-agnostic output events: `TextDeltaEvent` / `ThinkingDeltaEvent` / `ToolCallStartedEvent` / `ToolCallCompletedEvent` / `ToolCallFailedEvent` / `ToolConfirmationRequestedEvent` / `ErrorEvent` / `OrchestrationProgressEvent` / `AttachmentAddedEvent` / `AttachmentSkippedEvent` |
 | `AgentBuildOverrides` | Per-turn build overrides (`SystemPrompt` + `EnableTools`); compared against the cached agent and rebuilt inside the session's serial region when they change |
 | `AgentEventProtocol` / `AgentEventFrame` | Unified mapping of host events to transport frames (`text.delta` / `tool.*` / `attachment.*`), shared by Web / CLI / Codex |
@@ -698,7 +696,7 @@ public class MyToolPlugin : ILuBanToolPlugin
     public string GroupName => "my-tools";
     public string? Description => "Custom toolset";
 
-    public IReadOnlyList<AIFunction> GetTools(IServiceProvider sp, ToolGroupOptions? toolsOptions = null)
+    public IReadOnlyList<AIFunction> GetTools(DiContainer sp, ToolGroupOptions? toolsOptions = null)
     {
         return new List<AIFunction> { /* ... */ };
     }
@@ -755,9 +753,9 @@ public class MyCustomSkill : SkillBase
 
     public override async Task<SkillResult> ExecuteAsync(SkillContext context, string input)
     {
-        UpdateStatus(context, "Processing...");
-        var result = await CallAgentAsync(context, input);
-        return SkillResult.Ok(result ?? "");
+        context.UpdateStatus?.Invoke("Processing...");
+        var result = await context.Agent!.RunAsync(input, context.CancellationToken);
+        return SkillResult.Ok(result.Text ?? "");
     }
 }
 
@@ -772,6 +770,7 @@ public class MyRule : RuleBase
 {
     public override string Id => "my-rule";
     public override string Name => "My Rule";
+    public override string Description => "Custom rule example";
     public override int Priority => 50;
 
     public override bool IsApplicable(RuleContext context)
@@ -1052,26 +1051,28 @@ The `permissions` in a manifest is not a notification — it is an **application
 
 | Provider | Display Name | Supported Models |
 |----------|-------------|-----------------|
-| openai | OpenAI | gpt-4.1, gpt-4o, gpt-4-turbo, o1, o3-mini, etc. |
-| azure | Azure OpenAI | gpt-4o, gpt-4-turbo, gpt-35-turbo, etc. |
-| deepseek | DeepSeek | deepseek-chat, deepseek-coder, deepseek-reasoner |
-| kimi | Kimi | k3, k3-256k, kimi-for-coding, kimi-for-coding-highspeed |
-| glm | Zhipu GLM | glm-4-plus, glm-4-air, glm-4-flash, etc. |
-| qwen | Qwen | qwen-turbo, qwen-plus, qwen-max, etc. |
-| doubao | Doubao | doubao-pro-4k, doubao-pro-32k, doubao-lite-4k, etc. |
-| claude | Claude | claude-3-5-sonnet, claude-3-5-haiku, claude-3-opus, etc. |
-| gemini | Google Gemini | gemini-2.0-flash, gemini-1.5-pro, gemini-1.5-flash, etc. |
-| ollama | Ollama (Local) | llama3.1, llama3.2, qwen2.5, deepseek-coder-v2, etc. |
-| ernie | Baidu ERNIE | ernie-4.0-turbo-8k, ernie-4.0-8k, etc. |
-| minimax | MiniMax | abab6.5s-chat, abab6.5-chat, etc. |
-| hunyuan | Tencent Hunyuan | hunyuan-pro, hunyuan-standard, etc. |
-| mimo | Xiaomi MiMo | mimo-v1, mimo-v1-32k, etc. |
-| xai | xAI Grok | grok-2, grok-2-mini, grok-beta |
-| qianfan | Baidu Qianfan | ernie-4.0-8k, ernie-speed-128k, etc. |
-| tencent-ti | Tencent TI Platform | hunyuan-pro, hunyuan-standard, etc. |
+| openai | OpenAI | gpt-4.1, gpt-4.1-mini, gpt-4.1-nano, gpt-4o, gpt-4o-mini, o1, o1-mini, o1-pro, o3, o3-mini, o3-pro, o4-mini |
+| azure | Azure OpenAI | gpt-4o, gpt-4o-mini, gpt-4-turbo, gpt-4, gpt-35-turbo |
+| deepseek | DeepSeek | deepseek-flash, deepseek-v4-pro |
+| kimi | Kimi | kimi-k3, kimi-k2.7-code, kimi-k2.7-code-highspeed, kimi-k2.6 |
+| glm | Zhipu GLM | glm-5.3, glm-5.3-flash, glm-5.2, glm-5.1, glm-5, glm-5-turbo, glm-4.7, glm-4.7-flash, glm-4.6, glm-4.5-air, etc. |
+| qwen | Qwen | qwen3.8-max, qwen3.8-flash, qwen3.7-plus, qwen3.6-plus, qwen3.5-omni-plus, qwen3-vl-plus, qvq-max, etc. |
+| doubao | Doubao | doubao-1.5-vision-pro, doubao-1.5-vision-lite, doubao-vision-pro, doubao-vision-lite, Seed-Evolving, deepseek-v4.1-flash |
+| claude | Claude | claude-opus-4-20250514, claude-sonnet-4-20250514, claude-3-7-sonnet-20250219, claude-3-5-sonnet-20241022, claude-3-5-haiku-20241022, claude-3-haiku-20240307 |
+| gemini | Google Gemini | gemini-2.5-pro, gemini-2.5-flash, gemini-2.0-flash, gemini-2.0-flash-lite, gemini-1.5-pro, gemini-1.5-flash |
+| ollama | Ollama (Local) | llama3.1, llama3.2, qwen2.5, deepseek-coder-v2, codellama |
+| ernie | Baidu ERNIE | ernie-4.5, ernie-4.0-turbo, ernie-4.0-vision, ernie-3.5-8k, ernie-speed-pro, ernie-lite-pro |
+| minimax | MiniMax | MiniMax-M3, MiniMax-M2.7, MiniMax-M2.7-highspeed, MiniMax-M2.5, MiniMax-M2.5-highspeed, MiniMax-H3 |
+| ark | ByteDance Ark (Volcano Engine) | No built-in default endpoint or models (absent from `ProviderDefaults`); `BaseUrl` and `Model` must be supplied explicitly in configuration |
+| bailian | Alibaba Bailian | No built-in default endpoint or models (absent from `ProviderDefaults`); `BaseUrl` and `Model` must be supplied explicitly in configuration |
+| hunyuan | Tencent Hunyuan | hunyuan-turbos-vision, hunyuan-t1-vision, hunyuan-turbos-vision-video, hunyuan-turbo, hunyuan-pro, hunyuan-standard, hunyuan-lite |
+| mimo | Xiaomi MiMo | mimo-v2.5-pro |
+| xai | xAI Grok | grok-4, grok-3, grok-3-mini, grok-3-fast, grok-2-vision |
+| qianfan | Baidu Qianfan | ernie-4.5, ernie-4.0-turbo, ernie-4.0-vision, ernie-3.5-8k, ernie-speed-pro, ernie-lite-pro |
+| tencent-ti | Tencent TI Platform | hunyuan-turbos-vision, hunyuan-t1-vision, hunyuan-turbo, hunyuan-pro, hunyuan-standard, hunyuan-lite |
 | huawei-pangu | Huawei Pangu | pangu-7b, pangu-13b, pangu-52b |
-| bedrock | AWS Bedrock | anthropic.claude-3-sonnet, etc. |
-| openrouter | OpenRouter | openai/gpt-4o, anthropic/claude-3.5-sonnet, etc. |
+| bedrock | AWS Bedrock | anthropic.claude-opus-4-20250515-v1:0, anthropic.claude-sonnet-4-20250515-v1:0, anthropic.claude-3-5-sonnet-20241022-v1:0, meta.llama4-maverick-v1:0, etc. |
+| openrouter | OpenRouter | deepseek/deepseek-v4.1-flash, openai/gpt-4.1, openai/o3, anthropic/claude-opus-4, google/gemini-2.5-pro, meta/llama-4-maverick, etc. |
 
 ## Project Structure
 
@@ -1176,7 +1177,7 @@ LuBan.AIAgent/
 │   ├── IConnector.cs                  # Connector contract + MCP exposure + factory inputs/settings
 │   ├── ConnectorBase.cs               # Vendor-neutral connector base class (idempotent init + disposal skeleton)
 │   ├── ConnectorFactoryRegistry.cs    # Connector factory table (thread-safe) + host-level singleton instance cache
-│   ├── ConnectorRegistry.cs           # Scoped resolver: declaration/enablement/4-state catalog/MCP derivation/workspace full-declaration merge
+│   ├── ConnectorRegistry.cs           # Scoped resolver: declaration/enablement/5-state catalog/MCP derivation/workspace full-declaration merge
 │   ├── ConnectorWorkspaceEntry.cs     # Workspace connector entry (name/provider/settings/enabled, legacy {enabled} compatible)
 │   ├── IConnectorConfigWriter.cs      # Connector-declaration write contract
 │   ├── WorkspaceConnectorConfigWriter.cs # Default writer (workspace file + traversal guard + credential gate)
@@ -1323,7 +1324,7 @@ LuBan.AIAgent/
 ## Tips
 
 - Model routing uses `provider:model` format; configure providers via `IAppConfigReader` / host implementation
-- **12 built-in tool groups** cover browser automation, file operations, script execution, Git version control, web requests, semantic retrieval, context compaction, local memory, MCP, multi-agent orchestration, the LLM Wiki knowledge base (opt-in), and large log analysis
+- **16 built-in tool groups** cover browser automation, file operations, script execution, Git version control, web requests, semantic retrieval, context compaction, local memory, MCP, multi-agent orchestration, the LLM Wiki knowledge base (opt-in), large log analysis, Skill consumption, Skill management, MCP management, and connector management
 - `ToolConfirmationService` requires user confirmation for out-of-workspace path access and for sensitive operations (write, delete, execute); in-workspace operations are allowed directly
 - Three-tier grant memory (this time / this turn / this session) keyed by grant root; deletion tools (`AlwaysConfirmTools`) are never remembered and always confirm
 - `FileSystemToolOptions.AllowedRoots` together with workspace roots forms the trusted scope; operations inside it need no confirmation
@@ -1340,4 +1341,6 @@ LuBan.AIAgent/
 
 ## License
 
-MIT
+Copyright (c) yswenli.
+
+Licensed under the [Apache License 2.0](../LICENSE).

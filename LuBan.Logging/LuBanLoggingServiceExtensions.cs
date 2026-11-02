@@ -1,4 +1,10 @@
 ﻿/****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -47,12 +53,12 @@ public static class LuBanLoggingServiceExtensions
 
     /// <summary>
     /// 注入 ILoggerFactory 和 STJ 序列化器给 static Logger。
-    /// 必须在 BuildProvider 之后调用，以确保 ServiceProviderUtil 能解析 ILoggerFactory。
+    /// 必须在全局容器构建之后调用，以确保 <see cref="DiContainer.Instance"/> 能解析 ILoggerFactory。
     /// </summary>
     /// <param name="services">服务集合（未使用，仅作扩展方法锚点）。</param>
     public static void InitLuBanLogger(this IServiceCollection services)
     {
-        var factory = ServiceProviderUtil.GetRequiredService<ILoggerFactory>();
+        var factory = DiContainer.Instance.GetRequiredService<ILoggerFactory>();
         Logger.SetLogger(factory);
         Logger.SetSerializer(CreateLuBanSerializer());
     }

@@ -1,4 +1,10 @@
 /****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -13,7 +19,8 @@
 *创建时间：2026/10/26
 *描述：一轮对话的入参模型（正文/附件/会话/权限/回调）
 *
-*****************************************************************************/using LuBan.AIAgent.Abstractions;
+*****************************************************************************/
+using LuBan.AIAgent.Abstractions;
 
 namespace LuBan.AIAgent.Hosting;
 
@@ -39,6 +46,12 @@ public sealed record AgentRunRequest
 
     /// <summary>false 时本轮不装配任何工具（非流式接口用）。默认 true。</summary>
     public bool EnableTools { get; init; } = true;
+
+    /// <summary>
+    /// 本轮推理强度覆盖；null 表示不覆盖，沿用模型自身默认值。
+    /// 设为 <see cref="ReasoningEffort.None"/> 可关闭推理模型的思考，用于要求快速出字的场景。
+    /// </summary>
+    public ReasoningEffort? ReasoningEffort { get; init; }
 
     /// <summary>目标会话标识；null 表示当前活动会话。</summary>
     public string? SessionId { get; init; }

@@ -1,4 +1,10 @@
 ﻿/****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -74,7 +80,7 @@ public class AuthController : BaseMobileController
     [DisplayName("获取验证码"), HttpGet]
     public Result GetCaptcha()
     {
-        ICaptcha captcha = ServiceProviderUtil.GetRequiredService<ICaptcha>();
+        ICaptcha captcha = DiContainer.Instance.GetRequiredService<ICaptcha>();
         var codeId = YitIdHelper.NextId().ToString();
         var captchas = captcha.Generate(codeId, 180);
         return SuccessResult(new { Id = codeId, Img = captchas.Base64 });

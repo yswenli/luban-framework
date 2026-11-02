@@ -61,7 +61,7 @@ dotnet add package LuBan.Office
 | Create/Open | `new PptDocument()` / `PptDocument.Load(path)` | Create blank or load existing PPT |
 | Load from HTML | `PptDocument.LoadFromHtml(path)` | HTML to PPT |
 | Load from PDF | `PptDocument.LoadFromPdf(path)` | PDF to PPT |
-| Add Slide | `AddSlide()` / `AddSlide(slide)` / `AddSlide(fromIndex)` | Add/clone slides |
+| Add Slide | `AddSlide(int index = -1)` (inserts blank slide) / `AddSlide(PptSlide slide, int index = -1)` / `AddSlide(int fromIndex, int index = -1)` | Add a blank slide, or clone by object/index |
 | Remove Slide | `RemoveSlide(index)` / `RemoveSlide(slide)` | Remove by index or object |
 | Get Slide | `GetSlide(id)` / `GetSlideByIndex(index)` / `GetSlideByNumber(num)` | Multiple ways to locate slides |
 | Replace Text | `PptDocument.ReplaceText(doc, slideIndex, replaceStrs)` | Batch replace slide text |
@@ -69,6 +69,8 @@ dotnet add package LuBan.Office
 | Replace Image | `PptDocument.ReplaceImage(doc, slideIndex, path, altTxt, ...)` | Replace image by alt text |
 | Replace Video | `PptDocument.ReplaceVideo(doc, slideIndex, video, cover, altTxt, ...)` | Replace video by alt text |
 | Save | `Save(path)` / `SaveAsPdf(path)` / `SaveAsHtml(path)` | Multi-format export |
+
+> **Overload binding note**: the single-argument `AddSlide(int index = -1)` **inserts a blank slide**; to clone by index you must call `AddSlide(fromIndex: 2)` (the two-argument overload). `AddSlide(2)` binds to the single-argument overload and yields a blank slide instead of a clone.
 
 ### PptSlide (Slide Operations)
 
@@ -101,7 +103,7 @@ dotnet add package LuBan.Office
 | Feature | API | Description |
 |---------|-----|-------------|
 | Replace Text | `ReplaceText(old, new)` / `ReplaceTexts(dict)` | Global/batch replacement |
-| Replace Image | `ReplacePicture(path, pageIndex, imageIndex)` | Replace image on specified page |
+| Replace Image | `ReplacePicture(path, pageIndex, oldPictureIndex)` | Replace the specified image on the specified page |
 | Convert from HTML | `ConvertFromHtml(path)` | HTML to PDF |
 | Convert from URL | `ConvertFromUrl(url)` | Web page to PDF |
 
@@ -111,6 +113,9 @@ dotnet add package LuBan.Office
 
 ```csharp
 using var ppt = PptDocument.Load("template.pptx");
+
+// Clone slide 2 by index: a named argument is required to reach the two-argument overload; the single-argument AddSlide(2) inserts a blank slide
+var copy = ppt.AddSlide(fromIndex: 2);
 
 // Replace title and date on slide 0
 PptDocument.ReplaceText(ppt, 0, new[]
@@ -152,12 +157,14 @@ word.Save("contract_filled.docx");
 ## Tips
 
 - **Platform limitation**: LuBan.Office only supports Windows (`SupportedOSPlatform("windows")`)
-- License file must be placed in the `Libs/` directory — it is automatically loaded at startup
+- The license file (`Aspose.Total.lic`) must be placed in the `Libs/` directory; each document class calls the matching `License.Instance.SetXxxLicense()` when a document instance is created, rather than loading the license at application startup
 - In PPTs, shapes are located via `AlternativeText` — it is recommended to pre-set alt text in templates
-- `PptDocument` implements `IDisposable` — `Dispose` automatically calls `Save()`
+- `PptDocument` implements `IDisposable` and `Dispose` automatically calls `Save()`: when `Save()` receives no path it falls back to the original file path used at load time, so a template opened with `using` is written to again on release — even after `Save("output.pptx")` — overwriting the source template; to leave the source file untouched, copy the template first or load it with `new PptDocument(stream)` (no original path in that case, so `Save()` creates a new timestamp-named file)
 - Word's `ReplaceTextWithImage` supports regular expression matching
 - When filling bookmarks, `bool` type properties automatically insert checkboxes
 
 ## License
 
-Copyright (c) yswenli. All rights reserved.
+Copyright (c) yswenli.
+
+Licensed under the [Apache License 2.0](../LICENSE).

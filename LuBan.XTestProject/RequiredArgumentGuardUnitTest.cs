@@ -1,4 +1,10 @@
 /****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *命名空间：LuBan.XTestProject
@@ -91,7 +97,7 @@ public class RequiredArgumentGuardUnitTest
         });
 
         // 复刻 LuBanAgentFactory.BuildTools：标记了工作区根兜底的只读发现类工具跳过守卫
-        return _plugin.GetTools(provider)
+        return _plugin.GetTools(provider.AsDiContainer())
             .Select(t => t is not WorkspaceRootFallbackAIFunction
                 ? (AIFunction)new RequiredArgumentGuardAIFunction(t)
                 : t)

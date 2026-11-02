@@ -91,7 +91,7 @@ dotnet add package LuBan.Qingflow
 
 | 类 | 说明 |
 |----|------|
-| `OpenApiClient` | 轻流 API 客户端（单例，~825 行），封装全部 API 调用 |
+| `OpenApiClient` | 轻流 API 客户端（单例），封装全部 API 调用 |
 | `QingflowOptions` | 配置类：域名、工作区、密钥、应用列表 |
 | `QingflowAppOptions` | 轻流应用配置（AppId + AppName） |
 
@@ -109,16 +109,18 @@ dotnet add package LuBan.Qingflow
 | | `DeleteAppDataAsync(input)` | 删除应用数据 |
 | **日期范围** | `GetLastestAppDataAsync(input)` | 按日期范围获取数据 |
 | | `GetLastestModelAsync<T>(input)` | 按日期范围获取数据（强类型） |
-| **表格数据** | `GetModelListForTabletAsync<T>(input)` | 获取表格子表数据 |
-| | `GetModelListWithTableDataAsync<T1, T2>(input)` | 获取主表 + 子表关联数据 |
+| **表格数据** | `GetModelListForTabletAsync<T>(input, where)` | 获取表格子表数据（`input` 为 `GetTableDataListInput`，须填 `QueTitleOfTable` 指定子表标题） |
+| | `GetModelListWithTableDataAsync<T1, T2>(input, where)` | 获取主表 + 子表关联数据（`input` 为 `GetTableDataListInput`，须填 `QueTitleOfTable` 指定子表标题） |
 | **审批流程** | `GetAuditFlowListAsync(dataId)` | 获取数据审批流程列表 |
 | | `GetLatestAuditFlowAsync(dataId, nodeName)` | 获取最新审批状态 |
 | **用户管理** | `GetUserAsync(userId)` | 获取用户信息 |
 | **报表图表** | `GetChartDataAsync(input)` | 获取报表图表数据 |
 | | `GetChartDataByDatetimeAsync(input)` | 按日期范围获取图表数据 |
 | **患者数据** | `GetPatientRegistInfosAsync(input)` | 获取患者注册信息 |
+| | `GetPatientRegistInfosAsync<T>(input)` | 获取患者注册信息（强类型泛型） |
 | | `GetAppDataByIdCardAsync(input)` | 按身份证查询数据 |
 | | `GetModelByIdCardAsync<T>(input)` | 按身份证查询数据（强类型） |
+| | `GetCustomerDataByIdCardInput` | 按身份证 + 指定字段（`QueTitles`）查询的请求模型 |
 
 ---
 
@@ -146,7 +148,7 @@ var client = new OpenApiClient(new QingflowOptions
 // 定义数据模型（实现 IAppData 接口）
 public class OrderModel : IAppData
 {
-    public long AppDataId { get; set; }
+    public int? AppDataId { get; set; }
     public string OrderNo { get; set; }
     public decimal Amount { get; set; }
     public string CustomerName { get; set; }
@@ -164,9 +166,12 @@ var result = await client.GetPagedModelListAsync<OrderModel>(new GetAppDataListI
     }
 });
 
-foreach (var order in result.Result.Result)
+if (result?.Result?.Result is { } orders)
 {
-    Console.WriteLine($"{order.OrderNo}: {order.Amount}");
+    foreach (var order in orders)
+    {
+        Console.WriteLine($"{order.OrderNo}: {order.Amount}");
+    }
 }
 ```
 
@@ -182,7 +187,7 @@ var result = await client.GetAppDataListAsync(new GetAppDataListInput
     IsAll = true
 });
 
-Console.WriteLine($"共获取 {result.Result.Result.Count} 条数据");
+Console.WriteLine($"共获取 {result.Result?.Result?.Count ?? 0} 条数据");
 ```
 
 ### 按日期范围查询
@@ -245,11 +250,13 @@ await client.DeleteAppDataAsync(new DeleteAppDataInput
 2. **Token 过期重试**：当遇到错误码 `49300`（Token 失效）时，自动清除缓存并重试
 3. **全量拉取**：设置 `IsAll = true` 可自动翻页，直到拉取全部数据
 4. **强类型映射**：实现 `IAppData` 接口后，可直接用泛型方法获取 C# 对象
-5. **单例模式**：`OpenApiClient.Instance` 全局唯一，构造函数中自动加载应用列表
+5. **单例模式**：`OpenApiClient.Instance` 全局唯一，应用列表在首次访问时懒加载（当前未被使用）
 6. **超管权限**：`GetAppListAsync()` 等管理接口需要 `SuperAdminToken`，普通 Token 无法调用
 
 ---
 
 ## 许可证
 
-Copyright (c) yswenli. All Rights Reserved.
+Copyright (c) yswenli.
+
+Licensed under the [Apache License 2.0](../LICENSE).

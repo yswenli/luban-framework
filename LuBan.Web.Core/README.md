@@ -39,11 +39,16 @@ await WebApp.RunWebHostAsync(args);
 |------|------|------|
 | 运行时 | .NET 10.0 | ASP.NET Core 最小宿主 |
 | 缓存 | LuBan.Redis | Redis 分布式缓存 & 锁 |
-| 系统服务 | Hosting.Systemd / WindowsServices | 支持注册为系统服务 |
+| 系统服务 | Microsoft.Extensions.Hosting.Systemd / Microsoft.Extensions.Hosting.WindowsServices | 支持注册为系统服务 |
 | 审批流 | LuBan.ApprovalFlow | 内置审批流引擎 |
 | 报表导出 | LuBan.Reporting | Excel/CSV 导出 |
 | 云存储 | LuBan.CloudStorage | 对象存储集成 |
 | 日志 | LuBan.Logging | 基于 Microsoft.Extensions.Logging 的文件日志 Provider，支持 100MB/跨天滚动 |
+| 公共基础 | LuBan.Common | 统一响应（`Result` / `Success` / `Fail`）、分页、加解密与通用工具 |
+| 数据访问 | LuBan.Orm | 实体基类与仓储基类，供 `DbRepository<TEntity>` 继承使用 |
+| 后台任务 | LuBan.Service | 作业宿主、配置与日志（`JobsController` 的服务端支撑） |
+| AI Agent | LuBan.AIAgent | 连接器抽象与通用外部 MCP 接入 |
+| 语音 | LuBan.Speech | 语音识别/合成能力 |
 
 ---
 
@@ -169,13 +174,16 @@ BaseWebController       — Cookie 认证，管理后台 Web 页面
 ```json
 {
   "code": 200,
-  "type": "success",
-  "message": "操作成功",
+  "type": "Success",
+  "message": "OK",
   "result": { ... },
-  "extras": {},
-  "time": 1720000000
+  "time": "2026-10-30 16:00:00"
 }
 ```
+
+- `type` 取 `Success` / `Fail`，`message` 成功时为 `OK`；
+- `time` 为 `yyyy-MM-dd HH:mm:ss` 格式的**字符串**（由 `DateTimeJsonConverter` 统一序列化）；
+- `extras` 默认为 `null`，序列化时忽略 null 字段，因此通常**不会出现**，可省略。
 
 ### 核心中间件 & 过滤器
 
@@ -184,13 +192,14 @@ BaseWebController       — Cookie 认证，管理后台 Web 页面
 | `ErrorHandlingMiddleware` | 全局异常捕获，统一错误响应 |
 | `OnlineUserMiddleware` | 在线用户统计与管理 |
 | `AraParameterFilterAttribute` | 防重放攻击（时间戳 + 签名） |
-| `DistributedLockAttribute` | Redis 分布式锁，防止并发重复操作 |
+| `DistributedLockAttribute` | Redis 分布式锁，防止并发重复操作；构造参数 `(lockName, variableType, variableName, timeout=10000ms, maxRetries=5, dbIndex=0)`，变量段由 `EnumVariableType`（`Query`/`Form`/`Route`/`Header`/`Cookie` 按 `VariableName` 取值，`ContextUser` 取当前用户 ID）拼到锁 Key 后 |
 | `OutputCacheAttribute` | 接口输出缓存 |
 | `CacheableAttribute` | 声明式缓存 |
 | `CacheClearAttribute` | 缓存清除 |
 | `IPWhiteListFilterAttribute` | IP 白名单过滤 |
-| `DataScopePermissionFilter` | 数据权限（本人/部门/组织/全部） |
-| `InputArgsValidateActionFilter` | 入参自动校验 |
+| `DataScopePermissionFilter` | 数据权限（本人/部门/组织/全部），**静态辅助类**，非过滤器特性，用于生成/校验数据权限范围 |
+| `IgnoreDataScopePermissionAttribute` | 挂在类或方法上跳过数据权限校验 |
+| `InputArgsValidateActionFilterAttribute` | 入参自动校验 |
 
 ### 多租户数据库
 
@@ -226,13 +235,16 @@ var userRepo = repo.Change<SysRole>();
 
 ### 后台任务 Cron 管理
 
-`JobsController` 提供以下 Cron 端点，支持运行时查询和动态更新任务 Cron 表达式：
+`JobsController` 提供以下端点（**全部为 `[HttpPost]`**），支持运行时查询和动态更新任务配置：
 
 | 方法 | 端点 | 说明 |
 |------|------|------|
-| GET | `api/admin/Jobs/GetJobCron?name=xxx` | 查询任务的 Cron 表达式 |
-| GET | `api/admin/Jobs/GetJobNextOccurrence?name=xxx` | 查询任务的下一次执行时间 |
-| PUT | `api/admin/Jobs/UpdateJobCron?name=xxx` | 更新运行中任务的 Cron 表达式（body: `{"cron":"..."}`） |
+| POST | `api/admin/Jobs/GetJobCron?name=xxx` | 查询任务的 Cron 表达式 |
+| POST | `api/admin/Jobs/GetJobNextOccurrence?name=xxx` | 查询任务的下一次执行时间 |
+| POST | `api/admin/Jobs/GetJobConfigs` | 查询全部作业配置 |
+| POST | `api/admin/Jobs/UpdateJobConfig?name=xxx&cron=...&isEnabled=...&remark=...` | 更新作业配置：Cron 变更即时生效，`isEnabled` 变更会启停作业 |
+
+参数均为查询串/表单绑定（`UpdateJobConfig(name, cron, isEnabled, remark)`，后三个可空）。
 
 Cron 表达式为 6 段秒级格式（`秒 分 时 日 月 周`），使用 [Cronos](https://www.nuget.org/packages/Cronos/) 解析。
 
@@ -259,7 +271,8 @@ public class UserController : BaseAdminController
 public class OrderController : BaseMobileController
 {
     [HttpPost]
-    [DistributedLock("order_{userId}", Seconds = 5)]
+    // 锁 Key = "order" + "_" + 查询参数 userId 的值，如 order_1001
+    [DistributedLock("order", EnumVariableType.Query, "userId", timeout: 5000)]
     public async Task<ApiResult> CreateOrder([FromBody] OrderInput input)
     {
         // 业务逻辑
@@ -329,4 +342,6 @@ dotnet run --environment Production
 
 ## 许可证
 
-Copyright (c) yswenli. All Rights Reserved.
+Copyright (c) yswenli.
+
+Licensed under the [Apache License 2.0](../LICENSE).

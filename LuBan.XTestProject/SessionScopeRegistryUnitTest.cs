@@ -1,4 +1,10 @@
 /****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *命名空间：LuBan.XTestProject
@@ -29,7 +35,7 @@ public class SessionScopeRegistryUnitTest
             .Build();
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddLuBanAgent(config, _ => new MockChatClient("test"));
+        services.AsDiContainer().AddLuBanAgent(config, _ => new MockChatClient("test"));
         // ILocalMemoryStore 由宿主注册，本单测仅需可解析（不调用具体方法）
         services.AddSingleton<ILocalMemoryStore, NullLocalMemoryStore>();
         // 仅启用 ValidateScopes：本单测未注册宿主负责的具体工厂，全图 ValidateOnBuild 由 agent 宿主启用。

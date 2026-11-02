@@ -1,4 +1,10 @@
 /****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -26,12 +32,12 @@
 namespace LuBan.AIAgent.Hosting;
 
 /// <summary>
-/// 单个会话的运行时。拥有一个会话级 <see cref="IServiceScope"/>、回合队列与串行运行循环。
+/// 单个会话的运行时。拥有一个会话级 <see cref="DiContainer"/>、回合队列与串行运行循环。
 /// 同一会话的所有回合按入队顺序串行执行；不同会话各自独立，互不干扰。
 /// </summary>
 public sealed class SessionRuntime : IAsyncDisposable
 {
-    private readonly IServiceScope _scope;
+    private readonly DiContainer _scope;
     private readonly Channel<RuntimeTurn> _queue = Channel.CreateUnbounded<RuntimeTurn>();
     private readonly CancellationTokenSource _cts = new();
     private Task? _loop;
@@ -46,7 +52,7 @@ public sealed class SessionRuntime : IAsyncDisposable
     public ISessionContext SessionContext { get; }
 
     /// <summary>会话作用域的服务提供者（用于在会话 scope 内解析 scoped 服务）。</summary>
-    public IServiceProvider Services => _scope.ServiceProvider;
+    public DiContainer Services => _scope;
 
     /// <summary>本会话当前缓存的 Agent 实例（无状态路由器在会话 scope 内构建）。</summary>
     public LuBanAgent? Agent { get; set; }
@@ -80,7 +86,7 @@ public sealed class SessionRuntime : IAsyncDisposable
     /// <param name="scope">会话级 DI scope。</param>
     /// <param name="sessionId">会话标识。</param>
     /// <param name="sessionContext">会话上下文。</param>
-    public SessionRuntime(IServiceScope scope, string sessionId, ISessionContext sessionContext)
+    public SessionRuntime(DiContainer scope, string sessionId, ISessionContext sessionContext)
     {
         _scope = scope;
         SessionId = sessionId;

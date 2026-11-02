@@ -1,4 +1,10 @@
 /****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *命名空间：LuBan.XTestProject
@@ -72,12 +78,12 @@ public class ConnectorManageToolGroupUnitTest
         {
             var services = new ServiceCollection();
             if (registerDemoProvider)
-                services.AddConnector<StubConnector>(DemoProviderKey, ctx => new StubConnector(ctx));
+                services.AsDiContainer().AddConnector<StubConnector>(DemoProviderKey, ctx => new StubConnector(ctx));
 
             Provider = services.BuildServiceProvider();
 
             var factories = new ConnectorFactoryRegistry(Provider.GetServices<ConnectorFactoryRegistration>());
-            var host = new ConnectorInstanceHost(Provider, factories);
+            var host = new ConnectorInstanceHost(Provider.AsDiContainer(), factories);
             Registry = new ConnectorRegistry(host, factories, null, Reader, new ConfigurationBuilder().Build());
             Group = new ConnectorManageToolGroup(Registry, factories, new WorkspaceConnectorConfigWriter(), Reload);
 

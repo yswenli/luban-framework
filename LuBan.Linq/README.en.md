@@ -16,7 +16,7 @@ Are you still struggling with these query issues?
 
 If so, **LuBan.Linq** is built for you.
 
-It's a LINQ dynamic enhancement library for **.NET 8**, providing expression composition, dynamic field queries, non-generic collection extensions, tree list conversion, pagination, and a complete query solution. Whether it's EF Core, in-memory collections, or dynamic scenarios, it lets you write half the code.
+It's a LINQ dynamic enhancement library for **.NET 10**, providing expression composition, dynamic field queries, non-generic collection extensions, tree list conversion, pagination, and a complete query solution. Whether it's EF Core, in-memory collections, or dynamic scenarios, it lets you write half the code.
 
 ---
 
@@ -50,10 +50,12 @@ filter = filter.OrIf(roleId > 0, u => u.RoleId == roleId);
 var users = dbContext.Users.Where(filter).ToList();
 
 // Dynamic field query (field name from frontend)
+// The generic OrderBy overload is OrderBy<TSource>(string orderByField, bool isDesc)
+// The trailing ToList() comes from Enumerable; the framework provides no IQueryable ToList extension
 var result = dbContext.Users
     .AsQueryable()
     .Where("Name", "Zhang San")
-    .OrderBy("CreateTime", isAscending: false)
+    .OrderBy("CreateTime", isDesc: true)
     .ToList();
 
 // Tree conversion
@@ -124,7 +126,7 @@ dotnet add package LuBan.Linq
 | `Where(string field, object value)` | Dynamic filter by field name |
 | `OrderBy(string field, bool isDesc)` | Dynamic sort by field name |
 | `Select(string field)` | Dynamic projection by field name |
-| `Select<TVal>(string field)` | Project to specified type by field name |
+| `Select<TSource, Val>(string filterField)` | Project to specified type by field name |
 | `Any(string field, object value)` | Dynamic field existence check |
 | `NotAny(string field, object value)` | Dynamic field non-existence check |
 | `ToPagedList(page, pageSize)` | Paginated query, returns `PagedList<T>` |
@@ -152,13 +154,15 @@ Provides dynamic query capabilities for non-generic `IQueryable`, with field nam
 
 `EnumerableExtensions` (non-generic) and `EnumerableTExtensions` (generic) provide in-memory collection equivalents corresponding to Queryable, internally bridged via `AsQueryable()`.
 
-| Method | Description |
-|---|---|
-| `Add(dynamic)` / `Remove(dynamic)` | Non-generic collection dynamic add/remove |
-| `Where/OrderBy/Select/Any/First/FirstOrDefault` | In-memory collection equivalents of Queryable versions |
-| `ToPagedList(page, pageSize)` | In-memory collection pagination |
+| Method | Owning Class | Description |
+|---|---|---|
+| `Add(dynamic)` / `Remove(dynamic)` | `EnumerableExtensions` (non-generic) | Non-generic collection dynamic add/remove |
+| `Where/OrderBy/Select` | Both | In-memory collection equivalents of Queryable versions |
+| `Any` / `NotAny` | Both (the generic version only has the `(field, value)` overload) | Dynamic field existence check |
+| `First()` / `FirstOrDefault()` | `EnumerableExtensions` (non-generic) | Get first element (dynamic return) |
+| `ToPagedList(page, pageSize)` | `EnumerableTExtensions` (generic) | In-memory collection pagination |
 
-### Tree Lists — `TreeListExtentions`
+### Tree Lists — `TreeListExtensions`
 
 > Namespace: `System.Linq.Dynamic`
 
@@ -267,10 +271,10 @@ var tree2 = menuList.ToTreeList(
 ```csharp
 using System.Linq.Dynamic;
 
-// IQueryable pagination
+// IQueryable pagination (OrderBy here uses the field-name overload: OrderBy<TSource>(string orderByField, bool isDesc))
 var paged = dbContext.Orders
     .Where(o => o.Status == 1)
-    .OrderBy(o => o.CreateTime, isDesc: true)
+    .OrderBy("CreateTime", isDesc: true)
     .ToPagedList(page: 1, pageSize: 20);
 
 Console.WriteLine($"Total: {paged.Total}, Current Page: {paged.Page}");
@@ -315,7 +319,9 @@ var pairs2 = log.GetNamePairs(
 
 ## License
 
-MIT License
+Copyright (c) yswenli.
+
+Licensed under the [Apache License 2.0](../LICENSE).
 
 ---
 

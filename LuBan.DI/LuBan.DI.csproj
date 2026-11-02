@@ -10,7 +10,7 @@
 		<PackageId>$(AssemblyName)</PackageId>
 		<Title>$(AssemblyName)</Title>
 		<Authors>yswenli</Authors>
-		<Version>2026.10.29.1</Version>
+		<Version>2026.11.2.1</Version>
 		<Description>LuBan.framework中依赖注入核心库</Description>
 		<PackageReleaseNotes>LuBan.framework中依赖注入核心库</PackageReleaseNotes>
 		<PackageIcon>favicon.png</PackageIcon>
@@ -30,7 +30,8 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.14" />
+		<!-- Abstractions 由实现层包传递提供，此处显式保留便于读者看清边界；版本与实现层一致 -->
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.14" />
 	</ItemGroup>
 
 	<ItemGroup>

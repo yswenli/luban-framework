@@ -16,7 +16,7 @@
 
 如果是，那 **LuBan.Linq** 就是为你准备的。
 
-它是 **.NET 8** 下的 LINQ 动态增强库，提供表达式组合、动态字段查询、非泛型集合扩展、树形列表转换、分页等一套完整的查询解决方案。无论是 EF Core、内存集合还是动态场景，都能让你少写一半代码。
+它是 **.NET 10** 下的 LINQ 动态增强库，提供表达式组合、动态字段查询、非泛型集合扩展、树形列表转换、分页等一套完整的查询解决方案。无论是 EF Core、内存集合还是动态场景，都能让你少写一半代码。
 
 ---
 
@@ -50,10 +50,12 @@ filter = filter.OrIf(roleId > 0, u => u.RoleId == roleId);
 var users = dbContext.Users.Where(filter).ToList();
 
 // 动态字段查询（字段名来自前端）
+// OrderBy 的泛型重载签名为 OrderBy<TSource>(string orderByField, bool isDesc)
+// 末尾的 ToList() 来自 Enumerable，框架本身未提供 IQueryable 的 ToList 扩展
 var result = dbContext.Users
     .AsQueryable()
     .Where("Name", "张三")
-    .OrderBy("CreateTime", isAscending: false)
+    .OrderBy("CreateTime", isDesc: true)
     .ToList();
 
 // 树形转换
@@ -124,7 +126,7 @@ dotnet add package LuBan.Linq
 | `Where(string field, object value)` | 按字段名动态筛选 |
 | `OrderBy(string field, bool isDesc)` | 按字段名动态排序 |
 | `Select(string field)` | 按字段名动态投影 |
-| `Select<TVal>(string field)` | 按字段名投影为指定类型 |
+| `Select<TSource, Val>(string filterField)` | 按字段名投影为指定类型 |
 | `Any(string field, object value)` | 动态字段存在判断 |
 | `NotAny(string field, object value)` | 动态字段不存在判断 |
 | `ToPagedList(page, pageSize)` | 分页查询，返回 `PagedList<T>` |
@@ -152,13 +154,15 @@ dotnet add package LuBan.Linq
 
 `EnumerableExtensions`（非泛型）和 `EnumerableTExtensions`（泛型）提供与 Queryable 对应的内存集合版本，内部通过 `AsQueryable()` 桥接。
 
-| 方法 | 说明 |
-|---|---|
-| `Add(dynamic)` / `Remove(dynamic)` | 非泛型集合动态增删 |
-| `Where/OrderBy/Select/Any/First/FirstOrDefault` | 同 Queryable 版本的内存集合等价物 |
-| `ToPagedList(page, pageSize)` | 内存集合分页 |
+| 方法 | 所属类 | 说明 |
+|---|---|---|
+| `Add(dynamic)` / `Remove(dynamic)` | `EnumerableExtensions`（非泛型） | 非泛型集合动态增删 |
+| `Where/OrderBy/Select` | 两者皆有 | 同 Queryable 版本的内存集合等价物 |
+| `Any` / `NotAny` | 两者皆有（泛型版仅有 `(field, value)` 重载） | 动态字段存在性判断 |
+| `First()` / `FirstOrDefault()` | `EnumerableExtensions`（非泛型） | 获取首元素（dynamic 返回） |
+| `ToPagedList(page, pageSize)` | `EnumerableTExtensions`（泛型） | 内存集合分页 |
 
-### 树形列表 — `TreeListExtentions`
+### 树形列表 — `TreeListExtensions`
 
 > 命名空间：`System.Linq.Dynamic`
 
@@ -267,10 +271,10 @@ var tree2 = menuList.ToTreeList(
 ```csharp
 using System.Linq.Dynamic;
 
-// IQueryable 分页
+// IQueryable 分页（OrderBy 用字段名重载，签名 OrderBy<TSource>(string orderByField, bool isDesc)）
 var paged = dbContext.Orders
     .Where(o => o.Status == 1)
-    .OrderBy(o => o.CreateTime, isDesc: true)
+    .OrderBy("CreateTime", isDesc: true)
     .ToPagedList(page: 1, pageSize: 20);
 
 Console.WriteLine($"总计: {paged.Total}, 当前页: {paged.Page}");
@@ -315,7 +319,9 @@ var pairs2 = log.GetNamePairs(
 
 ## 许可证
 
-MIT License
+Copyright (c) yswenli.
+
+Licensed under the [Apache License 2.0](../LICENSE).
 
 ---
 

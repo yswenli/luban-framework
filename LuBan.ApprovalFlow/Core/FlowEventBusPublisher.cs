@@ -1,4 +1,10 @@
 /****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
 *Copyright (c) YSWenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -31,7 +37,7 @@ public class FlowEventBusPublisher
     /// <param name="eventBus">事件总线实例（可选）。</param>
     public FlowEventBusPublisher(IEventBus? eventBus = null)
     {
-        _eventBus = eventBus ?? ServiceProviderUtil.GetService<IEventBus>();
+        _eventBus = eventBus ?? DiContainer.Instance.GetService<IEventBus>();
     }
 
     /// <summary>

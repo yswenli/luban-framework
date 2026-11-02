@@ -4,7 +4,7 @@
 
 > **Author**: yswenli | **Contact**: yswenli@outlook.com | **Repository**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
-> **One-click Excel/CSV export for generic lists, dynamic reports with SQL + Lua script transforms — say goodbye to repetitive export code.**
+> **One-click Excel/CSV export for generic lists, dynamic reports with SQL + parameter binding + Lua script transforms — say goodbye to repetitive export code.**
 
 ---
 
@@ -15,7 +15,7 @@
 ## Why Choose LuBan.Reporting?
 
 Manually assembling Excel for every data export? Column order, date formats, enum translations, boolean display... reinventing the wheel every time?  
-LuBan.Reporting uses **attribute annotations + generic reflection** to automatically handle column mapping, and also supports **dynamic reports** (configurable SQL + Lua scripts), turning export from "manual labor" into "configuration work".
+LuBan.Reporting uses **attribute annotations + generic reflection** to automatically handle column mapping, and also supports **dynamic reports** (configurable SQL + `@parameter` binding + Lua scripts), turning export from "manual labor" into "configuration work".
 
 ---
 
@@ -54,6 +54,8 @@ report.Export("orders_2026.xlsx");  // Auto-detects .xlsx / .csv
 |----------|-----------|-------------|
 | Runtime | .NET 10.0 | — |
 | Framework Dependencies | LuBan.Common, LuBan.Orm | LuBan base components |
+| Third-party Dependencies | MoonSharp 2.0.0 | Lua script engine (dynamic report row transforms) |
+| Dependency Injection | `services.AddLuBanReporting()` | Registers `LuaScriptEngine` (singleton) and `DynamicReportService`/`ReportConfigService`/`DynamicReportRepository` (scoped) |
 
 ---
 
@@ -72,9 +74,9 @@ dotnet add package LuBan.Reporting
 | Class | Description |
 |-------|-------------|
 | `Report<T>` | Unified entry point, auto-selects Excel or CSV based on file extension |
-| `ReportBase<T>` | Base class, handles reflective column parsing (with caching) |
-| `ReportExcel<T>` | Excel export implementation |
-| `ReportCsv<T>` | CSV export implementation |
+| `ReportBase<T>` (internal) | Base class, handles reflective column parsing (with caching) |
+| `ReportExcel<T>` (internal) | Excel export implementation |
+| `ReportCsv<T>` (internal) | CSV export implementation |
 | `ReportColumn` | Column information descriptor (name, title, sorting, formatting, etc.) |
 
 ### Attribute Annotations
@@ -94,13 +96,13 @@ dotnet add package LuBan.Reporting
 | `enumValues` | Enum value translation | `"Pending,Paid,Shipped"` |
 | `datetimeFormat` | Date format | `"yyyy-MM-dd"` |
 | `enumType` | Auto-enum (get descriptions from enum type) | `typeof(OrderStatus)` |
-| `custormConvert` | Custom delegate conversion | `Tuple<Type, string>` |
+| `customConvert` | Custom delegate conversion (property `CustomConvert`) | `Tuple<Type, string>` |
 
 ### Dynamic Reports
 
 | Class | Description |
 |-------|-------------|
-| `DynamicReportService` | Dynamic report service: configurable SQL templates + column mapping + Lua transforms |
+| `DynamicReportService` | Dynamic report service: configurable SQL + parameter binding + column mapping + Lua transforms |
 | `LuaScriptEngine` | Lua script engine, supports data row transforms |
 | `ReportConfigService` | Report configuration management service |
 | `DbReportConfig` | Report configuration entity |
@@ -183,4 +185,6 @@ var rawResult = await service.ExecuteRawSqlAsync(
 
 ## License
 
-Copyright (c) yswenli. All Rights Reserved.
+Copyright (c) yswenli.
+
+Licensed under the [Apache License 2.0](../LICENSE).

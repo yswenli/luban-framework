@@ -1,4 +1,10 @@
 /****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -32,14 +38,14 @@ namespace LuBan.AIAgent.Hosting;
 /// 按登录用户隔离工作区：<c>&lt;LuBanAgent:WorkspaceRoot&gt;/users/&lt;safe(userId)&gt;</c>。
 /// </summary>
 /// <remarks>
-/// 必须 Scoped 并注入当前 scope 的 <see cref="IServiceProvider"/>：
-/// <see cref="IAgentUserResolver.ResolveUserId(IServiceProvider)"/> 需要一个 provider，
+/// 必须 Scoped 并注入当前 scope 的 <see cref="DiContainer"/>：
+/// <see cref="IAgentUserResolver.ResolveUserId(DiContainer)"/> 需要一个 provider，
 /// 注册成 Singleton 会永久捕获首个请求 scope（已释放）。
 /// </remarks>
 public sealed class PerUserWorkspaceResolver(
     IOptions<LuBanAgentOptions> options,
     IAgentUserResolver users,
-    IServiceProvider services) : IAgentWorkspaceResolver
+    DiContainer services) : IAgentWorkspaceResolver
 {
     /// <inheritdoc />
     public Task<WorkspaceDescriptor> ResolveAsync(string sessionId, CancellationToken ct = default)

@@ -1,4 +1,10 @@
 /****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *命名空间：LuBan.AIAgent.Connectors
@@ -38,8 +44,8 @@ public static class ConnectorServiceCollectionExtensions
     /// <param name="providerKey">提供方键（如 <c>myConnector</c>）。</param>
     /// <param name="factory">连接器工厂；实例名 / 设置 / 容器由 <see cref="ConnectorBuildContext"/> 传入。</param>
     /// <returns>服务集合（链式）。</returns>
-    public static IServiceCollection AddConnector<TConnector>(
-        this IServiceCollection services,
+    public static DiContainer AddConnector<TConnector>(
+        this DiContainer services,
         string providerKey,
         Func<ConnectorBuildContext, TConnector> factory)
         where TConnector : IConnector
@@ -65,8 +71,8 @@ public static class ConnectorServiceCollectionExtensions
     /// 框架<b>不</b>再登记任何厂商连接器：连接器定义属产品或插件，调用方在注册基础设施后
     /// 自行用 <see cref="AddConnector{TConnector}"/> 登记。
     /// </remarks>
-    public static IServiceCollection AddBuiltinConnectors(
-        this IServiceCollection services,
+    public static DiContainer AddBuiltinConnectors(
+        this DiContainer services,
         IConfiguration configuration)
     {
         ArgumentNullException.ThrowIfNull(services);

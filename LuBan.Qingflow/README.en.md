@@ -91,7 +91,7 @@ Add to `appsettings.json` or configuration center:
 
 | Class | Description |
 |-------|-------------|
-| `OpenApiClient` | Qingflow API client (singleton, ~825 lines), wraps all API calls |
+| `OpenApiClient` | Qingflow API client (singleton), wraps all API calls |
 | `QingflowOptions` | Configuration class: domain, workspace, secret, app list |
 | `QingflowAppOptions` | Qingflow app configuration (AppId + AppName) |
 
@@ -109,16 +109,18 @@ Add to `appsettings.json` or configuration center:
 | | `DeleteAppDataAsync(input)` | Delete app data |
 | **Date Range** | `GetLastestAppDataAsync(input)` | Get data by date range |
 | | `GetLastestModelAsync<T>(input)` | Get data by date range (strongly-typed) |
-| **Table Data** | `GetModelListForTabletAsync<T>(input)` | Get table sub-table data |
-| | `GetModelListWithTableDataAsync<T1, T2>(input)` | Get main table + sub-table associated data |
+| **Table Data** | `GetModelListForTabletAsync<T>(input, where)` | Get table sub-table data (`input` is `GetTableDataListInput`; `QueTitleOfTable` is required to identify the sub-table) |
+| | `GetModelListWithTableDataAsync<T1, T2>(input, where)` | Get main table + sub-table associated data (`input` is `GetTableDataListInput`; `QueTitleOfTable` is required to identify the sub-table) |
 | **Approval Flow** | `GetAuditFlowListAsync(dataId)` | Get data approval flow list |
 | | `GetLatestAuditFlowAsync(dataId, nodeName)` | Get latest approval status |
 | **User Management** | `GetUserAsync(userId)` | Get user information |
 | **Reports & Charts** | `GetChartDataAsync(input)` | Get report chart data |
 | | `GetChartDataByDatetimeAsync(input)` | Get chart data by date range |
 | **Patient Data** | `GetPatientRegistInfosAsync(input)` | Get patient registration info |
+| | `GetPatientRegistInfosAsync<T>(input)` | Get patient registration info (strongly-typed generic) |
 | | `GetAppDataByIdCardAsync(input)` | Query data by ID card |
 | | `GetModelByIdCardAsync<T>(input)` | Query data by ID card (strongly-typed) |
+| | `GetCustomerDataByIdCardInput` | Request model for querying by ID card with selected fields (`QueTitles`) |
 
 ---
 
@@ -146,7 +148,7 @@ var client = new OpenApiClient(new QingflowOptions
 // Define data model (implement IAppData interface)
 public class OrderModel : IAppData
 {
-    public long AppDataId { get; set; }
+    public int? AppDataId { get; set; }
     public string OrderNo { get; set; }
     public decimal Amount { get; set; }
     public string CustomerName { get; set; }
@@ -164,9 +166,12 @@ var result = await client.GetPagedModelListAsync<OrderModel>(new GetAppDataListI
     }
 });
 
-foreach (var order in result.Result.Result)
+if (result?.Result?.Result is { } orders)
 {
-    Console.WriteLine($"{order.OrderNo}: {order.Amount}");
+    foreach (var order in orders)
+    {
+        Console.WriteLine($"{order.OrderNo}: {order.Amount}");
+    }
 }
 ```
 
@@ -182,7 +187,7 @@ var result = await client.GetAppDataListAsync(new GetAppDataListInput
     IsAll = true
 });
 
-Console.WriteLine($"Retrieved {result.Result.Result.Count} records in total");
+Console.WriteLine($"Retrieved {result.Result?.Result?.Count ?? 0} records in total");
 ```
 
 ### Query by Date Range
@@ -245,11 +250,13 @@ await client.DeleteAppDataAsync(new DeleteAppDataInput
 2. **Token Expiry Retry**: When encountering error code `49300` (Token expired), automatically clears cache and retries
 3. **Full Pull**: Set `IsAll = true` to auto-paginate until all data is retrieved
 4. **Strongly-typed Mapping**: Implement `IAppData` interface to directly get C# objects via generic methods
-5. **Singleton Pattern**: `OpenApiClient.Instance` is globally unique; constructor auto-loads app list
+5. **Singleton Pattern**: `OpenApiClient.Instance` is globally unique; the app list is lazily loaded on first access (currently unused)
 6. **Super Admin Permissions**: Admin APIs like `GetAppListAsync()` require `SuperAdminToken`; regular tokens cannot call them
 
 ---
 
 ## License
 
-Copyright (c) yswenli. All Rights Reserved.
+Copyright (c) yswenli.
+
+Licensed under the [Apache License 2.0](../LICENSE).

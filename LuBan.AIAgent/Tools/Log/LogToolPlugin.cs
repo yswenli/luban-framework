@@ -1,4 +1,10 @@
 /****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -52,7 +58,7 @@ public class LogToolPlugin : ILuBanToolPlugin
     /// 故对 LLM 暴露为 <c>LogStats</c>/<c>LogGrep</c>/<c>LogSlice</c>（与其它工具组一致）。
     /// 注意：工具内部确认走 <c>nameof(LogStatsAsync)</c>，故 <c>ToolConfirmationService.DefaultReadOnlyTools</c> 仍用带 <c>Async</c> 的名称。
     /// </remarks>
-    public IReadOnlyList<AIFunction> GetTools(IServiceProvider sp, ToolGroupOptions? toolsOptions = null)
+    public IReadOnlyList<AIFunction> GetTools(DiContainer sp, ToolGroupOptions? toolsOptions = null)
     {
         if (!_options.Enabled) return Array.Empty<AIFunction>();
 

@@ -1,4 +1,10 @@
 /****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -49,10 +55,10 @@ public class CompactContextToolPlugin : ILuBanToolPlugin
     public string? Description => "上下文压缩工具：压缩当前会话对话历史的 token 占用";
 
     /// <inheritdoc/>
-    public IReadOnlyList<AIFunction> GetTools(IServiceProvider sp, ToolGroupOptions? toolsOptions = null)
+    public IReadOnlyList<AIFunction> GetTools(DiContainer sp, ToolGroupOptions? toolsOptions = null)
     {
         // 会话能力由宿主提供：只注册 AddLuBanAgent 而未注册 ISessionManager 的容器
-        // （如 CLI 的 CommandBase.BuildServiceProvider）不应因本工具而建 Agent 失败，
+        // （如 CLI 的 CommandBase 构建容器时）不应因本工具而建 Agent 失败，
         // 故用 GetService 探测，缺失时不出该工具（与 RetrievalToolPlugin 同策略）。
         var sessionManager = sp.GetService<ISessionManager>();
         if (sessionManager is null) return Array.Empty<AIFunction>();
@@ -143,7 +149,7 @@ public class CompactContextToolGroup
                 $"低于压缩阈值，无需压缩。当前 target+threshold={target}+{threshold}={target + threshold}，实际 {messages.Count} 条",
                 $"压缩检查: 活跃 {messages.Count} 条消息，未达阈值");
 
-        // 直接用会话作用域的 ChatClient（原 IServiceScopeFactory 从 root 派生会丢失用户身份）
+        // 直接用会话作用域的 ChatClient（原先从根容器派生作用域会丢失用户身份）
         var chatClient = _chatClient;
 
         var history = messages

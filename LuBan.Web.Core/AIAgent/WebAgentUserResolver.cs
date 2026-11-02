@@ -1,4 +1,10 @@
 /****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -35,7 +41,7 @@ namespace LuBan.Web.Core.AIAgent;
 public sealed class WebAgentUserResolver : IAgentUserResolver
 {
     /// <inheritdoc />
-    public string ResolveUserId(IServiceProvider services)
+    public string ResolveUserId(DiContainer services)
     {
         // 会话级 scope：SessionRuntimeManager 已把真实用户写入 DefaultContextState
         if (services.GetService<IUserContext>()?.UserId is { Length: > 0 } userId)

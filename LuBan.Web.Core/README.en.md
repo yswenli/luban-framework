@@ -8,7 +8,7 @@
 
 ---
 
-**Related Projects**: [LuBan.Framework](../README.md) | [LuBan.Common](../LuBan.Common/README.md) | [LuBan.Orm](../LuBan.Orm/README.md) | [LuBan.Redis](../LuBan.Redis/README.md) | [LuBan.Service](../LuBan.Service/README.md) | [LuBan.EventBus](../LuBan.EventBus/README.md) | [LuBan.ApprovalFlow](../LuBan.ApprovalFlow/README.md) | [LuBan.Wechat](../LuBan.Wechat/README.md) | [LuBan.AIAgent](../LuBan.AIAgent/README.md) | [LuBan.AIFlow](../LuBan.AIFlow/README.md)
+**Related Projects**: [LuBan.Framework](../README.md) | [LuBan.Common](../LuBan.Common/README.md) | [LuBan.Logging](../LuBan.Logging/README.md) | [LuBan.Orm](../LuBan.Orm/README.md) | [LuBan.Redis](../LuBan.Redis/README.md) | [LuBan.Service](../LuBan.Service/README.md) | [LuBan.EventBus](../LuBan.EventBus/README.md) | [LuBan.ApprovalFlow](../LuBan.ApprovalFlow/README.md) | [LuBan.Wechat](../LuBan.Wechat/README.md) | [LuBan.AIAgent](../LuBan.AIAgent/README.md) | [LuBan.AIFlow](../LuBan.AIFlow/README.md)
 
 ---
 
@@ -39,11 +39,16 @@ That simple. The framework automatically reads the `HostingOptions` configuratio
 |----------|-----------|-------------|
 | Runtime | .NET 10.0 | ASP.NET Core minimal hosting |
 | Cache | LuBan.Redis | Redis distributed cache & locks |
-| System Service | Hosting.Systemd / WindowsServices | Register as system service |
+| System Service | Microsoft.Extensions.Hosting.Systemd / Microsoft.Extensions.Hosting.WindowsServices | Register as system service |
 | Approval Flow | LuBan.ApprovalFlow | Built-in approval flow engine |
 | Report Export | LuBan.Reporting | Excel/CSV export |
 | Cloud Storage | LuBan.CloudStorage | Object storage integration |
-| Logging | LuBan.LogLib | Unified logging library |
+| Logging | LuBan.Logging | File logging provider built on Microsoft.Extensions.Logging, 100MB size / cross-day rolling |
+| Common Foundation | LuBan.Common | Unified response (`Result` / `Success` / `Fail`), paging, crypto helpers and general utilities |
+| Data Access | LuBan.Orm | Entity and repository base classes that `DbRepository<TEntity>` derives from |
+| Background Jobs | LuBan.Service | Job hosting, configuration and logs (server-side backing for `JobsController`) |
+| AI Agent | LuBan.AIAgent | Connector abstractions and generic external MCP integration |
+| Speech | LuBan.Speech | Speech recognition / synthesis |
 
 ---
 
@@ -170,13 +175,16 @@ All APIs return a unified structure (automatically wrapped by `ApiResultConverti
 ```json
 {
   "code": 200,
-  "type": "success",
-  "message": "Operation successful",
+  "type": "Success",
+  "message": "OK",
   "result": { ... },
-  "extras": {},
-  "time": 1720000000
+  "time": "2026-10-30 16:00:00"
 }
 ```
+
+- `type` is `Success` or `Fail`; `message` is `OK` on success.
+- `time` is a **string** in `yyyy-MM-dd HH:mm:ss` format (serialized by `DateTimeJsonConverter`).
+- `extras` defaults to `null` and null fields are skipped during serialization, so it usually **does not appear** and may be omitted.
 
 ### Core Middleware & Filters
 
@@ -185,13 +193,14 @@ All APIs return a unified structure (automatically wrapped by `ApiResultConverti
 | `ErrorHandlingMiddleware` | Global exception handling, unified error response |
 | `OnlineUserMiddleware` | Online user statistics and management |
 | `AraParameterFilterAttribute` | Anti-replay attack (timestamp + signature) |
-| `DistributedLockAttribute` | Redis distributed lock, prevents concurrent duplicate operations |
+| `DistributedLockAttribute` | Redis distributed lock, prevents concurrent duplicate operations; constructor `(lockName, variableType, variableName, timeout=10000ms, maxRetries=5, dbIndex=0)`, where the variable segment is appended to the lock key by `EnumVariableType` (`Query`/`Form`/`Route`/`Header`/`Cookie` read `VariableName`; `ContextUser` uses the current user ID) |
 | `OutputCacheAttribute` | API output caching |
 | `CacheableAttribute` | Declarative caching |
 | `CacheClearAttribute` | Cache clearing |
 | `IPWhiteListFilterAttribute` | IP whitelist filtering |
-| `DataScopePermissionFilter` | Data permissions (self/department/organization/all) |
-| `InputArgsValidateActionFilter` | Automatic input validation |
+| `DataScopePermissionFilter` | Data permissions (self/department/organization/all); a **static helper class**, not a filter attribute, used to build and validate the data-scope predicate |
+| `IgnoreDataScopePermissionAttribute` | Skips data-scope validation on a class or method |
+| `InputArgsValidateActionFilterAttribute` | Automatic input validation |
 
 ### Multi-Tenant Database
 
@@ -227,13 +236,16 @@ Built-in `CommonHub`, supports `IHubClient` / `IHubServer` interfaces and `Simpl
 
 ### Background Job Cron Management
 
-`JobsController` provides the following Cron endpoints for querying and dynamically updating job Cron expressions at runtime:
+`JobsController` exposes the following endpoints (**all `[HttpPost]`**) for querying and dynamically updating job configuration at runtime:
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `api/admin/Jobs/GetJobCron?name=xxx` | Query a job's Cron expression |
-| GET | `api/admin/Jobs/GetJobNextOccurrence?name=xxx` | Query a job's next execution time |
-| PUT | `api/admin/Jobs/UpdateJobCron?name=xxx` | Update the Cron expression of a running job (body: `{"cron":"..."}`) |
+| POST | `api/admin/Jobs/GetJobCron?name=xxx` | Query a job's Cron expression |
+| POST | `api/admin/Jobs/GetJobNextOccurrence?name=xxx` | Query a job's next execution time |
+| POST | `api/admin/Jobs/GetJobConfigs` | Query all job configurations |
+| POST | `api/admin/Jobs/UpdateJobConfig?name=xxx&cron=...&isEnabled=...&remark=...` | Update job configuration: a Cron change takes effect immediately, an `isEnabled` change starts/stops the job |
+
+All parameters bind from query string or form (`UpdateJobConfig(name, cron, isEnabled, remark)`, the last three optional).
 
 Cron expressions use the 6-segment seconds format (`seconds minutes hours day month weekday`), parsed by [Cronos](https://www.nuget.org/packages/Cronos/).
 
@@ -260,7 +272,8 @@ public class UserController : BaseAdminController
 public class OrderController : BaseMobileController
 {
     [HttpPost]
-    [DistributedLock("order_{userId}", Seconds = 5)]
+    // Lock key = "order" + "_" + the value of the userId query parameter, e.g. order_1001
+    [DistributedLock("order", EnumVariableType.Query, "userId", timeout: 5000)]
     public async Task<ApiResult> CreateOrder([FromBody] OrderInput input)
     {
         // Business logic
@@ -330,4 +343,6 @@ dotnet run --environment Production
 
 ## License
 
-Copyright (c) yswenli. All Rights Reserved.
+Copyright (c) yswenli.
+
+Licensed under the [Apache License 2.0](../LICENSE).

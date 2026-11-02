@@ -1,3 +1,33 @@
+/****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：Walle
+*命名空间：LuBan.XTestProject
+*文件名： DefaultSeamsUnitTest
+*版本号： V1.0.0.0
+*唯一标识：19e9d75b-6c10-4baf-acdc-17151da8bb5d
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/10/26 14:51:27
+*描述：Agent 默认接缝实现单元测试（工作区 / 画像 / 用户 / 模型选择）
+*
+*=================================================
+*修改标记
+*修改时间：2026/10/26 14:51:27
+*修改人： yswenli
+*版本号： V1.0.0.0
+*描述：Agent 默认接缝实现单元测试（工作区 / 画像 / 用户 / 模型选择）
+*
+*****************************************************************************/
+
 using LuBan.AIAgent.Configuration;
 using LuBan.AIAgent.Hosting;
 using Microsoft.Extensions.DependencyInjection;
@@ -44,7 +74,7 @@ public class DefaultSeamsUnitTest
         using var provider = new ServiceCollection().BuildServiceProvider();
         var resolver = new DefaultAgentUserResolver();
 
-        Assert.AreEqual("local", resolver.ResolveUserId(provider));
+        Assert.AreEqual("local", resolver.ResolveUserId(provider.AsDiContainer()));
     }
 
     [TestMethod]

@@ -1,4 +1,10 @@
 /****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
 *Copyright (c) YSWenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -175,7 +181,7 @@ public static class ServiceDescriptorUtil
     /// </summary>
     /// <param name="services"></param>
     [RequiresUnreferencedCode("AutoInjectAllCustomerServices uses RuntimeUtil.GetTypes and reflection to dynamically discover and register services.")]
-    public static IServiceCollection AutoInjectAllCustomerServices(IServiceCollection services)
+    public static IServiceCollection AutoInjectAllCustomerServices(this IServiceCollection services)
     {
         // 查找所有需要依赖注入的类型
         var injectTypes = RuntimeUtil.GetTypes(fromCache: false)?

@@ -1,4 +1,10 @@
 ﻿/****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -203,7 +209,7 @@ public static partial class WebApp
     /// <summary>
     /// 环境
     /// </summary>
-    public static IWebHostEnvironment WebHostEnvironment => ServiceProviderUtil.GetService<IWebHostEnvironment>() ?? throw new InvalidOperationException("初始化环境失败");
+    public static IWebHostEnvironment WebHostEnvironment => DiContainer.Instance.GetService<IWebHostEnvironment>() ?? throw new InvalidOperationException("初始化环境失败");
 
     /// <summary>
     /// 获取客户端ip
@@ -408,7 +414,7 @@ public static partial class WebApp
     {
         get
         {
-            return ServiceProviderUtil.GetRequiredService<IServiceCache>();
+            return DiContainer.Instance.GetRequiredService<IServiceCache>();
         }
     }
 

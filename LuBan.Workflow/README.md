@@ -27,4 +27,6 @@ LuBan.Framework 的审批流能力已由 **LuBan.ApprovalFlow** 提供，包含�
 
 ## 许可证
 
-保留所有权利
+Copyright (c) yswenli.
+
+Licensed under the [Apache License 2.0](../LICENSE).

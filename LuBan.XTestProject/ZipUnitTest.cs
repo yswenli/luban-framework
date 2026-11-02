@@ -1,4 +1,10 @@
 ﻿/****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
 *Copyright (c) YSWenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -38,8 +44,12 @@ public class ZipUnitTest
     public void TestMethod1()
     {
         var filePath = PathUtil.GetRootFilePath("files");
-        var fileList = new DirectoryInfo(filePath).GetFiles().Select(q => q.FullName).ToList();
         var zipPath = PathUtil.Combine(filePath, "files.zip");
+        var fileList = new DirectoryInfo(filePath)
+            .GetFiles()
+            .Where(q => !string.Equals(q.FullName, zipPath, StringComparison.OrdinalIgnoreCase))
+            .Select(q => q.FullName)
+            .ToList();
         ZipUtil.CreateZipFromFiles(fileList, zipPath);
         Assert.IsTrue(File.Exists(zipPath));
     }

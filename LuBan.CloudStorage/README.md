@@ -3,7 +3,7 @@
 
 > **作者**: yswenli | **联系邮箱**: yswenli@outlook.com | **代码仓库**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
-> 一套接口，三大云商 —— 云存储、云存储、对象存储 无缝切换，代码零改动。
+> 一套接口，三大云商 —— 阿里云 OSS、Azure Blob、MinIO 无缝切换，代码零改动。
 
 ---
 **Related Projects**: [LuBan.Framework](../README.md) | [LuBan.Common](../LuBan.Common/README.md) | [LuBan.Orm](../LuBan.Orm/README.md) | [LuBan.VideoKit](../LuBan.VideoKit/README.md) | [LuBan.Web.Core](../LuBan.Web.Core/README.md)
@@ -11,7 +11,7 @@
 
 ## 为什么选择 LuBan.CloudStorage？
 
-项目要对接云存储，但选型总在变：今天用多云存储。每次切换都要重写上传下载逻辑？
+项目要对接云存储，但选型总在变：今天用阿里云 OSS，明天换 Azure Blob，后天又要接自建 MinIO。每次切换都要重写上传下载逻辑？
 
 **LuBan.CloudStorage** 通过统一的 `ICloudStorageClient` 接口屏蔽底层差异：
 - 工厂模式 + 缓存实例，切换云商只需改一个枚举值
@@ -64,9 +64,9 @@ dotnet add package LuBan.CloudStorage
 |---------|--------|------|
 | 统一接口 | `ICloudStorageClient` | Upload/Download/Delete/GetSasUri/Exist |
 | 工厂 | `CloudStorageClientFactory` | 带缓存的实例创建，支持自动读取配置 |
-| 云存储实现 | `AliyunStorageClient` | 云存储 适配 |
-| Azure 实现 | `AzureStorageClient` | 云存储 Storage 适配 |
-| 对象存储 实现 | `对象存储StorageClient` | 对象存储适配 |
+| 阿里云 OSS 实现 | `AliyunStorageClient` | 阿里云 OSS 适配 |
+| Azure Blob 实现 | `AzureStorageClient` | Azure Blob Storage 适配 |
+| MinIO 实现 | `MinIOStorageClient` | 自建 MinIO 对象存储适配 |
 | 文件处理器 | `FileHandler` | 文件上传/下载/验证/MD5去重/视频缩略图 |
 | 文件流信息 | `FStream` | 封装文件名、ContentType、Stream |
 | URL 刷新 | `UrlUpdateHelper` | 自动刷新标记了 `NewUrlAttribute` 的过期 URL |
@@ -99,7 +99,7 @@ dotnet add package LuBan.CloudStorage
 }
 ```
 
-`SupplierType` 枚举值：`1` = 云存储，`2` = Azure，`3` = 对象存储
+`SupplierType` 枚举值：`0` = None，`1` = Aliyun，`2` = Azure，`3` = MinIO
 
 ### FileHandler 文件上传
 
@@ -165,4 +165,6 @@ await UrlUpdateHelper.UpdateUrlsAsync(courseDto);
 
 ## 许可证
 
-Copyright (c) yswenli. All rights reserved.
+Copyright (c) yswenli.
+
+Licensed under the [Apache License 2.0](../LICENSE).

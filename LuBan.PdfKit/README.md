@@ -17,7 +17,7 @@ PDF 编辑一直是 .NET 开发的痛点：开源库功能有限，商业库价�
 - 精确文本替换：通过自定义 `TextLocationListener` 定位文本坐标，白底遮盖 + 重写实现
 - 文本替换为图片：支持将 PDF 中的占位文本替换为图片（如电子印章）
 - 图片替换：替换 PDF 中已有的图片
-- HTML 转 PDF：内置 CJK 中文字体支持，跨平台兼容
+- HTML 转 PDF：依赖系统中文字体 `msyh.ttc`（Windows 为 `C:/Windows/Fonts/msyh.ttc`，Linux 为 `/usr/share/fonts/msyh.ttc`），缺失时回退 iText 默认字体，中文可能无法正常显示
 - URL 转 PDF：直接抓取网页内容生成 PDF
 - 图片合成 PDF：多张图片一键合并为 PDF 文档
 
@@ -52,7 +52,7 @@ PdfUtil.ReplaceTextWithImage(
     imageWidth: 120,
     imageHeight: 120);
 
-// HTML 转 PDF（自动加载中文字体）
+// HTML 转 PDF（自动加载系统微软雅黑，缺失则回退默认字体）
 PdfUtil.FromHtml("output.pdf", "<h1>你好世界</h1><p>支持中文</p>");
 
 // URL 转 PDF
@@ -71,6 +71,16 @@ PdfUtil.FromImages("album.pdf", new List<string>
 dotnet add package LuBan.PdfKit
 ```
 
+运行依赖（随包自动引入）：
+
+| 依赖包 | 版本 | 用途 |
+|--------|------|------|
+| `itext7` | 9.8.0 | PDF 读写核心库 |
+| `itext7.bouncy-castle-adapter` | 9.8.0 | 加密/签名（Bouncy Castle 适配层） |
+| `itext7.pdfhtml` | 6.3.4 | HTML 转 PDF |
+
+> **授权提示**：iText7 系列采用 **AGPL v3** 授权，闭源商业分发/部署需自行取得 iText 商业许可，否则须按 AGPL 开源本项目相关代码。
+
 ## 功能概览
 
 | 功能 | 方法 | 说明 |
@@ -82,9 +92,10 @@ dotnet add package LuBan.PdfKit
 | 替换图片 | `PdfUtil.ReplaceImage` | 替换 PDF 中的图片 |
 | 批量替换图片 | `PdfUtil.ReplaceImages` | 批量替换 PDF 中的图片 |
 | 图片转 PDF | `PdfUtil.FromImages` | 多张图片合成 PDF |
-| HTML 转 PDF | `PdfUtil.FromHtml` | HTML 内容转 PDF（支持中文） |
+| HTML 转 PDF | `PdfUtil.FromHtml` | HTML 内容转 PDF（中文字体依赖系统 msyh.ttc） |
 | URL 转 PDF | `PdfUtil.FromUrl` | 网页 URL 转 PDF |
 | 文本定位 | `TextLocationListener` | 自定义文本位置监听器 |
+| 自定义字体路径 | `PdfUtil.CustomFontPath` | 静态属性，指定默认字体文件；为空时按操作系统默认路径查找 |
 | 文本块 | `TextChunk` | 文本坐标信息封装 |
 | 矩形区域 | `PdfRectangle` | 用于调整文本遮盖区域偏移 |
 
@@ -106,7 +117,8 @@ PdfUtil.ReplaceText(
 默认字体加载策略：
 - Windows：自动加载 `C:/Windows/Fonts/msyh.ttc`（微软雅黑）
 - Linux：自动加载 `/usr/share/fonts/msyh.ttc`
-- 如以上均不存在，使用系统默认字体
+- 可通过静态属性 `PdfUtil.CustomFontPath` 指定默认字体文件，优先于上述系统路径
+- 如以上均不存在，使用系统默认字体（iText 默认字体不含中文字形）
 
 ### 调整文本遮盖偏移
 
@@ -139,9 +151,11 @@ PdfUtil.FromHtml("report.pdf", html);
 - `PdfRectangle` 的四个值分别控制 left/top/width/height 的偏移量，用于微调遮盖区域
 - 批量替换（`ReplaceTexts`）通过链式中间文件实现，最终自动清理临时文件
 - HTML 转 PDF 时确保中文字体已正确安装或通过 `fontFilePath` 指定
-- `FromUrl` 方法使用 `HttpClientProxy` 下载网页内容，支持需要认证的页面
+- `FromUrl` 方法通过 `HttpClientProxy.DownloadBytes(url)` 直接下载网页内容，仅支持匿名访问，未提供请求头/凭据入口（需要认证的页面请自行下载 HTML 后用 `FromHtml`）
 - Linux 部署时需要手动安装微软雅黑字体文件到 `/usr/share/fonts/`
 
 ## 许可证
 
-Copyright (c) yswenli. All rights reserved.
+Copyright (c) yswenli.
+
+Licensed under the [Apache License 2.0](../LICENSE).

@@ -1,4 +1,10 @@
 /****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -47,11 +53,12 @@ public static class AIAgentExtension
                 var effectiveConfig = LuBanAgentConfigResolver.CreateEffectiveConfiguration(agentConfig, contentRootPath);
 
                 ConsoleUtil.WriteLineWithCount("正在初始化 AIAgent", color: ConsoleColor.Green);
-                services.AddLuBanAgentDefaults(effectiveConfig);
+                var di = services.AsDiContainer();
+                di.AddLuBanAgentDefaults(effectiveConfig);
                 // 用户隔离：把 JWT 用户身份接入会话运行时（默认实现恒为 local）
                 services.TryAddScoped<IAgentUserResolver, WebAgentUserResolver>();
-                services.AddLuBanAgentHost();
-                services.AddLuBanAgentOpenAI(effectiveConfig);
+                di.AddLuBanAgentHost();
+                di.AddLuBanAgentOpenAI(effectiveConfig);
 
                 if (!ReferenceEquals(effectiveConfig, configuration))
                 {

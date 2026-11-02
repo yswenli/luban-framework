@@ -1,4 +1,10 @@
 /****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -57,7 +63,7 @@ public class PerUserWorkspaceResolverUnitTest
         return new PerUserWorkspaceResolver(
             Options.Create(new LuBanAgentOptions { WorkspaceRoot = _ws }),
             sp.GetRequiredService<IAgentUserResolver>(),
-            sp);
+            sp.AsDiContainer());
     }
 
     [TestMethod]
@@ -83,6 +89,6 @@ public class PerUserWorkspaceResolverUnitTest
 
     private sealed class FixedUserResolver(string userId) : IAgentUserResolver
     {
-        public string ResolveUserId(IServiceProvider services) => userId;
+        public string ResolveUserId(DiContainer services) => userId;
     }
 }

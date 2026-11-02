@@ -1,4 +1,10 @@
 /****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -102,7 +108,7 @@ internal static class LuBanOrmExtention
                 if (NacosConfigUtil.Read<DbConnectionOptions>() != null)
                 {
                     // 此处 DI 容器和 Logger 均未初始化（BuildProvider 在 InitDataBaseOrm 之后调用），
-                    // 直接使用回调中的 dbProvider 检查连接，避免通过 ServiceProviderUtil 获取 ISqlSugarClient 失败
+                    // 直接使用回调中的 dbProvider 检查连接，避免通过全局容器获取 ISqlSugarClient 失败
                     var isValide = ConsoleUtil.PrintProcess(() => dbProvider.Ado.IsValidConnection(), "正在检查数据库连接有效性...", "yellow");
                     if (!isValide)
                     {

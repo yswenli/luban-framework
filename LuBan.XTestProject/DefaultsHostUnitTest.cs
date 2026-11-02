@@ -1,4 +1,10 @@
 /****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *命名空间：LuBan.XTestProject
@@ -28,7 +34,7 @@ public class DefaultsHostUnitTest
             .Build();
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddLuBanAgentDefaults(config, _ => new MockChatClient("test"));
+        services.AsDiContainer().AddLuBanAgentDefaults(config, _ => new MockChatClient("test"));
         return services.BuildServiceProvider(new ServiceProviderOptions
         {
             ValidateScopes = true,

@@ -1,5 +1,5 @@
 [English](README.en.md) | 中文
-# LuBan.E邮件处理库
+# LuBan.EMailKit
 
 > **作者**: yswenli | **联系邮箱**: yswenli@outlook.com | **代码仓库**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
@@ -9,11 +9,11 @@
 **Related Projects**: [LuBan.Framework](../README.md) | [LuBan.Common](../LuBan.Common/README.md) | [LuBan.Web.Core](../LuBan.Web.Core/README.md)
 ---
 
-## 为什么选择 LuBan.E邮件处理库？
+## 为什么选择 LuBan.EMailKit？
 
 发邮件谁都会，但写好却不容易：HTML 正文、附件处理、抄送密送、URL 附件下载、多账户切换…… 每次都要和底层邮件协议 API 搏斗？
 
-**LuBan.E邮件处理库** 封装了简洁的邮件收发接口：
+**LuBan.EMailKit** 封装了简洁的邮件收发接口：
 - 工厂模式创建客户端，SMTP/IMAP/POP3 三种协议按需切换
 - 多种 `SendAsync` 重载，从简单单收件人到完整抄送密送+附件一应俱全
 - 支持 URL 附件（自动从远程下载）
@@ -49,7 +49,7 @@ var message = new Message(
 await client.SendAsync(message);
 
 // 接收邮件（IMAP/POP3）
-var messages = await client.RecieveAsync();
+var messages = await client.ReceiveAsync();
 ```
 
 ## 安装
@@ -62,7 +62,7 @@ dotnet add package LuBan.EMailKit
 
 | 功能模块 | 核心类 | 说明 |
 |---------|--------|------|
-| 统一接口 | `IEMailClient` | RecieveAsync / SendAsync |
+| 统一接口 | `IEMailClient` | ReceiveAsync / SendAsync |
 | 工厂 | `EMailFactory` | 根据配置创建对应协议的客户端 |
 | SMTP 发送 | `EMailSmtp` | 基于 SMTP 协议的邮件发送 |
 | IMAP 收取 | `EmailImap` | 基于 IMAP 协议的邮件接收 |
@@ -82,7 +82,7 @@ dotnet add package LuBan.EMailKit
   "EMailOptions": {
     "EMailClientConfigs": [
       {
-        "ClientType": 0,
+        "ClientType": 1,
         "Host": "smtp.example.com",
         "Port": 465,
         "UseSsl": true,
@@ -94,7 +94,7 @@ dotnet add package LuBan.EMailKit
 }
 ```
 
-`ClientType` 枚举值：`0` = SMTP，`1` = IMAP，`2` = POP3
+`ClientType` 枚举值：`0` = None，`1` = SMTP，`2` = POP3，`3` = IMAP
 
 ### 手动创建客户端
 
@@ -134,11 +134,13 @@ await client.SendAsync("user@example.com", "报告", "请查收",
 ## 使用提示
 
 - `IEMailClient` 实现了 `IDisposable`，使用完毕后请调用 `Dispose()` 或使用 `using` 语句
-- SMTP 客户端不支持 `RecieveAsync`，接收邮件请使用 IMAP 或 POP3 客户端
+- SMTP 客户端不支持 `ReceiveAsync`，接收邮件请使用 IMAP 或 POP3 客户端
 - `EMailFactory.Create()` 无参版本自动读取 Nacos 配置中的第一组 `EMailClientConfigs`
 - 附件支持从远程 URL 自动下载，适用于云存储中的文件作为附件发送
 - 发送 HTML 邮件时设置 `isHtml: true`，正文中的 HTML 标签将被正确渲染
 
 ## 许可证
 
-Copyright (c) yswenli. All rights reserved.
+Copyright (c) yswenli.
+
+Licensed under the [Apache License 2.0](../LICENSE).

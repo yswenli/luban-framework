@@ -3,7 +3,7 @@
 
 > **Author**: yswenli | **Contact**: yswenli@outlook.com | **Repository**: [https://github.com/yswenli/luban-framework](https://github.com/yswenli/luban-framework)
 
-> One interface, three cloud providers — seamlessly switch between multiple cloud providers with zero code changes.
+> One interface, three cloud providers — Alibaba Cloud OSS, Azure Blob, and MinIO switch seamlessly with zero code changes.
 
 ---
 **Related Projects**: [LuBan.Framework](../README.md) | [LuBan.Common](../LuBan.Common/README.md) | [LuBan.Orm](../LuBan.Orm/README.md) | [LuBan.VideoKit](../LuBan.VideoKit/README.md) | [LuBan.Web.Core](../LuBan.Web.Core/README.md)
@@ -64,9 +64,9 @@ dotnet add package LuBan.CloudStorage
 |--------|------------|-------------|
 | Unified Interface | `ICloudStorageClient` | Upload/Download/Delete/GetSasUri/Exist |
 | Factory | `CloudStorageClientFactory` | Cached instance creation, supports auto-reading configuration |
-| cloud provider | `AliyunStorageClient` | cloud provider OSS adapter |
-| Azure | `AzureStorageClient` | 云存储 Storage adapter |
-| 对象存储 | `对象存储StorageClient` | object storage adapter |
+| Alibaba Cloud OSS | `AliyunStorageClient` | Alibaba Cloud OSS adapter |
+| Azure Blob | `AzureStorageClient` | Azure Blob Storage adapter |
+| MinIO | `MinIOStorageClient` | Self-hosted MinIO object storage adapter |
 | File Handler | `FileHandler` | File upload/download/validation/MD5 dedup/video thumbnails |
 | File Stream Info | `FStream` | Encapsulates filename, ContentType, Stream |
 | URL Refresh | `UrlUpdateHelper` | Auto-refreshes expired URLs marked with `NewUrlAttribute` |
@@ -99,7 +99,7 @@ dotnet add package LuBan.CloudStorage
 }
 ```
 
-`SupplierType` enum values: `1` = cloud provider, `2` = Azure, `3` = 对象存储
+`SupplierType` enum values: `0` = None, `1` = Aliyun, `2` = Azure, `3` = MinIO
 
 ### FileHandler File Upload
 
@@ -165,4 +165,6 @@ await UrlUpdateHelper.UpdateUrlsAsync(courseDto);
 
 ## License
 
-Copyright (c) yswenli. All rights reserved.
+Copyright (c) yswenli.
+
+Licensed under the [Apache License 2.0](../LICENSE).

@@ -38,6 +38,7 @@ var corpClient = WechatClientFactory.Create(EnumWechatType.Corp);
 |----------|-----------|-------------|
 | Runtime | .NET 10.0 | — |
 | Framework Dependencies | LuBan.Web.Core, LuBan.Service, LuBan.Common | LuBan framework core |
+| Third-party Dependencies | Encrypt.Library, SKIT.FlurlHttpClient.Common, SKIT.FlurlHttpClient.Wechat.Api 3.17.0, SKIT.FlurlHttpClient.Wechat.Work 3.17.0 | Encryption and WeChat API SDKs |
 
 ---
 
@@ -57,9 +58,9 @@ dotnet add package LuBan.Wechat
 
 | Method | Description |
 |--------|-------------|
-| `Create(EnumWechatType)` | Get client by type (Api/Pay/App/Corp) |
+| `Create(EnumWechatType)` | Get client by type (Api = Official Account / Pay / App = Mini Program / Corp = WeCom) |
 | `CreateWechatApiClient(options)` | Create Official Account client |
-| `CreateWechatAppClient(options)` | Create WeChat App client |
+| `CreateWechatAppClient(options)` | Create Mini Program client (uses `WxOpenAppId`/`WxOpenAppSecret`) |
 | `CreateWechatTenpayClient(options)` | Create WeChat Pay client |
 | `CreateWechatCorpClient(options)` | Create WeCom client |
 
@@ -72,7 +73,7 @@ dotnet add package LuBan.Wechat
 
 ### Message Protocol Models
 
-Complete WeChat message send/receive models (29 model classes):
+Complete WeChat message send/receive models (29 files in the Models directory):
 
 **Receive Messages:**
 - `ReceiveText` — Text message
@@ -175,8 +176,8 @@ var signature = WechatCallBackCall.Signature(
 ```csharp
 var client = WechatClientFactory.Create(EnumWechatType.Api) as WechatApiClient;
 
-// Get user info
-var request = new CreateWechatAccessTokenRequest();
+// Get AccessToken (CgibinTokenRequest comes from SKIT.FlurlHttpClient.Wechat.Api)
+var request = new CgibinTokenRequest();
 var response = await client.ExecuteAsync(request);
 ```
 
@@ -191,12 +192,24 @@ Add WeChat configuration in `appsettings.json`:
   "WechatOptions": {
     "WechatAppId": "wx_your_appid",
     "WechatAppSecret": "your_secret",
+    "EnableCallbackProxy": false,
+    "CallbackProxyDomain": "https://uat-wcforward.luban.com/",
     "WxOpenAppId": "wx_open_appid",
     "WxOpenAppSecret": "wx_open_secret",
-    "CorpId": "your_corp_id",
-    "CorpSecret": "your_corp_secret"
+    "WechatCorpOptions": {
+      "Type": "SelfApp",
+      "SelfAppOptions": {
+        "CorpId": "your_corp_id",
+        "AgentId": 1000002,
+        "AgentSecret": "your_agent_secret",
+        "PushToken": "your_push_token",
+        "PushEncodingAESKey": "your_aes_key"
+      }
+    }
   },
   "WechatPayOptions": {
+    "AppId": "wx_your_appid",
+    "WechatPayUrl": "https://example.com/wechat/pay/callback",
     "MerchantId": "your_merchant_id",
     "MerchantV3Secret": "your_v3_secret",
     "MerchantCertificateSerialNumber": "your_cert_sn",
@@ -205,12 +218,14 @@ Add WeChat configuration in `appsettings.json`:
 }
 ```
 
+`WechatCorpOptions.Type` accepts `SelfApp` (self-built app, uses `SelfAppOptions`), `Developers` (third-party/agent development, uses `DevelopersOptions`), or `SmartHardware` (smart hardware, uses `SmartHardwareOptions`); fill only the section that matches the selected type.
+
 ---
 
 ## Tips
 
 1. **Client Caching**: `WechatClientFactory` automatically caches client instances, no need to manually manage lifecycle
-2. **Interceptor**: All clients automatically inject `WechatClientInterceptor` for request/response logging
+2. **Interceptor**: Clients created via `WechatClientFactory.Create(EnumWechatType)` automatically get `WechatClientInterceptor` for request/response logging; those created through `CreateWechatXxxClient` do not
 3. **WeCom**: `WechatCorpClient` supports both self-built apps (`Client`) and third-party development (`SuiteClients`)
 4. **Callback Verification**: `AccessValid()` method automatically completes SHA1 signature verification
 5. **XML Parsing**: `XmlMsgRevolve` automatically identifies message types and deserializes to corresponding subclasses
@@ -219,4 +234,6 @@ Add WeChat configuration in `appsettings.json`:
 
 ## License
 
-Copyright (c) yswenli. All Rights Reserved.
+Copyright (c) yswenli.
+
+Licensed under the [Apache License 2.0](../LICENSE).

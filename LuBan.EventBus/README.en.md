@@ -16,7 +16,7 @@
 - Manual event subscription/unsubscription prone to omissions?
 - Need async event-driven architecture without heavy middleware like RabbitMQ / Kafka?
 
-LuBan.EventBus is built on `System.Threading.Channels`, providing a zero-dependency in-process event bus with support for generic events, scoped handler injection, event persistence, and more.
+LuBan.EventBus is built on `System.Threading.Channels`, providing an in-process event bus with no third-party middleware dependencies, plus support for generic events, transient handler injection, event persistence, and more.
 
 ## Quick Preview
 
@@ -55,6 +55,7 @@ await eventBus.PublishAsync(new OrderCreatedEvent
 | Component | Description |
 |-----------|-------------|
 | `LuBan.Common` | Core interface definitions (IEventBus, IEventData, IEventHandler\<T\>) |
+| `Microsoft.Extensions.DependencyInjection.Abstractions` / `Microsoft.Extensions.Options` | DI registration and options binding |
 
 ## Installation
 
@@ -71,14 +72,14 @@ dotnet add package LuBan.EventBus
 | Async Publish | `PublishAsync<TEvent>()` dispatches via Channel asynchronously without blocking the calling thread |
 | Auto-Discovery | `AddEventHandlers()` auto-scans and registers all `IEventHandler<T>` implementations |
 | Type Safety | Generic constraints ensure compile-time checking of event-handler matching |
-| Event Persistence | Optional `EventPersistence` support for auditing and tracing needs |
+| Event Persistence | `EventPersistence` is enabled by default (`EnablePersistence = true`) and can be turned off, for auditing and tracing needs |
 | Independent Channels | Each event type has its own Channel; different types never block each other |
 
 ### Architecture Design
 
 - **EventChannel\<TEvent\>** — Each event type has an independent `Channel.CreateBounded`, with background tasks continuously consuming and dispatching to handlers
-- **Scoped Lifecycle** — Each event handling creates an independent scoped service instance via DI; handlers can safely inject scoped dependencies like DbContext
-- **EventPersistence** — Optional event persistence support based on `LocalCacheUtil`, supporting event save and load
+- **Transient Handlers** — handlers are registered as `AddTransient` by `AddEventHandlers()`, so each event handling resolves a fresh instance from DI; the scope used for resolution is disposed before `HandleAsync` is called, so do not rely on scoped service lifetimes inside handlers
+- **EventPersistence** — event persistence is enabled by default, based on `LocalCacheUtil`, supporting event save and load
 
 ### Configuration Options
 
@@ -210,12 +211,15 @@ var savedEvents = await persistence.LoadAsync<OrderCreatedEvent>();
 ## Tips
 
 - Each event type has its own independent Channel; different event types never block each other
-- Handlers are managed with scoped lifecycle, allowing safe injection of database contexts and other scoped services
+- Handlers are registered with a transient lifetime and resolved via DI; the resolving scope is disposed before `HandleAsync`, so evaluate the lifetime risk yourself if injecting scoped services
 - Use `AddEventHandlers()` for auto-scanning registration to avoid manual one-by-one configuration
 - Event publishing is asynchronous and does not block the main business flow
 - Combine with `EventPersistence` to implement event sourcing and audit logging
 - `BaseEventData` provides base properties like `Name`, `EventTime`, and `EventSource`
+- `Subscribe` / `SubscribeOnce` / `Unsubscribe` are reserved APIs that only create or release the Channel today, without delivery: handler discovery and registration are always done by `AddEventHandlers()`
 
 ## License
 
-MIT
+Copyright (c) yswenli.
+
+Licensed under the [Apache License 2.0](../LICENSE).

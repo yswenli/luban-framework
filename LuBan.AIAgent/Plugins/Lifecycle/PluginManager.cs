@@ -1,4 +1,10 @@
 /****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -37,7 +43,7 @@ public sealed class PluginManager
     private readonly PluginDependencyResolver _dependencyResolver;
     private readonly BuiltinPluginCatalog _builtinCatalog;
     private readonly IPluginStateRepository _stateRepository;
-    private readonly IServiceProvider _services;
+    private readonly DiContainer _services;
     private readonly PluginManagerOptions _options;
 
     private readonly SemaphoreSlim _gate = new(1, 1);
@@ -59,7 +65,7 @@ public sealed class PluginManager
         PluginDependencyResolver dependencyResolver,
         BuiltinPluginCatalog builtinCatalog,
         IPluginStateRepository stateRepository,
-        IServiceProvider services,
+        DiContainer services,
         PluginManagerOptions? options = null)
     {
         _loader = loader ?? throw new ArgumentNullException(nameof(loader));

@@ -10,7 +10,7 @@
 
 | 方法 | 路径 | 鉴权 | 说明 |
 |---|---|---|---|
-| POST | `/api/agent/chat` | JWT | 一轮对话，**不装配任何工具**，返回正文 + 思考 + 附件摘要 |
+| POST | `/api/agent/chat` | JWT | 一轮对话，**不装配任何工具**，**关闭思考**，返回正文 + 附件摘要 |
 | POST | `/api/agent/chatstream` | JWT | 一轮对话，SSE 事件流，装配工具 |
 | POST | `/api/agent/confirm` | JWT | 回传 `tool.confirm` 的确认结果 |
 
@@ -41,7 +41,7 @@
 {
   "sessionId": "b1f2c3...",
   "content": "合同主要风险有三点……",
-  "thinking": "先看违约责任条款……",
+  "thinking": "",
   "attachments": {
     "added": [
       { "source": "https://cdn.example.com/contract-1.png", "fileName": "contract-1.png", "mediaType": "image/png", "fileSize": 81234 }
@@ -57,6 +57,7 @@
 行为要点：
 
 - 建 Agent 时 `EnableTools=false`：**本轮不注册任何工具**，模型看不到任何工具；系统提示词也不追加 Skill 目录与工具示例段。
+- 本接口定位为快捷对话：每轮以 `ReasoningEffort=None` 覆盖推理强度（走运行选项，不重建 Agent），要求模型直接出字；`thinking` 字段保留但通常为空——模型或网关不识别 `reasoning_effort` 时仍可能返回思考内容，前端不要依赖它一定有值。
 - 部分成功（已产出正文后又出现 `ErrorEvent`）：**200**，`content` 保留已产出部分，`error` 填错误文案。
 - 一个字符都没产出就失败：**502** + 错误信息，不带部分内容。
 - 文本附件 >50KB 在非流式下直接跳过（`attachments.skipped`，reason 含「50KB」），因为大文本走的是「让模型用 `ReadFileAsync` 自己读」的指引，而本接口没有工具。

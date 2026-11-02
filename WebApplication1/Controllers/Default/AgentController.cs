@@ -1,4 +1,10 @@
 /****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -43,6 +49,7 @@ using LuBan.Common.Consts;
 using LuBan.Web.Core.AIAgent;
 
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Options;
 
 using System.Diagnostics;
@@ -94,7 +101,9 @@ public class AgentController : BaseApiController
         var skipped = new List<AgentAttachmentSkipped>();
         string? failure = null;
 
-        var request = BuildRequest(input!, prepared.SessionId!, enableTools: false);
+        // 快捷对话：不思考、快速出字，故显式关闭推理
+        var request = BuildRequest(input!, prepared.SessionId!, enableTools: false,
+            reasoningEffort: ReasoningEffort.None);
         try
         {
             await foreach (var evt in prepared.Host!.RunStreamingAsync(request, cancellationToken)
@@ -196,7 +205,7 @@ public class AgentController : BaseApiController
         if (userId <= 0)
             return StatusCode(StatusCodes.Status401Unauthorized, ErrorResult("未登录", 401));
 
-        var broker = HttpContext.RequestServices.GetService<IToolConfirmationBroker>();
+        var broker = HttpContext.RequestServices.AsDiContainer().GetService<IToolConfirmationBroker>();
         if (broker is null)
             return StatusCode(StatusCodes.Status503ServiceUnavailable, ErrorResult(AgentDisabled, 503));
 
@@ -236,7 +245,7 @@ public class AgentController : BaseApiController
                 ErrorResult("未登录", 401)));
 
         // 用 GetService 而不是构造注入：未启用时控制器仍能构造，返回 503 而非 500
-        var host = HttpContext.RequestServices.GetService<IAgentHost>();
+        var host = HttpContext.RequestServices.AsDiContainer().GetService<IAgentHost>();
         if (host is null)
             return PreparedRequest.Fail(StatusCode(StatusCodes.Status503ServiceUnavailable,
                 ErrorResult(AgentDisabled, 503)));
@@ -300,18 +309,26 @@ public class AgentController : BaseApiController
         };
     }
 
-    /// <summary>构造运行请求；<paramref name="enableTools"/> 为 false 时本轮没有任何工具。</summary>
-    private static AgentRunRequest BuildRequest(AgentChatInput input, string sessionId, bool enableTools) => new()
-    {
-        Input = input.Prompt.Trim(),
-        SessionId = sessionId,
-        SystemPrompt = string.IsNullOrWhiteSpace(input.System) ? null : input.System,
-        Attachments = (input.Attachments ?? [])
-            .Where(a => !string.IsNullOrWhiteSpace(a))
-            .ToList(),
-        EnableTools = enableTools,
-        PermissionMode = ToolPermissionMode.Default
-    };
+    /// <summary>
+    /// 构造运行请求；<paramref name="enableTools"/> 为 false 时本轮没有任何工具，
+    /// <paramref name="reasoningEffort"/> 为 null 时沿用模型默认推理强度。
+    /// </summary>
+    private static AgentRunRequest BuildRequest(
+        AgentChatInput input,
+        string sessionId,
+        bool enableTools,
+        ReasoningEffort? reasoningEffort = null) => new()
+        {
+            Input = input.Prompt.Trim(),
+            SessionId = sessionId,
+            SystemPrompt = string.IsNullOrWhiteSpace(input.System) ? null : input.System,
+            Attachments = (input.Attachments ?? [])
+                .Where(a => !string.IsNullOrWhiteSpace(a))
+                .ToList(),
+            EnableTools = enableTools,
+            ReasoningEffort = reasoningEffort,
+            PermissionMode = ToolPermissionMode.Default
+        };
 
     /// <summary>把宿主事件映射为帧，并保证「error 之后仍有 done」。</summary>
     private async IAsyncEnumerable<AgentEventFrame> StreamFramesAsync(
@@ -382,7 +399,7 @@ public class AgentController : BaseApiController
     /// <summary>心跳间隔：站点配置 <c>Api:SseHeartbeatSeconds</c>，默认 15 秒，≤0 关闭。</summary>
     private TimeSpan ResolveHeartbeat()
     {
-        var seconds = HttpContext.RequestServices.GetService<IConfiguration>()
+        var seconds = HttpContext.RequestServices.AsDiContainer().GetService<IConfiguration>()
             ?.GetValue<int?>("Api:SseHeartbeatSeconds") ?? 15;
         return seconds <= 0 ? TimeSpan.Zero : TimeSpan.FromSeconds(seconds);
     }

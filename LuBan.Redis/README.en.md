@@ -48,9 +48,9 @@ var subscriber = redis.GetSubscriber("notification");
 subscriber.OnMessageReceived += (sub, msg) => Console.WriteLine(msg);
 await subscriber.StartAsync();
 
-// Stream message queue
+// Stream message queue (the message type must be a class with a parameterless constructor; anonymous types are not supported)
 var producer = redis.GetRedisProducer("task-stream");
-await producer.PublishAsync(new { TaskId = 1, Name = "Data Sync" });
+await producer.PublishAsync(new MyTask { TaskId = 1, Name = "Data Sync" });
 
 var consumer = redis.GetRedisConsumer("task-stream", groupName: "worker-group");
 var messages = await consumer.GetMessagesAsync<MyTask>(count: 10);
@@ -69,7 +69,8 @@ dotnet add package LuBan.Redis
 | Quick Init | `LuBanRedis` | Singleton facade, auto-reads configuration |
 | Connection Builder | `RedisClientBuilder` | Supports custom multi-instance building (with caching) |
 | Cache | `RedisCache` | Implements `IServiceCache`, supports expiry and prefix deletion |
-| Distributed Lock | `RedisDistributedLockV3` | Lua script atomic operations, supports reentrant/non-reentrant |
+| Distributed Lock (reentrant) | `RedisDistributedLock` | Hash structure tracks reentry count; the same token can acquire repeatedly |
+| Distributed Lock (non-reentrant) | `RedisDistributedLockV3` | Single SET NX PX command plus Lua script atomic operations |
 | Lock Token | `DistributedLockToken` | Supports `using` / `await using` for auto-release |
 | List Queue | `RedisQueue<T>` | Enqueue/dequeue/blocking dequeue/queue state management |
 | Stream Producer | `RedisProducer` | Message publishing based on Redis Stream |
@@ -95,7 +96,10 @@ dotnet add package LuBan.Redis
     "KeepAlive": 180,
     "ConnectTimeout": 10000,
     "ConnectRetry": 1,
-    "CommandTimeout": 60000
+    "BusyRetry": 3,
+    "BusyRetryWaitMS": 1000,
+    "CommandTimeout": 60000,
+    "Extention": ""
   }
 }
 ```
@@ -122,9 +126,9 @@ var reentrantLock = redis.GetDistributedLock("reentrant-key", reentrant: true, t
 ### Stream Message Queue
 
 ```csharp
-// Producer
+// Producer (the message type must be a class with a parameterless constructor)
 var producer = redis.GetRedisProducer("order-events", maxLength: 50000);
-var msgId = await producer.PublishAsync(new { OrderId = 1001, Amount = 99.9m });
+var msgId = await producer.PublishAsync(new OrderEvent { OrderId = 1001, Amount = 99.9m });
 
 // Consumer (consumer group mode)
 var consumer = redis.GetRedisConsumer("order-events", groupName: "order-workers");
@@ -175,8 +179,10 @@ var removed = cache.RemoveByPrefix("config:");
 - Non-reentrant locks outperform reentrant locks — prefer non-reentrant mode when there's no nested locking requirement
 - Stream consumer group `groupName` cannot be empty, otherwise it degrades to normal read mode
 - Key expiry listener requires Redis server support for `notify-keyspace-events` configuration (the component sets this automatically)
-- `RedisClientBuilder.Build()` uses `ConcurrentDictionary` internally to cache connections — identical configurations won't create duplicate connections
+- `RedisClientBuilder.Build()` caches connections in a `ConcurrentDictionary`, but the cache key is only `config.Masters`: identical `Masters` values reuse the same connection, and all other settings (password, database index, timeouts, etc.) are not compared
 
 ## License
 
-Copyright (c) yswenli. All rights reserved.
+Copyright (c) yswenli.
+
+Licensed under the [Apache License 2.0](../LICENSE).

@@ -16,7 +16,7 @@
 - 手动管理事件订阅/取消订阅容易遗漏？
 - 需要异步事件驱动但又不想引入 RabbitMQ / Kafka 这样的重量级中间件？
 
-LuBan.EventBus 基于 `System.Threading.Channels` 构建，提供零外部依赖的进程内事件总线，支持泛型事件、Scoped 处理器注入、事件持久化等特性。
+LuBan.EventBus 基于 `System.Threading.Channels` 构建，提供无第三方中间件依赖的进程内事件总线，支持泛型事件、Transient 处理器注入、事件持久化等特性。
 
 ## 快速预览
 
@@ -55,6 +55,7 @@ await eventBus.PublishAsync(new OrderCreatedEvent
 | 组件 | 说明 |
 |------|------|
 | `LuBan.Common` | 核心接口定义（IEventBus、IEventData、IEventHandler\<T\>） |
+| `Microsoft.Extensions.DependencyInjection.Abstractions` / `Microsoft.Extensions.Options` | DI 注册与配置选项绑定 |
 
 ## 安装
 
@@ -71,14 +72,14 @@ dotnet add package LuBan.EventBus
 | 异步发布 | `PublishAsync<TEvent>()` 基于 Channel 异步分发，不阻塞调用线程 |
 | 自动发现处理器 | 通过 `AddEventHandlers()` 自动扫描并注册所有 `IEventHandler<T>` 实现 |
 | 类型安全 | 泛型约束，编译期检查事件与处理器的匹配关系 |
-| 事件持久化 | 可选的 `EventPersistence` 支持，满足审计与回溯需求 |
+| 事件持久化 | 默认开启（`EnablePersistence = true`）、可关闭的 `EventPersistence` 支持，满足审计与回溯需求 |
 | 独立 Channel | 每个事件类型拥有独立 Channel，不同类型互不阻塞 |
 
 ### 架构设计
 
 - **EventChannel\<TEvent\>** — 每个事件类型独立 `Channel.CreateBounded`，后台任务持续消费并分发到处理器
-- **Scoped 生命周期** — 每次事件处理通过 DI 创建独立的 Scoped 服务实例，处理器可安全注入 DbContext 等 Scoped 依赖
-- **EventPersistence** — 可选事件持久化支持，基于 `LocalCacheUtil` 实现，支持事件保存与加载
+- **Transient 处理器** — 处理器由 `AddEventHandlers()` 注册为 `AddTransient`，每次事件处理从 DI 解析新实例；解析所用的 scope 在调用 `HandleAsync` 之前即已释放，因此不要在处理器中依赖 Scoped 服务的生命周期
+- **EventPersistence** — 事件持久化默认开启，基于 `LocalCacheUtil` 实现，支持事件保存与加载
 
 ### 配置选项
 
@@ -210,12 +211,15 @@ var savedEvents = await persistence.LoadAsync<OrderCreatedEvent>();
 ## 小贴士
 
 - 每个事件类型拥有独立的 Channel，不同类型的事件互不阻塞
-- 处理器通过 Scoped 生命周期管理，可安全注入数据库上下文等 Scoped 服务
+- 处理器注册为 Transient 生命周期，由 DI 解析；解析用的 scope 在 `HandleAsync` 前已释放，注入 Scoped 服务需自行评估生命周期风险
 - 使用 `AddEventHandlers()` 自动扫描注册，避免手动逐个配置
 - 事件发布是异步的，不会阻塞主业务流程
 - 结合 `EventPersistence` 可实现事件溯源与审计日志
 - `BaseEventData` 提供了 `Name`、`EventTime`、`EventSource` 等基础属性
+- `Subscribe` / `SubscribeOnce` / `Unsubscribe` 为预留 API，当前仅建立或释放 Channel，未实现投递：处理器的发现与注册统一由 `AddEventHandlers()` 完成
 
 ## 许可证
 
-MIT
+Copyright (c) yswenli.
+
+Licensed under the [Apache License 2.0](../LICENSE).

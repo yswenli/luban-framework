@@ -1,4 +1,10 @@
 /****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -21,21 +27,33 @@
 *描述：GlobalUsings
 *
 *****************************************************************************/
+// 由代码文件上移的命名空间（2026-10-28 规范化）
+global using LuBan.AIAgent.A2A.Abstractions;
+global using LuBan.AIAgent.A2A.Models;
 global using LuBan.AIAgent.Abstractions;
+global using LuBan.AIAgent.Abstractions.Models;
+global using LuBan.AIAgent.Attachments.Ingestion;
 global using LuBan.AIAgent.Configuration;
+global using LuBan.AIAgent.Configuration.Providers;
 global using LuBan.AIAgent.Connectors;
+global using LuBan.AIAgent.Defaults;
 global using LuBan.AIAgent.Errors;
+global using LuBan.AIAgent.Hosting;
+global using LuBan.AIAgent.Hosting.Commands;
 global using LuBan.AIAgent.Infrastructure;
 global using LuBan.AIAgent.LocalMemory;
 global using LuBan.AIAgent.LogAnalysis;
 global using LuBan.AIAgent.MCP;
 global using LuBan.AIAgent.MCP.BuiltIn;
+global using LuBan.AIAgent.Orchestration;
 global using LuBan.AIAgent.Orchestration.Models;
+global using LuBan.AIAgent.Orchestration.Planner;
 global using LuBan.AIAgent.Plugins;
 global using LuBan.AIAgent.Plugins.Base;
 global using LuBan.AIAgent.Plugins.Lifecycle;
 global using LuBan.AIAgent.Plugins.Loading;
 global using LuBan.AIAgent.Plugins.Security;
+global using LuBan.AIAgent.Retrieval;
 global using LuBan.AIAgent.Retrieval.Chunkers;
 global using LuBan.AIAgent.Rules;
 global using LuBan.AIAgent.Rules.BuiltIn;
@@ -44,7 +62,10 @@ global using LuBan.AIAgent.Skills;
 global using LuBan.AIAgent.Skills.BuiltIn;
 global using LuBan.AIAgent.Tools;
 global using LuBan.AIAgent.Utils.Text;
+global using LuBan.AIAgent.Wiki;
+global using LuBan.AIAgent.Wiki.Extractors;
 global using LuBan.Common;
+global using LuBan.Common.IO;
 global using LuBan.DI;
 global using LuBan.Threading;
 
@@ -52,47 +73,35 @@ global using Microsoft.Agents.AI;
 global using Microsoft.Extensions.AI;
 global using Microsoft.Extensions.Configuration;
 global using Microsoft.Extensions.DependencyInjection;
+global using Microsoft.Extensions.DependencyInjection.Extensions;
 global using Microsoft.Extensions.Logging;
 global using Microsoft.Extensions.Options;
 global using Microsoft.Playwright;
 
+global using MoonSharp.Interpreter;
+
+global using OpenAI;
+
+global using SkiaSharp;
+
+global using System.ClientModel;
 global using System.Collections.Concurrent;
+global using System.Collections.ObjectModel;
 global using System.ComponentModel;
 global using System.Diagnostics;
 global using System.Diagnostics.CodeAnalysis;
-global using System.Reflection;
-global using System.Runtime.CompilerServices;
-global using System.Security.Cryptography;
-global using System.Text;
-global using System.Text.Json;
-global using System.Text.RegularExpressions;
-global using System.Threading.Channels;
-
-// 由代码文件上移的命名空间（2026-10-28 规范化）
-global using LuBan.AIAgent.A2A.Abstractions;
-global using LuBan.AIAgent.A2A.Models;
-global using LuBan.AIAgent.Abstractions.Models;
-global using LuBan.AIAgent.Configuration.Providers;
-global using LuBan.AIAgent.Defaults;
-global using LuBan.AIAgent.Hosting;
-global using LuBan.AIAgent.Hosting.Commands;
-global using LuBan.AIAgent.Orchestration;
-global using LuBan.AIAgent.Orchestration.Planner;
-global using LuBan.AIAgent.Retrieval;
-global using LuBan.AIAgent.Wiki;
-global using LuBan.AIAgent.Wiki.Extractors;
-global using LuBan.Common.IO;
-global using Microsoft.Extensions.DependencyInjection.Extensions;
-global using MoonSharp.Interpreter;
-global using OpenAI;
-global using SkiaSharp;
-global using System.ClientModel;
-global using System.Collections.ObjectModel;
 global using System.Globalization;
 global using System.IO.Compression;
 global using System.Net;
 global using System.Net.Sockets;
+global using System.Reflection;
+global using System.Runtime.CompilerServices;
 global using System.Runtime.InteropServices;
 global using System.Runtime.Loader;
+global using System.Security.Cryptography;
+global using System.Text;
+global using System.Text.Json;
 global using System.Text.Json.Nodes;
 global using System.Text.Json.Serialization;
+global using System.Text.RegularExpressions;
+global using System.Threading.Channels;

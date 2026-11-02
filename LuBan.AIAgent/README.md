@@ -74,11 +74,7 @@ services.AddLuBanAgent(configuration);
 dotnet add package LuBan.AIAgent
 ```
 
-安装 Playwright 浏览器（使用浏览器工具时需要）：
-
-```powershell
-npx playwright@1.61.0 install chromium
-```
+安装 Playwright 浏览器（使用浏览器工具时需要）：首次运行会由 `PlaywrightDriverResolver` 按运行时 `Microsoft.Playwright` 版本自动下载驱动到 `~/.luban-agent/playwright-driver/{version}`；如需手动兜底，执行由 `PlaywrightDriverResolver.GetInstallBrowsersHint()` 生成的命令（形如 `npx playwright@<运行时版本> install chromium`），不要手写固定版本号。
 
 ## 功能总览
 
@@ -135,7 +131,7 @@ Skills、MCPs、Rules 采用统一的三级优先级注册表模式：
 | **浏览器工具** | `browser` | 导航、点击、输入、截图、获取内容、等待元素、获取 URL（基于 Playwright） |
 | **文件系统工具** | `filesystem` | 读取文件、写入文件、编辑文件（精确字符串替换，支持单处/多处/全部替换）、列出目录、删除文件、删除目录、搜索文件（glob）、内容搜索（regex）、创建目录、复制文件、移动文件、获取文件信息；工作区内直接放行，工作区外路径经用户确认后放行 |
 | **脚本执行工具** | `script` | 执行 Shell（运行环境自适应）、Lua（内嵌沙箱，无外部解释器依赖）、Python 脚本 |
-| **Git 工具** | `git` | 状态/差异/日志/分支/暂存/提交/合并/变基/推送等 26 个细粒度工具；工作区内免确认，越界逐次确认；冲突时返回文件清单交回 agent 处理 |
+| **Git 工具** | `git` | 状态/差异/日志/分支/暂存/提交/合并/变基/推送等 26 个 Git 工具 + 4 个 worktree 工具（`EnterWorktreeAsync` / `FinishWorktreeAsync` / `AbandonWorktreeAsync` / `WorktreeStatus`），共 30 个；工作区内免确认，越界逐次确认；冲突时返回文件清单交回 agent 处理 |
 | **Web 工具** | `web` | 发送 HTTP 请求获取网页内容 |
 | **语义检索工具** | `retrieval` | 索引本地代码/文档，按语义搜索相关片段 |
 | **上下文压缩工具** | `context` | 压缩当前会话的对话历史，释放 token 预算（LLM 可见、可主动调用） |
@@ -147,6 +143,7 @@ Skills、MCPs、Rules 采用统一的三级优先级注册表模式：
 | **Skill 消费工具** | `skill` | 列出可用 Skill（支持关键词搜索）、加载并使用 Skill 模板指令；工作区根路径内免确认（默认启用） |
 | **Skill 管理工具** | `skillmanage` | 创建/覆盖/删除工作区级 Skill；内置 Skill 不可覆盖删除；写/删操作需用户确认（默认启用） |
 | **MCP 管理工具** | `mcpmanage` | 创建/覆盖/删除工作区级 MCP 配置、测试 MCP 连接；内置 MCP 不可覆盖删除；写/删操作需用户确认（默认启用） |
+| **连接器管理工具** | `connectormanage` | 列出连接器状态（已声明/已启用/提供方可用性）、创建或覆盖、删除工作区级连接器声明；提供方须已注册，凭据参数必须是 `$credential:` 引用；写/删操作需用户确认（默认启用） |
 
 > **脚本执行说明**：Shell 工具会自动探测运行环境（Windows 优先 `pwsh` > `powershell` > `cmd`，类 Unix 优先 `bash` > `sh`），并按解释器自动适配参数风格与引用方式，执行结果中回传实际使用的 `shell`/`shellPath`/`platform`。Lua 工具基于内嵌 MoonSharp 软沙箱执行，无需外部 `lua` 解释器，沙箱不具备文件系统与系统命令能力，结果通过 `print` 输出。
 
@@ -355,7 +352,7 @@ AI: [调用 WriteConnectorAsync] 已创建连接器声明，凭据请到设置�
 | 组件 | 说明 |
 |------|------|
 | `IMCPClient` | MCP 客户端接口，与 MCP 服务器交互 |
-| `McpServerConfig` | 外部 MCP 服务器配置：`transport` / `command` / `args` / `env` / `url` / `headers` / `environment` / `enabled` |
+| `McpServerConfig` | 外部 MCP 服务器配置：`transport` / `command` / `args` / `url` / `headers` / `environment` / `enabled` |
 | `StdioMCPClient` | 基于 stdio JSON-RPC 的外部 MCP 客户端（启动前经值解析器注入 `environment`） |
 | `HttpMCPClient` | HTTP 外部 MCP 客户端：`sse` 走 SSE 事件流 + `/message` 回传，`http` 走 **Streamable HTTP**（直连 `url`） |
 | `MCPClientFactory` | 按 `McpServerConfig.Transport` 创建外部客户端（stdio / http / sse 分派收敛于一处） |
@@ -382,7 +379,7 @@ AI: [调用 WriteConnectorAsync] 已创建连接器声明，凭据请到设置�
 | `IAttachmentProcessor` | 附件处理器接口，判定可支持类型/媒体类型并按需生成缩略图 |
 | `DefaultAttachmentProcessor` | 默认实现：图片（PNG/JPEG/GIF/WebP/BMP；TIFF/HEIC 需先转换）与文本文件；图片解码校验并缩放，文本读取内容 |
 | `AttachmentInfo` | 附件元数据（文件名、MIME、大小、类型、源路径） |
-| `AttachmentKind` | 附件类型枚举（Image / Text） |
+| `AttachmentKind` | 附件类型枚举（Image / TextFile） |
 | `ProcessedAttachment` | 处理结果（元数据 + 文本内容 / 缩略图路径 + 像素尺寸） |
 | `AttachmentMessageBuilder` | 把附件装配为 `ChatMessage`（图片 → base64 `DataContent`；≤50KB 文本内联；>50KB 仅注入路径指引） |
 | `AttachmentRecord` | 会话持久化记录（仅存路径与元数据，不存 base64），供历史回放重建 |
@@ -437,7 +434,7 @@ AI: [调用 WriteConnectorAsync] 已创建连接器声明，凭据请到设置�
 |------|------|
 | `IPlugin` | 插件契约：`Id` / `Name` / `Version` / `Description` / `InitializeAsync` / `ShutdownAsync` / `ContributeSkills` |
 | `PluginBase` | 插件基类（命名空间 `LuBan.AIAgent.Plugins.Base`），提供 `Host` / `SafeLog` / `PostToUi`（失效令牌包装，禁止插件直调 UI 线程）与 `OnInitializeAsync` / `OnShutdownAsync` 钩子 |
-| `IPluginHost` | 宿主能力契约：注册/注销侧栏条目与面板、注册/注销 Skill 与 MCP、`PostToUi`、`GetConfig`、插件日志 |
+| `IPluginHost` | 宿主能力契约：注册/注销侧栏条目与面板、`RegisterCommand`、注册/注销 Skill 与 MCP、`RegisterConnector` / `UnregisterConnector`、`PostToUi`、`GetConfig`、插件日志 |
 | `PluginManager` | 单例管理器：`ScanAsync` / `RestoreEnabledAsync` / `GetPlugins` / `EnableAsync` / `DisableAsync` / `InstallAsync` / `UpgradeAsync` / `UninstallAsync` 与 `Changed` 事件 |
 | `PluginLoader` / `ManifestValidator` | 清单读取与校验：必填项、id 与版本正则、入口程序集存在性、`minHostVersion` / `targetApp`、重复项、`transport`、依赖自引用；`ValidatePermissions` 可单独做权限 / 凭据声明覆盖校验（供加载前门禁调用，与会判 `Error` 的整单校验分离） |
 | `PluginDependencyResolver` | 依赖拓扑与环检测（仅校验依赖存在性，不做自动启用） |
@@ -459,8 +456,8 @@ AI: [调用 WriteConnectorAsync] 已创建连接器声明，凭据请到设置�
 | `PluginScopeContext` | 权限环境（`AsyncLocal`）：`Enter(pluginId, permissions)` 声明「当前调用以哪个插件身份发起」，可嵌套；`Current == null` 表示宿主自身调用，一律放行 |
 | `PluginPermissionGuard` | 运行期出口门禁：`RequireNetwork` / `RequireProcess` / `RequireCredential` / `RequireGit` 越界即抛 `PluginPermissionDeniedException` 并写入有界的 `RecentDenials` 审计；`PluginPermissionGuard.Default` 为无 DI 场景的兜底实例 |
 | `ICredentialStore` / `ConfigurationCredentialStore` | 凭据读写契约 + 默认「配置节点 `LuBanAgent:Credentials:<key>` + 环境变量兜底」只读实现（`SetAsync` 抛 `NotSupportedException`）；桌面宿主宜注册自己的可写实现替换它。规范键含冒号（`connector:<实例名>:token`）在 `IConfiguration` 中是三层嵌套节点，`Keys` 按路径展平还原，勿依赖子节点短名 |
-| `CredentialKeys` | 凭据键目录与归一化：连接器令牌统一为 `connector:<实例名>:token`（如 `connector:my-vendor:token`，见 `ForConnectorToken`）；`Normalize` 只做「大小写与分隔符」的规范化，**不做任何厂商历史拼写映射** |
-| `ICredentialKeyAliases` | 由**宿主**提供的别名表（`Aliases` / `EnvironmentVariableNames` / `GetLegacyEnvironmentVariableName`）：把厂商历史键（如 `myvendor_pat`）与环境变量名映射到规范键，供 `CredentialKeys.Normalize`、`ConfigurationCredentialStore` 与 `CredentialValueResolver` 回退读取；未注册别名的宿主按字面键处理 |
+| `CredentialKeys` | 凭据键目录与归一化：连接器令牌统一为 `connector:<实例名>:token`（如 `connector:my-vendor:token`，见 `ForConnectorToken`）；`Normalize` 只做「去首尾空白 + 转小写」（`Norm`），**不做任何厂商历史拼写映射** |
+| `ICredentialKeyAliases` | 由**宿主**提供的别名表（`Resolve` / `GetLegacyAliases` / `GetLegacyEnvironmentVariableName`）：把任意写法的键（如厂商历史键 `myvendor_pat`）归一化为规范键，并给出规范键对应的历史拼写与环境变量名，供 `ConfigurationCredentialStore`、`CredentialValueResolver` 与凭据目录白名单做回退读取；未注册别名时使用 `NullCredentialKeyAliases`（仅做通用归一化，无别名回退） |
 
 要点：
 
@@ -482,7 +479,7 @@ AI: [调用 WriteConnectorAsync] 已创建连接器声明，凭据请到设置�
 | `ConnectorBuildContext` / `ConnectorSettings` | 工厂入参（实例名 / 提供方键 / 服务 / 设置 / `IConfiguration`）与设置袋子 |
 | `AddConnector<T>` / `AddBuiltinConnectors` | 注册连接器**工厂**（只注册不启用）；框架的 `AddBuiltinConnectors` 只注册基础设施，**厂商连接器由产品 / 插件显式注册** |
 | `ConnectorFactoryRegistry` / `ConnectorInstanceHost` | 工厂表（线程安全，支持插件运行期增删）+ 宿主级**单例**实例缓存（连接器由 DI 持有，会话级 MCP 客户端按名派生） |
-| `ConnectorRegistry`（scoped） | 解析器：`LoadFromWorkspace` / `GetStates`（四态目录）/ `ApplyEnabledAsync` / `CreateMcpClient(mcpName, scope)` / `UnregisterAll` |
+| `ConnectorRegistry`（scoped） | 解析器：`LoadFromWorkspace` / `GetStates`（五态目录：`Available` / `Declared` / `Enabled` / `Unavailable` / `Error`）/ `ApplyEnabledAsync` / `CreateMcpClient(mcpName, scope)` / `UnregisterAll` |
 | `ConnectorConfig` | `config.json` 的 `connectors[]` 项：`name` / `provider` / `enabled` / `settings` |
 | `ConnectorWorkspaceEntry` | 工作区 `.luban-agent/connectors/<name>.json` 的对象模型：`name` / `provider` / `settings` / `enabled`（兼容只写 `{ "enabled": true }` 的旧格式） |
 | `IConnectorConfigWriter` / `WorkspaceConnectorConfigWriter` | 连接器声明写入契约 + 框架默认实现（写工作区文件、拒明文凭据、文件名防穿越）；产品 / 桌面宿主可注册自己的实现以统一缓存失效与通知链路 |
@@ -536,7 +533,7 @@ services.AddConnector<MyVendorConnector>("myVendor", ctx => new MyVendorConnecto
 | `AddLuBanAgentHost()` | 注册宿主与默认接缝（全部 `TryAdd`）：`SessionRuntimeManager`（Singleton）、`IAgentHost`（Scoped）、Profile / 工作区 / 用户 / 模型选择解析、附件编排、能力门禁、会话初始化与 `ICommandCatalog`（Singleton） |
 | `AddLuBanAgentOpenAI(configuration)` | 按 `LuBanAgent:Models` 数组（`Provider` / `Model` / `ApiKey` / `BaseUrl`）为每个 Provider 建客户端，注册 `IChatClient` + `IProviderRouter`；同一 Provider 多条模型必须凭据一致；配置不全时只登记 `ChatClientFactoryWarning`，不注册也不抛 |
 | `IAgentHost` | 宿主入口：`InitializeAsync` / `Reset` / `RunStreamingAsync(AgentRunRequest)`；**必须以 Scoped 解析**，自身不持有会话状态。`Reset` 在该会话有回合运行中时只登记延迟重载（不打断回合），回合收尾后释放 Agent，下一次对话按最新配置重建 |
-| `AgentRunRequest` | 一轮对话入参：`Input` / `AttachmentPaths` / `Attachments`（URL 或路径，由框架解析）/ `SystemPrompt`（按轮人设覆盖）/ `EnableTools` / `SessionId` / `PermissionMode` / `ConfirmHandler` / `ConfirmHandlerAsync` / `OnPlannedAction` / `OnUserDenied` |
+| `AgentRunRequest` | 一轮对话入参：`Input` / `AttachmentPaths` / `Attachments`（URL 或路径，由框架解析）/ `SystemPrompt`（按轮人设覆盖）/ `EnableTools` / `ReasoningEffort`（按轮推理强度覆盖，设为 `None` 关闭思考）/ `SessionId` / `PermissionMode` / `ConfirmHandler` / `ConfirmHandlerAsync` / `OnPlannedAction` / `OnUserDenied` |
 | `AgentStreamEvent` | UI 无关输出事件：`TextDeltaEvent` / `ThinkingDeltaEvent` / `ToolCallStartedEvent` / `ToolCallCompletedEvent` / `ToolCallFailedEvent` / `ToolConfirmationRequestedEvent` / `ErrorEvent` / `OrchestrationProgressEvent` / `AttachmentAddedEvent` / `AttachmentSkippedEvent` |
 | `AgentBuildOverrides` | 按轮构建覆盖项（`SystemPrompt` + `EnableTools`）：与缓存 Agent 比对，变化即在该会话的串行区间内重建 |
 | `AgentEventProtocol` / `AgentEventFrame` | 宿主事件 → 传输帧的统一映射（`text.delta` / `tool.*` / `attachment.*` 等），Web / CLI / Codex 共用一套事件名 |
@@ -696,7 +693,7 @@ public class MyToolPlugin : ILuBanToolPlugin
     public string GroupName => "my-tools";
     public string? Description => "自定义工具集";
 
-    public IReadOnlyList<AIFunction> GetTools(IServiceProvider sp, ToolGroupOptions? toolsOptions = null)
+    public IReadOnlyList<AIFunction> GetTools(DiContainer sp, ToolGroupOptions? toolsOptions = null)
     {
         // 返回自定义工具函数
         return new List<AIFunction> { /* ... */ };
@@ -754,9 +751,9 @@ public class MyCustomSkill : SkillBase
 
     public override async Task<SkillResult> ExecuteAsync(SkillContext context, string input)
     {
-        UpdateStatus(context, "正在处理...");
-        var result = await CallAgentAsync(context, input);
-        return SkillResult.Ok(result ?? "");
+        context.UpdateStatus?.Invoke("正在处理...");
+        var result = await context.Agent!.RunAsync(input, context.CancellationToken);
+        return SkillResult.Ok(result.Text ?? "");
     }
 }
 
@@ -771,6 +768,7 @@ public class MyRule : RuleBase
 {
     public override string Id => "my-rule";
     public override string Name => "我的规则";
+    public override string Description => "自定义规则示例";
     public override int Priority => 50;
 
     public override bool IsApplicable(RuleContext context)
@@ -1047,26 +1045,28 @@ services.AddSingleton<IPluginHost, MyPluginHost>();   // 宿主自己实现：�
 
 | Provider | 显示名称 | 支持的模型 |
 |----------|---------|-----------|
-| openai | OpenAI | gpt-4.1, gpt-4o, gpt-4-turbo, o1, o3-mini 等 |
-| azure | Azure OpenAI | gpt-4o, gpt-4-turbo, gpt-35-turbo 等 |
-| deepseek | DeepSeek | deepseek-chat, deepseek-coder, deepseek-reasoner |
-| kimi | Kimi | k3, k3-256k, kimi-for-coding, kimi-for-coding-highspeed |
-| glm | 智谱 GLM | glm-4-plus, glm-4-air, glm-4-flash 等 |
-| qwen | 通义千问 | qwen-turbo, qwen-plus, qwen-max 等 |
-| doubao | 豆包 | doubao-pro-4k, doubao-pro-32k, doubao-lite-4k 等 |
-| claude | Claude | claude-3-5-sonnet, claude-3-5-haiku, claude-3-opus 等 |
-| gemini | Google Gemini | gemini-2.0-flash, gemini-1.5-pro, gemini-1.5-flash 等 |
-| ollama | Ollama (本地) | llama3.1, llama3.2, qwen2.5, deepseek-coder-v2 等 |
-| ernie | 百度文心一言 | ernie-4.0-turbo-8k, ernie-4.0-8k 等 |
-| minimax | MiniMax | abab6.5s-chat, abab6.5-chat 等 |
-| hunyuan | 腾讯混元 | hunyuan-pro, hunyuan-standard 等 |
-| mimo | 小米 MiMo | mimo-v1, mimo-v1-32k 等 |
-| xai | xAI Grok | grok-2, grok-2-mini, grok-beta |
-| qianfan | 百度智能云千帆 | ernie-4.0-8k, ernie-speed-128k 等 |
-| tencent-ti | 腾讯云 TI 平台 | hunyuan-pro, hunyuan-standard 等 |
+| openai | OpenAI | gpt-4.1, gpt-4.1-mini, gpt-4.1-nano, gpt-4o, gpt-4o-mini, o1, o1-mini, o1-pro, o3, o3-mini, o3-pro, o4-mini |
+| azure | Azure OpenAI | gpt-4o, gpt-4o-mini, gpt-4-turbo, gpt-4, gpt-35-turbo |
+| deepseek | DeepSeek | deepseek-flash, deepseek-v4-pro |
+| kimi | Kimi | kimi-k3, kimi-k2.7-code, kimi-k2.7-code-highspeed, kimi-k2.6 |
+| glm | 智谱 GLM | glm-5.3, glm-5.3-flash, glm-5.2, glm-5.1, glm-5, glm-5-turbo, glm-4.7, glm-4.7-flash, glm-4.6, glm-4.5-air 等 |
+| qwen | 通义千问 | qwen3.8-max, qwen3.8-flash, qwen3.7-plus, qwen3.6-plus, qwen3.5-omni-plus, qwen3-vl-plus, qvq-max 等 |
+| doubao | 豆包 | doubao-1.5-vision-pro, doubao-1.5-vision-lite, doubao-vision-pro, doubao-vision-lite, Seed-Evolving, deepseek-v4.1-flash |
+| claude | Claude | claude-opus-4-20250514, claude-sonnet-4-20250514, claude-3-7-sonnet-20250219, claude-3-5-sonnet-20241022, claude-3-5-haiku-20241022, claude-3-haiku-20240307 |
+| gemini | Google Gemini | gemini-2.5-pro, gemini-2.5-flash, gemini-2.0-flash, gemini-2.0-flash-lite, gemini-1.5-pro, gemini-1.5-flash |
+| ollama | Ollama (本地) | llama3.1, llama3.2, qwen2.5, deepseek-coder-v2, codellama |
+| ernie | 百度文心一言 | ernie-4.5, ernie-4.0-turbo, ernie-4.0-vision, ernie-3.5-8k, ernie-speed-pro, ernie-lite-pro |
+| minimax | MiniMax | MiniMax-M3, MiniMax-M2.7, MiniMax-M2.7-highspeed, MiniMax-M2.5, MiniMax-M2.5-highspeed, MiniMax-H3 |
+| ark | 字节方舟 (火山引擎) | 无内置默认端点与默认模型（`ProviderDefaults` 未收录），须在配置中显式给出 `BaseUrl` 与 `Model` |
+| bailian | 阿里百炼 | 无内置默认端点与默认模型（`ProviderDefaults` 未收录），须在配置中显式给出 `BaseUrl` 与 `Model` |
+| hunyuan | 腾讯混元 | hunyuan-turbos-vision, hunyuan-t1-vision, hunyuan-turbos-vision-video, hunyuan-turbo, hunyuan-pro, hunyuan-standard, hunyuan-lite |
+| mimo | 小米 MiMo | mimo-v2.5-pro |
+| xai | xAI Grok | grok-4, grok-3, grok-3-mini, grok-3-fast, grok-2-vision |
+| qianfan | 百度智能云千帆 | ernie-4.5, ernie-4.0-turbo, ernie-4.0-vision, ernie-3.5-8k, ernie-speed-pro, ernie-lite-pro |
+| tencent-ti | 腾讯云 TI 平台 | hunyuan-turbos-vision, hunyuan-t1-vision, hunyuan-turbo, hunyuan-pro, hunyuan-standard, hunyuan-lite |
 | huawei-pangu | 华为云盘古 | pangu-7b, pangu-13b, pangu-52b |
-| bedrock | AWS Bedrock | anthropic.claude-3-sonnet 等 |
-| openrouter | OpenRouter | openai/gpt-4o, anthropic/claude-3.5-sonnet 等 |
+| bedrock | AWS Bedrock | anthropic.claude-opus-4-20250515-v1:0, anthropic.claude-sonnet-4-20250515-v1:0, anthropic.claude-3-5-sonnet-20241022-v1:0, meta.llama4-maverick-v1:0 等 |
+| openrouter | OpenRouter | deepseek/deepseek-v4.1-flash, openai/gpt-4.1, openai/o3, anthropic/claude-opus-4, google/gemini-2.5-pro, meta/llama-4-maverick 等 |
 
 ## 项目结构
 
@@ -1171,7 +1171,7 @@ LuBan.AIAgent/
 │   ├── IConnector.cs                  # 连接器契约 + MCP 暴露面 + 工厂入参/设置
 │   ├── ConnectorBase.cs               # 连接器抽象基类（幂等初始化 + 释放骨架，厂商无关）
 │   ├── ConnectorFactoryRegistry.cs    # 连接器工厂表（线程安全）+ 宿主级单例实例缓存
-│   ├── ConnectorRegistry.cs           # 会话级解析：声明/启用/四态目录/MCP 派生/工作区完整声明合并
+│   ├── ConnectorRegistry.cs           # 会话级解析：声明/启用/五态目录/MCP 派生/工作区完整声明合并
 │   ├── ConnectorWorkspaceEntry.cs     # 工作区连接器条目（name/provider/settings/enabled，兼容旧 {enabled}）
 │   ├── IConnectorConfigWriter.cs      # 连接器声明写入契约
 │   ├── WorkspaceConnectorConfigWriter.cs # 默认写入实现（工作区文件 + 防穿越 + 凭据门禁）
@@ -1203,10 +1203,6 @@ LuBan.AIAgent/
 │   ├── WikiSlug.cs                    # 文件名 slug 生成
 │   ├── Models.cs                      # 页面/索引/lint 模型
 │   └── Extractors/                    # 源文件提取器（txt/md/json/csv/xml/html/xlsx）
-├── Utils/Text/
-│   ├── TextUtils.cs                   # 文本处理工具
-│   ├── NGramExtractor.cs              # N-Gram 提取器
-│   └── WildcardMatcher.cs             # 通配符匹配
 ├── LocalMemory/
 │   ├── ILocalMemoryService.cs         # 本地记忆服务接口
 │   ├── ILocalMemoryStore.cs           # 本地记忆存储接口
@@ -1214,6 +1210,10 @@ LuBan.AIAgent/
 │   ├── LocalMemoryService.cs          # 本地记忆服务
 │   ├── MemoryCategories.cs            # 记忆分类
 │   └── MemoryEntry.cs                 # 记忆条目模型
+├── Utils/Text/
+│   ├── TextUtils.cs                   # 文本处理工具
+│   ├── NGramExtractor.cs              # N-Gram 提取器
+│   └── WildcardMatcher.cs             # 通配符匹配
 ├── Orchestration/                     # 多 Agent 编排子系统
 │   ├── IOrchestrator.cs               # 编排器接口
 │   ├── Orchestrator.cs                # 编排器默认实现
@@ -1318,7 +1318,7 @@ LuBan.AIAgent/
 ## 小贴士
 
 - 模型路由使用 `provider:model` 格式，新增 Provider 只需通过 `IAppConfigReader` / 宿主实现添加
-- **12 大内置工具组**覆盖浏览器自动化、文件操作、脚本执行、Git 版本控制、Web 请求、语义检索、上下文压缩、本地记忆、MCP、多 Agent 编排、LLM Wiki 知识库（opt-in）、大日志分析
+- **16 大内置工具组**覆盖浏览器自动化、文件操作、脚本执行、Git 版本控制、Web 请求、语义检索、上下文压缩、本地记忆、MCP、多 Agent 编排、LLM Wiki 知识库（opt-in）、大日志分析、Skill 消费、Skill 管理、MCP 管理、连接器管理
 - `ToolConfirmationService` 对工作区外路径访问、写入、删除、执行等敏感操作要求用户确认；工作区内直接放行
 - 授权三档记忆（本次 / 本轮 / 本会话），按路径所在根粒度生效；删除类工具（`AlwaysConfirmTools`）不记忆、每次必确认
 - `FileSystemToolOptions.AllowedRoots` 与工作区根共同构成可信范围，范围内的操作免确认
@@ -1335,4 +1335,6 @@ LuBan.AIAgent/
 
 ## 许可证
 
-MIT
+Copyright (c) yswenli.
+
+Licensed under the [Apache License 2.0](../LICENSE).

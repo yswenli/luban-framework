@@ -1,4 +1,10 @@
 /****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -24,14 +30,14 @@ namespace LuBan.AIAgent.Rules;
 public class ContextInjectBuilder
 {
     private readonly RuleEngine? _ruleEngine;
-    private readonly IServiceProvider? _services;
+    private readonly DiContainer? _services;
 
     /// <summary>
     /// 创建 context-build 注入构造器。
     /// </summary>
     /// <param name="ruleEngine">规则引擎；为 null 时始终返回空结果。</param>
     /// <param name="services">当前作用域服务提供者；供规则惰性解析作用域服务（可为 null）。</param>
-    public ContextInjectBuilder(RuleEngine? ruleEngine = null, IServiceProvider? services = null)
+    public ContextInjectBuilder(RuleEngine? ruleEngine = null, DiContainer? services = null)
     {
         _ruleEngine = ruleEngine;
         _services = services;

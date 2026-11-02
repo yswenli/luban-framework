@@ -1,3 +1,33 @@
+/****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
+*Copyright @ yswenli All Rights Reserved.
+*CLR版本： .net10.0
+*机器名称：WALLE
+*公司名称：Walle
+*命名空间：LuBan.XTestProject
+*文件名： LogDiUnitTest
+*版本号： V1.0.0.0
+*唯一标识：795c1180-e717-4c1b-b4ee-0cebadba18b4
+*当前的用户域：WALLE
+*创建人： yswenli
+*电子邮箱：yswenli@outlook.com
+*创建时间：2026/10/9 18:21:53
+*描述：日志组件的 DI 注册与选项绑定单元测试
+*
+*=================================================
+*修改标记
+*修改时间：2026/10/9 18:21:53
+*修改人： yswenli
+*版本号： V1.0.0.0
+*描述：日志组件的 DI 注册与选项绑定单元测试
+*
+*****************************************************************************/
+
 using LuBan.AIAgent;
 using LuBan.AIAgent.Configuration;
 using LuBan.AIAgent.LogAnalysis;
@@ -17,7 +47,7 @@ public class LogDiUnitTest
         var services = new ServiceCollection();
         var configuration = new ConfigurationBuilder().Build();
 
-        services.AddLuBanAgent(configuration);
+        services.AsDiContainer().AddLuBanAgent(configuration);
         using var sp = services.BuildServiceProvider();
 
         Assert.IsNotNull(sp.GetService<ILogAggregator>());
@@ -37,7 +67,7 @@ public class LogDiUnitTest
             })
             .Build();
 
-        services.AddLuBanAgent(configuration);
+        services.AsDiContainer().AddLuBanAgent(configuration);
         using var sp = services.BuildServiceProvider();
 
         var value = sp.GetRequiredService<IOptions<LogToolOptions>>().Value;
@@ -50,7 +80,7 @@ public class LogDiUnitTest
         var services = new ServiceCollection();
         var configuration = new ConfigurationBuilder().Build();
 
-        services.AddLuBanAgent(configuration);
+        services.AsDiContainer().AddLuBanAgent(configuration);
         using var sp = services.BuildServiceProvider();
 
         Assert.AreSame(sp.GetRequiredService<ILogAggregator>(), sp.GetRequiredService<ILogAggregator>());

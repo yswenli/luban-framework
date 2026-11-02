@@ -1,4 +1,10 @@
 /****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *命名空间：LuBan.XTestProject
@@ -44,7 +50,7 @@ public class PluginManagerLifecycleUnitTest
             services.AddSingleton<IPluginHost>(host);
         var provider = services.BuildServiceProvider();
 
-        host.Services = provider;
+        host.Services = provider.AsDiContainer();
 
         var file = stateFile ?? NewStateFile();
         var manager = new PluginManager(
@@ -52,7 +58,7 @@ public class PluginManagerLifecycleUnitTest
             new PluginDependencyResolver(),
             new BuiltinPluginCatalog(builtins ?? Array.Empty<IPlugin>()),
             new PluginStateRepository(file),
-            provider);
+            provider.AsDiContainer());
 
         return (manager, host, file, provider);
     }
@@ -615,7 +621,7 @@ public class PluginManagerLifecycleUnitTest
     /// </summary>
     private sealed class RecordingPluginHost : IPluginHost
     {
-        public IServiceProvider Services { get; set; } = null!;
+        public DiContainer Services { get; set; } = null!;
 
         public string PluginId => BuiltinId;
 

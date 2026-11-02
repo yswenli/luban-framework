@@ -15,7 +15,7 @@ Are you still struggling with these concurrency issues?
 
 If so, **LuBan.Threading** is built for you.
 
-It's a lightweight multi-threading utility library for **.NET 8** with zero external dependencies, providing named locks, thread pools, task pools, blocking queues, Task extensions, and a complete concurrency solution. It's not a framework — it's just the handiest wrench in your toolbox.
+It's a lightweight multi-threading utility library for **.NET 10** with zero external dependencies, providing named locks, thread pools, task pools, blocking queues, Task extensions, and a complete concurrency solution. It's not a framework — it's just the handiest wrench in your toolbox.
 
 ---
 
@@ -109,8 +109,8 @@ dotnet add package LuBan.Threading
 | Method | Description |
 |---|---|
 | `RunAsync(Action)` | Quick Action to Task conversion |
-| `Catch(Action<Exception>)` | Task exception capture without breaking the pipeline |
-| `Catch<T>(Func<Exception, T>)` | Exception fallback with return value |
+| `Catch(Action<Exception>)` | Invokes the callback on exception and then **rethrows the original exception** (exceptions are not swallowed) |
+| `Catch<T>(Func<Exception, T>)` | Exception fallback with return value; returns the callback result on exception |
 | `LongRunning(Action)` | Independent long-running thread |
 | `WhileAsync(Action, int)` | Background independent thread loop with configurable interval |
 | `WhileAsync(Func<bool>, int)` | Loop until condition is no longer met |
@@ -120,6 +120,7 @@ dotnet add package LuBan.Threading
 | `WithCancellationTimeout<T>(Task<T>, TimeSpan, CancellationToken)` | Task timeout + cancellation |
 | `TimeoutAfterAsync(Func<CancellationToken, Task>, TimeSpan, CancellationToken)` | Async operation with timeout, throws `TimeoutException` on expiry |
 | `WaitForTasks(int, params Task<object>[])` | Wait for multiple Tasks with timeout support |
+| `WaitForTasksByList<T>(List<T>, Action<T>, int)` | Run the callback for every list item in parallel and wait for all of them (`timeOut > 0` bounds the wait) |
 | `Delay(int, CancellationToken)` | Non-blocking delay, minimum 50ms |
 
 ### Named Locks — `LockerBuilder`
@@ -190,8 +191,8 @@ Thread-safe blocking queue based on `LinkedList<T>` + `ManualResetEvent`.
 using LuBan.Threading;
 using LuBan.Threading.Core;
 
-// Use global default instance
-await using var locker = await LockerBuilder.Default.GetLockerAsync("order:10086");
+// Use global default instance (LockerReleaser implements IDisposable only — use using, not await using)
+using var locker = await LockerBuilder.Default.GetLockerAsync("order:10086");
 try
 {
     // Only one thread can execute at a time for the same order number
@@ -206,7 +207,7 @@ using (var syncLocker = LockerBuilder.Default.Create("stock:SKU001"))
 }
 
 // Custom timeout
-await using var timedLocker = await LockerBuilder.Default.GetLockerAsync(
+using var timedLocker = await LockerBuilder.Default.GetLockerAsync(
     "payment:pay-001",
     timeout: TimeSpan.FromSeconds(5));
 ```
@@ -330,7 +331,9 @@ if (item != null)
 
 ## License
 
-MIT License
+Copyright (c) yswenli.
+
+Licensed under the [Apache License 2.0](../LICENSE).
 
 ---
 

@@ -1,4 +1,10 @@
 /****************************************************************************
+  _           ____                ______                     __          __        _
+ | |         |  _ \              |  ____|                    \ \        / /       | |
+ | |    _   _| |_) | __ _ _ __   | |__ _ __ __ _ _ __ ___   __\ \  /\  / /__  _ __| | __
+ | |   | | | |  _ < / _` | '_ \  |  __| '__/ _` | '_ ` _ \ / _ \ \/  \/ / _ \| '__| |/ /
+ | |___| |_| | |_) | (_| | | | |_| |  | | | (_| | | | | | |  __/\  /\  / (_) | |  |   <
+ |______\__,_|____/ \__,_|_| |_(_)_|  |_|  \__,_|_| |_| |_|\___| \/  \/ \___/|_|  |_|\_\
 *Copyright @ yswenli All Rights Reserved.
 *CLR版本： .net10.0
 *机器名称：WALLE
@@ -36,10 +42,14 @@ public static class LuBanAgentExtensions
     /// <param name="configuration">配置</param>
     /// <returns>服务集合</returns>
     [RequiresUnreferencedCode("AddLuBanAgent loads external plugins via Assembly.Load and GetTypes, which is incompatible with Native AOT trimming.")]
-    public static IServiceCollection AddLuBanAgent(
-        this IServiceCollection services,
+    public static DiContainer AddLuBanAgent(
+        this DiContainer services,
         IConfiguration configuration)
     {
+        // 让所有经 DI 构造的服务都能拿到「当前解析上下文」的容器视图。
+        // 必须是 Transient：单例服务拿根视图、Scoped 服务拿所在 scope 视图（等价于 MS.DI 原生注入的语义）。
+        services.TryAddTransient<DiContainer>(sp => sp.AsDiContainer());
+
         services.Configure<LuBanAgentOptions>(configuration.GetSection("LuBanAgent"));
 
         // 注册工具插件（scoped：每会话一份，避免跨会话共享可变确认/根解析状态）
@@ -153,7 +163,7 @@ public static class LuBanAgentExtensions
 
         // ===== 插件体系（PRD §3.4 / §3.5）=====
         // 重要：PluginManager 注册为单例，其构造链只含单例（Loader / 依赖解析器 / 内置目录 /
-        // 状态仓储 / 根 IServiceProvider），不得注入任何 Scoped 服务（SkillRegistry / MCPRegistry /
+        // 状态仓储 / 根 DiContainer），不得注入任何 Scoped 服务（SkillRegistry / MCPRegistry /
         // IAgentReloadTrigger / ISessionContext / IWorkspaceContext / IUserContext），否则
         // ValidateScopes=true 下构建即失败（PRD §3.9）。
         services.AddSingleton(new ManifestValidationOptions
@@ -224,17 +234,17 @@ public static class LuBanAgentExtensions
     /// <param name="chatClientFactory">ChatClient 工厂方法</param>
     /// <returns>服务集合</returns>
     [RequiresUnreferencedCode("AddLuBanAgent loads external plugins via Assembly.Load and GetTypes, which is incompatible with Native AOT trimming.")]
-    public static IServiceCollection AddLuBanAgent(
-        this IServiceCollection services,
+    public static DiContainer AddLuBanAgent(
+        this DiContainer services,
         IConfiguration configuration,
-        Func<IServiceProvider, IChatClient> chatClientFactory)
+        Func<DiContainer, IChatClient> chatClientFactory)
     {
         services.AddSingleton<IChatClient>(chatClientFactory);
         return services.AddLuBanAgent(configuration);
     }
 
     [RequiresUnreferencedCode("Calls Microsoft.Extensions.Configuration.ConfigurationBinder.Get<T>()")]
-    private static void LoadExternalPlugins(IServiceCollection services, IConfiguration configuration)
+    private static void LoadExternalPlugins(DiContainer services, IConfiguration configuration)
     {
         var options = configuration.GetSection("LuBanAgent").Get<LuBanAgentOptions>();
         if (options?.ExternalPlugins == null) return;

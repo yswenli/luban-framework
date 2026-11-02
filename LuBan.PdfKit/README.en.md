@@ -17,7 +17,7 @@ PDF editing has always been a pain point in .NET development: open-source librar
 - Precise text replacement: locates text coordinates via custom `TextLocationListener`, uses white overlay + redraw approach
 - Text-to-image replacement: replaces placeholder text in PDFs with images (e.g., electronic seals)
 - Image replacement: replaces existing images in PDFs
-- HTML to PDF: built-in CJK Chinese font support, cross-platform compatible
+- HTML to PDF: relies on the system CJK font `msyh.ttc` (Windows: `C:/Windows/Fonts/msyh.ttc`, Linux: `/usr/share/fonts/msyh.ttc`); if missing it falls back to the iText default font, so Chinese text may not render correctly
 - URL to PDF: directly captures web page content to generate PDFs
 - Images to PDF: merges multiple images into a single PDF document
 
@@ -52,7 +52,7 @@ PdfUtil.ReplaceTextWithImage(
     imageWidth: 120,
     imageHeight: 120);
 
-// HTML to PDF (automatically loads Chinese fonts)
+// HTML to PDF (loads the system Microsoft YaHei font; falls back to the default font if missing)
 PdfUtil.FromHtml("output.pdf", "<h1>Hello World</h1><p>Chinese support</p>");
 
 // URL to PDF
@@ -71,6 +71,16 @@ PdfUtil.FromImages("album.pdf", new List<string>
 dotnet add package LuBan.PdfKit
 ```
 
+Runtime dependencies (pulled in with the package):
+
+| Dependency | Version | Purpose |
+|------------|---------|---------|
+| `itext7` | 9.8.0 | Core PDF read/write library |
+| `itext7.bouncy-castle-adapter` | 9.8.0 | Encryption/signing (Bouncy Castle adapter) |
+| `itext7.pdfhtml` | 6.3.4 | HTML to PDF |
+
+> **Licensing notice**: the iText7 family is licensed under **AGPL v3**. Closed-source commercial distribution/deployment requires a commercial iText license; otherwise the relevant code must be released under AGPL.
+
 ## Feature Overview
 
 | Feature | Method | Description |
@@ -82,9 +92,10 @@ dotnet add package LuBan.PdfKit
 | Replace Image | `PdfUtil.ReplaceImage` | Replace images in PDF |
 | Batch Replace Images | `PdfUtil.ReplaceImages` | Batch replace images in PDF |
 | Images to PDF | `PdfUtil.FromImages` | Merge multiple images into PDF |
-| HTML to PDF | `PdfUtil.FromHtml` | HTML content to PDF (Chinese support) |
+| HTML to PDF | `PdfUtil.FromHtml` | HTML content to PDF (Chinese text relies on the system msyh.ttc font) |
 | URL to PDF | `PdfUtil.FromUrl` | Web page URL to PDF |
 | Text Locator | `TextLocationListener` | Custom text position listener |
+| Custom Font Path | `PdfUtil.CustomFontPath` | Static property for the default font file; when empty, the OS default path is used |
 | Text Chunk | `TextChunk` | Text coordinate information encapsulation |
 | Rectangle Area | `PdfRectangle` | Adjusts text overlay area offset |
 
@@ -106,7 +117,8 @@ PdfUtil.ReplaceText(
 Default font loading strategy:
 - Windows: automatically loads `C:/Windows/Fonts/msyh.ttc` (Microsoft YaHei)
 - Linux: automatically loads `/usr/share/fonts/msyh.ttc`
-- If neither exists, falls back to system default font
+- The static property `PdfUtil.CustomFontPath` can specify the default font file, taking precedence over the OS paths above
+- If none of them exists, the system default font is used (the iText default font has no Chinese glyphs)
 
 ### Adjusting Text Overlay Offset
 
@@ -139,9 +151,11 @@ PdfUtil.FromHtml("report.pdf", html);
 - The four values of `PdfRectangle` control left/top/width/height offsets for fine-tuning the overlay area
 - Batch replacement (`ReplaceTexts`) uses chained intermediate files, with automatic cleanup of temporary files
 - When converting HTML to PDF, ensure Chinese fonts are properly installed or specify via `fontFilePath`
-- `FromUrl` method uses `HttpClientProxy` to download web content, supporting pages that require authentication
+- `FromUrl` downloads the page directly via `HttpClientProxy.DownloadBytes(url)` and only supports anonymous access — there is no request-header/credential entry point (for pages requiring authentication, download the HTML yourself and use `FromHtml`)
 - When deploying on Linux, manually install Microsoft YaHei font files to `/usr/share/fonts/`
 
 ## License
 
-Copyright (c) yswenli. All rights reserved.
+Copyright (c) yswenli.
+
+Licensed under the [Apache License 2.0](../LICENSE).
