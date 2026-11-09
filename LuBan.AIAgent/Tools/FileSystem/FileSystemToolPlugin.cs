@@ -77,6 +77,7 @@ public class FileSystemToolPlugin : ILuBanToolPlugin
         return new List<AIFunction>
         {
             AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.ReadFileAsync), workspaceRootProvider, fallbackToWorkspaceRootWhenMissing: false),
+            AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.ReadSpreadsheetAsync), workspaceRootProvider, fallbackToWorkspaceRootWhenMissing: false),
             AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.WriteFileAsync), workspaceRootProvider, fallbackToWorkspaceRootWhenMissing: false),
             AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.EditFileAsync), workspaceRootProvider, fallbackToWorkspaceRootWhenMissing: false),
             AIFunctionFactoryHelper.Create(toolGroup, nameof(FileSystemToolGroup.MultiEditFileAsync), workspaceRootProvider, fallbackToWorkspaceRootWhenMissing: false),
@@ -148,16 +149,7 @@ public class FileSystemToolGroup
     private static string DirectoryPathMessage(string path, string requirement)
         => $"路径是目录: {path}。{requirement}，请改为传入目录下的具体文件（可用 ListDirectory 查看目录内容）。";
 
-    private static readonly HashSet<string> BinaryFileExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ".dll", ".exe", ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".tif", ".tiff",
-        ".zip", ".rar", ".7z", ".tar", ".gz", ".bz2",
-        ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
-        ".woff", ".woff2", ".ttf", ".eot", ".otf",
-        ".mp3", ".mp4", ".avi", ".mkv", ".mov", ".wmv", ".flv", ".wav",
-        ".bin", ".dat", ".db", ".sqlite",
-        ".so", ".dylib", ".a", ".lib", ".obj", ".o"
-    };
+    private static readonly HashSet<string> BinaryFileExtensions = BinaryFileTypes.Extensions;
 
     private static readonly HashSet<string> ExcludedDirectoryNames = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -354,19 +346,25 @@ public class FileSystemToolGroup
     }
 
     /// <summary>
-    /// 读取文件内容
+    /// 读取文本文件内容（支持按行分页）
     /// </summary>
     /// <param name="path">文件路径</param>
-    /// <returns>文件内容</returns>
+    /// <param name="offset">起始行号（从 1 开始）</param>
+    /// <param name="limit">本次最多返回的行数</param>
     /// <param name="cancellationToken">取消令牌（用户中止回合时尽快停止长耗时操作）。</param>
-    [Description("读取文件内容")]
-    public async Task<ToolResult<string>> ReadFileAsync(string path, CancellationToken cancellationToken = default)
+    /// <returns>文件内容</returns>
+    [Description("读取文本文件内容，支持按行分页（offset/limit）。二进制文件不可用本工具：表格用 ReadSpreadsheet，其它二进制请说明需求。")]
+    public async Task<ToolResult<string>> ReadFileAsync(
+        [Description("文件路径；相对路径基于工作区根目录")] string path,
+        [Description("起始行号，从 1 开始，默认 1")] int offset = 1,
+        [Description("本次最多返回的行数，默认 2000，最大 5000")] int limit = 2000,
+        CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
         // 工作区外读取需确认
         if (await ConfirmOrBlockAsync(nameof(ReadFileAsync), path,
-            new Dictionary<string, object?> { ["path"] = path }) is { } blocked)
+            new Dictionary<string, object?> { ["path"] = path, ["offset"] = offset, ["limit"] = limit }) is { } blocked)
         {
             return blocked;
         }
@@ -382,21 +380,37 @@ public class FileSystemToolGroup
             if (fileInfo.Length > 50 * 1024 * 1024)
                 return ToolResult.Fail<string>($"错误：文件过大 ({fileInfo.Length / 1024 / 1024}MB)，最大支持 50MB");
 
-            // 行级切片：避免把大文件（日志/源码）整体塞进对话上下文撑爆 token。
-            // 单次最多返回 readFileMaxLines 行 / readFileMaxChars 字符，超出则截断并提示改用 Grep 或 LLM Wiki 检索。
-            const int readFileMaxLines = 2000;
+            // 行级分页：避免把大文件（日志/源码）整体塞进对话上下文撑爆 token。
+            // 单次最多返回 limit 行 / 256KB 字符，超出则截断并给出续读的 offset。
             const int readFileMaxChars = 256 * 1024;
+            const int readFileDefaultLines = 2000;
+            const int readFileMaxLines = 5000;
+            offset = offset < 1 ? 1 : offset;
+            limit = limit <= 0 ? readFileDefaultLines : Math.Min(limit, readFileMaxLines);
+
+            // 二进制守卫：扩展名命中或文件头含 0x00（且非 UTF-16/32 BOM）时，按文本读出只会得到乱码，
+            // 直接给出可操作提示，避免模型把乱码当内容继续推理。
+            var head = await TextFileCodec.ReadHeadAsync(path, cancellationToken);
+            var format = TextFileCodec.Detect(head);
+            var extension = Path.GetExtension(path);
+            if (IsBinaryExtension(extension) || TextFileCodec.LooksBinary(head, format))
+                return ToolResult.Fail<string>(BinaryFileTypes.UnreadableMessage(path, extension));
 
             var sb = new StringBuilder();
             var truncated = false;
             var lineNo = 0;
+            var returned = 0;
             using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-            using var reader = new StreamReader(stream);
+            // 按探测到的编码解码：GBK 等非 UTF-8 源码不再出现乱码
+            using var reader = new StreamReader(stream, format.Encoding, detectEncodingFromByteOrderMarks: true, bufferSize: 4096);
             string? line;
             while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
             {
                 lineNo++;
-                if (lineNo > readFileMaxLines)
+                if (lineNo < offset)
+                    continue;
+
+                if (returned >= limit)
                 {
                     truncated = true;
                     break;
@@ -412,13 +426,26 @@ public class FileSystemToolGroup
                 }
 
                 sb.AppendLine(line);
+                returned++;
+            }
+
+            var lastLine = offset + returned - 1;
+            if (returned == 0)
+            {
+                return ToolResult.Ok<string>(
+                    $"[分页] 起始行 {offset} 已超出文件末尾（文件共 {lineNo} 行），本次没有返回内容。请传入更小的 offset。");
             }
 
             if (truncated)
             {
                 sb.AppendLine();
-                sb.AppendLine($"[内容已截断] 源文件大小 {fileInfo.Length / 1024}KB，本次仅返回前 {Math.Min(lineNo, readFileMaxLines)} 行（约 {readFileMaxChars / 1024}KB）。");
-                sb.AppendLine("如需检索特定内容请用 Grep 工具（按正则/关键字匹配，按行返回）；超大文件建议先建立 LLM Wiki 索引再提问。");
+                sb.AppendLine($"[分页] 本次返回第 {offset}-{lastLine} 行（源文件 {fileInfo.Length / 1024}KB，后面还有内容）。"
+                    + $"继续读取请传 offset={lastLine + 1}；若只想定位特定内容，用 Grep 更省上下文。");
+            }
+            else if (offset > 1)
+            {
+                sb.AppendLine();
+                sb.AppendLine($"[分页] 本次返回第 {offset}-{lastLine} 行（已到文件末尾，共 {lineNo} 行）。");
             }
 
             return ToolResult.Ok<string>(sb.ToString());
@@ -464,15 +491,92 @@ public class FileSystemToolGroup
         }
     }
 
-/// <summary>
-/// 写入文件内容到指定路径
-/// </summary>
-/// <param name="path">文件路径（相对或绝对）</param>
-/// <param name="content">文件内容</param>
-/// <param name="cancellationToken">取消令牌（用户中止回合时尽快停止长耗时操作）。</param>
-/// <returns>操作结果</returns>
-[Description("写入文件内容到指定路径。")]
-    public async Task<ToolResult<string>> WriteFileAsync(string path, string content, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// 读取表格文件（xlsx/csv/tsv），按工作表与行分页返回 markdown 表格。
+    /// </summary>
+    /// <param name="path">表格文件路径</param>
+    /// <param name="sheetName">工作表名（仅 .xlsx；为空时取第一个工作表）</param>
+    /// <param name="offset">起始数据行（从 1 开始，不含表头）</param>
+    /// <param name="limit">本次最多返回的数据行数</param>
+    /// <param name="cancellationToken">取消令牌（用户中止回合时尽快停止长耗时操作）。</param>
+    /// <returns>markdown 表格文本</returns>
+    [Description("读取表格文件并返回 markdown 表格：支持 .xlsx（可指定 sheetName）与 .csv/.tsv，支持行分页。旧版 .xls 请先另存为 .xlsx。")]
+    public async Task<ToolResult<string>> ReadSpreadsheetAsync(
+        [Description("表格文件路径；相对路径基于工作区根目录")] string path,
+        [Description("工作表名（仅 .xlsx 有效；留空取第一个工作表）")] string? sheetName = null,
+        [Description("起始数据行，从 1 开始，默认 1（不含表头）")] int offset = 1,
+        [Description("本次最多返回的数据行数，默认 200，最大 2000")] int limit = SpreadsheetFileReader.DefaultRowLimit,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (await ConfirmOrBlockAsync(nameof(ReadSpreadsheetAsync), path,
+            new Dictionary<string, object?>
+            {
+                ["path"] = path,
+                ["sheetName"] = sheetName,
+                ["offset"] = offset,
+                ["limit"] = limit
+            }) is { } blocked)
+        {
+            return blocked;
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (Directory.Exists(path))
+            return ToolResult.Fail<string>(DirectoryPathMessage(path, "读取表格需要文件路径"));
+
+        try
+        {
+            var fileInfo = new FileInfo(path);
+            if (fileInfo.Exists && fileInfo.Length > 100 * 1024 * 1024)
+                return ToolResult.Fail<string>($"错误：表格文件过大 ({fileInfo.Length / 1024 / 1024}MB)，最大支持 100MB");
+
+            return await SpreadsheetFileReader.ReadAsync(path, sheetName, offset, limit, cancellationToken);
+        }
+        catch (FileNotFoundException ex)
+        {
+            Logger.Error("表格读取异常：文件不存在", ex, path);
+            return ToolResult.Fail<string>($"未找到文件: {path}。请先用 ListDirectory 核对路径。");
+        }
+        catch (DirectoryNotFoundException ex)
+        {
+            Logger.Error("表格读取异常：目录不存在", ex, path);
+            return ToolResult.Fail<string>($"未找到目录: {path}。请检查路径是否正确。");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            Logger.Error("表格读取异常：权限不足", ex, path);
+            return ToolResult.Fail<string>($"无法访问文件: {path}，权限不足。请检查权限或尝试其他文件。");
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("表格读取异常", ex, path);
+            return ToolResult.Fail<string>($"读取表格失败: {path}。{ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// 判断扩展名是否属于二进制文件（按文本读取只会得到乱码）。
+    /// </summary>
+    private static bool IsBinaryExtension(string extension) => BinaryFileTypes.Contains(extension);
+
+    /// <summary>
+    /// 写入文件内容到指定路径
+    /// </summary>
+    /// <param name="path">文件路径（相对或绝对）</param>
+    /// <param name="content">文件内容</param>
+    /// <param name="cancellationToken">取消令牌（用户中止回合时尽快停止长耗时操作）。</param>
+    /// <returns>操作结果</returns>
+    [Description("写入文件内容到指定路径（覆盖）。已存在文件会沿用其原编码与 BOM；新建文件用 UTF-8 无 BOM。局部修改请优先用 EditFile。")]
+    public async Task<ToolResult<string>> WriteFileAsync(
+        [Description("文件路径（相对路径基于工作区根目录），必须包含文件名")] string path,
+        [Description("要写入的完整文件内容")] string content,
+        CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -488,7 +592,11 @@ public class FileSystemToolGroup
 
         try
         {
-            await File.WriteAllTextAsync(path, content, cancellationToken);
+            // 覆盖已有文件时沿用原编码，避免把 GBK 文件整体改写成 UTF-8
+            var format = File.Exists(path)
+                ? await TextFileCodec.DetectAsync(path, cancellationToken)
+                : TextFileCodec.Utf8WithoutBom;
+            await TextFileCodec.WriteAllTextAsync(path, content, format, cancellationToken);
             return ToolResult.Ok<string>($"已写入文件 {path}");
         }
         catch (DirectoryNotFoundException ex)
@@ -533,8 +641,10 @@ public class FileSystemToolGroup
     /// <param name="path">目录路径</param>
     /// <returns>目录内容</returns>
     /// <param name="cancellationToken">取消令牌（用户中止回合时尽快停止长耗时操作）。</param>
-    [Description("列出目录内容")]
-    public async Task<ToolResult<string>> ListDirectoryAsync(string path, CancellationToken cancellationToken = default)
+    [Description("列出目录内的子目录与文件（子目录名以 / 结尾；单次最多显示 500 项）。了解整体结构优先用 GetWorkspaceOverview。")]
+    public async Task<ToolResult<string>> ListDirectoryAsync(
+        [Description("目录路径；相对路径基于工作区根目录，用 \".\" 表示工作区根")] string path,
+        CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -547,8 +657,51 @@ public class FileSystemToolGroup
 
         try
         {
-            var entries = Directory.EnumerateFileSystemEntries(path);
-            return ToolResult.Ok<string>(string.Join("\n", entries));
+            const int maxListed = 500;
+            var dirs = new List<string>();
+            var files = new List<string>();
+            var truncated = false;
+
+            foreach (var entry in Directory.EnumerateFileSystemEntries(path))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (dirs.Count + files.Count >= maxListed)
+                {
+                    truncated = true;
+                    break;
+                }
+
+                var isDirectory = false;
+                try
+                {
+                    isDirectory = (File.GetAttributes(entry) & FileAttributes.Directory) == FileAttributes.Directory;
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    Logger.Debug("列目录跳过无法读取属性的项", ex, entry);
+                }
+
+                if (isDirectory)
+                    dirs.Add(entry + Path.DirectorySeparatorChar);
+                else
+                    files.Add(entry);
+            }
+
+            dirs.Sort(StringComparer.OrdinalIgnoreCase);
+            files.Sort(StringComparer.OrdinalIgnoreCase);
+
+            var sb = new StringBuilder();
+            sb.AppendLine($"目录: {Path.GetFullPath(path)}");
+            sb.AppendLine($"子目录 {dirs.Count} 个，文件 {files.Count} 个"
+                + (truncated ? $"（已达 {maxListed} 项上限，未列全，请缩小目录范围）" : string.Empty));
+            foreach (var dir in dirs)
+                sb.AppendLine(dir);
+            foreach (var file in files)
+                sb.AppendLine(file);
+            if (dirs.Count == 0 && files.Count == 0)
+                sb.AppendLine("（空目录）");
+
+            return ToolResult.Ok<string>(sb.ToString().TrimEnd());
         }
         catch (DirectoryNotFoundException ex)
         {
@@ -594,7 +747,9 @@ public class FileSystemToolGroup
     /// <returns>工作区概览信息</returns>
     /// <param name="cancellationToken">取消令牌（用户中止回合时尽快停止长耗时操作）。</param>
     [Description("获取工作区概览：目录树（限3层）+ 文件类型统计 + 关键文件。一次调用了解工作区结构，避免多次ListDirectory。")]
-    public async Task<ToolResult<string>> GetWorkspaceOverviewAsync(string rootPath, CancellationToken cancellationToken = default)
+    public async Task<ToolResult<string>> GetWorkspaceOverviewAsync(
+        [Description("工作区根目录；传 \".\" 表示当前工作区根")] string rootPath,
+        CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         // 相对路径（含 "."）已由参数绑定锚定到工作区根，这里不再按进程 CWD 解析；
@@ -806,7 +961,9 @@ public class FileSystemToolGroup
     /// <returns>删除结果</returns>
     /// <param name="cancellationToken">取消令牌（用户中止回合时尽快停止长耗时操作）。</param>
     [Description("删除文件（无论是否在工作区内，都必须确认）")]
-    public async Task<ToolResult<string>> DeleteFileAsync(string path, CancellationToken cancellationToken = default)
+    public async Task<ToolResult<string>> DeleteFileAsync(
+        [Description("要删除的文件路径；相对路径基于工作区根目录")] string path,
+        CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -871,7 +1028,9 @@ public class FileSystemToolGroup
     /// <returns>删除结果</returns>
     /// <param name="cancellationToken">取消令牌（用户中止回合时尽快停止长耗时操作）。</param>
     [Description("删除目录及其所有内容（无论是否在工作区内，都必须确认）")]
-    public async Task<ToolResult<string>> DeleteDirectoryAsync(string path, CancellationToken cancellationToken = default)
+    public async Task<ToolResult<string>> DeleteDirectoryAsync(
+        [Description("要删除的目录路径（递归删除全部内容）；相对路径基于工作区根目录")] string path,
+        CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -935,7 +1094,11 @@ public class FileSystemToolGroup
     /// <returns>匹配的文件列表</returns>
     /// <param name="cancellationToken">取消令牌（用户中止回合时尽快停止长耗时操作）。</param>
     [Description("按文件名模式搜索文件，支持 glob 通配符（如 *.cs、**/*.cs）")]
-    public async Task<ToolResult<string>> SearchFilesAsync(string rootPath, string pattern, int maxResults = 100, CancellationToken cancellationToken = default)
+    public async Task<ToolResult<string>> SearchFilesAsync(
+        [Description("搜索根目录；相对路径基于工作区根目录，不传表示工作区根")] string rootPath,
+        [Description("文件名 glob 模式，如 *.cs、**/*.cs、appsettings.*.json")] string pattern,
+        [Description("最多返回的匹配数量，默认 100")] int maxResults = 100,
+        CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         // 工作区外搜索需确认
@@ -1021,8 +1184,13 @@ public class FileSystemToolGroup
     /// <param name="maxResults">最大返回匹配行数</param>
     /// <returns>匹配的文件路径、行号和行内容</returns>
     /// <param name="cancellationToken">取消令牌（用户中止回合时尽快停止长耗时操作）。</param>
-    [Description("按正则表达式搜索文件内容，返回匹配的文件路径、行号和行内容")]
-    public async Task<ToolResult<string>> GrepAsync(string rootPath, string pattern, string? filePattern = null, int maxResults = 100, CancellationToken cancellationToken = default)
+    [Description("按正则表达式搜索文件内容，返回匹配的文件路径、行号和行内容；被跳过的二进制/超大/读取失败文件会在结果末尾列出")]
+    public async Task<ToolResult<string>> GrepAsync(
+        [Description("搜索根目录；相对路径基于工作区根目录，不传表示工作区根")] string rootPath,
+        [Description("正则表达式（不区分大小写，5 秒超时）")] string pattern,
+        [Description("只看匹配这些文件的 glob，如 *.cs、src/**/*.cs；留空表示所有文本文件")] string? filePattern = null,
+        [Description("最多返回的匹配行数，默认 100")] int maxResults = 100,
+        CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         // 工作区外搜索需确认
@@ -1046,23 +1214,44 @@ public class FileSystemToolGroup
             }
 
             var results = new List<string>();
+            var skippedBinary = 0;
+            var skippedTooLarge = 0;
+            var readErrors = 0;
+            const long maxFileBytes = 5 * 1024 * 1024;
 
             foreach (var file in EnumerateFilesSafe(rootPath, cancellationToken))
             {
-                var ext = Path.GetExtension(file);
-                if (!string.IsNullOrEmpty(ext) && BinaryFileExtensions.Contains(ext))
-                    continue;
-
                 if (filePatternRegex != null && !GlobMatcher.IsMatch(file, filePatternRegex, rootPath, matchFullPath))
                     continue;
+
+                var ext = Path.GetExtension(file);
+                if (!string.IsNullOrEmpty(ext) && BinaryFileExtensions.Contains(ext))
+                {
+                    skippedBinary++;
+                    continue;
+                }
 
                 try
                 {
                     using var stream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-                    if (stream.Length > 1024 * 1024)
+                    if (stream.Length > maxFileBytes)
+                    {
+                        skippedTooLarge++;
                         continue;
+                    }
 
-                    using var reader = new StreamReader(stream);
+                    // 按探测编码解码（GBK 源码也能命中中文关键字），并跳过含 0x00 的伪文本文件
+                    var head = new byte[4096];
+                    var headRead = await stream.ReadAsync(head.AsMemory(0, head.Length), cancellationToken);
+                    var format = TextFileCodec.Detect(head.AsSpan(0, headRead));
+                    if (TextFileCodec.LooksBinary(head.AsSpan(0, headRead), format))
+                    {
+                        skippedBinary++;
+                        continue;
+                    }
+                    stream.Position = 0;
+
+                    using var reader = new StreamReader(stream, format.Encoding, detectEncodingFromByteOrderMarks: true, bufferSize: 4096);
                     var lineNumber = 0;
                     string? line;
                     while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
@@ -1076,8 +1265,13 @@ public class FileSystemToolGroup
                         }
                     }
                 }
-                catch (IOException)
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {
+                    throw;
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    readErrors++;
                     continue;
                 }
 
@@ -1085,8 +1279,17 @@ public class FileSystemToolGroup
                     break;
             }
 
+            // 跳过项必须显式告知：否则「未找到匹配的内容」会让模型误判"文件里没有"，
+            // 进而改用脚本绕过文件工具（历史失败场景之一）。
+            var skipNote = BuildGrepSkipNote(skippedBinary, skippedTooLarge, readErrors);
+
             if (results.Count == 0)
-                return ToolResult.Ok<string>("未找到匹配的内容");
+            {
+                var emptyMessage = "未找到匹配的内容。";
+                if (skipNote.Length > 0)
+                    emptyMessage += "\n" + skipNote;
+                return ToolResult.Ok<string>(emptyMessage);
+            }
 
             var output = new StringBuilder();
             output.AppendLine($"找到 {results.Count} 处匹配：");
@@ -1095,6 +1298,8 @@ public class FileSystemToolGroup
 
             if (results.Count >= maxResults)
                 output.AppendLine($"\n结果已截断，当前显示前 {maxResults} 处匹配。缩小搜索范围或增大 maxResults 参数查看更多。");
+            if (skipNote.Length > 0)
+                output.AppendLine(skipNote);
 
             return ToolResult.Ok<string>(output.ToString().TrimEnd());
         }
@@ -1140,13 +1345,30 @@ public class FileSystemToolGroup
     }
 
     /// <summary>
+    /// 汇总 Grep 跳过/失败的文件数，生成透明提示；无跳过项时返回空串。
+    /// </summary>
+    private static string BuildGrepSkipNote(int skippedBinary, int skippedTooLarge, int readErrors)
+    {
+        if (skippedBinary == 0 && skippedTooLarge == 0 && readErrors == 0)
+            return string.Empty;
+
+        var parts = new List<string>(3);
+        if (skippedBinary > 0) parts.Add($"{skippedBinary} 个二进制文件");
+        if (skippedTooLarge > 0) parts.Add($"{skippedTooLarge} 个超过 5MB 的文件");
+        if (readErrors > 0) parts.Add($"{readErrors} 个读取失败的文件");
+        return $"[提示] 本次搜索未检索：{string.Join("、", parts)}。其中的内容可能被漏掉，必要时改用 ReadFile/ReadSpreadsheet 定向确认。";
+    }
+
+    /// <summary>
     /// 创建目录
     /// </summary>
     /// <param name="path">目录路径</param>
     /// <returns>创建结果</returns>
     /// <param name="cancellationToken">取消令牌（用户中止回合时尽快停止长耗时操作）。</param>
     [Description("创建目录，支持递归创建父目录")]
-    public async Task<ToolResult<string>> CreateDirectoryAsync(string path, CancellationToken cancellationToken = default)
+    public async Task<ToolResult<string>> CreateDirectoryAsync(
+        [Description("要创建的目录路径；相对路径基于工作区根目录，父目录不存在会自动创建")] string path,
+        CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -1209,7 +1431,11 @@ public class FileSystemToolGroup
     /// <returns>复制结果</returns>
     /// <param name="cancellationToken">取消令牌（用户中止回合时尽快停止长耗时操作）。</param>
     [Description("复制文件到目标路径")]
-    public async Task<ToolResult<string>> CopyFileAsync(string sourcePath, string destPath, bool overwrite = false, CancellationToken cancellationToken = default)
+    public async Task<ToolResult<string>> CopyFileAsync(
+        [Description("源文件路径（必须是文件）；相对路径基于工作区根目录")] string sourcePath,
+        [Description("目标文件路径（含文件名，不能是目录）；相对路径基于工作区根目录")] string destPath,
+        [Description("目标已存在时是否覆盖，默认 false")] bool overwrite = false,
+        CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var confirmArgs = new Dictionary<string, object?>
@@ -1302,7 +1528,10 @@ public class FileSystemToolGroup
     /// <returns>移动结果</returns>
     /// <param name="cancellationToken">取消令牌（用户中止回合时尽快停止长耗时操作）。</param>
     [Description("移动或重命名文件")]
-    public async Task<ToolResult<string>> MoveFileAsync(string sourcePath, string destPath, CancellationToken cancellationToken = default)
+    public async Task<ToolResult<string>> MoveFileAsync(
+        [Description("源文件路径（必须是文件）；相对路径基于工作区根目录")] string sourcePath,
+        [Description("目标文件路径（含文件名，不能是已存在的文件或目录）；相对路径基于工作区根目录")] string destPath,
+        CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var confirmArgs = new Dictionary<string, object?>
@@ -1390,7 +1619,12 @@ public class FileSystemToolGroup
     /// <returns>替换结果。</returns>
     /// <param name="cancellationToken">取消令牌（用户中止回合时尽快停止长耗时操作）。</param>
     [Description("对文件执行精确字符串替换（old_string → new_string）。默认要求 old_string 唯一，多点替换请用 MultiEdit 或 replace_all=true。创建/覆盖整个文件请用 WriteFile。")]
-    public async Task<ToolResult<string>> EditFileAsync(string path, string old_string, string new_string, bool replace_all = false, CancellationToken cancellationToken = default)
+    public async Task<ToolResult<string>> EditFileAsync(
+        [Description("目标文件路径；相对路径基于工作区根目录")] string path,
+        [Description("待替换的原文，必须与文件内容逐字符一致（含空白/缩进/换行），默认还要求全文唯一")] string old_string,
+        [Description("替换后的新文本；传空字符串表示删除 old_string")] string new_string,
+        [Description("是否替换全部匹配，默认 false（多处匹配会报错并要求扩大上下文）")] bool replace_all = false,
+        CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (await ConfirmOrBlockAsync(nameof(EditFileAsync), path,
@@ -1409,7 +1643,7 @@ public class FileSystemToolGroup
 
         try
         {
-            var (original, hasBom) = await ReadAllTextWithBomAsync(path, cancellationToken);
+            var (original, format) = await TextFileCodec.ReadAllTextAsync(path, cancellationToken);
             var count = CountOccurrences(original, old_string);
 
             if (count == 0)
@@ -1424,7 +1658,7 @@ public class FileSystemToolGroup
                 ? original.Replace(old_string, new_string)
                 : ReplaceFirst(original, old_string, new_string);
 
-            await WriteAllTextWithBomAsync(path, updated, hasBom, cancellationToken);
+            await TextFileCodec.WriteAllTextAsync(path, updated, format, cancellationToken);
             return ToolResult.Ok<string>(
                 $"已替换 {count} 处。\n{BuildEditContext(updated, changeIndex)}",
                 $"path={path}; replaced={count}");
@@ -1447,8 +1681,11 @@ public class FileSystemToolGroup
     /// <param name="edits">替换操作列表。</param>
     /// <returns>批量替换结果。</returns>
     /// <param name="cancellationToken">取消令牌（用户中止回合时尽快停止长耗时操作）。</param>
-    [Description("对同一文件原子批量执行多条精确字符串替换；任一条失败则整体不写入。")]
-    public async Task<ToolResult<string>> MultiEditFileAsync(string path, IReadOnlyList<EditOperation> edits, CancellationToken cancellationToken = default)
+    [Description("对同一文件原子批量执行多条精确字符串替换；任一条失败则整体不写入。edits 数组中每项为 {oldString, newString, replaceAll}，语义与 EditFile 的 old_string/new_string/replace_all 一致。")]
+    public async Task<ToolResult<string>> MultiEditFileAsync(
+        [Description("目标文件路径；相对路径基于工作区根目录")] string path,
+        [Description("按顺序应用的替换列表；任一条失败则整体不写入")] IReadOnlyList<EditOperation> edits,
+        CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (await ConfirmOrBlockAsync(nameof(MultiEditFileAsync), path,
@@ -1467,7 +1704,7 @@ public class FileSystemToolGroup
 
         try
         {
-            var (current, hasBom) = await ReadAllTextWithBomAsync(path, cancellationToken);
+            var (current, format) = await TextFileCodec.ReadAllTextAsync(path, cancellationToken);
 
             var editAnchorIndex = edits[0].OldString.Length > 0
                 ? current.IndexOf(edits[0].OldString, StringComparison.Ordinal)
@@ -1494,7 +1731,7 @@ public class FileSystemToolGroup
                     : ReplaceFirst(current, op.OldString, op.NewString);
             }
 
-            await WriteAllTextWithBomAsync(path, current, hasBom, cancellationToken);
+            await TextFileCodec.WriteAllTextAsync(path, current, format, cancellationToken);
             return ToolResult.Ok<string>(
                 $"已应用 {edits.Count} 条替换。\n{BuildEditContext(current, editAnchorIndex)}",
                 $"path={path}; edits={edits.Count}");
@@ -1508,39 +1745,6 @@ public class FileSystemToolGroup
             Logger.Error("批量编辑文件异常", ex, path);
             return ToolResult.Fail<string>($"操作失败: {ex.Message}");
         }
-    }
-
-    /// <summary>
-    /// 读取文本并检测是否存在 UTF-8 BOM。
-    /// </summary>
-    private static async Task<(string Text, bool HasBom)> ReadAllTextWithBomAsync(string path, CancellationToken cancellationToken = default)
-    {
-        var bytes = await File.ReadAllBytesAsync(path, cancellationToken);
-        var hasBom = bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF;
-        var text = hasBom
-            ? Encoding.UTF8.GetString(bytes, 3, bytes.Length - 3)
-            : Encoding.UTF8.GetString(bytes);
-        return (text, hasBom);
-    }
-
-    /// <summary>
-    /// 按原样写回文本，保留原有的 UTF-8 BOM。
-    /// </summary>
-    private static async Task WriteAllTextWithBomAsync(string path, string text, bool hasBom, CancellationToken cancellationToken = default)
-    {
-        if (!hasBom)
-        {
-            await File.WriteAllTextAsync(path, text, cancellationToken);
-            return;
-        }
-
-        var content = Encoding.UTF8.GetBytes(text);
-        var bytes = new byte[content.Length + 3];
-        bytes[0] = 0xEF;
-        bytes[1] = 0xBB;
-        bytes[2] = 0xBF;
-        Buffer.BlockCopy(content, 0, bytes, 3, content.Length);
-        await File.WriteAllBytesAsync(path, bytes, cancellationToken);
     }
 
     /// <summary>
@@ -1595,7 +1799,9 @@ public class FileSystemToolGroup
     /// <returns>详细信息</returns>
     /// <param name="cancellationToken">取消令牌（用户中止回合时尽快停止长耗时操作）。</param>
     [Description("获取文件或目录的详细信息，包括大小、修改时间等")]
-    public async Task<ToolResult<string>> GetFileInfoAsync(string path, CancellationToken cancellationToken = default)
+    public async Task<ToolResult<string>> GetFileInfoAsync(
+        [Description("文件或目录路径；相对路径基于工作区根目录")] string path,
+        CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         // 工作区外读取信息需确认

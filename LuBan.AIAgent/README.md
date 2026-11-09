@@ -129,7 +129,7 @@ Skills、MCPs、Rules 采用统一的三级优先级注册表模式：
 | 工具组 | 分组名 | 核心能力 |
 |--------|--------|----------|
 | **浏览器工具** | `browser` | 导航、点击、输入、截图、获取内容、等待元素、获取 URL（基于 Playwright） |
-| **文件系统工具** | `filesystem` | 读取文件、写入文件、编辑文件（精确字符串替换，支持单处/多处/全部替换）、列出目录、删除文件、删除目录、搜索文件（glob）、内容搜索（regex）、创建目录、复制文件、移动文件、获取文件信息；工作区内直接放行，工作区外路径经用户确认后放行 |
+| **文件系统工具** | `filesystem` | 读取文本文件（按行分页，自动识别 UTF-8/GBK 等编码并原样回写）、读取表格（`ReadSpreadsheet`：`.xlsx`/`.csv`/`.tsv` 转 markdown、按工作表与行分页）、写入文件、编辑文件（精确字符串替换，支持单处/多处/全部替换）、列出目录、删除文件、删除目录、搜索文件（glob）、内容搜索（regex，跳过项显式提示）、创建目录、复制文件、移动文件、获取文件信息；工作区内直接放行，工作区外路径经用户确认后放行 |
 | **脚本执行工具** | `script` | 执行 Shell（运行环境自适应）、Lua（内嵌沙箱，无外部解释器依赖）、Python 脚本 |
 | **Git 工具** | `git` | 状态/差异/日志/分支/暂存/提交/合并/变基/推送等 26 个 Git 工具 + 4 个 worktree 工具（`EnterWorktreeAsync` / `FinishWorktreeAsync` / `AbandonWorktreeAsync` / `WorktreeStatus`），共 30 个；工作区内免确认，越界逐次确认；冲突时返回文件清单交回 agent 处理 |
 | **Web 工具** | `web` | 发送 HTTP 请求获取网页内容 |
@@ -937,7 +937,7 @@ options.Value.OnApiRetry = notice =>
 - **工作区内免确认**：文件系统工具目标路径落在工作区根（或本轮/本会话已授权的根）内时直接放行，不再要求确认。
 - **工作区外经确认放行**：工作区外路径不再被硬性拦截，改为弹出确认；用户可选「允许（本次）/ 本轮全部允许 / 本会话全部允许 / 拒绝」。授权按路径所在根记忆（文件取父目录、目录取自身）；授权根落到盘符根（如 `D:\`）时不记忆，避免一次放行整盘。
 - **授权档位记忆**：`Allow` 仅放行本次；`AllowAll` 记入本轮；`AllowSession` 记入本会话（进程存活期）。每轮开始 `Reset()` 清空本轮集合，本会话集合跨轮保留；`ResetSession()` 可显式清空本会话集合。
-- **只读免确认（仅 Plan）**：Plan 模式下只读工具（`ReadFileAsync`/`ListDirectoryAsync`/`GetWorkspaceOverviewAsync`/`SearchFilesAsync`/`GrepAsync`/`GetFileInfoAsync`）在已授权范围内直接放行，便于读取上下文产出计划；越界只读记录为计划项而非放行。
+- **只读免确认（仅 Plan）**：Plan 模式下只读工具（`ReadFileAsync`/`ReadSpreadsheetAsync`/`ListDirectoryAsync`/`GetWorkspaceOverviewAsync`/`SearchFilesAsync`/`GrepAsync`/`GetFileInfoAsync`）在已授权范围内直接放行，便于读取上下文产出计划；越界只读记录为计划项而非放行。
 - **删除类硬确认**：`AlwaysConfirmTools`（默认 `DeleteFileAsync`/`DeleteDirectoryAsync`/`DeletePageAsync`）无论路径是否在工作区内都必须确认，且「本轮/本会话全部允许」对删除类不记忆，每次必确认。
 - **子代理代确认**：编排子代理不会向用户弹确认；其工具调用在需要人工确认时，由主代码按「本轮/本会话已允许集合」代判——命中放行，否则返回子代理专用拒绝结果（不代表用户拒绝）。
 - **本轮/本会话允许集合**：`ToolConfirmationContext.AllowedThisTurn` 不再公开；宿主使用 `AllowThisTurn(toolName)`/`AllowThisSession(toolName)` 写入、框架使用 `IsAllowedThisTurn(toolName)`/`IsAllowedThisSession(toolName)` 读取。

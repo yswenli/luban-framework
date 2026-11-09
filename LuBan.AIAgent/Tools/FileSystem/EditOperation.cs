@@ -32,15 +32,18 @@ public class EditOperation
     /// <summary>
     /// 待替换的原文（必须唯一或配合 <see cref="ReplaceAll"/>）。
     /// </summary>
+    [Description("待替换的原文，必须与文件内容逐字符一致（含空白/缩进/换行），默认要求全文唯一")]
     public string OldString { get; set; } = "";
 
     /// <summary>
     /// 替换后的新文本。
     /// </summary>
+    [Description("替换后的新文本；传空字符串表示删除 oldString")]
     public string NewString { get; set; } = "";
 
     /// <summary>
     /// 是否允许替换全部匹配；false 时多匹配视为歧义并报错。
     /// </summary>
+    [Description("是否替换全部匹配，默认 false（多处匹配会报错）")]
     public bool ReplaceAll { get; set; }
 }

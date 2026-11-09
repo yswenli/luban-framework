@@ -84,7 +84,7 @@ public class ToolCancellationUnitTest
         OperationCanceledException? caught = null;
         try
         {
-            await group.ReadFileAsync(Path.Combine(Path.GetTempPath(), "luban-cancel-probe.txt"), CancelledToken());
+            await group.ReadFileAsync(Path.Combine(Path.GetTempPath(), "luban-cancel-probe.txt"), cancellationToken: CancelledToken());
         }
         catch (OperationCanceledException ex)
         {

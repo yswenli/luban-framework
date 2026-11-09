@@ -474,7 +474,7 @@ public class ToolConfirmationService : IToolConfirmationService
     /// </summary>
     private static readonly string[] DefaultReadOnlyTools =
     [
-        "ReadFileAsync", "ListDirectoryAsync", "GetWorkspaceOverviewAsync",
+        "ReadFileAsync", "ReadSpreadsheetAsync", "ListDirectoryAsync", "GetWorkspaceOverviewAsync",
         "SearchFilesAsync", "GrepAsync", "GetFileInfoAsync",
         "LogStatsAsync", "LogGrepAsync", "LogSliceAsync",
         // Git 只读工具（Plan 模式放行）

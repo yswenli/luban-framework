@@ -36,6 +36,7 @@ public static class ToolDisplayNames
     {
         // FileSystem
         ["ReadFile"] = "读取文件",
+        ["ReadSpreadsheet"] = "读取表格",
         ["WriteFile"] = "写入文件",
         ["ListDirectory"] = "浏览目录",
         ["GetWorkspaceOverview"] = "检索工作区",
@@ -131,6 +132,7 @@ public static class ToolDisplayNames
     {
         // FileSystem
         ["ReadFile"] = "📄",
+        ["ReadSpreadsheet"] = "📊",
         ["WriteFile"] = "✏️",
         ["ListDirectory"] = "📂",
         ["GetWorkspaceOverview"] = "🗂️",

@@ -90,13 +90,15 @@ public class FileSystemMCPClient : MCPClientBase
             new MCPTool
             {
                 Name = "read_file",
-                Description = "读取文件内容",
+                Description = "读取文本文件内容，支持按行分页（offset/limit）；二进制文件不可用本工具",
                 InputSchema = new
                 {
                     type = "object",
                     properties = new
                     {
-                        path = new { type = "string", description = "文件路径" }
+                        path = new { type = "string", description = "文件路径" },
+                        offset = new { type = "integer", description = "起始行号，从 1 开始，默认 1" },
+                        limit = new { type = "integer", description = "本次最多返回的行数，默认 2000，最大 5000" }
                     },
                     required = new[] { "path" }
                 }.ToJson()
@@ -192,21 +194,39 @@ public class FileSystemMCPClient : MCPClientBase
         if (fileInfo.Length > 50 * 1024 * 1024)
             return Fail($"文件过大: {fileInfo.Length / 1024 / 1024}MB，最大支持 50MB");
 
+        var extension = Path.GetExtension(path);
+        var head = await Tools.FileSystem.TextFileCodec.ReadHeadAsync(path, cancellationToken).ConfigureAwait(false);
+        var format = Tools.FileSystem.TextFileCodec.Detect(head);
+        if (Tools.FileSystem.BinaryFileTypes.Contains(extension)
+            || Tools.FileSystem.TextFileCodec.LooksBinary(head, format))
+        {
+            return Fail(Tools.FileSystem.BinaryFileTypes.UnreadableMessage(path, extension));
+        }
+
         // 行级切片：与内置 FileSystem 工具保持一致，避免把大文件（日志/源码）整体塞进对话上下文撑爆 token。
-        // 单次最多返回 readFileMaxLines 行 / readFileMaxChars 字符，超出则截断并提示改用 Grep 或 LLM Wiki 检索。
-        const int readFileMaxLines = 2000;
+        // 单次最多返回 limit 行 / readFileMaxChars 字符，超出则截断并给出续读的 offset。
+        const int readFileDefaultLines = 2000;
+        const int readFileMaxLines = 5000;
         const int readFileMaxChars = 256 * 1024;
+        var offset = ParseInt(arguments, "offset", 1);
+        offset = offset < 1 ? 1 : offset;
+        var limit = ParseInt(arguments, "limit", readFileDefaultLines);
+        limit = limit <= 0 ? readFileDefaultLines : Math.Min(limit, readFileMaxLines);
 
         var sb = new StringBuilder();
         var truncated = false;
         var lineNo = 0;
+        var returned = 0;
         using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-        using var reader = new StreamReader(stream);
+        using var reader = new StreamReader(stream, format.Encoding, detectEncodingFromByteOrderMarks: true, bufferSize: 4096);
         string? line;
         while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
         {
             lineNo++;
-            if (lineNo > readFileMaxLines)
+            if (lineNo < offset)
+                continue;
+
+            if (returned >= limit)
             {
                 truncated = true;
                 break;
@@ -222,16 +242,34 @@ public class FileSystemMCPClient : MCPClientBase
             }
 
             sb.AppendLine(line);
+            returned++;
         }
 
+        if (returned == 0)
+            return Ok($"[分页] 起始行 {offset} 已超出文件末尾（文件共 {lineNo} 行），本次没有返回内容。请传入更小的 offset。");
+
+        var lastLine = offset + returned - 1;
         if (truncated)
         {
             sb.AppendLine();
-            sb.AppendLine($"[内容已截断] 源文件大小 {fileInfo.Length / 1024}KB，本次仅返回前 {Math.Min(lineNo, readFileMaxLines)} 行（约 {readFileMaxChars / 1024}KB）。");
-            sb.AppendLine("如需检索特定内容请用 Grep 工具（按正则/关键字匹配，按行返回）；超大文件建议先建立 LLM Wiki 索引再提问。");
+            sb.AppendLine($"[分页] 本次返回第 {offset}-{lastLine} 行（源文件 {fileInfo.Length / 1024}KB，后面还有内容）。"
+                + $"继续读取请传 offset={lastLine + 1}。");
+        }
+        else if (offset > 1)
+        {
+            sb.AppendLine();
+            sb.AppendLine($"[分页] 本次返回第 {offset}-{lastLine} 行（已到文件末尾，共 {lineNo} 行）。");
         }
 
         return Ok(sb.ToString());
+    }
+
+    /// <summary>读取整数参数，缺失或非法时返回默认值。</summary>
+    private static int ParseInt(Dictionary<string, object?> arguments, string key, int defaultValue)
+    {
+        var raw = arguments.GetValueOrDefault(key);
+        if (raw is null) return defaultValue;
+        return int.TryParse(raw.ToString(), out var value) ? value : defaultValue;
     }
 
     private async Task<MCPToolResult> WriteFileAsync(Dictionary<string, object?> arguments, CancellationToken cancellationToken)
