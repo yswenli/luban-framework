@@ -53,7 +53,7 @@
     <PackageReference Include="MoonSharp" Version="2.0.0" />
     <!-- OpenAI 钉住 2.14.0：2.13.0 的流式工具调用表示有破坏性变更（工具调用 chunk 解析为空 update、轮次静默结束）。
          勿降到 2.13.0 及以下；升级前必须先适配并实测流式工具调用。 -->
-    <PackageReference Include="OpenAI" Version="2.14.0" />
+    <PackageReference Include="OpenAI" Version="2.15.0" />
     <!-- 勿升 Microsoft.Extensions.AI(.OpenAI) 到会强制 OpenAI 2.13.0 的版本：
          那会把上面的下限拉回去，重现「工具调用 chunk 解析为空 update」。 -->
     <PackageReference Include="Microsoft.Extensions.AI" Version="10.11.0" />
