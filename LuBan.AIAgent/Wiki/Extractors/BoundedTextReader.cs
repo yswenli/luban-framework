@@ -20,12 +20,14 @@
 *描述：有界流式文本读取（按字符上限截断，恒定内存）
 *
 *****************************************************************************/
+using LuBan.AIAgent.Tools.FileSystem;
+
 namespace LuBan.AIAgent.Wiki.Extractors;
 
 /// <summary>有界流式读取器：按字符上限读取文本文件，避免一次性把大文件读入内存。</summary>
 internal static class BoundedTextReader
 {
-    /// <summary>读取至多 <paramref name="maxChars"/> 个字符（UTF-8，自动识别 BOM）。</summary>
+    /// <summary>读取至多 <paramref name="maxChars"/> 个字符（编码同文件读取工具探测：BOM → UTF-8 → 本地 ANSI）。</summary>
     /// <param name="filePath">文件路径。</param>
     /// <param name="maxChars">字符上限。</param>
     /// <param name="cancellationToken">取消令牌。</param>
@@ -35,10 +37,14 @@ internal static class BoundedTextReader
     {
         if (maxChars <= 0) throw new ArgumentOutOfRangeException(nameof(maxChars));
 
+        // 与文件读取工具共用编码探测：GBK 等非 UTF-8 源码/文档按原编码解码，
+        // 避免中文注释被读成乱码后进入索引或 wiki 页面（这类内容检索不到，且无法回读原文）。
+        var format = await TextFileCodec.DetectAsync(filePath, cancellationToken).ConfigureAwait(false);
+
         using var stream = new FileStream(
             filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite,
             bufferSize: 64 * 1024, useAsync: true);
-        using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+        using var reader = new StreamReader(stream, format.Encoding, detectEncodingFromByteOrderMarks: true);
 
         var sb = new StringBuilder(Math.Min(maxChars, 64 * 1024));
         var buffer = new char[Math.Min(16 * 1024, maxChars)];

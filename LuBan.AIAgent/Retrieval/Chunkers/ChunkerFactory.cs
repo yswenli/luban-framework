@@ -34,7 +34,9 @@ namespace LuBan.AIAgent.Retrieval.Chunkers;
 /// </summary>
 public class ChunkerFactory
 {
-    private static readonly string[] ExcludedDirs = { ".git", "bin", "obj", "node_modules", "dist", "packages", ".vs", ".idea", "target" };
+    // .luban-agent 是 Agent 的工作区配置目录（skills/rules/mcps/connectors/attachments/temp），
+    // 属于运行时元数据，不参与检索索引。
+    private static readonly string[] ExcludedDirs = { ".git", ".luban-agent", "bin", "obj", "node_modules", "dist", "packages", ".vs", ".idea", "target" };
 
     /// <summary>
     /// 除切块器已注册扩展名外，额外允许索引的扩展名：

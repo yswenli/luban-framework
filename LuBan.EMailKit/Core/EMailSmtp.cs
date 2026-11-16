@@ -135,7 +135,7 @@ public class EMailSmtp : IDisposable, IEMailClient
             }
         }
         msg.Body = multipart;
-        return await _smtpClient.SendAsync(msg);
+        return (await _smtpClient.SendAsync(msg))?.ToJson() ?? "";
     }
 
     /// <summary>

@@ -158,9 +158,9 @@ dotnet add package LuBan.Common
 
 ### 图像与二维码
 
-`ImageUtil`、二维码生成与识别
+`ImageUtil`、`CodeUtil`、终端二维码
 
-> 图片处理、二维码生成与识别，直接嵌入业务代码。
+> 图片处理、二维码生成与识别；`ConsoleUtil.WriteQrCode` 把二维码直接画到控制台，手机扫终端屏幕即可打开链接。
 
 ### 短信服务
 

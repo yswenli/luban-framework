@@ -102,7 +102,7 @@ public class SkillManageToolGroup
     /// <param name="overwrite">是否覆盖同名 Skill；省略等同 false（已存在会返回可自纠提示）。</param>
     /// <param name="workspaceRoot">工作区根目录；省略时使用宿主当前工作区。</param>
     /// <returns>创建结果。</returns>
-    [Description("创建或覆盖一个工作区级 Skill：写入 <工作区>/.luban-agent/skills/<id>/SKILL.md（含 name/description frontmatter）。写入前会请求用户确认；同名 Skill 已存在时须第二次调用并传 overwrite=true。")]
+    [Description("创建或覆盖一个工作区级 Skill：写入 <工作区>/.luban-agent/skills/<id>/SKILL.md（含 name/description frontmatter）。写入前会请求用户确认；同名 Skill 已存在时须第二次调用并传 overwrite=true。同名内置 Skill 也会被工作区文件覆盖。")]
     public async Task<ToolResult<string>> WriteSkillAsync(
         [Description("Skill Id：仅小写字母/数字/下划线/中划线，首字符须为字母或数字，最长 64；如 api-review")]
         string id,
@@ -120,10 +120,6 @@ public class SkillManageToolGroup
         // 校验 Id
         if (string.IsNullOrWhiteSpace(id) || !IdPattern.IsMatch(id))
             return ToolResult.Fail<string>($"Skill Id 不合法，需匹配: {IdPattern}");
-
-        // 内置 Id 不可覆盖
-        if (_registry.IsBuiltin(id))
-            return ToolResult.Fail<string>($"Skill Id '{id}' 为内置保留，不可覆盖。");
 
         // 检查同名
         var existing = _registry.Get(id);
@@ -198,19 +194,15 @@ public class SkillManageToolGroup
     /// <param name="id">Skill Id。</param>
     /// <param name="workspaceRoot">工作区根目录；省略时使用宿主当前工作区。</param>
     /// <returns>删除结果。</returns>
-    [Description("删除一个工作区级 Skill（递归删除 <工作区>/.luban-agent/skills/<id> 目录）。删除前会请求用户确认；内置 Skill 不可删除。")]
+    [Description("删除一个工作区级 Skill（递归删除 <工作区>/.luban-agent/skills/<id> 目录）。删除前会请求用户确认；纯内置 Skill（无同名工作区文件）不可删除。")]
     public async Task<ToolResult<string>> DeleteSkillAsync(
-        [Description("要删除的 Skill Id（须为工作区级，非内置）")]
+        [Description("要删除的 Skill Id（须有同名工作区文件；纯内置 Skill 不可删除）")]
         string id,
         [Description("工作区根目录；省略时使用宿主当前工作区（推荐省略），相对路径不得越出宿主工作区")]
         string? workspaceRoot = null)
     {
         if (string.IsNullOrWhiteSpace(id) || !IdPattern.IsMatch(id))
             return ToolResult.Fail<string>($"Skill Id 不合法，需匹配: {IdPattern}");
-
-        // 内置不可删
-        if (_registry.IsBuiltin(id))
-            return ToolResult.Fail<string>($"Skill '{id}' 为内置，不可删除。");
 
         var (root, rootError) = ManageToolSupport.ResolveWorkspaceRoot(
             workspaceRoot, _defaultWorkspaceRoot, _requireWorkspaceContainment);
@@ -220,9 +212,14 @@ public class SkillManageToolGroup
         if (root is null)
             return ToolResult.Fail<string>("未获取到工作区根目录，无法删除 Skill。请传入 workspaceRoot，或确认宿主已设置工作区。");
 
+        // 只删得掉工作区里的文件；纯内置（无同名目录）仍然拒绝
         var skillDir = Path.Combine(root, ".luban-agent", "skills", id);
         if (!Directory.Exists(skillDir))
-            return ToolResult.Fail<string>($"Skill '{id}' 不存在。");
+        {
+            return ToolResult.Fail<string>(_registry.IsBuiltin(id)
+                ? $"Skill '{id}' 为内置，不可删除。"
+                : $"Skill '{id}' 不存在。");
+        }
 
         // 删除操作始终需要确认
         if (await ManageToolSupport.ConfirmOrBlockAsync(_confirmationService, nameof(DeleteSkillAsync), skillDir,

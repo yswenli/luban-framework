@@ -158,9 +158,9 @@ Note: `MemoryCache<T>`, `IServiceCache`, `Logger` are in the `System` namespace.
 
 ### Image & QR Code
 
-`ImageUtil`, QR code generation and recognition
+`ImageUtil`, `CodeUtil`, terminal QR codes
 
-> Image processing, QR code generation and recognition, directly embedded in business code.
+> Image processing, QR code generation and recognition; `ConsoleUtil.WriteQrCode` draws a QR code straight into the console so a phone can scan the terminal screen.
 
 ### SMS Service
 

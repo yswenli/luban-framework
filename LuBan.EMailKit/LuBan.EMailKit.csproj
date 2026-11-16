@@ -7,7 +7,7 @@
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <PackageId>$(AssemblyName)</PackageId>
     <Title>$(AssemblyName)</Title>
-    <Version>2026.11.9.1</Version>
+    <Version>2026.11.16.1</Version>
     <Authors>yswenli</Authors>
     <Description>LuBan Framework中邮件收发套件</Description>
     <PackageIcon>favicon.png</PackageIcon>
@@ -29,7 +29,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="MailKit" Version="4.18.2" />
+    <PackageReference Include="MailKit" Version="5.0.0" />
   </ItemGroup>
 
   <ItemGroup>

@@ -94,7 +94,17 @@ Install Playwright browsers (required for browser tools): the first run download
 
 ### Component Registry Architecture
 
-Skills, MCPs, and Rules use a unified three-tier priority registry pattern:
+Skills, MCPs, and Rules use a three-tier priority registry pattern; Skills additionally let workspace files override same-id built-ins:
+
+**Skills** (file first):
+
+| Priority | Source | Behavior |
+|----------|--------|----------|
+| Highest | Workspace files | Override same-id built-in and config.json entries |
+| Medium | Hardcoded (DI) | Overridden by same-id workspace files; can be disabled via `DisabledBuiltin` config |
+| Lowest | config.json | Add new items, same-name items are ignored |
+
+**MCPs / Rules** (built-in first):
 
 | Priority | Source | Behavior |
 |----------|--------|----------|
@@ -143,7 +153,7 @@ Skills, MCPs, and Rules use a unified three-tier priority registry pattern:
 | **Wiki Knowledge Base Tools** | `wiki` | Read/write/delete wiki pages, vector search, health check (opt-in, must be named in `ToolGroups`) |
 | **Log Analysis Tools** | `log` | Aggregate overview, regex search (filter by level/time/line range), and line slicing for large log files with constant memory (enabled by default, non-opt-in) |
 | **Skill Consumption Tools** | `skill` | List available Skills (with keyword search), load and use Skill prompt templates; confirmation-free within the workspace root (enabled by default) |
-| **Skill Management Tools** | `skillmanage` | Create/overwrite/delete workspace-level Skills; built-in Skills cannot be overwritten or deleted; write/delete operations require user confirmation (enabled by default) |
+| **Skill Management Tools** | `skillmanage` | Create/overwrite/delete workspace-level Skills (workspace files may override same-id built-ins; pure built-ins cannot be deleted); write/delete operations require user confirmation (enabled by default) |
 | **MCP Management Tools** | `mcpmanage` | Create/overwrite/delete workspace-level MCP configurations, test MCP connections; built-in MCPs cannot be overwritten or deleted; write/delete operations require user confirmation (enabled by default) |
 | **Connector Management Tools** | `connectormanage` | List connector states (declared / enabled / provider availability), create or overwrite, and delete workspace-level connector declarations; the provider must already be registered and credential parameters must be `$credential:` references; write/delete operations require user confirmation (enabled by default) |
 
@@ -202,7 +212,7 @@ wiki/
 - All retrieval and wiki methods take an optional `string? workspaceId = null` to target a workspace explicitly (root resolved via `IWikiContext.WorkspaceRootFor(workspaceId)`); when omitted, `IWikiContext.WorkspaceRoot` is used.
 - Semantic search now computes cosine similarity over all candidates (no sampling) and orders by descending `Score` then ascending `ChunkId`, making equal-score results reproducible.
 - **Breaking changes**: all 8 `IVectorStore` methods now take `string? workspaceId = null`, and the 4th parameter of `IRetrievalService.IndexDirectoryAsync` changed to `IProgress<IndexProgress>?`. Custom implementers must update their signatures (behavior stays on the default workspace when `workspaceId` is not passed).
-- **Indexing whitelist (behavior change)**: `ChunkerFactory.ShouldIndex` decides by extension only; the whitelist is the union of all registered `ICodeChunker` extensions plus `.txt/.csv/.tsv/.log/.properties/.xlsx`. `.xlsx` is extracted to Markdown via `ExcelExtractor` (MiniExcel) before chunking/embedding (the extraction is `## <sheet name>` plus markdown tables, chunked per sheet with language id `excel`); plain-text extensions without a dedicated chunker (`.txt/.csv/.tsv/.log/.properties`) fall back to the sliding window. Extensions outside the whitelist (`.docx/.pdf/.ps1/.exe`, etc.) and files without an extension are never indexed; single-file indexing (`IndexFileAsync`) is subject to the same whitelist and size limit. Whitelisted content that contains NUL bytes or is entirely blank is skipped at read time. Scanning no longer pre-reads file contents (binary detection moved to read time) and prunes excluded directories (`.git/bin/obj/node_modules/dist/packages/.vs/.idea/target`) and reparse points, avoiding long stalls on cloud/network folders caused by file hydration and antivirus scanning.
+- **Indexing whitelist (behavior change)**: `ChunkerFactory.ShouldIndex` decides by extension only; the whitelist is the union of all registered `ICodeChunker` extensions plus `.txt/.csv/.tsv/.log/.properties/.xlsx`. `.xlsx` is extracted to Markdown via `ExcelExtractor` (MiniExcel) before chunking/embedding (the extraction is `## <sheet name>` plus markdown tables, chunked per sheet with language id `excel`); plain-text extensions without a dedicated chunker (`.txt/.csv/.tsv/.log/.properties`) fall back to the sliding window. Extensions outside the whitelist (`.docx/.pdf/.ps1/.exe`, etc.) and files without an extension are never indexed; single-file indexing (`IndexFileAsync`) is subject to the same whitelist and size limit. Whitelisted content that contains NUL bytes or is entirely blank is skipped at read time. Scanning no longer pre-reads file contents (binary detection moved to read time) and prunes excluded directories (`.git/.luban-agent/bin/obj/node_modules/dist/packages/.vs/.idea/target`) and reparse points, avoiding long stalls on cloud/network folders caused by file hydration and antivirus scanning.
 - `ChunkerFactory.EnumerateFiles(root, pattern)` is the public safe per-level enumerator (prunes excluded directories and reparse points, skips inaccessible levels without aborting, de-duplicates across patterns); it is shared by indexing, wiki page enumeration (`WikiService.EnumeratePages`), and the CLI/desktop pre-scan so every path counts identically.
 - **Spreadsheet extraction limit and truncation warnings**: `ExcelExtractor.ExtractAsync(filePath, maxChars, cancellationToken)` accepts a per-file character limit; the indexing path uses `ExcelExtractor.IndexingMaxChars` (2,000,000 chars, far wider than the ingest-side `TextExtractor.MaxChars` = 200,000). On overflow the content is truncated and recorded in `IndexReport.Warnings` instead of being dropped silently. Extraction runs on the thread pool and can observe cancellation while awaiting.
 - During enumeration `IndexDirectoryAsync` reports `IndexStage.Scanning` per directory (`IndexProgress.CurrentFile` is the current directory, `Total` is the number of indexable files found so far), so callers can show “Scanning: &lt;directory&gt; (N files found)…” without an extra pre-scan.
@@ -253,7 +263,7 @@ Prompt template content here...
 - Project-level: `<workspace>/.luban-agent/skills/<skill-id>/SKILL.md`
 - User-level: `%LocalAppData%/LuBan/AIAgent/skills/<skill-id>/SKILL.md`
 
-**Priority**: Hardcoded (DI) > Workspace files > config.json
+**Priority**: Workspace files > Hardcoded (DI) > config.json (same-id workspace files override built-ins)
 
 ### Conversational Skill/MCP Management
 
@@ -294,7 +304,8 @@ AI: [calls WriteConnectorAsync] Created the connector declaration; save the cred
 
 **Security Protections**:
 
-- Built-in Skills/MCPs cannot be overwritten or deleted
+- Workspace files may override same-id built-in Skills; pure built-ins (no same-id workspace directory) cannot be deleted
+- Built-in MCPs cannot be overwritten or deleted
 - Skill IDs must match `^[a-z0-9][a-z0-9_-]{0,63}$` format
 - Single SKILL.md file size limit: 256KB
 - MCP / connector configuration rejects plain-text credentials (a `$credential:<key>` reference is required)
@@ -543,7 +554,7 @@ Brings "session scope + run loop + profile + attachment orchestration + capabili
 | `SessionRuntimeManager` / `SessionRuntime` | Per-session DI scope with a serial run loop (`EnqueueAsync`), reload flag (`RequestReload`), last-active tracking and disposal |
 | `IAgentProfile` / `AgentProfileBase` | Agent configuration (system prompt, tool groups, retrieval mode) and agent creation flow; `DefaultAgentProfile` is the general-purpose assistant |
 | `IAgentWorkspaceResolver` / `WorkspaceDescriptor` | Resolves the workspace per session (`Id` / `Name` / `RootPath` / `Type`); defaults to `LuBanAgent:WorkspaceRoot`, falling back to the process working directory (Web hosts go through `LuBan.Web.Core`, which resolves relative values against the site `ContentRootPath`) |
-| `IAgentProfileResolver` / `IAgentUserResolver` / `IAgentModelSelection` | Profile selection, user id (defaults to `IUserContext.UserId`, falling back to `local`), qualified model name (defaults to `LuBanAgent:DefaultModel`) |
+| `IAgentProfileResolver` / `IAgentUserResolver` / `IAgentModelSelection` | Profile selection, user id (defaults to `IUserContext.UserId`, falling back to `local`), qualified model name (defaults to `LuBanAgent:DefaultModel`); `ResolveQualifiedModelNameAsync(sessionId)` lets a product override per session and defaults to ignoring the session and returning the global value |
 | `IAgentAttachmentOrchestrator` / `AgentAttachmentResolver` | `@reference` extraction, attachment processing and capability gate, merge/dedup of UI paths and references; parsing rules come from the orchestrator, so CLI / desktop / web / A2A behave identically |
 | `IModelCapabilityGate` / `IModelCapabilityProbe` | Model attachment-capability check and one-turn vision probe (default: allow all, no probe) |
 | `ISessionRuntimeInitializer` / `IAgentSessionExtension` | Extension point after a session scope is created, and per-session extension before the agent is built (plugin contributions, connector activation, etc.) |

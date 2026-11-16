@@ -26,8 +26,8 @@ namespace LuBan.AIAgent.Skills;
 /// Skill 注册表，管理所有可用的 Skill（硬编码 + 工作区 + config.json，三级优先级）
 /// </summary>
 /// <remarks>
-/// 优先级：硬编码（DI）> 工作区文件 > config.json。
-/// 同名 Id 高优先级优先，低优先级被忽略。
+/// 优先级：工作区文件 > 硬编码（DI）> config.json。
+/// 同名 Id 高优先级优先，低优先级被忽略；工作区文件可覆盖同名内置 Skill。
 /// </remarks>
 public class SkillRegistry
 {
@@ -331,17 +331,17 @@ public class SkillRegistry
         foreach (var kvp in _config)
             merged[kvp.Key] = kvp.Value;
         
-        // 2. 中优先级：工作区文件
-        foreach (var kvp in _workspace)
-            merged[kvp.Key] = kvp.Value;
-        
-        // 3. 最高优先级：硬编码（排除被禁用的）
+        // 2. 中优先级：硬编码（排除被禁用的；同名的用户文件在下一步覆盖）
         var disabledBuiltin = _configReader?.DisabledBuiltinSkills;
         foreach (var kvp in _hardcoded)
         {
             if (disabledBuiltin?.Contains(kvp.Key) == true) continue;
             merged[kvp.Key] = kvp.Value;
         }
+
+        // 3. 最高优先级：工作区文件（可覆盖同名内置 Skill）
+        foreach (var kvp in _workspace)
+            merged[kvp.Key] = kvp.Value;
 
         _merged = merged.Values.ToList();
     }

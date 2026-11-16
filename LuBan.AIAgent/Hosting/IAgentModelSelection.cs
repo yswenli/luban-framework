@@ -33,4 +33,17 @@ public interface IAgentModelSelection
 
     /// <summary>限定名 <c>provider:model</c>；未选择时为空字符串。</summary>
     string QualifiedModelName { get; }
+
+    /// <summary>
+    /// 按会话解析限定名（会话可各自持有模型；默认忽略会话，返回 <see cref="QualifiedModelName"/>）。
+    /// </summary>
+    /// <param name="sessionId">会话标识；为空表示没有具体会话。</param>
+    /// <param name="ct">取消令牌。</param>
+    /// <returns>该会话使用的限定名 <c>provider:model</c>；未选择时为空字符串。</returns>
+    /// <remarks>
+    /// 产品实现可覆盖本方法做会话级模型（如按会话记录覆盖全局默认）。
+    /// 宿主每轮运行前都会调用一次，实现方需自行保证查询足够轻量。
+    /// </remarks>
+    ValueTask<string> ResolveQualifiedModelNameAsync(string? sessionId, CancellationToken ct = default)
+        => ValueTask.FromResult(QualifiedModelName);
 }

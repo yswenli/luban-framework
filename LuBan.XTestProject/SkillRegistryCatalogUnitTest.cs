@@ -104,6 +104,33 @@ public class SkillRegistryCatalogUnitTest
         }
     }
 
+    [TestMethod]
+    public void LoadFromWorkspace_FileOverridesBuiltinWithSameId()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "luban-skillpriority-" + Guid.NewGuid().ToString("N"));
+        var skillDir = Path.Combine(root, ".luban-agent", "skills", "builtin-one");
+        Directory.CreateDirectory(skillDir);
+        File.WriteAllText(Path.Combine(skillDir, "SKILL.md"),
+            "---\nname: 覆盖版\ndescription: 来自工作区文件\ncategory: test\n---\n正文");
+
+        try
+        {
+            var registry = new SkillRegistry(new[] { new TestSkill("builtin-one", "内置版", "内置描述") });
+            registry.LoadFromWorkspace(root);
+
+            var skill = registry.Get("builtin-one");
+            Assert.IsNotNull(skill);
+            Assert.AreEqual("覆盖版", skill.Name, "同名工作区文件应覆盖内置 Skill");
+            Assert.AreEqual(1, registry.GetAll().Count(s => s.Id.Equals("builtin-one", StringComparison.OrdinalIgnoreCase)),
+                "覆盖是替换而非并列，合并结果只保留一条");
+            Assert.IsTrue(registry.IsBuiltin("builtin-one"), "内置身份不因被工作区文件覆盖而消失");
+        }
+        finally
+        {
+            try { Directory.Delete(root, recursive: true); } catch { /* 测试清理失败不影响断言 */ }
+        }
+    }
+
     private sealed class TestSkill : ISkill
     {
         public TestSkill(string id, string name, string desc)

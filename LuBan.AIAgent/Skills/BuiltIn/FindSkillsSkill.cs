@@ -104,7 +104,7 @@ public class FindSkillsSkill : SkillBase
 1. **分析需求**：理解用户想要什么样的能力
 2. **本地匹配**：从已安装的 Skill 中找出最匹配的，说明为什么匹配
 3. **市场推荐**：如果本地没有完美匹配的，建议用户去 skills.sh 技能市场搜索
-4. **创建引导**：如果市场上也找不到合适的，建议用户使用 /skill -a 创建自定义 Skill
+4. **创建引导**：如果市场上也找不到合适的，建议用户使用 /skill -add 创建自定义 Skill
 
 ## skills.sh 技能市场
 - 网站地址：https://www.skills.sh
@@ -129,7 +129,7 @@ public class FindSkillsSkill : SkillBase
 
 🛠️ **自定义创建**：
 如果市场和本地都没有合适的，可以使用以下命令创建自定义 Skill：
-- /skill -a — 交互式创建自定义 Skill
+- /skill -add — 交互式创建自定义 Skill
 
 请根据用户需求智能推荐，优先推荐本地已有的 Skill。";
 
@@ -147,7 +147,7 @@ public class FindSkillsSkill : SkillBase
     {
         if (skills.Count == 0)
         {
-            return SkillResult.Ok("暂无可用 Skill。\n\n使用 /skill -a 创建自定义 Skill，或访问 https://www.skills.sh 查找技能市场。");
+            return SkillResult.Ok("暂无可用 Skill。\n\n使用 /skill -add 创建自定义 Skill，或访问 https://www.skills.sh 查找技能市场。");
         }
 
         var sb = new StringBuilder();
@@ -175,7 +175,7 @@ public class FindSkillsSkill : SkillBase
 
         sb.AppendLine("💡 使用方式：/skill <skill-id> 调用指定 Skill");
         sb.AppendLine("🌐 更多 Skill：访问 https://www.skills.sh 搜索技能市场");
-        sb.AppendLine("🛠️ 创建 Skill：使用 /skill -a 创建自定义 Skill");
+        sb.AppendLine("🛠️ 创建 Skill：使用 /skill -add 创建自定义 Skill");
 
         return SkillResult.Ok(sb.ToString());
     }

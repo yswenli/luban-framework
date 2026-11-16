@@ -70,7 +70,7 @@ public abstract class AgentProfileBase : IAgentProfile
     /// 创建 Agent 实例。先加载工作区级别的组件（Skills/MCPs/Rules），再通过工厂创建 Agent。
     /// </summary>
     /// <remarks>
-    /// 工作区组件加载遵循三级优先级：硬编码 > 工作区文件 > config.json。
+    /// 工作区组件加载遵循三级优先级：工作区文件 > 硬编码 > config.json。
     /// 每次创建 Agent 都会调用加载方法，确保工作区切换后组件列表正确更新。
     /// </remarks>
     /// <param name="factory">Agent 工厂</param>
@@ -94,7 +94,7 @@ public abstract class AgentProfileBase : IAgentProfile
         CancellationToken cancellationToken = default,
         AgentBuildOverrides? overrides = null)
     {
-        // 加载工作区级别的组件（三级优先级：硬编码 > 工作区文件 > config.json）
+        // 加载工作区级别的组件（三级优先级：工作区文件 > 硬编码 > config.json）
         skillRegistry.LoadFromWorkspace(workspace.RootPath);
         mcpRegistry.LoadFromWorkspace(workspace.RootPath);
         

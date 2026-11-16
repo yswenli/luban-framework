@@ -28,6 +28,7 @@
 *
 *****************************************************************************/
 
+using System.Text;
 using LuBan.AIAgent.Wiki.Extractors;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -92,6 +93,25 @@ public class BoundedTextReaderUnitTest
             Assert.AreEqual(50, text.Length);
             Assert.IsTrue(text.All(c => c == '中'));
             Assert.IsTrue(truncated);
+        }
+        finally { File.Delete(path); }
+    }
+
+    [TestMethod]
+    public async Task Reads_Gbk_File_By_Detected_Encoding()
+    {
+        // GBK 中文按 UTF-8 解码必然失败，读取器应回退到 ANSI/GB18030，而不是产出乱码
+        var content = "这是 GBK 编码的中文注释";
+        var path = Path.GetTempFileName();
+        try
+        {
+            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+            await File.WriteAllBytesAsync(path, Encoding.GetEncoding(936).GetBytes(content));
+
+            var (text, truncated) = await BoundedTextReader.ReadAsync(path, 1000);
+
+            Assert.AreEqual(content, text);
+            Assert.IsFalse(truncated);
         }
         finally { File.Delete(path); }
     }

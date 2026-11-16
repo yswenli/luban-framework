@@ -751,11 +751,13 @@ public class WikiUnitTest
     {
         var dir = Path.Combine(Path.GetTempPath(), "luban-index-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(Path.Combine(dir, "obj"));
+        Directory.CreateDirectory(Path.Combine(dir, ".luban-agent"));
         Directory.CreateDirectory(Path.Combine(dir, "src"));
         try
         {
             File.WriteAllText(Path.Combine(dir, "a.txt"), "a");
             File.WriteAllText(Path.Combine(dir, "obj", "b.txt"), "b");
+            File.WriteAllText(Path.Combine(dir, ".luban-agent", "workspace.txt"), "meta");
             File.WriteAllText(Path.Combine(dir, "src", "c.txt"), "c");
 
             var files = ChunkerFactory.EnumerateFiles(Path.GetFullPath(dir), "*")
@@ -765,6 +767,7 @@ public class WikiUnitTest
             CollectionAssert.Contains(files, "a.txt");
             CollectionAssert.Contains(files, "c.txt");
             CollectionAssert.DoesNotContain(files, "b.txt");
+            CollectionAssert.DoesNotContain(files, "workspace.txt");
         }
         finally { Directory.Delete(dir, true); }
     }

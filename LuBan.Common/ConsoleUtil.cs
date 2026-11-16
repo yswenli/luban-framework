@@ -1022,7 +1022,156 @@ public static class ConsoleUtil
             });
     }
 
+    /// <summary>承载上下两个模块的半块字符。</summary>
+    private const char QrHalfBlock = '▀';
+
+    /// <summary>单个模块的整块字符。</summary>
+    private const char QrFullBlock = '█';
+
+    /// <summary>
+    /// 把文本渲染成纯字符版二维码：一个模块一个字符，暗模块为整块字符。
+    /// </summary>
+    /// <remarks>
+    /// 不含任何转义序列，可直接进日志文件或输出被重定向的管道；
+    /// 深色终端上就是反色码，扫码器大多能识别，但不保证所有手机相机。
+    /// </remarks>
+    /// <param name="text">要编码的文本，通常是带令牌的入口地址。</param>
+    /// <returns>逐行文本，每行等宽。</returns>
+    public static IReadOnlyList<string> RenderQrCode(string text)
+    {
+        var matrix = CreateQrMatrix(text);
+        var lines = new List<string>(matrix.Height);
+        for (var y = 0; y < matrix.Height; y++)
+        {
+            var line = new StringBuilder(matrix.Width);
+            for (var x = 0; x < matrix.Width; x++)
+            {
+                line.Append(matrix[x, y] ? QrFullBlock : ' ');
+            }
+
+            lines.Add(line.ToString());
+        }
+
+        return lines;
+    }
+
+    /// <summary>
+    /// 把二维码画到当前控制台：半块字符 + 标准极性配色（浅色模块白、深色模块黑）。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 终端字符格宽高比约 1:2，所以纵向两个模块共用一个字符：<c>▀</c> 的上半部分取前景色、
+    /// 下半部分取背景色，一个字符承载上下两个模块，二维码不会撑出终端可视区。
+    /// </para>
+    /// <para>
+    /// 颜色只走控制台的前景/背景色，既不写死 ANSI 转义、也不调用平台接口：
+    /// Windows 由 .NET 翻译成控制台属性，macOS/Linux 由 .NET 翻译成 ANSI 转义，
+    /// 深色终端上同样得到标准极性的白底黑码（手机相机对反色码支持不稳定）。
+    /// 输出被重定向时颜色不生效，请改用不含转义序列的 <see cref="RenderQrCode"/>。
+    /// </para>
+    /// </remarks>
+    /// <param name="text">要编码的文本。</param>
+    public static void WriteQrCode(this string text)
+    {
+        try
+        {
+            foreach (var row in BuildQrRuns(text))
+            {
+                foreach (var run in row)
+                {
+                    Console.ForegroundColor = run.Foreground;
+                    Console.BackgroundColor = run.Background;
+                    Console.Write(new string(QrHalfBlock, run.Width));
+                }
+
+                // 每行结束先复位：否则行尾换行会把背景色带到下一行开头
+                Console.ResetColor();
+                Console.WriteLine();
+            }
+        }
+        finally
+        {
+            Console.ResetColor();
+        }
+    }
+
+    /// <summary>
+    /// 把每两行模块合并成一行半块字符，同色相邻模块合并成一段。
+    /// </summary>
+    /// <remarks>
+    /// 与 <see cref="WriteQrCode"/> 共用同一套矩阵与合并规则，颜色信息单独带出来，
+    /// 便于在不碰控制台的前提下断言行数与宽度。
+    /// </remarks>
+    /// <param name="text">要编码的文本。</param>
+    /// <returns>逐行的颜色段列表。</returns>
+    public static IReadOnlyList<QrCodeRun[]> BuildQrRuns(string text)
+    {
+        var matrix = CreateQrMatrix(text);
+        var rows = new List<QrCodeRun[]>((matrix.Height + 1) / 2);
+        for (var y = 0; y < matrix.Height; y += 2)
+        {
+            var runs = new List<QrCodeRun>();
+            var x = 0;
+            while (x < matrix.Width)
+            {
+                var foreground = QrCell(matrix, x, y);
+                var background = QrLowerCell(matrix, x, y);
+
+                var end = x + 1;
+                while (end < matrix.Width
+                    && QrCell(matrix, end, y) == foreground
+                    && QrLowerCell(matrix, end, y) == background)
+                {
+                    end++;
+                }
+
+                runs.Add(new QrCodeRun(foreground, background, end - x));
+                x = end;
+            }
+
+            rows.Add([.. runs]);
+        }
+
+        return rows;
+    }
+
+    /// <summary>模块对应的颜色：暗模块黑、浅模块白。</summary>
+    private static ConsoleColor QrCell(BitMatrix matrix, int x, int y)
+        => matrix[x, y] ? ConsoleColor.Black : ConsoleColor.White;
+
+    /// <summary>同一字符下半部分对应的模块；行数为奇数时末行下半部分按浅色（静区）处理。</summary>
+    private static ConsoleColor QrLowerCell(BitMatrix matrix, int x, int y)
+        => y + 1 < matrix.Height ? QrCell(matrix, x, y + 1) : ConsoleColor.White;
+
+    /// <summary>按内容长度与纠错级别生成模块矩阵（含静区，一个模块一个元素）。</summary>
+    private static BitMatrix CreateQrMatrix(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            throw new ArgumentException("二维码内容不能为空", nameof(text));
+        }
+
+        var hints = new Dictionary<EncodeHintType, object>
+        {
+            [EncodeHintType.CHARACTER_SET] = "UTF-8",
+            // 屏幕扫码没有污损，用最低纠错级别把矩阵压到最小：
+            // 入口地址这种长度下，L 级比 M 级少 4 列 2 行，终端里更不容易超出窗口
+            [EncodeHintType.ERROR_CORRECTION] = ZXing.QrCode.Internal.ErrorCorrectionLevel.L,
+            // 静区留 2 个模块，省行数；低于标准的 4 格，但屏幕上足够定位
+            [EncodeHintType.MARGIN] = 2
+        };
+
+        return new ZXing.QrCode.QRCodeWriter().encode(text, BarcodeFormat.QR_CODE, 0, 0, hints);
+    }
 }
+
+/// <summary>
+/// 半块字符行里的一段同色连续模块。
+/// </summary>
+/// <param name="Foreground">上半部分（字符前景）的颜色。</param>
+/// <param name="Background">下半部分（字符背景）的颜色。</param>
+/// <param name="Width">连续模块格数。</param>
+public readonly record struct QrCodeRun(ConsoleColor Foreground, ConsoleColor Background, int Width);
 
 /// <summary>
 /// 控制台输出信息

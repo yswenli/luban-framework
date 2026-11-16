@@ -101,6 +101,7 @@ public sealed class AgentHost(
         runtime.Agent = null;
         runtime.Workspace = null;
         runtime.BuildOverrides = null;
+        runtime.ModelName = null;
     }
 
     /// <inheritdoc />
@@ -127,7 +128,7 @@ public sealed class AgentHost(
         var sid = request.SessionId ?? CurrentSessionId
             ?? throw new InvalidOperationException("未设置当前会话");
 
-        var modelId = modelSelection.QualifiedModelName;
+        var modelId = await modelSelection.ResolveQualifiedModelNameAsync(sid, ct).ConfigureAwait(false);
         if (string.IsNullOrWhiteSpace(modelId))
             throw new InvalidOperationException("未选择模型");
 
@@ -425,8 +426,14 @@ public sealed class AgentHost(
         SessionRuntime runtime, WorkspaceDescriptor workspace, CancellationToken ct,
         AgentBuildOverrides? overrides = null)
     {
+        // 模型按会话解析：切换会话模型后必须重建 Agent，否则会继续用旧模型
+        var modelName = await modelSelection.ResolveQualifiedModelNameAsync(runtime.SessionId, ct).ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(modelName))
+            throw new InvalidOperationException("未选择模型");
+
         if (runtime.Agent is not null
             && runtime.Workspace?.Id == workspace.Id
+            && string.Equals(runtime.ModelName, modelName, StringComparison.Ordinal)
             && (runtime.BuildOverrides?.Matches(overrides) ?? overrides is null))
             return;
 
@@ -436,11 +443,6 @@ public sealed class AgentHost(
         var pluginRegistry = sp.GetRequiredService<ToolPluginRegistry>();
         var skillRegistry = sp.GetRequiredService<SkillRegistry>();
         var mcpRegistry = sp.GetRequiredService<MCPRegistry>();
-
-        // 模型从注入的 IAgentModelSelection（用户 scope）取，避免会话 scope 拿错用户配置
-        var modelName = modelSelection.QualifiedModelName;
-        if (string.IsNullOrWhiteSpace(modelName))
-            throw new InvalidOperationException("未选择模型");
 
         // 会话级扩展回放：插件贡献、连接器启用等由产品实现承接；失败不阻断会话构建。
         foreach (var extension in sp.GetServices<IAgentSessionExtension>())
@@ -470,6 +472,7 @@ public sealed class AgentHost(
         runtime.Agent = newAgent;
         runtime.Workspace = workspace;
         runtime.BuildOverrides = overrides;
+        runtime.ModelName = modelName;
     }
 
     /// <summary>把「全默认」覆盖项归一化成 null，避免每轮拿 non-null 去比缓存里的 null 而误重建。</summary>

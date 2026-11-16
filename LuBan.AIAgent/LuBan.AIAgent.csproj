@@ -9,7 +9,7 @@
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <PackageId>$(AssemblyName)</PackageId>
     <Title>$(AssemblyName)</Title>
-    <Version>2026.11.9.1</Version>
+    <Version>2026.11.16.1</Version>
     <Authors>yswenli</Authors>
     <Description>LuBan.AIAgent 是基于 Microsoft Agent Framework 的 AI Agent 库，支持自然语言操作浏览器、文件系统、脚本、Web、检索、长期记忆、MCP、上下文压缩等。</Description>
     <Copyright>$(Authors)</Copyright>
@@ -56,10 +56,10 @@
     <PackageReference Include="OpenAI" Version="2.15.0" />
     <!-- 勿升 Microsoft.Extensions.AI(.OpenAI) 到会强制 OpenAI 2.13.0 的版本：
          那会把上面的下限拉回去，重现「工具调用 chunk 解析为空 update」。 -->
-    <PackageReference Include="Microsoft.Extensions.AI" Version="10.11.0" />
-    <PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="10.11.0" />
+    <PackageReference Include="Microsoft.Extensions.AI" Version="11.0.0" />
+    <PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="11.0.0" />
     <PackageReference Include="Microsoft.Playwright" Version="1.64.1" />
-    <PackageReference Include="MiniExcel" Version="1.46.0" />
+    <PackageReference Include="MiniExcel" Version="1.47.1" />
   </ItemGroup>
 
 </Project>

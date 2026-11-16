@@ -92,7 +92,17 @@ dotnet add package LuBan.AIAgent
 
 ### 组件注册表架构
 
-Skills、MCPs、Rules 采用统一的三级优先级注册表模式：
+Skills、MCPs、Rules 采用三级优先级注册表模式；其中 Skill 允许工作区文件覆盖同名内置：
+
+**Skills**（文件优先）：
+
+| 优先级 | 来源 | 行为 |
+|--------|------|------|
+| 最高 | 工作区文件 | 覆盖同名内置与 config.json 项 |
+| 中 | 硬编码（DI 注册） | 被同名工作区文件覆盖；可通过 `DisabledBuiltin` 配置禁用 |
+| 最低 | config.json | 添加新项，同名项被忽略 |
+
+**MCPs / Rules**（内置优先）：
 
 | 优先级 | 来源 | 行为 |
 |--------|------|------|
@@ -141,7 +151,7 @@ Skills、MCPs、Rules 采用统一的三级优先级注册表模式：
 | **Wiki 知识库工具** | `wiki` | 读取/写入/删除 wiki 页面、向量搜索、健康检查（opt-in，需在 `ToolGroups` 中显式点名） |
 | **大日志分析工具** | `log` | 大日志文件聚合概览、正则检索（级别/时间/行区间过滤）、按行切片，恒定内存（默认启用，非 opt-in） |
 | **Skill 消费工具** | `skill` | 列出可用 Skill（支持关键词搜索）、加载并使用 Skill 模板指令；工作区根路径内免确认（默认启用） |
-| **Skill 管理工具** | `skillmanage` | 创建/覆盖/删除工作区级 Skill；内置 Skill 不可覆盖删除；写/删操作需用户确认（默认启用） |
+| **Skill 管理工具** | `skillmanage` | 创建/覆盖/删除工作区级 Skill（工作区文件可覆盖同名内置，纯内置不可删除）；写/删操作需用户确认（默认启用） |
 | **MCP 管理工具** | `mcpmanage` | 创建/覆盖/删除工作区级 MCP 配置、测试 MCP 连接；内置 MCP 不可覆盖删除；写/删操作需用户确认（默认启用） |
 | **连接器管理工具** | `connectormanage` | 列出连接器状态（已声明/已启用/提供方可用性）、创建或覆盖、删除工作区级连接器声明；提供方须已注册，凭据参数必须是 `$credential:` 引用；写/删操作需用户确认（默认启用） |
 
@@ -200,7 +210,7 @@ wiki/
 - 检索与 wiki 的全部方法新增可选参数 `string? workspaceId = null`：显式指定目标工作区（由 `IWikiContext.WorkspaceRootFor(workspaceId)` 解析根目录），不传时沿用 `IWikiContext.WorkspaceRoot`。
 - 语义搜索改为在全部候选（不再抽样）上计算余弦相似度，并以 `Score` 降序、`ChunkId` 升序排序，保证同分结果可复现。
 - **破坏性变更**：`IVectorStore` 的 8 个方法均新增 `string? workspaceId = null`，`IRetrievalService.IndexDirectoryAsync` 第 4 个参数由 `force` 之后的布尔/无变为 `IProgress<IndexProgress>?`。自定义实现者需同步签名（不传 `workspaceId` 时行为保持为默认工作区）。
-- **索引文件白名单（行为变更）**：`ChunkerFactory.ShouldIndex` 只按扩展名判断，白名单 = 各 `ICodeChunker` 已注册扩展名 + `.txt/.csv/.tsv/.log/.properties/.xlsx`；`.xlsx` 在读取时经 `ExcelExtractor`（MiniExcel）提取为 Markdown 后再切块/嵌入（提取结果为「`## sheet 名` + markdown 表格」，按 sheet 分节切块，语言标识 `excel`）；无专用切块器的纯文本（`.txt/.csv/.tsv/.log/.properties`）走滑动窗口兜底。白名单之外的扩展名（`.docx/.pdf/.ps1/.exe` 等）与无扩展名文件一律不索引；单文件索引 `IndexFileAsync` 同样受白名单与大小上限约束。白名单内但内容含 NUL 字节或全空白的内容在读取阶段跳过。扫描阶段不再预读文件内容（二进制判断移到读取阶段），并剪枝排除目录（`.git/bin/obj/node_modules/dist/packages/.vs/.idea/target`）与重解析点，避免在云盘/网络目录上因文件水合与杀软扫描长时间卡顿。
+- **索引文件白名单（行为变更）**：`ChunkerFactory.ShouldIndex` 只按扩展名判断，白名单 = 各 `ICodeChunker` 已注册扩展名 + `.txt/.csv/.tsv/.log/.properties/.xlsx`；`.xlsx` 在读取时经 `ExcelExtractor`（MiniExcel）提取为 Markdown 后再切块/嵌入（提取结果为「`## sheet 名` + markdown 表格」，按 sheet 分节切块，语言标识 `excel`）；无专用切块器的纯文本（`.txt/.csv/.tsv/.log/.properties`）走滑动窗口兜底。白名单之外的扩展名（`.docx/.pdf/.ps1/.exe` 等）与无扩展名文件一律不索引；单文件索引 `IndexFileAsync` 同样受白名单与大小上限约束。白名单内但内容含 NUL 字节或全空白的内容在读取阶段跳过。扫描阶段不再预读文件内容（二进制判断移到读取阶段），并剪枝排除目录（`.git/.luban-agent/bin/obj/node_modules/dist/packages/.vs/.idea/target`）与重解析点，避免在云盘/网络目录上因文件水合与杀软扫描长时间卡顿。
 - `ChunkerFactory.EnumerateFiles(root, pattern)` 为公开的逐层安全枚举（剪枝排除目录与重解析点、单层不可访问时跳过该层、跨 pattern 去重），索引、wiki 页面枚举（`WikiService.EnumeratePages`）与 CLI/桌面端预扫共用，保证各处统计口径一致。
 - **表格提取上限与截断告警**：`ExcelExtractor.ExtractAsync(filePath, maxChars, cancellationToken)` 可指定单文件字符上限；索引侧使用 `ExcelExtractor.IndexingMaxChars`（200 万字符，远宽于摄入侧的 `TextExtractor.MaxChars` = 20 万），超出时截断并写入 `IndexReport.Warnings`（不再静默丢数据）。提取在线程池执行，等待期间可响应取消。
 - `IndexDirectoryAsync` 在枚举阶段即按目录上报 `IndexStage.Scanning`（`IndexProgress.CurrentFile` 为当前目录，`Total` 为已发现的可索引文件数），调用方无需额外预扫即可显示「正在扫描：&lt;目录&gt;（已发现 N 个）…」。
@@ -251,7 +261,7 @@ category: custom
 - 项目级: `<workspace>/.luban-agent/skills/<skill-id>/SKILL.md`
 - 用户级: `%LocalAppData%/LuBan/AIAgent/skills/<skill-id>/SKILL.md`
 
-**优先级**：硬编码（DI）> 工作区文件 > config.json
+**优先级**：工作区文件 > 硬编码（DI）> config.json（同名时工作区文件覆盖内置）
 
 ### 对话式 Skill/MCP 管理
 
@@ -292,7 +302,8 @@ AI: [调用 WriteConnectorAsync] 已创建连接器声明，凭据请到设置�
 
 **安全保护**：
 
-- 内置 Skill/MCP 不可覆盖或删除
+- 工作区文件可覆盖同名内置 Skill；纯内置（无同名工作区目录）不可删除
+- 内置 MCP 不可覆盖或删除
 - Skill ID 必须符合 `^[a-z0-9][a-z0-9_-]{0,63}$` 格式
 - 单个 SKILL.md 文件大小限制 256KB
 - MCP / 连接器配置拒绝明文凭据（须写 `$credential:<键>` 引用）
@@ -541,7 +552,7 @@ services.AddConnector<MyVendorConnector>("myVendor", ctx => new MyVendorConnecto
 | `SessionRuntimeManager` / `SessionRuntime` | 按会话维护独立 DI scope 与串行运行循环（`EnqueueAsync`）、重载标记（`RequestReload`）、活动时间与释放 |
 | `IAgentProfile` / `AgentProfileBase` | Agent 配置（系统提示词、工具组、检索模式）与建 Agent 流程；`DefaultAgentProfile` 为通用助手 |
 | `IAgentWorkspaceResolver` / `WorkspaceDescriptor` | 按会话解析工作区（`Id` / `Name` / `RootPath` / `Type`）；默认读 `LuBanAgent:WorkspaceRoot`，缺省为进程当前目录（Web 宿主经 `LuBan.Web.Core` 归一化：相对值按站点 `ContentRootPath`） |
-| `IAgentProfileResolver` / `IAgentUserResolver` / `IAgentModelSelection` | Profile 选择、用户标识（默认读 `IUserContext.UserId`，回落 `local`）、模型限定名（默认读 `LuBanAgent:DefaultModel`） |
+| `IAgentProfileResolver` / `IAgentUserResolver` / `IAgentModelSelection` | Profile 选择、用户标识（默认读 `IUserContext.UserId`，回落 `local`）、模型限定名（默认读 `LuBanAgent:DefaultModel`；`ResolveQualifiedModelNameAsync(sessionId)` 供产品按会话覆盖，默认忽略会话直接返回全局值） |
 | `IAgentAttachmentOrchestrator` / `AgentAttachmentResolver` | `@引用` 解析、附件处理与能力门禁、UI 路径与引用合并去重；解析规则由编排器提供，因此 CLI / 桌面 / Web / A2A 行为一致 |
 | `IModelCapabilityGate` / `IModelCapabilityProbe` | 模型对附件的能力判定与单轮视觉能力探测（默认一律放行、不探测） |
 | `ISessionRuntimeInitializer` / `IAgentSessionExtension` | 会话 scope 创建后的初始化扩展点、建 Agent 前的会话扩展点（插件贡献、连接器启用等） |
