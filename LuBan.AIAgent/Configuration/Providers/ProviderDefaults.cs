@@ -51,12 +51,18 @@ public static class ProviderDefaults
     private static readonly IReadOnlyDictionary<string, string[]> DefaultModels =
         new ReadOnlyDictionary<string, string[]>(new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
         {
-            ["openai"] = ["gpt-4.1", "gpt-4.1-mini", "gpt-4.1-nano", "gpt-4o", "gpt-4o-mini", "o1", "o1-mini", "o1-pro", "o3", "o3-mini", "o3-pro", "o4-mini"],
+            ["openai"] =
+            [
+                "gpt-6.2-astra", "gpt-6.2-sol", "gpt-6.1-terra", "gpt-6-sol", "gpt-6-luna", "gpt-5.1",
+                "gpt-4.1", "gpt-4.1-mini", "gpt-4.1-nano", "gpt-4o", "gpt-4o-mini",
+                "o1", "o1-mini", "o1-pro", "o3", "o3-mini", "o3-pro", "o4-mini"
+            ],
             ["azure"] = ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-4", "gpt-35-turbo"],
             ["deepseek"] = ["deepseek-flash", "deepseek-v4-pro"],
-            ["kimi"] = ["kimi-k3", "kimi-k2.7-code", "kimi-k2.7-code-highspeed", "kimi-k2.6"],
+            ["kimi"] = ["kimi-k3.1-pro", "kimi-k3.1-pro-highspeed", "kimi-k3"],
             ["glm"] =
             [
+                "glm-5.3-flashx", "glm-5.3-flashx-legal",
                 "glm-5.3", "glm-5.3-flash", "glm-5.2", "glm-5.1", "glm-5", "glm-5-turbo",
                 "glm-4.7", "glm-4.7-flash", "glm-4.6", "glm-4.5-air", "glm-4.5-flash",
                 "glm-4-long", "glm-4-flash-250414",
@@ -65,6 +71,7 @@ public static class ProviderDefaults
             ],
             ["qwen"] =
             [
+                "qwen4-max", "qwen4-max-preview",
                 "qwen3.8-max", "qwen3.8-flash", "qwen3.7-plus", "qwen3.7-flash",
                 "qwen3.6-plus", "qwen3.6-flash", "qwen3.5-plus", "qwen3.5-flash",
                 "qwen3.5-omni-plus", "qwen3-vl-plus", "qwen3-vl-flash",
@@ -72,29 +79,34 @@ public static class ProviderDefaults
             ],
             ["doubao"] =
             [
+                "doubao-seed-evolving", "doubao-seed-2-1-pro-260915",
+                "doubao-seed-2-1-lite-260915", "doubao-seed-2-1-turbo-260628",
+                "deepseek-v4.1-flash",
                 "doubao-1.5-vision-pro", "doubao-1.5-vision-lite",
-                "doubao-vision-pro", "doubao-vision-lite",
-                "Seed-Evolving", "deepseek-v4.1-flash"
+                "doubao-vision-pro", "doubao-vision-lite"
             ],
             ["claude"] =
             [
-                "claude-opus-4-20250514", "claude-sonnet-4-20250514",
-                "claude-3-7-sonnet-20250219", "claude-3-5-sonnet-20241022",
-                "claude-3-5-haiku-20241022", "claude-3-haiku-20240307"
+                "claude-fable-5-2", "claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5",
+                "claude-fable-5-1", "claude-opus-5", "claude-sonnet-5", "claude-opus-4-8",
+                "claude-opus-4-7", "claude-sonnet-4-6", "claude-haiku-4-5"
             ],
             ["gemini"] =
             [
-                "gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.0-flash",
-                "gemini-2.0-flash-lite", "gemini-1.5-pro", "gemini-1.5-flash"
+                "gemini-4-argon", "gemini-4-carbon", "gemini-4-neon", "gemini-4-hydrogen",
+                "gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite",
+                "gemini-2.5-pro", "gemini-2.5-flash"
             ],
             ["ollama"] = ["llama3.1", "llama3.2", "qwen2.5", "deepseek-coder-v2", "codellama"],
             ["ernie"] =
             [
+                "ernie-5.5-flash-preview",
                 "ernie-4.5", "ernie-4.0-turbo", "ernie-4.0-vision",
                 "ernie-3.5-8k", "ernie-3.5-vision", "ernie-speed-pro", "ernie-lite-pro"
             ],
             ["minimax"] =
             [
+                "MiniMax-M3.1-Flash",
                 "MiniMax-M3", "MiniMax-M2.7", "MiniMax-M2.7-highspeed",
                 "MiniMax-M2.5", "MiniMax-M2.5-highspeed", "MiniMax-H3"
             ],
@@ -104,10 +116,11 @@ public static class ProviderDefaults
                 "hunyuan-turbos-vision-video", "tencent-hy-vision-1.5-instruct",
                 "hunyuan-turbo", "hunyuan-pro", "hunyuan-standard", "hunyuan-lite"
             ],
-            ["mimo"] = ["mimo-v2.5-pro"],
-            ["xai"] = ["grok-4", "grok-3", "grok-3-mini", "grok-3-fast", "grok-2-vision"],
+            ["mimo"] = ["mimo-v2.6-pro", "mimo-v2.6-pro-ultraspeed", "mimo-v2.6-flash", "mimo-v2.5-pro"],
+            ["xai"] = ["grok-4.7", "grok-4.6", "grok-4.5", "grok-4.20", "grok-4", "grok-3", "grok-3-mini", "grok-3-fast", "grok-2-vision"],
             ["qianfan"] =
             [
+                "ernie-5.5-flash-preview",
                 "ernie-4.5", "ernie-4.0-turbo", "ernie-4.0-vision",
                 "ernie-3.5-8k", "ernie-3.5-vision", "ernie-speed-pro", "ernie-lite-pro"
             ],
@@ -125,10 +138,15 @@ public static class ProviderDefaults
             ],
             ["openrouter"] =
             [
-                "deepseek/deepseek-v4.1-flash", "deepseek/deepseek-pro-latest",
-                "openai/gpt-4.1", "openai/o3",
-                "anthropic/claude-opus-4", "anthropic/claude-sonnet-4",
-                "google/gemini-2.5-pro", "google/gemini-2.5-flash",
+                "openai/gpt-6.2-astra", "openai/gpt-6.2-sol", "openai/gpt-6.1-terra",
+                "openai/gpt-6-sol", "openai/gpt-6-luna", "openai/gpt-5.1",
+                "anthropic/claude-fable-5.2", "anthropic/claude-opus-5.5",
+                "anthropic/claude-sonnet-5.5", "anthropic/claude-haiku-5.5", "anthropic/claude-opus-5",
+                "google/gemini-4-argon", "google/gemini-4-carbon", "google/gemini-4-neon",
+                "google/gemini-4-hydrogen", "google/gemini-3.8-flash",
+                "deepseek/deepseek-v4.1-flash", "deepseek/deepseek-v4-pro",
+                "moonshotai/kimi-k3.1-pro", "z-ai/glm-5.3-flashx", "qwen/qwen4-max",
+                "minimax/minimax-m3.1-flash", "x-ai/grok-4.7", "xiaomi/mimo-v2.6-pro",
                 "meta/llama-4-maverick"
             ]
         });
