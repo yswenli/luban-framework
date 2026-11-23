@@ -229,7 +229,7 @@ public class WebAgentSessionRegistryUnitTest
             return Task.CompletedTask;
         }
         public Task<SessionMessage> AddMessageAsync(string sessionId, string role, string content, int? tokens = null,
-            string? thinking = null, string? attachments = null, string? toolCalls = null)
+            string? thinking = null, string? attachments = null, string? toolCalls = null, string? segments = null)
             => throw new NotSupportedException();
         public Task<IEnumerable<SessionMessage>> GetMessagesAsync(string sessionId, int? limit = null) => throw new NotSupportedException();
         public Task<IEnumerable<SessionMessage>> GetLatestMessagesAsync(string sessionId, int count) => throw new NotSupportedException();

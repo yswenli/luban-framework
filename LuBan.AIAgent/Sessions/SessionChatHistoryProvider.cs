@@ -42,6 +42,9 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
     /// <summary>图片回退源文件时按扩展名解析真实 MIME。</summary>
     private static readonly Attachments.DefaultAttachmentProcessor _mediaTypeResolver = new();
 
+    /// <summary>段落 JSON 传输口径：camelCase，与前端字段一致。</summary>
+    private static readonly System.Text.Json.JsonSerializerOptions SegmentJsonOptions = new(System.Text.Json.JsonSerializerDefaults.Web);
+
     /// <summary>
     /// 创建会话历史提供者
     /// </summary>
@@ -231,9 +234,11 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
             .Select(c => c.Text));
         // 提取本轮工具调用（名称/调用ID/参数），持久化以便事后定位"模型漏传参数"等调用问题
         var toolCallsJson = SerializeToolCalls(context.ResponseMessages);
+        // 提取本轮有序段落（思考/正文/工具调用按 Contents 原始顺序），供前端按时间铺开回放
+        var segmentsJson = SerializeSegments(context.ResponseMessages);
         if (!string.IsNullOrWhiteSpace(responseText))
         {
-            await _sessionManager.AddMessageAsync(sessionId, "assistant", responseText, EstimateTokens(responseText), thinkingText, toolCalls: toolCallsJson);
+            await _sessionManager.AddMessageAsync(sessionId, "assistant", responseText, EstimateTokens(responseText), thinkingText, toolCalls: toolCallsJson, segments: segmentsJson);
         }
     }
 
@@ -389,6 +394,64 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
             .ToList();
 
         return calls.Count == 0 ? null : System.Text.Json.JsonSerializer.Serialize(calls);
+    }
+
+    /// <summary>
+    /// 提取本轮响应的有序段落（思考 / 正文 / 工具调用按 Contents 原始顺序），
+    /// 序列化为 JSON 供前端按时间铺开回放。
+    /// </summary>
+    private static string? SerializeSegments(IEnumerable<ChatMessage>? responseMessages)
+    {
+        if (responseMessages == null)
+            return null;
+
+        var segments = new List<SessionMessageSegment>();
+        foreach (var message in responseMessages)
+        {
+            if (message.Contents == null)
+                continue;
+
+            foreach (var content in message.Contents)
+            {
+                switch (content)
+                {
+                    // 思考与正文按到达顺序落段；相邻同类型合并，避免把流式增量切成碎片
+                    case TextReasoningContent reasoning when !string.IsNullOrEmpty(reasoning.Text):
+                        AppendTextSegment(segments, SegmentKinds.Thinking, reasoning.Text);
+                        break;
+
+                    case TextContent text when !string.IsNullOrEmpty(text.Text):
+                        AppendTextSegment(segments, SegmentKinds.Text, text.Text);
+                        break;
+
+                    case FunctionCallContent call:
+                        segments.Add(new SessionMessageSegment
+                        {
+                            Kind = SegmentKinds.Tool,
+                            Name = call.Name,
+                            CallId = call.CallId,
+                            Arguments = call.Arguments == null ? null : System.Text.Json.JsonSerializer.Serialize(call.Arguments)
+                        });
+                        break;
+                }
+            }
+        }
+
+        return segments.Count == 0
+            ? null
+            : System.Text.Json.JsonSerializer.Serialize(segments, SegmentJsonOptions);
+    }
+
+    /// <summary>追加文本段落；与末段同类型时并入，保持「一段连续的思考 / 正文」。</summary>
+    private static void AppendTextSegment(List<SessionMessageSegment> segments, string kind, string text)
+    {
+        if (segments.Count > 0 && segments[^1].Kind == kind)
+        {
+            segments[^1] = segments[^1] with { Text = segments[^1].Text + text };
+            return;
+        }
+
+        segments.Add(new SessionMessageSegment { Kind = kind, Text = text });
     }
 
     private static int EstimateTokens(string text) => Math.Max(1, text.Length / 4);
