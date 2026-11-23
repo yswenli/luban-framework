@@ -37,7 +37,7 @@ public class AccessToken
     /// <summary>
     /// 接口调用凭证
     /// </summary>
-    public string Token { get; set; }
+    public string? Token { get; set; }
     /// <summary>
     /// 凭证有效时间
     /// </summary>

@@ -37,7 +37,7 @@ public class JsApiTicket
     /// <summary>
     /// jsapi_ticket
     /// </summary>
-    public string Ticket { get; set; }
+    public string? Ticket { get; set; }
     /// <summary>
     /// 过期时间
     /// </summary>
