@@ -552,7 +552,7 @@ services.AddConnector<MyVendorConnector>("myVendor", ctx => new MyVendorConnecto
 | `AgentEventProtocol` / `AgentEventFrame` | 宿主事件 → 传输帧的统一映射（`text.delta` / `tool.*` / `attachment.*` 等），Web / CLI / Codex 共用一套事件名 |
 | `IToolConfirmationBroker` / `DefaultToolConfirmationBroker` | 跨请求确认登记簿（Singleton）：SSE 推 `tool.confirm`，另一个 HTTP 请求回结果，超时按拒绝 |
 | `IUserInteractionService` / `UserInteractionService` | 用户提问服务：读取本轮装配的提问回调并向用户提问；与工具确认共用 `ToolConfirmationContext.UiGate` 串行门，同一会话同一时刻只有一个交互在途；无回调时返回「不可用」，取消返回「已取消」（不视为拒绝） |
-| `IUserQuestionBroker` / `DefaultUserQuestionBroker` | 跨请求提问登记簿（Singleton）：SSE 推 `tool.question`，另一个 HTTP 请求回答案或取消，超时按「用户取消」收尾；按问题正文校验逐题回答，缺题/重复/越界一律拒收 |
+| `IUserQuestionBroker` / `DefaultUserQuestionBroker` | 跨请求提问登记簿（Singleton）：SSE 推 `tool.question`，另一个 HTTP 请求回答案或取消，超时按「用户取消」收尾；按问题正文校验逐题回答，缺题/重复/越界一律拒收；`labels` 必须属于该题选项，自由输入走 `freeText` 独立字段 |
 | `SessionRuntimeManager` / `SessionRuntime` | 按会话维护独立 DI scope 与串行运行循环（`EnqueueAsync`）、重载标记（`RequestReload`）、活动时间与释放 |
 | `IAgentProfile` / `AgentProfileBase` | Agent 配置（系统提示词、工具组、检索模式）与建 Agent 流程；`DefaultAgentProfile` 为通用助手 |
 | `IAgentWorkspaceResolver` / `WorkspaceDescriptor` | 按会话解析工作区（`Id` / `Name` / `RootPath` / `Type`）；默认读 `LuBanAgent:WorkspaceRoot`，缺省为进程当前目录（Web 宿主经 `LuBan.Web.Core` 归一化：相对值按站点 `ContentRootPath`） |

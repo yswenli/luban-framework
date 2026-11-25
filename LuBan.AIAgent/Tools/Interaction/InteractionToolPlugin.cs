@@ -75,10 +75,11 @@ public class InteractionToolGroup(IUserInteractionService interaction)
     /// <param name="cancellationToken">取消令牌。</param>
     /// <returns>逐题作答结果（JSON）；用户取消或宿主无通道时 outcome 不为 answered。</returns>
     [Description("""
-        向用户提问并等待回答，用于信息不足、需要用户拍板或存在多种合理实现时。
+        向用户提问并等待回答。凡需要用户在 2～4 个候选中拍板、或信息不足需要澄清时，必须调用本工具，不得在正文列选项让用户回复。
         参数 questionsJson 是 JSON：{"questions":[{"question":"问题正文","header":"短标题(≤12字)","multiSelect":false,"options":[{"label":"选项文案","description":"选项说明"}]}]}。
-        限制：1～4 个问题；每题 2～4 个选项；问题正文不得重复，同一题的选项文案不得重复（界面会自动追加「其它」自由输入，无需自定义该项）。
-        返回 {"outcome":"answered|cancelled|unavailable","answers":[{"question":"...","labels":["..."]}]}。
+        支持一次提 1～4 个问题；每题 2～4 个选项，可单选（multiSelect=false）或多选（multiSelect=true）；界面会自动为每题追加「其它」自由输入，无需自定义该项。
+        限制：问题正文不得重复，同一题的选项文案不得重复。
+        返回 {"outcome":"answered|cancelled|unavailable","answers":[{"question":"...","labels":["..."],"freeText":"用户手输的其它答案或 null"}]}；labels 一定是题面选项，freeText 才是用户自由输入。
         用户取消（cancelled）不是拒绝执行，请基于现有信息继续并在回复中说明，不要重复追问同一问题。
         """)]
     public async Task<ToolResult<string>> AskUserQuestionAsync(
@@ -100,7 +101,12 @@ public class InteractionToolGroup(IUserInteractionService interaction)
             },
             answers = result.Answers is null
                 ? null
-                : result.Answers.Select(a => new { question = a.Question, labels = a.Labels }),
+                : result.Answers.Select(a => new
+                {
+                    question = a.Question,
+                    labels = a.Labels,
+                    freeText = a.FreeText
+                }),
             message = result.Message
         });
 

@@ -90,7 +90,7 @@ public class BrainstormingSkill : SkillBase
 - 🎯 需求理解（一句话结论 + 依据）
 - 🔍 现状勘察（涉及哪些文件/符号）
 - 🛠️ 方案比选（2-3 个，含权衡/风险/代价）
-- ❓ 需要澄清的问题（一次一个）
+- ❓ 需要澄清的问题：用 AskUserQuestion 工具提问
 - ✅ 推荐方案与下一步
 
 ## 边界

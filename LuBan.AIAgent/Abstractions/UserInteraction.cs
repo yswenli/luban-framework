@@ -61,8 +61,12 @@ public sealed record UserQuestion(
 /// 单个问题的回答。
 /// </summary>
 /// <param name="Question">对应的问题正文（按正文回链，不依赖索引顺序）。</param>
-/// <param name="Labels">用户选中的选项文案；多选时为多项，「其它」自由输入为原样文本。</param>
-public sealed record UserQuestionAnswer(string Question, IReadOnlyList<string> Labels);
+/// <param name="Labels">用户选中的选项文案，必须属于该题 <see cref="UserQuestion.Options"/>；多选时为多项。</param>
+/// <param name="FreeText">「其它」自由输入的原样文本；与选项可并存，未填写为 null。</param>
+public sealed record UserQuestionAnswer(
+    string Question,
+    IReadOnlyList<string> Labels,
+    string? FreeText = null);
 
 /// <summary>
 /// 一次提问的完整结果。

@@ -55,6 +55,7 @@ public interface IUserQuestionBroker
     Task<UserQuestionResult> WaitAsync(PendingQuestion pending, CancellationToken ct);
 
     /// <summary>由宿主的回答接口调用；不存在/已过期/会话不符返回 false。</summary>
+    /// <remarks>逐题校验不通过也返回 false：缺题/重复题、选项文案不属于该题、单选却给了多个选项、某题既无选项也无自由文本。</remarks>
     /// <param name="sessionId">所属会话。</param>
     /// <param name="questionId">提问标识。</param>
     /// <param name="answers">逐题回答。</param>

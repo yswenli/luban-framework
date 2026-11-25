@@ -257,6 +257,93 @@ public class DefaultUserQuestionBrokerUnitTest
     }
 
     [TestMethod]
+    public void Resolve_DuplicateRegisteredQuestions_IsRejected()
+    {
+        var sut = Build();
+        // 绕过解析器的去重校验直接登记：正文重复时无法回链，应拒收而不是抛异常
+        var pending = sut.Register("sid",
+        [
+            new("选哪个？", [new("A"), new("B")]),
+            new("选哪个？", [new("是"), new("否")])
+        ]);
+
+        Assert.IsFalse(sut.TryResolve("sid", pending.QuestionId, [new("选哪个？", ["A"])]));
+    }
+
+    [TestMethod]
+    public async Task Resolve_LabelNotInOptions_IsRejected()
+    {
+        var sut = Build();
+        var pending = sut.Register("sid", Questions());
+
+        Assert.IsFalse(sut.TryResolve("sid", pending.QuestionId,
+        [
+            new("选哪个？", ["MySQL"]),
+            new("是否继续？", ["否"])
+        ]));
+        Assert.IsTrue(sut.TryResolve("sid", pending.QuestionId, Answers()));
+        Assert.AreEqual(UserQuestionOutcome.Answered, (await sut.WaitAsync(pending, CancellationToken.None)).Outcome);
+    }
+
+    [TestMethod]
+    public async Task Resolve_FreeTextOnly_IsAccepted()
+    {
+        var sut = Build();
+        var pending = sut.Register("sid", Questions());
+
+        Assert.IsTrue(sut.TryResolve("sid", pending.QuestionId,
+        [
+            new("选哪个？", [], "自建 MySQL 8"),
+            new("是否继续？", [], "先等等")
+        ]));
+        var result = await sut.WaitAsync(pending, CancellationToken.None);
+
+        Assert.AreEqual(UserQuestionOutcome.Answered, result.Outcome);
+        Assert.AreEqual(0, result.Answers![0].Labels.Count);
+        Assert.AreEqual("自建 MySQL 8", result.Answers[0].FreeText);
+    }
+
+    [TestMethod]
+    public void Resolve_EmptyAnswer_IsRejected()
+    {
+        var sut = Build();
+        var pending = sut.Register("sid", Questions());
+
+        Assert.IsFalse(sut.TryResolve("sid", pending.QuestionId,
+        [
+            new("选哪个？", []),
+            new("是否继续？", ["否"])
+        ]));
+    }
+
+    [TestMethod]
+    public void Resolve_SingleSelectMultipleLabels_IsRejected()
+    {
+        var sut = Build();
+        var pending = sut.Register("sid", Questions());
+
+        Assert.IsFalse(sut.TryResolve("sid", pending.QuestionId,
+        [
+            new("选哪个？", ["A", "B"]),
+            new("是否继续？", ["否"])
+        ]));
+    }
+
+    [TestMethod]
+    public async Task Resolve_MultiSelectLabels_AreAccepted()
+    {
+        var sut = Build();
+        var pending = sut.Register("sid",
+            [new("需要哪些能力？", [new("A"), new("B"), new("C")], MultiSelect: true)]);
+
+        Assert.IsTrue(sut.TryResolve("sid", pending.QuestionId, [new("需要哪些能力？", ["A", "C"])]));
+        var result = await sut.WaitAsync(pending, CancellationToken.None);
+
+        Assert.AreEqual(UserQuestionOutcome.Answered, result.Outcome);
+        CollectionAssert.AreEqual(new[] { "A", "C" }, result.Answers![0].Labels.ToArray());
+    }
+
+    [TestMethod]
     public async Task Resolve_Twice_SecondReturnsFalse()
     {
         var sut = Build();

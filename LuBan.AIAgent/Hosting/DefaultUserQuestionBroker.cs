@@ -104,20 +104,63 @@ public sealed class DefaultUserQuestionBroker : IUserQuestionBroker
             return false;
 
         // 按问题正文回链：每题都必须在，且不能出现本次提问之外的问题（防止前端漏答/错答后模型拿到残缺输入）
-        var expected = entry.Pending.Questions.Select(q => q.Question).ToHashSet(StringComparer.Ordinal);
+        // 正文是回链键：登记项里出现重复正文就无法回链，直接拒收（不用 ToDictionary，避免重复键抛异常）
+        var expected = new Dictionary<string, UserQuestion>(
+            entry.Pending.Questions.Count, StringComparer.Ordinal);
+        foreach (var question in entry.Pending.Questions)
+        {
+            if (!expected.TryAdd(question.Question, question))
+            {
+                return false;
+            }
+        }
+
         var answered = new HashSet<string>(StringComparer.Ordinal);
+        var normalized = new List<UserQuestionAnswer>(answers.Count);
         foreach (var answer in answers)
         {
-            if (string.IsNullOrWhiteSpace(answer.Question) || !expected.Contains(answer.Question))
+            if (answer is null
+                || string.IsNullOrWhiteSpace(answer.Question)
+                || !expected.TryGetValue(answer.Question, out var question))
+            {
                 return false;
+            }
+
             if (!answered.Add(answer.Question))
                 return false;
+
+            var labels = new List<string>();
+            foreach (var raw in answer.Labels ?? [])
+            {
+                var label = raw?.Trim();
+                if (string.IsNullOrEmpty(label))
+                    return false;
+
+                // 选项文案是界面回链的唯一依据：不属于本题选项的文案一律拒收。
+                // 「其它」自由输入必须走 FreeText，避免错误/伪造答案被当成合法选择
+                if (!question.Options.Any(o => string.Equals(o.Label, label, StringComparison.Ordinal)))
+                    return false;
+
+                if (labels.Contains(label, StringComparer.Ordinal))
+                    return false;
+
+                labels.Add(label);
+            }
+
+            if (!question.MultiSelect && labels.Count > 1)
+                return false;
+
+            var freeText = string.IsNullOrWhiteSpace(answer.FreeText) ? null : answer.FreeText.Trim();
+            if (labels.Count == 0 && freeText is null)
+                return false;
+
+            normalized.Add(new UserQuestionAnswer(question.Question, labels, freeText));
         }
 
         if (answered.Count != expected.Count)
             return false;
 
-        return entry.Completion.TrySetResult(UserQuestionResult.Answered(answers));
+        return entry.Completion.TrySetResult(UserQuestionResult.Answered(normalized));
     }
 
     /// <inheritdoc />
