@@ -81,6 +81,9 @@ public static class LuBanAgentDefaultsExtensions
         services.TryAddScoped<LuBanAgentFactory>();
         services.AddScoped<ILuBanAgentFactory>(sp => sp.GetRequiredService<LuBanAgentFactory>());
 
+        // 单回合用量与耗时采集：AgentHost 写入、会话历史提供者落库时读取，必须同 scope 才共享实例
+        services.TryAddScoped<TurnMetrics>();
+
         // 会话 / 工作区 / 用户上下文默认实现（Scoped，随会话作用域隔离）
         services.TryAddScoped<DefaultContextState>();
         services.TryAddScoped<ISessionContext, DefaultSessionContext>();

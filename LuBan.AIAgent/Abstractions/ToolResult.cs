@@ -82,9 +82,9 @@ public class ToolResult
         };
 
     /// <summary>
-    /// 创建"子代理场景需用户授权、已自动阻止"的失败结果。
-    /// 与 <see cref="Cancelled{T}"/> 区分：<b>不是用户拒绝</b>（UserCancelled=false），
-    /// 而是子代理无权代确认、由框架确认服务按本轮已允许集合代判后阻止。
+    /// 创建"子代理全放行策略下需用户授权、已自动阻止"的失败结果。
+    /// 仅用于 A2A 进程内执行器（<c>allowAll:true</c>，子代理无 UI 可确认）自动拒绝的场景。
+    /// 与 <see cref="Cancelled{T}"/> 区分：<b>不是用户拒绝</b>（UserCancelled=false）。
     /// </summary>
     public static ToolResult<T> SubAgentDenied<T>()
         => new()
@@ -95,11 +95,11 @@ public class ToolResult
         };
 
     /// <summary>
-    /// 按当前执行作用域生成拒绝结果：子代理作用域返回 <see cref="SubAgentDenied{T}"/>，
-    /// 否则返回 <see cref="Cancelled{T}"/>（用户拒绝）。
+    /// 按当前执行作用域生成拒绝结果：A2A 全放行子代理作用域返回 <see cref="SubAgentDenied{T}"/>（自动阻止），
+    /// 其余情形（主代理，或已向用户弹确认的子代理——拒绝即用户的真实选择）返回 <see cref="Cancelled{T}"/>。
     /// </summary>
     public static ToolResult<T> Denied<T>()
-        => ToolConfirmationContext.IsInSubAgentScope ? SubAgentDenied<T>() : Cancelled<T>();
+        => ToolConfirmationContext.IsSubAgentAllowAll ? SubAgentDenied<T>() : Cancelled<T>();
 
     /// <summary>
     /// 判断工具调用结果是否为“用户拒绝”。兼容两种形态：

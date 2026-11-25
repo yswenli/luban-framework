@@ -71,8 +71,10 @@ public class DefaultsHostUnitTest
     [TestMethod]
     public async Task Defaults_FactoryCreateAsync_DoesNotThrow()
     {
-        using var sp = Build();
-        using var scope = sp.CreateScope();
+        // 容器里有只实现 IAsyncDisposable 的单例（ConnectorInstanceHost），同步释放会抛
+        // InvalidOperationException，故这里必须异步释放容器与作用域
+        await using var sp = Build();
+        await using var scope = sp.CreateAsyncScope();
         var factory = scope.ServiceProvider.GetRequiredService<ILuBanAgentFactory>();
 
         var agent = await factory.CreateAsync(systemPrompt: "测试");

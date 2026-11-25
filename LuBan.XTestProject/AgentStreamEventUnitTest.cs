@@ -88,6 +88,18 @@ public class AgentStreamEventUnitTest
         Assert.AreEqual("DeleteFileAsync", evt.ToolName);
         Assert.AreEqual("a.txt", evt.Arguments["path"]);
         Assert.AreEqual(60, evt.TimeoutSeconds);
+        Assert.IsNull(evt.Origin, "主代理发起的确认没有来源");
+    }
+
+    [TestMethod]
+    public void ToolConfirmationRequestedEvent_CarriesOrigin_WhenFromSubAgent()
+    {
+        var origin = new ToolConfirmationOrigin("build", "coder", "生成构建脚本");
+
+        var evt = new ToolConfirmationRequestedEvent(
+            "cid-2", "WriteFileAsync", new Dictionary<string, object?>(), 60, origin);
+
+        Assert.AreSame(origin, evt.Origin);
     }
 
     [TestMethod]

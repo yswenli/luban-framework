@@ -66,6 +66,7 @@ public class ToolPluginRegistry
     /// </summary>
     /// <param name="groupNames">工具组名称列表；null 表示全部已启用组（不含 opt-in 组），显式点名时才会包含对应的 opt-in 组</param>
     /// <returns>筛选后的插件列表</returns>
+    /// <remarks>显式列表下仍会并入 <see cref="ILuBanToolPlugin.IsAlwaysInjected"/> 为 true 的组。</remarks>
     public IReadOnlyList<ILuBanToolPlugin> GetPlugins(IEnumerable<string>? groupNames = null)
     {
         var enabled = GetEnabledPlugins();
@@ -73,7 +74,7 @@ public class ToolPluginRegistry
             return enabled.Where(p => !p.IsOptIn).ToList();
 
         var set = new HashSet<string>(groupNames, StringComparer.OrdinalIgnoreCase);
-        return enabled.Where(p => set.Contains(p.GroupName)).ToList();
+        return enabled.Where(p => set.Contains(p.GroupName) || (p.IsAlwaysInjected && !p.IsOptIn)).ToList();
     }
 
     /// <summary>

@@ -120,11 +120,4 @@ public class A2AOptions
 
     /// <summary>客户端（远端连接）列表。</summary>
     public List<A2AClientOptions> Clients { get; set; } = new();
-
-    /// <summary>
-    /// 是否允许内部子代理全放行（A3 语义）。
-    /// 仅 <c>InProcessSubAgentExecutor</c> 会读取本开关以 <c>allowAll:true</c> 进入子代理作用域；
-    /// 远端执行不设本地作用域。默认 false。
-    /// </summary>
-    public bool SubAgentAllowAll { get; set; }
 }

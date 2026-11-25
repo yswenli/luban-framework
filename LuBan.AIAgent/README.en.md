@@ -147,9 +147,10 @@ Skills, MCPs, and Rules use a three-tier priority registry pattern; Skills addit
 | **Web Tools** | `web` | Send HTTP requests to fetch web content |
 | **Retrieval Tools** | `retrieval` | Index local code/documents, semantic search |
 | **Context Compaction** | `context` | Compact conversation history to free token budget (LLM-accessible, callable on demand) |
-| **Local Memory Tools** | `localmemory` | Long-term memory storage, query, and management |
+| **Local Memory Tools** | `localmemory` | Long-term memory storage, search, and management: `MemorySave` / `MemorySearch` / `MemoryList` / `MemoryDelete`; saving requires no confirmation (Plan mode still records a plan item), deletion always confirms |
 | **MCP External Tools** | `mcp` | Merge tools from connected MCP clients (built-in file-system client + hot-loaded external servers) into the Agent tool registry |
 | **Orchestration Tools** | `orchestration` | Expose `plan_task` / `run_orchestration` so the model itself detects composite tasks and dispatches SubAgents to run a DAG (opt-in, requires `Orchestration.Enabled=true`) |
+| **User Interaction Tools** | `interaction` | Expose `AskUserQuestion`: ask 1–4 multiple-choice questions (2–4 options each, optional multi-select plus an automatic "Other" free-text field) and wait for answers; question text and option labels within one question must be unique (duplicates are rejected at parse time, since hosts map answers back by text/label); enabled by default and force-injected even when an explicit tool-group list is configured, so sub-agents and orchestration nodes can ask too; a user cancel returns "cancelled" (not a denial), and a host without an interaction channel returns an "unavailable" explanation |
 | **Wiki Knowledge Base Tools** | `wiki` | Read/write/delete wiki pages, vector search, health check (opt-in, must be named in `ToolGroups`) |
 | **Log Analysis Tools** | `log` | Aggregate overview, regex search (filter by level/time/line range), and line slicing for large log files with constant memory (enabled by default, non-opt-in) |
 | **Skill Consumption Tools** | `skill` | List available Skills (with keyword search), load and use Skill prompt templates; confirmation-free within the workspace root (enabled by default) |
@@ -412,7 +413,8 @@ AI: [calls WriteConnectorAsync] Created the connector declaration; save the cred
 | Component | Description |
 |-----------|-------------|
 | `ToolConfirmationService` | Tool execution confirmation service: allows operations directly inside the workspace, allows paths outside the workspace after user confirmation, and requires confirmation before dangerous operations |
-| `ToolConfirmationContext` | Confirmation context: holds the three-tier authorization (this time / this turn / this session) keyed by grant root; `AllowThisTurn`/`IsAllowedThisTurn`, `AllowThisSession`/`IsAllowedThisSession` |
+| `ToolConfirmationContext` | Confirmation context: holds the three-tier authorization (this time / this turn / this session) keyed by grant root; `AllowThisTurn`/`IsAllowedThisTurn`, `AllowThisSession`/`IsAllowedThisSession`; `CurrentOrigin` exposes the orchestration sub-agent origin (display only) |
+| `ToolConfirmationOrigin` | Confirmation origin (orchestration node id, role, description); written into an AsyncLocal by `EnterSubAgentScope`/`EnterOriginScope`, null for the main agent |
 | `ConfirmResult` | User confirmation result: `Allow` (this time) / `AllowAll` (all this turn) / `AllowSession` (all this session) / `Deny` |
 | `PathGuard` | Path security guard, provides a fast path for workspace roots (no longer a hard gate for out-of-workspace access) |
 | `RuleEngine` | Rule engine, performs permission checks and parameter modification before tool execution |
@@ -546,11 +548,13 @@ Brings "session scope + run loop + profile + attachment orchestration + capabili
 | `AddLuBanAgentHost()` | Registers the host and default seams (all `TryAdd`): `SessionRuntimeManager` (singleton), `IAgentHost` (scoped), profile / workspace / user / model-selection resolvers, attachment orchestration, capability gate, session initializer, and `ICommandCatalog` (singleton) |
 | `AddLuBanAgentOpenAI(configuration)` | Builds one client per provider from the `LuBanAgent:Models` array (`Provider` / `Model` / `ApiKey` / `BaseUrl`) and registers `IChatClient` + `IProviderRouter`; duplicate providers must share credentials; when incomplete it only records a `ChatClientFactoryWarning` — no registration and no throw |
 | `IAgentHost` | Host entry point: `InitializeAsync` / `Reset` / `RunStreamingAsync(AgentRunRequest)`; **must be resolved as Scoped**, holds no session state itself. If a turn is running for that session, `Reset` only flags a deferred reload (never interrupting the turn); the agent is released when the turn finishes and rebuilt with the latest configuration on the next turn |
-| `AgentRunRequest` | One-turn input: `Input` / `AttachmentPaths` / `Attachments` (URLs or paths, resolved by the framework) / `SystemPrompt` (per-turn persona override) / `EnableTools` / `ReasoningEffort` (per-turn reasoning-effort override; set to `None` to disable thinking) / `SessionId` / `PermissionMode` / `ConfirmHandler` / `ConfirmHandlerAsync` / `OnPlannedAction` / `OnUserDenied` |
-| `AgentStreamEvent` | UI-agnostic output events: `TextDeltaEvent` / `ThinkingDeltaEvent` / `ToolCallStartedEvent` / `ToolCallCompletedEvent` / `ToolCallFailedEvent` / `ToolConfirmationRequestedEvent` / `ErrorEvent` / `OrchestrationProgressEvent` / `AttachmentAddedEvent` / `AttachmentSkippedEvent` |
+| `AgentRunRequest` | One-turn input: `Input` / `AttachmentPaths` / `Attachments` (URLs or paths, resolved by the framework) / `SystemPrompt` (per-turn persona override) / `EnableTools` / `ReasoningEffort` (per-turn reasoning-effort override; set to `None` to disable thinking) / `SessionId` / `PermissionMode` / `ConfirmHandler` / `ConfirmHandlerAsync` / `AskUserHandlerAsync` / `OnPlannedAction` / `OnUserDenied` |
+| `AgentStreamEvent` | UI-agnostic output events: `TextDeltaEvent` / `ThinkingDeltaEvent` / `ToolCallStartedEvent` / `ToolCallCompletedEvent` / `ToolCallFailedEvent` / `ToolConfirmationRequestedEvent` / `UserQuestionRequestedEvent` / `ErrorEvent` / `OrchestrationProgressEvent` / `AttachmentAddedEvent` / `AttachmentSkippedEvent` |
 | `AgentBuildOverrides` | Per-turn build overrides (`SystemPrompt` + `EnableTools`); compared against the cached agent and rebuilt inside the session's serial region when they change |
 | `AgentEventProtocol` / `AgentEventFrame` | Unified mapping of host events to transport frames (`text.delta` / `tool.*` / `attachment.*`), shared by Web / CLI / Codex |
 | `IToolConfirmationBroker` / `DefaultToolConfirmationBroker` | Cross-request confirmation registry (singleton): SSE pushes `tool.confirm`, a separate HTTP request submits the answer, timeout counts as deny |
+| `IUserInteractionService` / `UserInteractionService` | User-question service: reads the per-turn question callback and asks the user; shares `ToolConfirmationContext.UiGate` with tool confirmation so one interaction is in flight per session at a time; returns "unavailable" without a callback and "cancelled" on cancel (not a denial) |
+| `IUserQuestionBroker` / `DefaultUserQuestionBroker` | Cross-request question registry (singleton): SSE pushes `tool.question`, a separate HTTP request submits answers or a cancel, timeout ends as "cancelled"; answers are validated by question text so missing/duplicate/unknown questions are rejected |
 | `SessionRuntimeManager` / `SessionRuntime` | Per-session DI scope with a serial run loop (`EnqueueAsync`), reload flag (`RequestReload`), last-active tracking and disposal |
 | `IAgentProfile` / `AgentProfileBase` | Agent configuration (system prompt, tool groups, retrieval mode) and agent creation flow; `DefaultAgentProfile` is the general-purpose assistant |
 | `IAgentWorkspaceResolver` / `WorkspaceDescriptor` | Resolves the workspace per session (`Id` / `Name` / `RootPath` / `Type`); defaults to `LuBanAgent:WorkspaceRoot`, falling back to the process working directory (Web hosts go through `LuBan.Web.Core`, which resolves relative values against the site `ContentRootPath`) |
@@ -585,16 +589,19 @@ await foreach (var e in host.RunStreamingAsync(new AgentRunRequest { Input = "he
 | Event | Payload (camelCase) | Source |
 |---|---|---|
 | `session` | `{ sessionId, created }` | transport layer |
-| `think.delta` | `{ delta, llmRound }` | `ThinkingDeltaEvent` |
-| `text.delta` | `{ delta, llmRound }` | `TextDeltaEvent` |
-| `tool.started` | `{ callId, name, arguments, llmRound }` | `ToolCallStartedEvent` |
-| `tool.completed` | `{ callId, resultSummary, llmRound }` | `ToolCallCompletedEvent` |
-| `tool.failed` | `{ callId, error, llmRound }` | `ToolCallFailedEvent` |
-| `tool.confirm` | `{ confirmationId, toolName, arguments, timeoutSeconds }` | `ToolConfirmationRequestedEvent` |
+| `think.delta` | `{ delta, llmRound, at }` | `ThinkingDeltaEvent` |
+| `text.delta` | `{ delta, llmRound, at }` | `TextDeltaEvent` |
+| `tool.started` | `{ callId, name, arguments, llmRound, at }` | `ToolCallStartedEvent` |
+| `tool.completed` | `{ callId, resultSummary, llmRound, at }` | `ToolCallCompletedEvent` |
+| `tool.failed` | `{ callId, error, llmRound, at }` | `ToolCallFailedEvent` |
+| `tool.confirm` | `{ confirmationId, toolName, arguments, timeoutSeconds, origin? }` (`origin` = `{ nodeId, role, description }`, present only for orchestration sub-agents) | `ToolConfirmationRequestedEvent` |
+| `tool.question` | `{ questionId, questions, timeoutSeconds, origin? }` (`questions` = `[{ question, header?, multiSelect, options:[{ label, description? }] }]`; `origin` as in `tool.confirm`) | `UserQuestionRequestedEvent` |
 | `attachment.added` | `{ fileName, mediaType, fileSize, source }` | `AttachmentAddedEvent` |
 | `attachment.skipped` | `{ source, reason }` | `AttachmentSkippedEvent` |
 | `error` | `{ message }` | `ErrorEvent` |
 | `done` | `{ sessionId, elapsedMs }` | transport layer |
+
+`at` is the event's creation time in Unix milliseconds: clients subtract the first/last frame of one thinking span, or the start/end frames of one tool call, instead of using the local clock.
 
 `OrchestrationProgressEvent` is not mapped (returns null, callers ignore it).
 
@@ -638,6 +645,10 @@ await foreach (var e in host.RunStreamingAsync(new AgentRunRequest { Input = "he
     "Confirmation": {
       "TimeoutSeconds": 60,
       "BrokerEnabled": true
+    },
+    // interactive questions: wait limit; 0 or omitted falls back to Confirmation.TimeoutSeconds
+    "Interaction": {
+      "TimeoutSeconds": 300
     }
   }
 }
@@ -954,9 +965,12 @@ Notes:
 - **In-workspace operations are confirmed-free**: file-system tools whose target path falls inside a workspace root (or a root authorized this turn/session) are allowed directly without confirmation.
 - **Out-of-workspace paths are confirmed, not blocked**: paths outside the workspace are no longer hard-blocked; instead a confirmation is shown with "Allow (this time) / Allow All This Turn / Allow All This Session / Deny". Authorization is remembered per grant root (parent directory for files, the directory itself for directories); when the grant root resolves to a drive root (e.g. `D:\`), it is not remembered, to avoid granting a whole drive in one step.
 - **Grant tiers**: `Allow` grants this call only; `AllowAll` records the grant for this turn; `AllowSession` records it for this session (process lifetime). `Reset()` clears the turn set at the start of each turn, while the session set survives across turns; `ResetSession()` explicitly clears the session set.
-- **Read-only fast path (Plan only)**: in Plan mode, read-only tools (`ReadFileAsync`/`ReadSpreadsheetAsync`/`ListDirectoryAsync`/`GetWorkspaceOverviewAsync`/`SearchFilesAsync`/`GrepAsync`/`GetFileInfoAsync`) are allowed directly within authorized scope so the Agent can read context to produce a plan; out-of-scope read-only calls are recorded as planned actions instead of being allowed.
-- **Deletion tools always confirm**: `AlwaysConfirmTools` (default `DeleteFileAsync`/`DeleteDirectoryAsync`/`DeletePageAsync`) must confirm regardless of whether the path is inside the workspace, and "Allow All This Turn/Session" is not remembered for them — every deletion confirms again.
-- **Sub-agent delegated confirmation**: orchestration sub-agents never prompt the user. Tool calls that would need manual confirmation are decided by the main code against the turn/session allowed set — allowed when present, otherwise a sub-agent-specific denial (not a user denial).
+- **Read-only fast path (Plan only)**: in Plan mode, read-only tools (`ReadFileAsync`/`ReadSpreadsheetAsync`/`ListDirectoryAsync`/`GetWorkspaceOverviewAsync`/`SearchFilesAsync`/`GrepAsync`/`GetFileInfoAsync`, plus the local-memory reads `MemorySearch`/`MemoryList`) are allowed directly within authorized scope so the Agent can read context to produce a plan; out-of-scope read-only calls are recorded as planned actions instead of being allowed.
+- **Deletion tools always confirm**: `AlwaysConfirmTools` (default `DeleteFileAsync`/`DeleteDirectoryAsync`/`DeletePageAsync`, plus the local-memory delete `MemoryDelete`) must confirm regardless of whether the path is inside the workspace, and "Allow All This Turn/Session" is not remembered for them — every deletion confirms again.
+- **Built-in auto-confirm items**: `ToolConfirmationService` ships a built-in auto-confirm set (currently the local-memory tools `MemorySave`/`MemorySearch`/`MemoryList`, the orchestration tools `plan_task` / `run_orchestration`, and the user-question tool `AskUserQuestion`) that is unioned with the configured `LuBanAgent:Confirmation:AutoConfirmTools` — hosts can append but cannot wipe the built-in items. Auto-confirm only skips "ask the user"; it does not change Plan-mode semantics: in Plan mode such tools are still recorded as planned actions and not executed (user questions only gather information and have no side effects, so they may still be asked in Plan mode; the tools that would act on the answer remain subject to Plan mode).
+- **Host policy hard gate**: hosts can attach a pure policy check via `ToolConfirmationContext.PolicyGuard` (or `AgentRunRequest.PolicyGuard`) — a denial beats the permission mode, the auto-confirm set and sub-agent allow-all; an allow only skips "ask the user" (Plan mode still records the call as a planned action, and deletion tools still confirm). It is meant for security allow-lists that need no human interaction but must not be bypassed by auto-confirm.
+- **Sub-agent confirmation and shared grants**: orchestration sub-agents prompt the user just like any other tool when authorization is needed. Every host confirmation UI is single-slot, so the framework serializes confirmations per session (one in flight at a time, the rest queue) to keep late requests from overwriting earlier ones and leaving them waiting forever. Grant decisions go into the same session-shared turn/session sets used by the main agent, so the main agent and all sub-agents share them and an approval is not asked twice. **Origin labeling in confirmations**: when a sub-agent asks, `ToolConfirmationRequestedEvent.Origin` carries the node id, role and description (`ToolConfirmationOrigin`), and all three hosts show a dedicated line under the tool-name title — "来源：编排节点 <id>（角色 <role>）：<description>" — while main-agent requests omit that line. The origin is display-only: it does not affect authorization and is not written into tool arguments. Remote hosts receive it over the wire and, in `HttpAgentHost`, wrap the local callback with `ToolConfirmationContext.EnterOriginScope` so local confirmation UIs can read it from `ToolConfirmationContext.CurrentOrigin`. A denial inside a sub-agent fails only that tool call (the sub-agent receives the denial and wraps up on its own; the node itself is not marked failed because of it) and does **not** trigger "deny aborts the turn"; the **A2A in-process executor always runs allow-all** (`allowAll:true`, no configuration switch, no human confirmation channel): it never prompts, decides against the allowed set, and still enforces hard constraints such as deletion tools and out-of-workspace paths; **memory writes/deletes are always denied** (`MemorySave`/`MemoryDelete` are non-delegable for sub-agents; in Plan mode they are recorded as planned actions and not executed), while reads (`MemorySearch`/`MemoryList`) are unaffected; this non-delegable rule applies to **in-process** sub-agents only — a remote A2A host (`HttpAgentHost`) runs as its own main agent and does not inherit the caller's scope.
+- **Tool duration semantics**: durations recorded by `TurnMetrics` are wall-clock time from tool start to tool return and **include** any time the tool spent waiting for human confirmation (confirmation happens inside the tool method). Tools that need confirmation therefore report a duration noticeably longer than their actual execution time, matching the group durations that live frames compute by subtracting `at` values.
 - **Turn/session allow-lists**: `ToolConfirmationContext.AllowedThisTurn` is no longer public; hosts call `AllowThisTurn(toolName)`/`AllowThisSession(toolName)` and the framework checks `IsAllowedThisTurn(toolName)`/`IsAllowedThisSession(toolName)`.
 - **Unbounded sub-agent waits**: `Orchestration.DefaultNodeTimeoutSeconds` and `ReflectionTimeoutSeconds` default to 0 (unbounded); set them above 0 to enforce limits, and `TimeoutSeconds` can still override per node.
 - **Planning no longer hangs**: `Orchestration.PlannerReasoningEffort` controls the reasoning effort of planning/reflection calls. Reasoning models (e.g. glm-5) emit large amounts of reasoning content during planning by default, which can take over a minute per call; set it to `"none"` to disable reasoning (`null`, the default, sends nothing and stays compatible with non-reasoning models that do not support `reasoning_effort`).
@@ -1142,7 +1156,9 @@ LuBan.AIAgent/
 │   ├── Orchestration/                 # Orchestration tools
 │   │   ├── OrchestrationToolPlugin.cs # Orchestration tool plugin
 │   │   └── OrchestrationToolGroup.cs  # Orchestration tool group
-│   └── ConnectorManage/               # Connector management tools (configuration-driven, vendor-neutral)
+│   ├── Interaction/                   # User interaction tools
+│   │   └── InteractionToolPlugin.cs   # Question tool (AskUserQuestion; force-injected even with explicit tool groups)
+│   ├── ConnectorManage/               # Connector management tools (configuration-driven, vendor-neutral)
 │       ├── ConnectorManageToolPlugin.cs # Connector management tool-group plugin
 │       └── ConnectorManageToolGroup.cs  # List/create/delete connector declarations
 ├── Skills/
@@ -1335,7 +1351,7 @@ LuBan.AIAgent/
 ## Tips
 
 - Model routing uses `provider:model` format; configure providers via `IAppConfigReader` / host implementation
-- **16 built-in tool groups** cover browser automation, file operations, script execution, Git version control, web requests, semantic retrieval, context compaction, local memory, MCP, multi-agent orchestration, the LLM Wiki knowledge base (opt-in), large log analysis, Skill consumption, Skill management, MCP management, and connector management
+- **17 built-in tool groups** cover browser automation, file operations, script execution, Git version control, web requests, semantic retrieval, context compaction, local memory, MCP, multi-agent orchestration, user interaction questions, the LLM Wiki knowledge base (opt-in), large log analysis, Skill consumption, Skill management, MCP management, and connector management
 - `ToolConfirmationService` requires user confirmation for out-of-workspace path access and for sensitive operations (write, delete, execute); in-workspace operations are allowed directly
 - Three-tier grant memory (this time / this turn / this session) keyed by grant root; deletion tools (`AlwaysConfirmTools`) are never remembered and always confirm
 - `FileSystemToolOptions.AllowedRoots` together with workspace roots forms the trusted scope; operations inside it need no confirmation

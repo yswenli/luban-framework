@@ -69,6 +69,20 @@ public class ToolConfirmationContext
     public Func<string, IReadOnlyDictionary<string, object?>, Task<ConfirmResult>>? Callback { get; set; }
 
     /// <summary>
+    /// 用户交互提问回调（<c>AskUserQuestion</c> 工具）。回调接收问题列表，返回用户作答/取消结果。
+    /// 未装配时视为「宿主无交互通道」，工具返回不可用说明而不是抛异常。
+    /// </summary>
+    public Func<IReadOnlyList<UserQuestion>, CancellationToken, Task<UserQuestionResult>>? AskQuestions { get; set; }
+
+    /// <summary>
+    /// 宿主交互串行门：工具确认与用户提问共用。各宿主的交互 UI 都是单槽
+    /// （WebHost 单信号、CLI 单阻塞块、Codex 单模态框），同一会话同一时刻只放行一个交互，
+    /// 其余排队，避免后到请求覆盖先到、导致先到者等不到结果而挂起。
+    /// </summary>
+    /// <remarks>本对象随上下文存活，<see cref="Reset"/> 不重置它，避免把在途等待的门丢弃。</remarks>
+    public SemaphoreSlim UiGate { get; } = new(1, 1);
+
+    /// <summary>
     /// 工作区路径检查回调函数。回调接收路径，返回该路径是否在当前工作区内。
     /// </summary>
     public Func<string, bool>? WorkspacePathChecker { get; set; }
@@ -295,9 +309,20 @@ public class ToolConfirmationContext
     /// <summary>
     /// 用户明确拒绝本轮工具调用时的通知回调。宿主订阅后应立即取消本轮令牌以终止对话：
     /// 仅当用户确认回调返回 false、且本轮取消令牌尚未取消时触发（Esc 取消不触发）。
-    /// 子代理代确认拒绝不触发（那不是用户的选择）。
+    /// 子代理作用域内的拒绝不触发（只失败当前节点，是否终止由 DAG 自行决定）。
     /// </summary>
     public Action<string, IReadOnlyDictionary<string, object?>>? OnUserDenied { get; set; }
+
+    /// <summary>
+    /// 宿主工具访问策略（硬闸门）。返回 <see cref="ConfirmResult.Deny"/> 即拒绝该调用，
+    /// 返回非 <c>null</c> 的其他值视为策略已放行；返回 <c>null</c> 表示无意见，按权限模式继续判定。
+    /// </summary>
+    /// <remarks>
+    /// 与 <see cref="Callback"/> 的区别是<b>不需要人工交互</b>：它承载「安全白名单」这类纯策略判断。
+    /// 拒绝优先于权限模式、免确认名单与子代理放行——避免「免人工确认」被误读成「免策略拒绝」；
+    /// 放行只免除「询问用户」，Plan 模式仍只记录计划项、不执行。
+    /// </remarks>
+    public Func<string, IReadOnlyDictionary<string, object?>, ConfirmResult?>? PolicyGuard { get; set; }
 
     /// <summary>
     /// 重置上下文到初始状态（每轮对话结束时调用）。
@@ -305,6 +330,8 @@ public class ToolConfirmationContext
     public void Reset()
     {
         Callback = null;
+        PolicyGuard = null;
+        AskQuestions = null;
         WorkspacePathChecker = null;
         CancellationToken = default;
         Mode = ToolPermissionMode.Default;
@@ -321,25 +348,35 @@ public class ToolConfirmationContext
 
     /// <summary>
     /// 当前调用链子代理作用域是否启用"全放行但守硬约束"策略（A2A 进程内执行器开启）。
-    /// 为 true 时子代理不弹窗、按本轮已允许集合代确认；为 false 时沿用默认代确认语义。
-    /// 与 <see cref="SubAgentScopeDepth"/> 同为 AsyncLocal，嵌套作用域取最内层值。
+    /// 为 true 时子代理不弹窗、按本轮已允许集合代确认；为 false 时与主代理一样逐项请求用户确认。
+    /// 与 <see cref="SubAgentScopeDepth"/> 同为 AsyncLocal；嵌套时只放大不收窄：
+    /// 外层已开启则内层仍为 true，内层无法把外层已放行的链路重新收紧为逐项确认。
     /// </summary>
     private static readonly AsyncLocal<bool> SubAgentAllowAllInScope = new();
 
+    private static readonly AsyncLocal<ToolConfirmationOrigin?> OriginInScope = new();
+
+    /// <summary>
+    /// 当前调用链的确认来源（编排子代理节点）；主代理为 <c>null</c>。
+    /// 宿主在确认回调内读取并展示，仅用于 UI 标注来源，不参与授权判定。
+    /// </summary>
+    public static ToolConfirmationOrigin? CurrentOrigin => OriginInScope.Value;
+
     /// <summary>
     /// 当前调用链是否处于编排子代理执行作用域。
-    /// 子代理不向用户弹确认，由主代码按本轮已允许集合代确认。
+    /// 该作用域只改变「用户拒绝后是否终止整轮」：子代理内被拒只让当前工具/节点失败；
+    /// 需要人工授权时仍与其他工具一样弹确认，授权结果由同会话所有子代理共享。
     /// </summary>
     public static bool IsInSubAgentScope => SubAgentScopeDepth.Value > 0;
 
     /// <summary>
     /// 当前子代理作用域是否启用"全放行但守硬约束"策略。默认 false（行为不变）；
-    /// 仅 A2A 进程内执行器通过 <see cref="EnterSubAgentScope(bool)"/> 显式开启。
+    /// 仅 A2A 进程内执行器通过 <c>EnterSubAgentScope(allowAll: true)</c> 显式开启。
     /// </summary>
     public static bool IsSubAgentAllowAll => SubAgentScopeDepth.Value > 0 && SubAgentAllowAllInScope.Value;
 
     /// <summary>
-    /// 进入子代理执行作用域（DagScheduler 在节点执行期调用）；Dispose 退出。
+    /// 进入子代理执行作用域（子代理执行器在节点执行期调用）；Dispose 退出。
     /// AsyncLocal 保证并行节点各自独立，互不串扰。
     /// 返回的令牌必须按 LIFO 顺序释放（重复释放会被忽略）。
     /// </summary>
@@ -347,29 +384,51 @@ public class ToolConfirmationContext
     public static IDisposable EnterSubAgentScope() => EnterSubAgentScope(allowAll: false);
 
     /// <summary>
-    /// 进入子代理执行作用域，并指定是否启用"全放行但守硬约束"策略。
-    /// 默认 <c>false</c> 保持既有语义；A2A 进程内执行器传 <c>true</c> 以启用 A3 语义。
+    /// 进入子代理执行作用域，并指定是否启用"全放行但守硬约束"策略与确认来源。
+    /// 默认 <c>false</c>：需要人工授权时弹确认（与主代理一致），拒绝只失败当前工具调用；
+    /// A2A 进程内执行器无人工确认通道，恒传 <c>true</c>（不弹窗、按已允许集合代确认，硬约束照常拒绝）。
+    /// 嵌套时按"只放大不收窄"合并：<c>previousAllowAll || allowAll</c>，
+    /// 即外层已全放行时内层传 <c>false</c> 也不会重新变成逐项确认。
     /// </summary>
     /// <param name="allowAll">是否启用"全放行但守硬约束"（删除类/工作区外仍硬拒）。</param>
+    /// <param name="origin">确认来源（编排节点标识/角色/描述）；未知时为 null，仅用于宿主 UI 标注。</param>
     /// <returns>作用域令牌。</returns>
-    public static IDisposable EnterSubAgentScope(bool allowAll)
+    public static IDisposable EnterSubAgentScope(bool allowAll, ToolConfirmationOrigin? origin = null)
     {
         var previousDepth = SubAgentScopeDepth.Value;
         var previousAllowAll = SubAgentAllowAllInScope.Value;
+        var previousOrigin = OriginInScope.Value;
         SubAgentScopeDepth.Value = previousDepth + 1;
-        SubAgentAllowAllInScope.Value = allowAll;
-        return new SubAgentScopeToken(previousDepth, previousAllowAll);
+        // 只放大不收窄：外层已全放行时，内层再传 false 不得把链路降级为逐项确认，
+        // 否则内层（如非 A2A 路径的子代理）会让外层已获授权的执行重新弹确认。
+        SubAgentAllowAllInScope.Value = previousAllowAll || allowAll;
+        OriginInScope.Value = origin;
+        return new SubAgentScopeToken(previousDepth, previousAllowAll, previousOrigin);
+    }
+
+    /// <summary>
+    /// 仅设置确认来源作用域（不改子代理语义）。供远端宿主在本地回放确认帧时恢复来源，
+    /// 使本地确认回调能读到与发起端一致的来源；Dispose 还原进入前的来源。
+    /// </summary>
+    /// <param name="origin">确认来源；null 表示清除当前来源。</param>
+    /// <returns>作用域令牌。</returns>
+    public static IDisposable EnterOriginScope(ToolConfirmationOrigin? origin)
+    {
+        var previous = OriginInScope.Value;
+        OriginInScope.Value = origin;
+        return new OriginScopeToken(previous);
     }
 
     /// <summary>
     /// 子代理作用域令牌。必须按 LIFO 顺序释放；重复 Dispose 不再改写深度，避免作用域泄漏。
     /// </summary>
-    private sealed class SubAgentScopeToken(int previousDepth, bool previousAllowAll) : IDisposable
+    private sealed class SubAgentScopeToken(
+        int previousDepth, bool previousAllowAll, ToolConfirmationOrigin? previousOrigin) : IDisposable
     {
         private int _disposed;
 
         /// <summary>
-        /// 退出子代理作用域，还原进入前的深度与放行策略；重复调用不再改动。
+        /// 退出子代理作用域，还原进入前的深度、放行策略与来源；重复调用不再改动。
         /// </summary>
         public void Dispose()
         {
@@ -377,6 +436,23 @@ public class ToolConfirmationContext
                 return;
             SubAgentScopeDepth.Value = previousDepth;
             SubAgentAllowAllInScope.Value = previousAllowAll;
+            OriginInScope.Value = previousOrigin;
+        }
+    }
+
+    /// <summary>
+    /// 仅来源的轻量作用域令牌；Dispose 还原进入前的来源。
+    /// </summary>
+    private sealed class OriginScopeToken(ToolConfirmationOrigin? previous) : IDisposable
+    {
+        private int _disposed;
+
+        /// <summary>还原进入前的确认来源；重复调用不再改动。</summary>
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) == 1)
+                return;
+            OriginInScope.Value = previous;
         }
     }
 }
@@ -417,7 +493,9 @@ public interface IToolConfirmationService
     /// 免确认名单：命中则在需要人工确认的环节直接放行，不打断用户。
     /// 可读写，宿主可增删以筛选受信任工具（如特定 MCP 工具）。
     /// 只免除"询问用户"，不改变 Plan 模式语义。
-    /// 默认值来自配置 <c>LuBanAgent:Confirmation:AutoConfirmTools</c>，缺省为空。
+    /// 默认值 = 内置默认项（本地记忆 <c>MemorySave</c> / <c>MemorySearch</c> / <c>MemoryList</c>
+    /// 与编排工具 <c>plan_task</c> / <c>run_orchestration</c>）
+    /// ∪ 配置 <c>LuBanAgent:Confirmation:AutoConfirmTools</c>。
     /// </summary>
     HashSet<string> AutoConfirmTools { get; set; }
 
@@ -448,12 +526,49 @@ public class ToolConfirmationService : IToolConfirmationService
     private readonly PathGuard? _pathGuard;
 
     /// <summary>
+    /// 内置默认：免人工确认工具名。收录标准是「低风险，或用户无法就其内容作出有意义裁决的
+    /// Agent 内部动作」；免确认不等于放开副作用——路径授权与删除类规则照常生效。
+    /// 子代理作用域不在免确认判断中拦截，只影响「用户拒绝后是否终止整轮」与拒绝文案。
+    /// 与配置 <c>LuBanAgent:Confirmation:AutoConfirmTools</c> 取并集，宿主只能追加、不能整体抹掉内置项。
+    /// </summary>
+    /// <remarks>
+    /// 命名约定：默认放 <b>C# 方法名</b>（保留 <c>Async</c> 后缀），与工具组调用
+    /// <see cref="IToolConfirmationService.EvaluateAsync"/> 时传入的名字一致。例外是两类工具组，
+    /// 它们暴露给模型的名字与 C# 方法名不同、且显式用模型可见名做确认名：
+    /// <list type="bullet">
+    /// <item>编排工具：<see cref="Orchestration.OrchestrationToolGroup"/> 传 <c>plan_task</c> / <c>run_orchestration</c>。</item>
+    /// <item>本地记忆工具：<see cref="Tools.LocalMemory.LocalMemoryToolGroup"/> 传
+    /// <c>MemorySave</c> / <c>MemorySearch</c> / <c>MemoryList</c>——因为 <c>SaveAsync</c> / <c>SearchAsync</c> /
+    /// <c>ListAsync</c> 与其他工具组重名，按方法名匹配会误伤别的工具。</item>
+    /// <item>用户提问工具：模型可见名 <c>AskUserQuestion</c>（C# 方法名是 <c>AskUserQuestionAsync</c>）。</item>
+    /// </list>
+    /// 免确认只跳过「询问用户」，不改变 Plan 模式语义——Plan 分支在
+    /// <see cref="EvaluateAsync"/> 中先于免确认判断，仍只记录计划项、不执行。
+    /// </remarks>
+    private static readonly string[] DefaultAutoConfirmTools =
+    [
+        // 本地长期记忆（LocalMemoryToolGroup 显式传模型可见名）：
+        // 保存低风险，打断「记住刚才的内容」得不偿失；搜索/列出只读，更没有可裁决的内容
+        "MemorySave", "MemorySearch", "MemoryList",
+        // 编排工具：plan_task / run_orchestration 是 Agent 内部的规划与调度动作（无目标路径、不直接触碰文件），
+        // 用户无法就其内容作出有意义的裁决；逐次确认只会让整条编排链路多两次无谓打断。
+        "plan_task",
+        "run_orchestration",
+        // 交互提问（InteractionToolGroup，模型可见名 AskUserQuestion）：工具本身不调用 EvaluateAsync（无副作用的 UI 动作），
+        // 这里登记是防御性的——若将来接入统一确认门，提问不应再被要求「先确认再询问」。
+        // 必须写模型可见名：写方法名 AskUserQuestionAsync 永不命中。
+        "AskUserQuestion",
+    ];
+
+    /// <summary>
     /// 内置默认：删除类工具名，任何放行策略下都必须确认。
     /// </summary>
     /// <remarks>
-    /// 命名约定：这里放的是<b>C# 方法名</b>（保留 <c>Async</c> 后缀），与各工具组调用
+    /// 命名约定：默认放 <b>C# 方法名</b>（保留 <c>Async</c> 后缀），与各工具组调用
     /// <see cref="IToolConfirmationService.EvaluateAsync"/> 时传入的 <c>nameof(XxxAsync)</c> 对齐；
     /// 不是暴露给模型的工具名（M.E.AI 会把尾部 <c>Async</c> 裁掉）。
+    /// 例外：本地记忆删除由 <see cref="Tools.LocalMemory.LocalMemoryToolGroup.DeleteToolName"/> 显式传
+    /// <c>MemoryDelete</c>——<c>DeleteAsync</c> 与别的工具组重名，按方法名匹配会误伤。
     /// 新增工具组时务必按同一约定传名，否则名单永不命中。
     /// </remarks>
     private static readonly string[] DefaultAlwaysConfirmTools =
@@ -464,7 +579,27 @@ public class ToolConfirmationService : IToolConfirmationService
         "WriteSkillAsync", "DeleteSkillAsync",
         // MCP 管理写删
         "WriteMcpServerAsync", "DeleteMcpServerAsync",
+        // 本地记忆删除（LocalMemoryToolGroup.DeleteToolName = MemoryDelete）：写入免确认，但删除属破坏性操作
+        "MemoryDelete",
     ];
+
+    /// <summary>
+    /// 内置默认：子代理作用域内不得委派的工具名（命中即拒绝）。
+    /// </summary>
+    /// <remarks>
+    /// 子代理作用域覆盖两种进程内形态：编排子代理以 <c>allowAll: false</c> 进入（需要授权时照常弹确认），
+    /// A2A 进程内执行器以 <c>allowAll: true</c> 进入（无人工确认通道，按已允许集合代确认）。
+    /// 两者都不得委派记忆写入/删除：记忆是<b>以用户身份留下的跨会话长期资产</b>，并行节点写入后
+    /// 用户难以逐一复核；即便有确认通道，子代理的确认也可能落在没人盯着的后台链路里。
+    /// 读取类（<c>MemorySearch</c> / <c>MemoryList</c>）不受限。
+    /// 该约束只在进程内生效——远端 A2A 宿主（<c>HttpAgentHost</c>）以自己的主代理身份执行，不继承调用方的作用域。
+    /// 单独成表而不复用 <see cref="DefaultAlwaysConfirmTools"/>：后者可被宿主配置整体替换，
+    /// 用它兜底会在宿主自定义名单时把这条保护一并抹掉。
+    /// </remarks>
+    private static readonly HashSet<string> DefaultSubAgentForbiddenTools = new(StringComparer.Ordinal)
+    {
+        "MemorySave", "MemoryDelete",
+    };
 
     /// <summary>
     /// 内置默认：只读工具名。Plan 模式下，仅当目标路径落在已授权范围（工作区/本轮或本会话已授权根）内时直接放行，
@@ -484,6 +619,9 @@ public class ToolConfirmationService : IToolConfirmationService
         "mcp_list_resources", "mcp_read_resource",
         // Skill 消费只读工具
         "ListSkillsAsync", "UseSkillAsync",
+        // 本地记忆只读工具（LocalMemoryToolGroup 显式传模型可见名）：
+        // Plan 模式下读记忆无副作用，放行以便 Agent 取上下文产出计划
+        "MemorySearch", "MemoryList",
     ];
 
     /// <summary>
@@ -506,8 +644,9 @@ public class ToolConfirmationService : IToolConfirmationService
         AlwaysConfirmTools = ToLookup(confirmation?.AlwaysConfirmTools, DefaultAlwaysConfirmTools);
         ReadOnlyTools = ToLookup(confirmation?.ReadOnlyTools, DefaultReadOnlyTools);
 
-        // 免确认名单默认空：不做任何隐式放行，宿主显式配置或运行期添加才生效
-        AutoConfirmTools = new HashSet<string>(confirmation?.AutoConfirmTools ?? [], StringComparer.Ordinal);
+        // 免确认名单 = 内置默认（低风险操作）+ 宿主配置；宿主可追加，但不能把内置项整体替换掉
+        AutoConfirmTools = new HashSet<string>(
+            DefaultAutoConfirmTools.Concat(confirmation?.AutoConfirmTools ?? []), StringComparer.Ordinal);
     }
 
     /// <summary>
@@ -538,7 +677,32 @@ public class ToolConfirmationService : IToolConfirmationService
             return EnumConfirmationOutcome.Denied;
         }
 
-        // 子代理"全放行但守硬约束"作用域（A2A 进程内执行器 opt-in，默认关）：
+        // 宿主策略硬闸门：拒绝优先于后续一切判定（含子代理放行与免确认名单）。
+        // 放行只是「不必询问用户」，因此不在此处提前返回，交给下面的模式分发决定是否执行。
+        var guardVerdict = _context.PolicyGuard?.Invoke(toolName, arguments);
+        if (guardVerdict == ConfirmResult.Deny)
+        {
+            return EnumConfirmationOutcome.Denied;
+        }
+
+        var guardAllowed = guardVerdict is not null;
+
+        // 子代理不可委派：写入/删除记忆会以用户身份留下跨会话长期资产，并行节点写入后用户难以逐一复核，
+        // 故在子代理作用域内一律拒绝。覆盖两种进程内作用域：编排子代理（有确认通道也不放行）与
+        // A2A 全放行（无确认通道）。远端 A2A 宿主以主代理身份执行，不继承本作用域。
+        // Plan 模式例外：本就不执行工具，按计划项记录，避免用一条「拒绝」掩盖用户想做的事。
+        if (ToolConfirmationContext.IsInSubAgentScope && DefaultSubAgentForbiddenTools.Contains(toolName))
+        {
+            if (_context.Mode == ToolPermissionMode.Plan)
+            {
+                _context.OnPlannedAction?.Invoke(toolName, arguments);
+                return EnumConfirmationOutcome.Planned;
+            }
+
+            return EnumConfirmationOutcome.Denied;
+        }
+
+        // 子代理"全放行但守硬约束"作用域（仅 A2A 进程内执行器恒开，其他子代理不启用）：
         // 视为本轮全部已允许；工作区外路径为硬约束，直接拒绝（子代理无 UI 可确认），工作区内一律放行。
         if (ToolConfirmationContext.IsSubAgentAllowAll)
         {
@@ -599,6 +763,13 @@ public class ToolConfirmationService : IToolConfirmationService
 
         // 工作区授权范围内（工作区根 / 本轮或本会话已授权的根）：免确认
         if (IsAuthorizedPath(path))
+        {
+            return EnumConfirmationOutcome.Allowed;
+        }
+
+        // 宿主策略已放行（白名单类）：只替代「询问用户」；放在框架自有免确认规则之后，
+        // 避免宿主白名单改变工作区授权语义。删除类与 Plan / 子代理分支上面已各自给出结论。
+        if (guardAllowed)
         {
             return EnumConfirmationOutcome.Allowed;
         }
@@ -718,45 +889,64 @@ public class ToolConfirmationService : IToolConfirmationService
             return EnumConfirmationOutcome.Allowed;
         }
 
-        // 子代理作用域：不向用户弹确认，改由主代码按已允许集合代确认
-        if (ToolConfirmationContext.IsInSubAgentScope)
-        {
-            return (_context.IsAllowedThisTurn(toolName) || _context.IsAllowedThisSession(toolName))
-                ? EnumConfirmationOutcome.Allowed
-                : EnumConfirmationOutcome.Denied;
-        }
-
-        var callback = _context.Callback;
-        if (callback == null)
+        if (_context.Callback == null)
         {
             return EnumConfirmationOutcome.Denied;
         }
 
-        var result = await callback(toolName, arguments).ConfigureAwait(false);
-        if (result is ConfirmResult.Allow)
+        // 并行子代理可能同时请求确认，而宿主确认 UI 均为单槽，故串行化：
+        // 同一会话同一时刻只允许一个交互（确认或提问）在途，其余排队，避免先到请求被覆盖后永久等待。
+        try
         {
-            return EnumConfirmationOutcome.Allowed;
+            await _context.UiGate.WaitAsync(_context.CancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            return EnumConfirmationOutcome.Denied;
         }
 
-        if (result is ConfirmResult.AllowAll)
+        try
         {
-            RecordGrant(toolName, path, session: false, suppressGrant);
-            return EnumConfirmationOutcome.Allowed;
-        }
+            // 排队期间本轮可能已被取消或回合已收尾：重新取回调与令牌，
+            // 避免排队者醒来后调用过期回调（例如向已关闭的回合流注册确认）。
+            var activeCallback = _context.Callback;
+            if (activeCallback is null || _context.CancellationToken.IsCancellationRequested)
+            {
+                return EnumConfirmationOutcome.Denied;
+            }
 
-        if (result is ConfirmResult.AllowSession)
+            var result = await activeCallback(toolName, arguments).ConfigureAwait(false);
+            if (result is ConfirmResult.Allow)
+            {
+                return EnumConfirmationOutcome.Allowed;
+            }
+
+            if (result is ConfirmResult.AllowAll)
+            {
+                RecordGrant(toolName, path, session: false, suppressGrant);
+                return EnumConfirmationOutcome.Allowed;
+            }
+
+            if (result is ConfirmResult.AllowSession)
+            {
+                RecordGrant(toolName, path, session: true, suppressGrant);
+                return EnumConfirmationOutcome.Allowed;
+            }
+
+            // 用户明确拒绝：主代理作用域通知宿主终止本轮；子代理作用域只让该次工具调用失败，
+            // 子代理收到拒绝消息后自行收尾，避免单个节点被拒就终止整轮。
+            if (!ToolConfirmationContext.IsInSubAgentScope
+                && !_context.CancellationToken.IsCancellationRequested)
+            {
+                _context.OnUserDenied?.Invoke(toolName, arguments);
+            }
+
+            return EnumConfirmationOutcome.Denied;
+        }
+        finally
         {
-            RecordGrant(toolName, path, session: true, suppressGrant);
-            return EnumConfirmationOutcome.Allowed;
+            _context.UiGate.Release();
         }
-
-        // 用户明确拒绝（token 未取消）：通知宿主终止本轮
-        if (!_context.CancellationToken.IsCancellationRequested)
-        {
-            _context.OnUserDenied?.Invoke(toolName, arguments);
-        }
-
-        return EnumConfirmationOutcome.Denied;
     }
 
     /// <inheritdoc/>

@@ -304,6 +304,7 @@ public class DagScheduler
             NodeId = node.Id,
             Prompt = resolvedPrompt,
             Role = node.Role,
+            Description = node.Description,
             ToolGroups = node.ToolGroups,
             ModelName = node.ModelName,
             ParentSessionId = graph.GraphId,

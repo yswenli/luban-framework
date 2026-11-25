@@ -41,7 +41,8 @@ public static class ToolConfirmationContextExtensions
     /// <param name="confirmCallback">确认回调；仅在需要人工确认时被框架调用，返回用户的三态/授权选择。</param>
     /// <param name="sessionContext">会话上下文；提供时以该会话的 EffectiveRoot/AllowedRoots 做会话级路径检查（含 worktree）。</param>
     /// <param name="onPlannedAction">Plan 模式计划项回调，宿主用于收集或即时展示。</param>
-    /// <param name="onUserDenied">用户明确拒绝工具调用时的回调；宿主应在此取消本轮令牌以终止对话（非 Esc 取消才会触发）。</param>
+    /// <param name="onUserDenied">用户明确拒绝工具调用时的回调；宿主应在此取消本轮令牌以终止对话（非 Esc 取消才会触发；子代理作用域内的拒绝不触发，只让该工具/节点失败）。</param>
+    /// <param name="policyGuard">宿主工具访问策略（硬闸门）：拒绝优先于模式与免确认名单，放行只免除询问用户。</param>
     /// <remarks>
     /// 框架的 <see cref="ToolConfirmationContext.Callback"/> 为异步 <c>Func&lt;.., Task&lt;ConfirmResult&gt;&gt;</c>，
     /// 但两端宿主目前仍以阻塞方式等待 UI 确认（CLI 用 ManualResetEventSlim、GUI 同理），
@@ -55,12 +56,14 @@ public static class ToolConfirmationContextExtensions
         Func<string, IReadOnlyDictionary<string, object?>, ConfirmResult>? confirmCallback,
         ISessionContext? sessionContext = null,
         Action<string, IReadOnlyDictionary<string, object?>>? onPlannedAction = null,
-        Action<string, IReadOnlyDictionary<string, object?>>? onUserDenied = null)
+        Action<string, IReadOnlyDictionary<string, object?>>? onUserDenied = null,
+        Func<string, IReadOnlyDictionary<string, object?>, ConfirmResult?>? policyGuard = null)
     {
         context.Mode = mode;
         context.CancellationToken = cancellationToken;
         // 方法组不能配合 ?. 使用（CS8978），故用显式三元；无会话上下文时不设检查器。
         context.WorkspacePathChecker = sessionContext is null ? null : sessionContext.IsWithinEffectiveRoot;
+        context.PolicyGuard = policyGuard;
         context.Callback = confirmCallback is null
             ? null
             : (toolName, args) => Task.FromResult(confirmCallback(toolName, args));
@@ -78,7 +81,9 @@ public static class ToolConfirmationContextExtensions
     /// <param name="confirmCallback">异步确认回调。</param>
     /// <param name="sessionContext">会话上下文；提供时做会话级路径检查。</param>
     /// <param name="onPlannedAction">Plan 模式计划项回调。</param>
-    /// <param name="onUserDenied">用户明确拒绝工具调用时的回调。</param>
+    /// <param name="onUserDenied">用户明确拒绝工具调用时的回调；宿主应在此取消本轮令牌（子代理作用域内的拒绝不触发）。</param>
+    /// <param name="askCallback">用户交互提问回调（<c>AskUserQuestion</c> 工具）；null 表示宿主无交互通道。</param>
+    /// <param name="policyGuard">宿主工具访问策略（硬闸门）：拒绝优先于模式与免确认名单，放行只免除询问用户。</param>
     /// <remarks>
     /// 有意不做同名重载：调用方传 <c>null</c> 字面量时会与同步版二义。
     /// </remarks>
@@ -89,15 +94,19 @@ public static class ToolConfirmationContextExtensions
         Func<string, IReadOnlyDictionary<string, object?>, CancellationToken, Task<ConfirmResult>>? confirmCallback,
         ISessionContext? sessionContext = null,
         Action<string, IReadOnlyDictionary<string, object?>>? onPlannedAction = null,
-        Action<string, IReadOnlyDictionary<string, object?>>? onUserDenied = null)
+        Action<string, IReadOnlyDictionary<string, object?>>? onUserDenied = null,
+        Func<IReadOnlyList<UserQuestion>, CancellationToken, Task<UserQuestionResult>>? askCallback = null,
+        Func<string, IReadOnlyDictionary<string, object?>, ConfirmResult?>? policyGuard = null)
     {
         context.Mode = mode;
         context.CancellationToken = cancellationToken;
         context.WorkspacePathChecker = sessionContext is null ? null : sessionContext.IsWithinEffectiveRoot;
+        context.PolicyGuard = policyGuard;
         context.Callback = confirmCallback is null
             ? null
             : (toolName, args) => confirmCallback(toolName, args, cancellationToken);
         context.OnPlannedAction = onPlannedAction;
         context.OnUserDenied = onUserDenied;
+        context.AskQuestions = askCallback;
     }
 }

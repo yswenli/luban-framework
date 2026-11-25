@@ -32,6 +32,12 @@ public sealed record SessionMessageSegment
 
     /// <summary>工具入参 JSON 字符串；仅 tool 段落有值。</summary>
     public string? Arguments { get; init; }
+
+    /// <summary>
+    /// 该段落的耗时（毫秒）：思考段落为思考区间时长，tool 段落为一次调用时长。
+    /// 旧数据或未采集到耗时为空。
+    /// </summary>
+    public int? DurationMs { get; init; }
 }
 
 /// <summary>段落类型常量。</summary>

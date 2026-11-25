@@ -115,7 +115,7 @@ public sealed class InMemorySessionManager : ISessionManager
     }
 
     /// <inheritdoc />
-    public Task<SessionMessage> AddMessageAsync(string sessionId, string role, string content, int? tokens = null, string? thinking = null, string? attachments = null, string? toolCalls = null, string? segments = null)
+    public Task<SessionMessage> AddMessageAsync(string sessionId, string role, string content, int? tokens = null, string? thinking = null, string? attachments = null, string? toolCalls = null, string? segments = null, int? durationMs = null)
     {
         var message = new SessionMessage
         {
@@ -127,6 +127,7 @@ public sealed class InMemorySessionManager : ISessionManager
             ToolCalls = toolCalls,
             Segments = segments,
             Tokens = tokens,
+            DurationMs = durationMs,
             CreatedAt = DateTime.Now
         };
 

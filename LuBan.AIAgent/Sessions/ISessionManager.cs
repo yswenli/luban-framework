@@ -80,8 +80,9 @@ public interface ISessionManager
     /// <param name="attachments">附件元数据 JSON（序列化的 AttachmentInfo 数组，可选）</param>
     /// <param name="toolCalls">工具调用信息 JSON（名称/调用ID/参数，仅 assistant 消息可能有，可选）</param>
     /// <param name="segments">有序段落 JSON（<see cref="SessionMessageSegment"/> 数组，仅 assistant 消息可能有，可选）</param>
+    /// <param name="durationMs">本轮回复耗时（毫秒，仅 assistant 消息可能有，可选）</param>
     /// <returns>消息信息</returns>
-    Task<SessionMessage> AddMessageAsync(string sessionId, string role, string content, int? tokens = null, string? thinking = null, string? attachments = null, string? toolCalls = null, string? segments = null);
+    Task<SessionMessage> AddMessageAsync(string sessionId, string role, string content, int? tokens = null, string? thinking = null, string? attachments = null, string? toolCalls = null, string? segments = null, int? durationMs = null);
 
     /// <summary>
     /// 获取会话消息
@@ -244,6 +245,11 @@ public class SessionMessage
     /// Token 数量
     /// </summary>
     public int? Tokens { get; set; }
+
+    /// <summary>
+    /// 本轮助手回复的耗时（毫秒，仅 assistant 消息可能有）
+    /// </summary>
+    public int? DurationMs { get; set; }
 
     /// <summary>
     /// 创建时间

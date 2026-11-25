@@ -122,6 +122,7 @@ public class AgentAttachmentResolverUnitTest
             orchestrator,
             new StubSourceResolver(),
             null!,
+            null!,
             Microsoft.Extensions.Options.Options.Create(
                 new LuBan.AIAgent.Configuration.LuBanAgentOptions()));
 

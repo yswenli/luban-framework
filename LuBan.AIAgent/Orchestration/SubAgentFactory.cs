@@ -161,8 +161,9 @@ public class SubAgentFactory : ISubAgentExecutor
 
     /// <summary>
     /// 默认执行实现：直接创建子代理并在子代理确认作用域内流式执行，产出框架原生事件流。
-    /// 确认作用域沿用默认语义（按本轮已允许集合代确认，未启用"全放行"），
-    /// 未启用 A2A 时行为与改造前严格一致。
+    /// 需要人工授权时与主代理一样弹确认（各宿主 UI 单槽，由确认服务按会话串行化），
+    /// 授权写入同会话共享集合，主代理与所有子代理共用；用户拒绝只让该次工具调用失败，
+    /// 不触发「拒绝即终止本轮」，子代理收到拒绝消息后自行收尾。
     /// </summary>
     /// <param name="spec">子代理规格。</param>
     /// <param name="ct">取消令牌。</param>
@@ -194,8 +195,12 @@ public class SubAgentFactory : ISubAgentExecutor
         yield return new SubAgentExecutionEvent(SubAgentEventKind.Started, spec.SessionId, null, null);
 
         var output = new StringBuilder();
-        // 子代理执行期进入确认作用域：工具确认不弹窗，由框架按本轮已允许集合代确认。
-        using (ToolConfirmationContext.EnterSubAgentScope(allowAll: false))
+        // 子代理执行期进入确认作用域：需要授权时与主代理一样弹确认（确认服务串行化），
+        // 拒绝只失败当前工具调用、不触发「拒绝即终止本轮」；授权写入同会话共享集合。
+        // 来源（节点/角色/描述）随作用域写入，宿主确认 UI 据此标注「谁在要权限」。
+        using (ToolConfirmationContext.EnterSubAgentScope(
+            allowAll: false,
+            new ToolConfirmationOrigin(spec.NodeId, spec.Role, spec.Description)))
         {
             await using var enumerator = agent!.RunStreamingAsync(spec.Prompt, ct).GetAsyncEnumerator(ct);
             while (true)

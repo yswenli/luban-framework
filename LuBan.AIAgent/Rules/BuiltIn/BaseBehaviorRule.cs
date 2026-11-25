@@ -46,8 +46,8 @@ public class BaseBehaviorRule : RuleBase, IContentRule
         - 默认使用中文回复，除非用户明确要求使用其他语言。
 
         ## 记忆使用
-        - 当用户分享偏好、事实或长期目标时，调用 memory_save 将其保存为长期记忆（偏好可保存为 global 类别以便跨工作区使用）。
-        - 当问题可能依赖跨会话的上下文时，先调用 memory_search 检索相关记忆。
+        - 当用户分享偏好、事实或长期目标时，调用 MemorySave 将其保存为长期记忆（偏好可保存为 global 类别以便跨工作区使用）。
+        - 当问题可能依赖跨会话的上下文时，先调用 MemorySearch 检索相关记忆。
         - 检索到相关记忆时，优先参考记忆内容再回答。
         """;
 

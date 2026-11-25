@@ -111,6 +111,11 @@ public class LuBanAgentOptions
     public ToolConfirmationOptions Confirmation { get; set; } = new();
 
     /// <summary>
+    /// 用户交互提问配置（等待作答上限）
+    /// </summary>
+    public InteractionOptions Interaction { get; set; } = new();
+
+    /// <summary>
     /// API 重试配置（限流/5xx/网络错误/超时的自动退避重试）
     /// </summary>
     public ApiRetryOptions ApiRetry { get; set; } = new();
@@ -137,7 +142,10 @@ public class ToolConfirmationOptions
     /// <summary>
     /// 免确认名单：命中则在需要人工确认的环节直接放行，不再打断用户。
     /// 典型用途是把受信任的 MCP 工具（名称形如 <c>mcp_{client}_{tool}</c>）或
-    /// 低风险的浏览器/记忆类操作排除在确认之外。默认留空，即全部按规则确认。
+    /// 低风险的浏览器类操作排除在确认之外。
+    /// 与内置默认项（当前为本地记忆 <c>MemorySave</c> / <c>MemorySearch</c> / <c>MemoryList</c>、
+    /// 编排工具 <c>plan_task</c> / <c>run_orchestration</c>、用户提问 <c>AskUserQuestion</c>）取并集：
+    /// 宿主可追加，但无法整体抹掉内置项。
     /// 注意：本名单只免除"询问用户"，不改变 Plan 模式语义——
     /// Plan 下有副作用的工具仍只记录计划项、不执行。
     /// </summary>
@@ -161,6 +169,18 @@ public class ToolConfirmationOptions
 
     /// <summary>是否向宿主暴露确认 broker；关闭时确认回调直接拒绝。默认 true。</summary>
     public bool BrokerEnabled { get; set; } = true;
+}
+
+/// <summary>
+/// 用户交互提问配置。
+/// </summary>
+public class InteractionOptions
+{
+    /// <summary>
+    /// 等待用户作答的上限（秒）。默认 0，表示沿用 <see cref="ToolConfirmationOptions.TimeoutSeconds"/>。
+    /// 提问需逐题点选或输入，通常比工具确认更耗时，宿主可单独放宽。
+    /// </summary>
+    public int TimeoutSeconds { get; set; }
 }
 
 /// <summary>

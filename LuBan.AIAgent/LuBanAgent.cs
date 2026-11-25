@@ -206,29 +206,6 @@ public class LuBanAgent : IDisposable
     }
 
     /// <summary>
-    /// 将用户输入与助手输出持久化到当前会话（供会话未走 innerAgent 持久化通道的旁路场景使用）。
-    /// </summary>
-    private async Task PersistTurnAsync(string userInput, string assistantOutput, CancellationToken cancellationToken)
-    {
-        var sessionId = _sessionContext?.SessionId;
-        if (string.IsNullOrEmpty(sessionId) || _sessionManager is null)
-            return;
-
-        try
-        {
-            await _sessionManager.AddMessageAsync(sessionId, "user", userInput, Math.Max(1, userInput.Length / 4));
-            if (!string.IsNullOrWhiteSpace(assistantOutput))
-            {
-                await _sessionManager.AddMessageAsync(sessionId, "assistant", assistantOutput, Math.Max(1, assistantOutput.Length / 4));
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger.Warn($"旁路持久化 session 失败: {ex.Message}", ex);
-        }
-    }
-
-    /// <summary>
     /// 以聊天消息列表运行 Agent 并返回流式响应更新。
     /// </summary>
     /// <param name="messages">聊天消息集合。</param>

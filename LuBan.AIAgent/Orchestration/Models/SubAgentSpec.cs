@@ -43,6 +43,12 @@ public class SubAgentSpec
     public string? Role { get; set; }
 
     /// <summary>
+    /// 获取或设置节点描述（对应 <c>TaskNode.Description</c>）。
+    /// 仅用于确认 UI 标注来源，不参与任务执行。
+    /// </summary>
+    public string? Description { get; set; }
+
+    /// <summary>
     /// 获取或设置启用的工具组。
     /// 当 Role 非空时，null 表示使用角色的 DefaultToolGroups；
     /// 当 Role 为空时，null 不再允许。

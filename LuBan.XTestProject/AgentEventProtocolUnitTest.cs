@@ -28,6 +28,7 @@
 *
 *****************************************************************************/
 
+using LuBan.AIAgent.Abstractions;
 using LuBan.AIAgent.Hosting;
 using LuBan.AIAgent.Orchestration.Models;
 using LuBan.AIAgent.Protocol;
@@ -52,9 +53,12 @@ public class AgentEventProtocolUnitTest
     [TestMethod]
     public void ThinkingDelta_MapsToThinkDelta()
     {
-        var frame = AgentEventProtocol.ToFrame(new ThinkingDeltaEvent("t"));
+        var at = DateTimeOffset.FromUnixTimeMilliseconds(1_750_000_000_000);
+        var frame = AgentEventProtocol.ToFrame(new ThinkingDeltaEvent("t") { At = at });
 
         Assert.AreEqual("think.delta", frame!.Name);
+        // 前端按相邻帧的 at 之差计算思考/工具耗时
+        StringAssert.Contains(AgentEventProtocol.SerializePayload(frame.Payload), "\"at\":1750000000000");
     }
 
     [TestMethod]
@@ -78,6 +82,19 @@ public class AgentEventProtocolUnitTest
         var payload = AgentEventProtocol.SerializePayload(frame.Payload);
         StringAssert.Contains(payload, "\"confirmationId\":\"cid\"");
         StringAssert.Contains(payload, "\"timeoutSeconds\":60");
+        StringAssert.Contains(payload, "\"origin\":null", "主代理发起的确认无来源");
+    }
+
+    [TestMethod]
+    public void ConfirmEvent_CarriesOrigin_ForOrchestrationNode()
+    {
+        var origin = new ToolConfirmationOrigin("build", "coder", "生成构建脚本");
+        var frame = AgentEventProtocol.ToFrame(new ToolConfirmationRequestedEvent(
+            "cid", "WriteFileAsync", new Dictionary<string, object?>(), 60, origin));
+
+        var payload = AgentEventProtocol.SerializePayload(frame!.Payload);
+        StringAssert.Contains(payload, "\"origin\":{\"nodeId\":\"build\",\"role\":\"coder\"");
+        StringAssert.Contains(payload, "生成构建脚本");
     }
 
     [TestMethod]

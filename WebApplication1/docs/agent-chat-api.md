@@ -104,16 +104,18 @@ data: {"sessionId":"b1f2c3...","elapsedMs":8421}
 | 事件名 | 载荷（camelCase） | 来源 |
 |---|---|---|
 | `session` | `{ sessionId, created }` | 控制器（传输层） |
-| `think.delta` | `{ delta, llmRound }` | `ThinkingDeltaEvent` |
-| `text.delta` | `{ delta, llmRound }` | `TextDeltaEvent` |
-| `tool.started` | `{ callId, name, arguments, llmRound }` | `ToolCallStartedEvent` |
-| `tool.completed` | `{ callId, resultSummary, llmRound }` | `ToolCallCompletedEvent` |
-| `tool.failed` | `{ callId, error, llmRound }` | `ToolCallFailedEvent` |
-| `tool.confirm` | `{ confirmationId, toolName, arguments, timeoutSeconds }` | `ToolConfirmationRequestedEvent` |
+| `think.delta` | `{ delta, llmRound, at }` | `ThinkingDeltaEvent` |
+| `text.delta` | `{ delta, llmRound, at }` | `TextDeltaEvent` |
+| `tool.started` | `{ callId, name, arguments, llmRound, at }` | `ToolCallStartedEvent` |
+| `tool.completed` | `{ callId, resultSummary, llmRound, at }` | `ToolCallCompletedEvent` |
+| `tool.failed` | `{ callId, error, llmRound, at }` | `ToolCallFailedEvent` |
+| `tool.confirm` | `{ confirmationId, toolName, arguments, timeoutSeconds, origin? }`（`origin` = `{ nodeId, role, description }`，编排子代理发起时才有） | `ToolConfirmationRequestedEvent` |
 | `attachment.added` | `{ fileName, mediaType, fileSize, source }` | `AttachmentAddedEvent` |
 | `attachment.skipped` | `{ source, reason }` | `AttachmentSkippedEvent` |
 | `error` | `{ message }` | `ErrorEvent` |
 | `done` | `{ sessionId, elapsedMs }` | 控制器（传输层） |
+
+`at` 为事件产生时刻的 Unix 毫秒：客户端用同一段思考的首末帧、或单次工具调用的起止帧做差得到耗时，不用本机时钟（详见 `AgentEventProtocol`）。
 
 `OrchestrationProgressEvent` 不映射（Web 不启用自动编排），遇到时忽略。
 

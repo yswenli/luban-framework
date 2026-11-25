@@ -47,15 +47,13 @@ public sealed class PluginStateRepository : IPluginStateRepository
     /// </summary>
     /// <param name="filePath">
     /// 状态文件路径；为空时使用
-    /// <c>%LocalAppData%/LuBan/AIAgent/plugins/plugin-states.json</c>（对齐 PRD §3.3 用户级目录约定）。
+    /// <c>~/.luban-agent/plugins/plugin-states.json</c>（用户级目录约定，跨平台同一落点）。
     /// </param>
     public PluginStateRepository(string? filePath = null)
     {
         _filePath = string.IsNullOrWhiteSpace(filePath)
             ? Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "LuBan",
-                "AIAgent",
+                GlobalLubanAgentPath.Root,
                 "plugins",
                 "plugin-states.json")
             : filePath!;

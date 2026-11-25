@@ -63,6 +63,13 @@ public interface ILuBanToolPlugin
     bool IsOptIn => false;
 
     /// <summary>
+    /// 是否「总是注入」：为 true 时，即便调用方显式给出了工具组列表（角色默认组/配置默认组/子代理节点组），
+    /// 本组也会被强制并入。用于子代理与编排节点必须能用的基础交互能力（如向用户提问）。默认 false。
+    /// </summary>
+    /// <remarks>该标记不改变 opt-in 语义：<see cref="IsOptIn"/> 为 true 且未被点名时仍不注入。</remarks>
+    bool IsAlwaysInjected => false;
+
+    /// <summary>
     /// 根据配置判断该插件是否启用
     /// </summary>
     /// <param name="options">LuBan Agent 配置选项</param>

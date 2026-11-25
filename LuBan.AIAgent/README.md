@@ -145,9 +145,10 @@ Skills、MCPs、Rules 采用三级优先级注册表模式；其中 Skill 允许
 | **Web 工具** | `web` | 发送 HTTP 请求获取网页内容 |
 | **语义检索工具** | `retrieval` | 索引本地代码/文档，按语义搜索相关片段 |
 | **上下文压缩工具** | `context` | 压缩当前会话的对话历史，释放 token 预算（LLM 可见、可主动调用） |
-| **本地记忆工具** | `localmemory` | 长期记忆的存储、查询和管理 |
+| **本地记忆工具** | `localmemory` | 长期记忆的存储、查询和管理：`MemorySave` / `MemorySearch` / `MemoryList` / `MemoryDelete`；保存免确认（Plan 模式仍只记计划），删除逐次确认 |
 | **MCP 外部工具** | `mcp` | 将已连接 MCP 客户端（内置文件系统客户端 + 外部服务器热加载）的工具并入 Agent 工具注册表 |
 | **编排工具** | `orchestration` | 向模型暴露 `plan_task` / `run_orchestration`，由模型自行判定复合任务并调度 SubAgent 执行 DAG（opt-in，需 `Orchestration.Enabled=true`） |
+| **用户交互工具** | `interaction` | 向模型暴露 `AskUserQuestion`：一次提出 1～4 个选择题（每题 2～4 个选项，支持多选与「其它」自由输入）并等待作答；问题正文与同一题的选项文案必须唯一（解析期即拒收重复，否则宿主按正文/文案回链会错位）；默认启用，且对显式工具组筛选强制并入，子代理/编排节点同样可提问；用户取消按「已取消」返回（不是拒绝执行），宿主无交互通道时返回「不可用」说明 |
 | **Wiki 知识库工具** | `wiki` | 读取/写入/删除 wiki 页面、向量搜索、健康检查（opt-in，需在 `ToolGroups` 中显式点名） |
 | **大日志分析工具** | `log` | 大日志文件聚合概览、正则检索（级别/时间/行区间过滤）、按行切片，恒定内存（默认启用，非 opt-in） |
 | **Skill 消费工具** | `skill` | 列出可用 Skill（支持关键词搜索）、加载并使用 Skill 模板指令；工作区根路径内免确认（默认启用） |
@@ -410,7 +411,8 @@ AI: [调用 WriteConnectorAsync] 已创建连接器声明，凭据请到设置�
 | 组件 | 说明 |
 |------|------|
 | `ToolConfirmationService` | 工具执行确认服务：工作区内直接放行，工作区外路径经用户确认后放行，危险操作前要求用户确认 |
-| `ToolConfirmationContext` | 确认上下文：承载本轮/本会话三档授权（按路径所在根记忆），`AllowThisTurn`/`IsAllowedThisTurn`、`AllowThisSession`/`IsAllowedThisSession` |
+| `ToolConfirmationContext` | 确认上下文：承载本轮/本会话三档授权（按路径所在根记忆），`AllowThisTurn`/`IsAllowedThisTurn`、`AllowThisSession`/`IsAllowedThisSession`；`CurrentOrigin` 暴露编排子代理确认来源（仅供 UI 标注） |
+| `ToolConfirmationOrigin` | 确认来源（编排节点标识、角色、描述）；随 `EnterSubAgentScope`/`EnterOriginScope` 写入 AsyncLocal，主代理为 null |
 | `ConfirmResult` | 用户确认结果：`Allow`（本次）/ `AllowAll`（本轮全部）/ `AllowSession`（本会话全部）/ `Deny`（拒绝） |
 | `PathGuard` | 路径安全守卫，工作区根快捷放行（不再作为工作区外访问的硬门） |
 | `RuleEngine` | 规则引擎，工具执行前进行权限检查和参数修改 |
@@ -544,11 +546,13 @@ services.AddConnector<MyVendorConnector>("myVendor", ctx => new MyVendorConnecto
 | `AddLuBanAgentHost()` | 注册宿主与默认接缝（全部 `TryAdd`）：`SessionRuntimeManager`（Singleton）、`IAgentHost`（Scoped）、Profile / 工作区 / 用户 / 模型选择解析、附件编排、能力门禁、会话初始化与 `ICommandCatalog`（Singleton） |
 | `AddLuBanAgentOpenAI(configuration)` | 按 `LuBanAgent:Models` 数组（`Provider` / `Model` / `ApiKey` / `BaseUrl`）为每个 Provider 建客户端，注册 `IChatClient` + `IProviderRouter`；同一 Provider 多条模型必须凭据一致；配置不全时只登记 `ChatClientFactoryWarning`，不注册也不抛 |
 | `IAgentHost` | 宿主入口：`InitializeAsync` / `Reset` / `RunStreamingAsync(AgentRunRequest)`；**必须以 Scoped 解析**，自身不持有会话状态。`Reset` 在该会话有回合运行中时只登记延迟重载（不打断回合），回合收尾后释放 Agent，下一次对话按最新配置重建 |
-| `AgentRunRequest` | 一轮对话入参：`Input` / `AttachmentPaths` / `Attachments`（URL 或路径，由框架解析）/ `SystemPrompt`（按轮人设覆盖）/ `EnableTools` / `ReasoningEffort`（按轮推理强度覆盖，设为 `None` 关闭思考）/ `SessionId` / `PermissionMode` / `ConfirmHandler` / `ConfirmHandlerAsync` / `OnPlannedAction` / `OnUserDenied` |
-| `AgentStreamEvent` | UI 无关输出事件：`TextDeltaEvent` / `ThinkingDeltaEvent` / `ToolCallStartedEvent` / `ToolCallCompletedEvent` / `ToolCallFailedEvent` / `ToolConfirmationRequestedEvent` / `ErrorEvent` / `OrchestrationProgressEvent` / `AttachmentAddedEvent` / `AttachmentSkippedEvent` |
+| `AgentRunRequest` | 一轮对话入参：`Input` / `AttachmentPaths` / `Attachments`（URL 或路径，由框架解析）/ `SystemPrompt`（按轮人设覆盖）/ `EnableTools` / `ReasoningEffort`（按轮推理强度覆盖，设为 `None` 关闭思考）/ `SessionId` / `PermissionMode` / `ConfirmHandler` / `ConfirmHandlerAsync` / `AskUserHandlerAsync` / `OnPlannedAction` / `OnUserDenied` |
+| `AgentStreamEvent` | UI 无关输出事件：`TextDeltaEvent` / `ThinkingDeltaEvent` / `ToolCallStartedEvent` / `ToolCallCompletedEvent` / `ToolCallFailedEvent` / `ToolConfirmationRequestedEvent` / `UserQuestionRequestedEvent` / `ErrorEvent` / `OrchestrationProgressEvent` / `AttachmentAddedEvent` / `AttachmentSkippedEvent` |
 | `AgentBuildOverrides` | 按轮构建覆盖项（`SystemPrompt` + `EnableTools`）：与缓存 Agent 比对，变化即在该会话的串行区间内重建 |
 | `AgentEventProtocol` / `AgentEventFrame` | 宿主事件 → 传输帧的统一映射（`text.delta` / `tool.*` / `attachment.*` 等），Web / CLI / Codex 共用一套事件名 |
 | `IToolConfirmationBroker` / `DefaultToolConfirmationBroker` | 跨请求确认登记簿（Singleton）：SSE 推 `tool.confirm`，另一个 HTTP 请求回结果，超时按拒绝 |
+| `IUserInteractionService` / `UserInteractionService` | 用户提问服务：读取本轮装配的提问回调并向用户提问；与工具确认共用 `ToolConfirmationContext.UiGate` 串行门，同一会话同一时刻只有一个交互在途；无回调时返回「不可用」，取消返回「已取消」（不视为拒绝） |
+| `IUserQuestionBroker` / `DefaultUserQuestionBroker` | 跨请求提问登记簿（Singleton）：SSE 推 `tool.question`，另一个 HTTP 请求回答案或取消，超时按「用户取消」收尾；按问题正文校验逐题回答，缺题/重复/越界一律拒收 |
 | `SessionRuntimeManager` / `SessionRuntime` | 按会话维护独立 DI scope 与串行运行循环（`EnqueueAsync`）、重载标记（`RequestReload`）、活动时间与释放 |
 | `IAgentProfile` / `AgentProfileBase` | Agent 配置（系统提示词、工具组、检索模式）与建 Agent 流程；`DefaultAgentProfile` 为通用助手 |
 | `IAgentWorkspaceResolver` / `WorkspaceDescriptor` | 按会话解析工作区（`Id` / `Name` / `RootPath` / `Type`）；默认读 `LuBanAgent:WorkspaceRoot`，缺省为进程当前目录（Web 宿主经 `LuBan.Web.Core` 归一化：相对值按站点 `ContentRootPath`） |
@@ -583,16 +587,19 @@ await foreach (var e in host.RunStreamingAsync(new AgentRunRequest { Input = "�
 | 事件名 | 载荷（camelCase） | 来源 |
 |---|---|---|
 | `session` | `{ sessionId, created }` | 传输层 |
-| `think.delta` | `{ delta, llmRound }` | `ThinkingDeltaEvent` |
-| `text.delta` | `{ delta, llmRound }` | `TextDeltaEvent` |
-| `tool.started` | `{ callId, name, arguments, llmRound }` | `ToolCallStartedEvent` |
-| `tool.completed` | `{ callId, resultSummary, llmRound }` | `ToolCallCompletedEvent` |
-| `tool.failed` | `{ callId, error, llmRound }` | `ToolCallFailedEvent` |
-| `tool.confirm` | `{ confirmationId, toolName, arguments, timeoutSeconds }` | `ToolConfirmationRequestedEvent` |
+| `think.delta` | `{ delta, llmRound, at }` | `ThinkingDeltaEvent` |
+| `text.delta` | `{ delta, llmRound, at }` | `TextDeltaEvent` |
+| `tool.started` | `{ callId, name, arguments, llmRound, at }` | `ToolCallStartedEvent` |
+| `tool.completed` | `{ callId, resultSummary, llmRound, at }` | `ToolCallCompletedEvent` |
+| `tool.failed` | `{ callId, error, llmRound, at }` | `ToolCallFailedEvent` |
+| `tool.confirm` | `{ confirmationId, toolName, arguments, timeoutSeconds, origin? }`（`origin` = `{ nodeId, role, description }`，编排子代理发起时才有） | `ToolConfirmationRequestedEvent` |
+| `tool.question` | `{ questionId, questions, timeoutSeconds, origin? }`（`questions` = `[{ question, header?, multiSelect, options:[{ label, description? }] }]`；`origin` 同 `tool.confirm`） | `UserQuestionRequestedEvent` |
 | `attachment.added` | `{ fileName, mediaType, fileSize, source }` | `AttachmentAddedEvent` |
 | `attachment.skipped` | `{ source, reason }` | `AttachmentSkippedEvent` |
 | `error` | `{ message }` | `ErrorEvent` |
 | `done` | `{ sessionId, elapsedMs }` | 传输层 |
+
+`at` 为事件产生时刻的 Unix 毫秒：客户端用同一段思考的首末帧、或单次工具调用的起止帧做差得到耗时，不用本机时钟。
 
 `OrchestrationProgressEvent` 不映射（返回 null，调用方忽略）。
 
@@ -635,6 +642,10 @@ await foreach (var e in host.RunStreamingAsync(new AgentRunRequest { Input = "�
     "Confirmation": {
       "TimeoutSeconds": 60,
       "BrokerEnabled": true
+    },
+    // 交互提问：等待用户作答的上限；0 或省略时沿用 Confirmation.TimeoutSeconds
+    "Interaction": {
+      "TimeoutSeconds": 300
     }
   }
 }
@@ -948,9 +959,12 @@ options.Value.OnApiRetry = notice =>
 - **工作区内免确认**：文件系统工具目标路径落在工作区根（或本轮/本会话已授权的根）内时直接放行，不再要求确认。
 - **工作区外经确认放行**：工作区外路径不再被硬性拦截，改为弹出确认；用户可选「允许（本次）/ 本轮全部允许 / 本会话全部允许 / 拒绝」。授权按路径所在根记忆（文件取父目录、目录取自身）；授权根落到盘符根（如 `D:\`）时不记忆，避免一次放行整盘。
 - **授权档位记忆**：`Allow` 仅放行本次；`AllowAll` 记入本轮；`AllowSession` 记入本会话（进程存活期）。每轮开始 `Reset()` 清空本轮集合，本会话集合跨轮保留；`ResetSession()` 可显式清空本会话集合。
-- **只读免确认（仅 Plan）**：Plan 模式下只读工具（`ReadFileAsync`/`ReadSpreadsheetAsync`/`ListDirectoryAsync`/`GetWorkspaceOverviewAsync`/`SearchFilesAsync`/`GrepAsync`/`GetFileInfoAsync`）在已授权范围内直接放行，便于读取上下文产出计划；越界只读记录为计划项而非放行。
-- **删除类硬确认**：`AlwaysConfirmTools`（默认 `DeleteFileAsync`/`DeleteDirectoryAsync`/`DeletePageAsync`）无论路径是否在工作区内都必须确认，且「本轮/本会话全部允许」对删除类不记忆，每次必确认。
-- **子代理代确认**：编排子代理不会向用户弹确认；其工具调用在需要人工确认时，由主代码按「本轮/本会话已允许集合」代判——命中放行，否则返回子代理专用拒绝结果（不代表用户拒绝）。
+- **只读免确认（仅 Plan）**：Plan 模式下只读工具（`ReadFileAsync`/`ReadSpreadsheetAsync`/`ListDirectoryAsync`/`GetWorkspaceOverviewAsync`/`SearchFilesAsync`/`GrepAsync`/`GetFileInfoAsync`，以及本地记忆读取 `MemorySearch`/`MemoryList`）在已授权范围内直接放行，便于读取上下文产出计划；越界只读记录为计划项而非放行。
+- **删除类硬确认**：`AlwaysConfirmTools`（默认 `DeleteFileAsync`/`DeleteDirectoryAsync`/`DeletePageAsync`，以及本地记忆删除 `MemoryDelete`）无论路径是否在工作区内都必须确认，且「本轮/本会话全部允许」对删除类不记忆，每次必确认。
+- **内置免确认**：`ToolConfirmationService` 自带一组内置免确认项（当前为本地记忆 `MemorySave`/`MemorySearch`/`MemoryList`、编排工具 `plan_task` / `run_orchestration`、用户提问 `AskUserQuestion`），与配置 `LuBanAgent:Confirmation:AutoConfirmTools` 取并集——宿主只能追加，无法整体抹掉内置项。免确认只跳过「询问用户」，不改变 Plan 模式语义：Plan 下这类工具仍只记录为计划项、不执行（用户提问本就只取信息、不产生副作用，因此 Plan 下也可发起提问，由触发提问的工具自身受 Plan 约束）。
+- **宿主策略硬闸门**：宿主可经 `ToolConfirmationContext.PolicyGuard`（或 `AgentRunRequest.PolicyGuard`）挂一条纯策略判断——拒绝优先于权限模式、免确认名单与子代理放行，放行只免除「询问用户」（Plan 模式仍只记录计划项，删除类仍须确认）。用于「不需要人工交互、但不能被免确认绕过」的安全白名单场景。
+- **子代理确认与授权共享**：编排子代理需要人工授权时与其他工具一样弹出确认；各宿主确认 UI 均为单槽，框架按会话串行化（同一时刻只放行一个确认，其余排队），避免先到请求被后到者覆盖后永久等待。授权结果写入同会话共享的本轮/本会话集合，主代理与所有子代理共用，因此允许一次后不再重复询问。**确认弹窗标注来源**：子代理发起确认时 `ToolConfirmationRequestedEvent.Origin` 携带节点标识、角色与描述（`ToolConfirmationOrigin`），三宿主的确认 UI 在标题（工具名）下方单独一行显示「来源：编排节点 <id>（角色 <role>）：<描述>」，主代理发起时不显示该行；来源仅用于展示，不参与授权判定，也不写入工具参数。远端宿主经 `HttpAgentHost` 收到帧后，在本地回调外层用 `ToolConfirmationContext.EnterOriginScope` 恢复来源，本地确认 UI 读 `ToolConfirmationContext.CurrentOrigin` 即可取到与发起端一致的来源。子代理内被拒绝只让该次工具调用失败（子代理收到拒绝消息后自行收尾，节点本身不因拒绝判定失败），**不触发**「拒绝即终止本轮」；**A2A 进程内执行器恒全放行**（`allowAll:true`，无配置开关、无人工确认通道）：不弹确认，按已允许集合代确认，删除类与工作区外等硬约束照常拒绝；**写入/删除记忆一律拒绝**（`MemorySave`/`MemoryDelete` 属子代理不可委派工具；Plan 模式下不执行，仅记为计划项），读取类（`MemorySearch`/`MemoryList`）不受限；该「不可委派」约束只在**进程内**生效——远端 A2A 宿主（`HttpAgentHost`）以自身主代理身份执行，不继承调用方作用域。
+- **工具耗时口径**：`TurnMetrics` 记的工具耗时为墙钟时间，从工具调用开始到工具返回，**包含**该工具等待人工确认的时间（确认发生在工具方法内部）；因此需要人工确认的工具，其耗时明显长于实际执行时间，与实时帧按 `at` 做差得到的「组耗时」口径一致。
 - **本轮/本会话允许集合**：`ToolConfirmationContext.AllowedThisTurn` 不再公开；宿主使用 `AllowThisTurn(toolName)`/`AllowThisSession(toolName)` 写入、框架使用 `IsAllowedThisTurn(toolName)`/`IsAllowedThisSession(toolName)` 读取。
 - **子代理等待无限期**：`Orchestration.DefaultNodeTimeoutSeconds` 与 `ReflectionTimeoutSeconds` 默认 0（无限期）；显式配置大于 0 时才限时，节点仍可用 `TimeoutSeconds` 单独覆盖。
 - **规划不再「长时间无响应」**：`Orchestration.PlannerReasoningEffort` 控制规划/反思调用的推理强度，推理模型（如 glm-5）默认开思考时会在规划阶段输出大量 reasoning 内容，单次规划耗时可达 1 分钟以上；建议设为 `"none"` 关闭（默认 `null` 表示不传递该参数，兼容不支持 `reasoning_effort` 的非推理模型）。
@@ -1136,7 +1150,9 @@ LuBan.AIAgent/
 │   ├── Orchestration/                 # 编排工具
 │   │   ├── OrchestrationToolPlugin.cs # 编排工具插件
 │   │   └── OrchestrationToolGroup.cs  # 编排工具组
-│   └── ConnectorManage/               # 连接器管理工具（配置驱动，厂商无关）
+│   ├── Interaction/                   # 用户交互工具
+│   │   └── InteractionToolPlugin.cs   # 提问工具（AskUserQuestion，显式工具组筛选下也强制并入）
+│   ├── ConnectorManage/               # 连接器管理工具（配置驱动，厂商无关）
 │       ├── ConnectorManageToolPlugin.cs # 连接器管理工具组插件
 │       └── ConnectorManageToolGroup.cs  # 列表/新增/删除连接器声明
 ├── Skills/
@@ -1329,7 +1345,7 @@ LuBan.AIAgent/
 ## 小贴士
 
 - 模型路由使用 `provider:model` 格式，新增 Provider 只需通过 `IAppConfigReader` / 宿主实现添加
-- **16 大内置工具组**覆盖浏览器自动化、文件操作、脚本执行、Git 版本控制、Web 请求、语义检索、上下文压缩、本地记忆、MCP、多 Agent 编排、LLM Wiki 知识库（opt-in）、大日志分析、Skill 消费、Skill 管理、MCP 管理、连接器管理
+- **17 大内置工具组**覆盖浏览器自动化、文件操作、脚本执行、Git 版本控制、Web 请求、语义检索、上下文压缩、本地记忆、MCP、多 Agent 编排、用户交互提问、LLM Wiki 知识库（opt-in）、大日志分析、Skill 消费、Skill 管理、MCP 管理、连接器管理
 - `ToolConfirmationService` 对工作区外路径访问、写入、删除、执行等敏感操作要求用户确认；工作区内直接放行
 - 授权三档记忆（本次 / 本轮 / 本会话），按路径所在根粒度生效；删除类工具（`AlwaysConfirmTools`）不记忆、每次必确认
 - `FileSystemToolOptions.AllowedRoots` 与工作区根共同构成可信范围，范围内的操作免确认

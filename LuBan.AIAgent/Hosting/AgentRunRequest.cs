@@ -67,6 +67,18 @@ public sealed record AgentRunRequest
     /// <summary>异步确认回调；与 <see cref="ConfirmHandler"/> 同时给出时以本字段为准。</summary>
     public Func<string, IReadOnlyDictionary<string, object?>, CancellationToken, Task<ConfirmResult>>? ConfirmHandlerAsync { get; init; }
 
+    /// <summary>
+    /// 宿主工具访问策略（硬闸门）；返回 <c>null</c> 表示无意见。拒绝优先于权限模式与免确认名单，
+    /// 放行只免除「询问用户」——不像 <see cref="ConfirmHandler"/> 那样需要人工交互。
+    /// </summary>
+    public Func<string, IReadOnlyDictionary<string, object?>, ConfirmResult?>? PolicyGuard { get; init; }
+
+    /// <summary>
+    /// 用户交互提问处理器（<c>AskUserQuestion</c> 工具）；null 表示宿主未提供交互通道，
+    /// 工具会返回「当前宿主不支持交互提问」而不是抛异常。
+    /// </summary>
+    public Func<IReadOnlyList<UserQuestion>, CancellationToken, Task<UserQuestionResult>>? AskUserHandlerAsync { get; init; }
+
     /// <summary>Plan 模式下计划项回调。</summary>
     public Action<string, IReadOnlyDictionary<string, object?>>? OnPlannedAction { get; init; }
 

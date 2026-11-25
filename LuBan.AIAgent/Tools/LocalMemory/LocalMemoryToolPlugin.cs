@@ -59,10 +59,11 @@ public class LocalMemoryToolPlugin : ILuBanToolPlugin
         var group = new LocalMemoryToolGroup(sp.GetRequiredService<ILocalMemoryService>(), memoryOptions, confirmationService);
         return new List<AIFunction>
         {
-            AIFunctionFactoryHelper.Create(group, nameof(LocalMemoryToolGroup.SaveAsync)),
-            AIFunctionFactoryHelper.Create(group, nameof(LocalMemoryToolGroup.SearchAsync)),
-            AIFunctionFactoryHelper.Create(group, nameof(LocalMemoryToolGroup.ListAsync)),
-            AIFunctionFactoryHelper.Create(group, nameof(LocalMemoryToolGroup.DeleteAsync))
+            // 显式命名：避免暴露成 Save/Search/List/Delete 这类过于通用的名字
+            AIFunctionFactoryHelper.Create(group, nameof(LocalMemoryToolGroup.SaveAsync), name: LocalMemoryToolGroup.SaveToolName),
+            AIFunctionFactoryHelper.Create(group, nameof(LocalMemoryToolGroup.SearchAsync), name: LocalMemoryToolGroup.SearchToolName),
+            AIFunctionFactoryHelper.Create(group, nameof(LocalMemoryToolGroup.ListAsync), name: LocalMemoryToolGroup.ListToolName),
+            AIFunctionFactoryHelper.Create(group, nameof(LocalMemoryToolGroup.DeleteAsync), name: LocalMemoryToolGroup.DeleteToolName)
         };
     }
 
@@ -75,6 +76,23 @@ public class LocalMemoryToolPlugin : ILuBanToolPlugin
 /// </summary>
 public class LocalMemoryToolGroup
 {
+    /// <summary>保存工具的确认名（与模型可见名一致）。</summary>
+    public const string SaveToolName = "MemorySave";
+
+    /// <summary>搜索工具的确认名（与模型可见名一致）。</summary>
+    public const string SearchToolName = "MemorySearch";
+
+    /// <summary>列出工具的确认名（与模型可见名一致）。</summary>
+    public const string ListToolName = "MemoryList";
+
+    /// <summary>删除工具的确认名（与模型可见名一致）。</summary>
+    public const string DeleteToolName = "MemoryDelete";
+
+    // 四个记忆工具统一用模型可见名做确认/策略判定，而不是 nameof(XxxAsync)：
+    // 框架的免确认、硬确认、只读、子代理禁止四张名单都按字符串匹配，
+    // 而 SearchAsync / DeleteAsync 这类名字与其他工具组重名（如 WikiToolGroup.SearchAsync），
+    // 按方法名匹配会连带放行或拒绝别的工具。LocalMemory 是自有工具组，可自由选名。
+
     private readonly ILocalMemoryService _service;
     private readonly LocalMemoryOptions _options;
     private readonly IToolConfirmationService _confirmationService;
@@ -97,7 +115,10 @@ public class LocalMemoryToolGroup
     [Description("保存一条记忆到本地长期记忆库")]
     public async Task<ToolResult<string>> SaveAsync(string content, string category = "general")
     {
-        var outcome = await _confirmationService.EvaluateAsync(nameof(SaveAsync), null,
+        // 保存是低风险操作，由框架内置免确认名单（MemorySave）直接放行，不打断「记住刚才的内容」；
+        // 但仍经 EvaluateAsync，以保留 Plan 模式「只记录计划、不写库」的语义
+        // 与宿主策略闸门（PolicyGuard）的拦截能力。
+        var outcome = await _confirmationService.EvaluateAsync(SaveToolName, null,
             new Dictionary<string, object?> { ["content"] = content, ["category"] = category });
         if (outcome == EnumConfirmationOutcome.Planned)
             return ToolResult.Plan<string>();
@@ -137,6 +158,15 @@ public class LocalMemoryToolGroup
     /// <returns>成功时正文为记忆数组 JSON，失败时携带错误信息。</returns>
     public async Task<ToolResult<string>> SearchAsync(string query, string? category = null, int? topK = null)
     {
+        // 读记忆无副作用，但仍过确认门：Plan 模式下按只读工具放行，
+        // Default 模式由内置免确认名单（MemorySearch）直接放行，宿主策略闸门可拦截
+        var outcome = await _confirmationService.EvaluateAsync(SearchToolName, null,
+            new Dictionary<string, object?> { ["query"] = query, ["category"] = category });
+        if (outcome == EnumConfirmationOutcome.Planned)
+            return ToolResult.Plan<string>();
+        if (outcome != EnumConfirmationOutcome.Allowed)
+            return ToolResult.Denied<string>();
+
         if (string.IsNullOrWhiteSpace(query))
             return ToolResult.Fail<string>("查询不能为空");
 
@@ -182,6 +212,14 @@ public class LocalMemoryToolGroup
     /// <returns>成功时正文为记忆数组 JSON，失败时携带错误信息。</returns>
     public async Task<ToolResult<string>> ListAsync(string? category = null, int limit = 100)
     {
+        // 同 SearchAsync：只读但过确认门（Default 由内置免确认名单 MemoryList 放行）
+        var outcome = await _confirmationService.EvaluateAsync(ListToolName, null,
+            new Dictionary<string, object?> { ["category"] = category, ["limit"] = limit });
+        if (outcome == EnumConfirmationOutcome.Planned)
+            return ToolResult.Plan<string>();
+        if (outcome != EnumConfirmationOutcome.Allowed)
+            return ToolResult.Denied<string>();
+
         try
         {
             var entries = await _service.ListAsync(category, limit);
@@ -212,7 +250,7 @@ public class LocalMemoryToolGroup
     [Description("删除指定本地记忆条目")]
     public async Task<ToolResult<string>> DeleteAsync(string id)
     {
-        var outcome = await _confirmationService.EvaluateAsync(nameof(DeleteAsync), null,
+        var outcome = await _confirmationService.EvaluateAsync(DeleteToolName, null,
             new Dictionary<string, object?> { ["id"] = id });
         if (outcome == EnumConfirmationOutcome.Planned)
             return ToolResult.Plan<string>();

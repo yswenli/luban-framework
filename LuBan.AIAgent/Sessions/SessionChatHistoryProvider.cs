@@ -33,6 +33,7 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
     private readonly int _targetCount;
     private readonly int _threshold;
     private readonly ContextInjectBuilder _contextInjectBuilder;
+    private readonly Hosting.TurnMetrics? _turnMetrics;
     private string? _pendingRawUserInput;
     private IReadOnlyList<Attachments.ProcessedAttachment>? _pendingAttachments;
 
@@ -71,6 +72,8 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
         _targetCount = targetCount;
         _threshold = threshold;
         _contextInjectBuilder = new ContextInjectBuilder(ruleEngine, services);
+        // 用量与耗时采集器（可选）：与 AgentHost 同 scope，取不到时退回文本估算
+        _turnMetrics = services?.GetService<Hosting.TurnMetrics>();
     }
 
     /// <summary>
@@ -225,9 +228,17 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
 
         if (context.ResponseMessages == null) return;
 
-        var responseText = string.Concat(context.ResponseMessages
+        // 流式通道可能在句子中间插入空行（把一句正文按帧切碎），落库前先收拢碎片空行，
+        // 否则前端按 Markdown 渲染会把一句话摊成十几个段落。正常文档原样保留。
+        // 判定在整段正文上做，各自正文再逐段收拢：保证正文列 == 段落列拼接，两列口径一致。
+        var textContents = context.ResponseMessages
             .SelectMany(m => m.Contents?.OfType<TextContent>() ?? Enumerable.Empty<TextContent>())
-            .Select(c => c.Text));
+            .ToList();
+        var rawResponseText = string.Concat(textContents.Select(c => c.Text));
+        var fragmentsNormalized = FragmentedTextNormalizer.LooksFragmented(rawResponseText);
+        var responseText = fragmentsNormalized
+            ? string.Concat(textContents.Select(c => FragmentedTextNormalizer.Normalize(c.Text, force: true)))
+            : rawResponseText;
         // 提取 AI 思考内容（reasoning），持久化以便切换会话后恢复展示
         var thinkingText = string.Concat(context.ResponseMessages
             .SelectMany(m => m.Contents?.OfType<TextReasoningContent>() ?? Enumerable.Empty<TextReasoningContent>())
@@ -235,10 +246,13 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
         // 提取本轮工具调用（名称/调用ID/参数），持久化以便事后定位"模型漏传参数"等调用问题
         var toolCallsJson = SerializeToolCalls(context.ResponseMessages);
         // 提取本轮有序段落（思考/正文/工具调用按 Contents 原始顺序），供前端按时间铺开回放
-        var segmentsJson = SerializeSegments(context.ResponseMessages);
+        var segmentsJson = SerializeSegments(context.ResponseMessages, fragmentsNormalized);
         if (!string.IsNullOrWhiteSpace(responseText))
         {
-            await _sessionManager.AddMessageAsync(sessionId, "assistant", responseText, EstimateTokens(responseText), thinkingText, toolCalls: toolCallsJson, segments: segmentsJson);
+            // 真实用量优先：本轮采集到 usage 时用其 token 与耗时；否则退回文本估算（耗时仍可用）
+            var tokens = _turnMetrics is { HasUsage: true } m ? (int)m.TotalTokens : EstimateTokens(responseText);
+            var durationMs = _turnMetrics?.ElapsedMs;
+            await _sessionManager.AddMessageAsync(sessionId, "assistant", responseText, tokens, thinkingText, toolCalls: toolCallsJson, segments: segmentsJson, durationMs: durationMs);
         }
     }
 
@@ -400,11 +414,19 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
     /// 提取本轮响应的有序段落（思考 / 正文 / 工具调用按 Contents 原始顺序），
     /// 序列化为 JSON 供前端按时间铺开回放。
     /// </summary>
-    private static string? SerializeSegments(IEnumerable<ChatMessage>? responseMessages)
+    /// <param name="responseMessages">本轮响应消息。</param>
+    /// <param name="normalizeTextFragments">
+    /// 是否收拢正文段落的碎片空行。整段正文已判定为被流式空行切碎时传 true，
+    /// 保证正文列与段落列按同一口径落库。
+    /// </param>
+    private string? SerializeSegments(IEnumerable<ChatMessage>? responseMessages, bool normalizeTextFragments)
     {
         if (responseMessages == null)
             return null;
 
+        // 思考区间耗时按发生顺序与段落一一对应（Frame 侧与段落侧都按「连续同类型合并」口径）
+        var thinkingDurations = _turnMetrics?.ThinkingDurationsMs;
+        var thinkingIndex = 0;
         var segments = new List<SessionMessageSegment>();
         foreach (var message in responseMessages)
         {
@@ -417,8 +439,20 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
                 {
                     // 思考与正文按到达顺序落段；相邻同类型合并，避免把流式增量切成碎片
                     case TextReasoningContent reasoning when !string.IsNullOrEmpty(reasoning.Text):
-                        AppendTextSegment(segments, SegmentKinds.Thinking, reasoning.Text);
+                    {
+                        var merged = AppendTextSegment(segments, SegmentKinds.Thinking, reasoning.Text);
+                        if (!merged)
+                        {
+                            var durationMs = thinkingDurations is { } durations && thinkingIndex < durations.Count
+                                ? durations[thinkingIndex]
+                                : (int?)null;
+                            thinkingIndex++;
+                            if (durationMs is > 0)
+                                segments[^1] = segments[^1] with { DurationMs = durationMs };
+                        }
+
                         break;
+                    }
 
                     case TextContent text when !string.IsNullOrEmpty(text.Text):
                         AppendTextSegment(segments, SegmentKinds.Text, text.Text);
@@ -430,10 +464,21 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
                             Kind = SegmentKinds.Tool,
                             Name = call.Name,
                             CallId = call.CallId,
-                            Arguments = call.Arguments == null ? null : System.Text.Json.JsonSerializer.Serialize(call.Arguments)
+                            Arguments = call.Arguments == null ? null : System.Text.Json.JsonSerializer.Serialize(call.Arguments),
+                            DurationMs = _turnMetrics?.GetToolDurationMs(call.CallId)
                         });
                         break;
                 }
+            }
+        }
+
+        // 正文段落与 Content 列同口径：整段已判定被切碎时，逐段收拢碎片空行
+        if (normalizeTextFragments)
+        {
+            for (var i = 0; i < segments.Count; i++)
+            {
+                if (segments[i].Kind == SegmentKinds.Text && segments[i].Text is { Length: > 0 } segmentText)
+                    segments[i] = segments[i] with { Text = FragmentedTextNormalizer.Normalize(segmentText, force: true) };
             }
         }
 
@@ -443,15 +488,17 @@ public class SessionChatHistoryProvider : ChatHistoryProvider
     }
 
     /// <summary>追加文本段落；与末段同类型时并入，保持「一段连续的思考 / 正文」。</summary>
-    private static void AppendTextSegment(List<SessionMessageSegment> segments, string kind, string text)
+    /// <returns>是否并入已有段落（false 表示新开了一段）。</returns>
+    private static bool AppendTextSegment(List<SessionMessageSegment> segments, string kind, string text)
     {
         if (segments.Count > 0 && segments[^1].Kind == kind)
         {
             segments[^1] = segments[^1] with { Text = segments[^1].Text + text };
-            return;
+            return true;
         }
 
         segments.Add(new SessionMessageSegment { Kind = kind, Text = text });
+        return false;
     }
 
     private static int EstimateTokens(string text) => Math.Max(1, text.Length / 4);

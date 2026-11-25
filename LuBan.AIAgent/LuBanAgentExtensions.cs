@@ -69,6 +69,7 @@ public static class LuBanAgentExtensions
         services.AddScoped<ILuBanToolPlugin, Tools.SkillManage.SkillManageToolPlugin>();
         services.AddScoped<ILuBanToolPlugin, Tools.McpManage.McpManageToolPlugin>();
         services.AddScoped<ILuBanToolPlugin, Tools.ConnectorManage.ConnectorManageToolPlugin>();
+        services.AddScoped<ILuBanToolPlugin, Tools.Interaction.InteractionToolPlugin>();
 
         LoadExternalPlugins(services, configuration);
 
@@ -118,6 +119,8 @@ public static class LuBanAgentExtensions
         // 注册工具确认服务（scoped：每会话一份，宿主层每轮对话在会话作用域内设置/重置）
         services.AddScoped<ToolConfirmationContext>();
         services.AddScoped<IToolConfirmationService, ToolConfirmationService>();
+        // 用户交互提问（scoped：读同一个确认上下文的提问回调与串行门）
+        services.AddScoped<IUserInteractionService, UserInteractionService>();
 
         // 注册本地长期记忆（可选依赖 IEmbeddingGenerator / IUserContext）
         // 注意：ILocalMemoryStore 由宿主注册，框架不再默认注册 SqliteLocalMemoryStore

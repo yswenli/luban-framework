@@ -64,17 +64,38 @@ public static class AgentEventProtocol
     /// <returns>传输帧；不支持的事件返回 null。</returns>
     public static AgentEventFrame? ToFrame(AgentStreamEvent evt) => evt switch
     {
-        ThinkingDeltaEvent e => new("think.delta", new { delta = e.Delta, llmRound = e.LlmRound }),
-        TextDeltaEvent e => new("text.delta", new { delta = e.Delta, llmRound = e.LlmRound }),
-        ToolCallStartedEvent e => new("tool.started", new { callId = e.CallId, name = e.Name, arguments = e.Arguments, llmRound = e.LlmRound }),
-        ToolCallCompletedEvent e => new("tool.completed", new { callId = e.CallId, resultSummary = e.ResultSummary, llmRound = e.LlmRound }),
-        ToolCallFailedEvent e => new("tool.failed", new { callId = e.CallId, error = e.Error, llmRound = e.LlmRound }),
-        ToolConfirmationRequestedEvent e => new("tool.confirm", new { confirmationId = e.ConfirmationId, toolName = e.ToolName, arguments = e.Arguments, timeoutSeconds = e.TimeoutSeconds }),
+        ThinkingDeltaEvent e => new("think.delta", new { delta = e.Delta, llmRound = e.LlmRound, at = EpochMs(e.At) }),
+        TextDeltaEvent e => new("text.delta", new { delta = e.Delta, llmRound = e.LlmRound, at = EpochMs(e.At) }),
+        ToolCallStartedEvent e => new("tool.started", new { callId = e.CallId, name = e.Name, arguments = e.Arguments, llmRound = e.LlmRound, at = EpochMs(e.At) }),
+        ToolCallCompletedEvent e => new("tool.completed", new { callId = e.CallId, resultSummary = e.ResultSummary, llmRound = e.LlmRound, at = EpochMs(e.At) }),
+        ToolCallFailedEvent e => new("tool.failed", new { callId = e.CallId, error = e.Error, llmRound = e.LlmRound, at = EpochMs(e.At) }),
+        ToolConfirmationRequestedEvent e => new("tool.confirm", new
+        {
+            confirmationId = e.ConfirmationId,
+            toolName = e.ToolName,
+            arguments = e.Arguments,
+            timeoutSeconds = e.TimeoutSeconds,
+            origin = e.Origin is null
+                ? null
+                : new { nodeId = e.Origin.NodeId, role = e.Origin.Role, description = e.Origin.Description }
+        }),
+        UserQuestionRequestedEvent e => new("tool.question", new
+        {
+            questionId = e.QuestionId,
+            questions = e.Questions,
+            timeoutSeconds = e.TimeoutSeconds,
+            origin = e.Origin is null
+                ? null
+                : new { nodeId = e.Origin.NodeId, role = e.Origin.Role, description = e.Origin.Description }
+        }),
         AttachmentAddedEvent e => new("attachment.added", new { fileName = e.FileName, mediaType = e.MediaType, fileSize = e.FileSize, source = e.Source }),
         AttachmentSkippedEvent e => new("attachment.skipped", new { source = e.Source, reason = e.Reason }),
         ErrorEvent e => new(Error, new { message = e.Message }),
         _ => null
     };
+
+    /// <summary>事件时刻转 Unix 毫秒：前端只用它与相邻帧做差，避免两端时钟口径混杂。</summary>
+    private static long EpochMs(DateTimeOffset at) => at.ToUnixTimeMilliseconds();
 
     /// <summary>序列化载荷（供不需要 DI 的宿主直接用）。</summary>
     /// <remarks>

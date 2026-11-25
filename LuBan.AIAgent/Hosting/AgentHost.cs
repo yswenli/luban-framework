@@ -44,6 +44,7 @@ public sealed class AgentHost(
     IAgentAttachmentOrchestrator attachments,
     IAgentAttachmentSourceResolver attachmentSources,
     IToolConfirmationBroker confirmations,
+    IUserQuestionBroker questionBroker,
     IOptions<LuBanAgentOptions> options) : IAgentHost
 {
     /// <inheritdoc />
@@ -310,24 +311,44 @@ public sealed class AgentHost(
         var channel = Channel.CreateUnbounded<AgentStreamEvent>();
         var overrides = NormalizeOverrides(request);
 
-        // 只有调用方没自带确认回调、且本轮装配了工具时，才接 broker。
-        // 确认回调在「回合内」写事件：ToolConfirmationRequestedEvent 必须跟着本回合的 SSE 流走。
+        // 只有调用方没自带回调、且本轮装配了工具时，才接 broker。
+        // 确认/提问回调在「回合内」写事件：ToolConfirmationRequestedEvent / UserQuestionRequestedEvent
+        // 必须跟着本回合的 SSE 流走。
         AgentRunRequest effective = request;
-        if (request.EnableTools
-            && request.ConfirmHandler is null
-            && request.ConfirmHandlerAsync is null
-            && options.Value.Confirmation.BrokerEnabled)
+        if (request.EnableTools && options.Value.Confirmation.BrokerEnabled)
         {
-            effective = request with
+            if (request.ConfirmHandler is null && request.ConfirmHandlerAsync is null)
             {
-                ConfirmHandlerAsync = async (toolName, arguments, token) =>
+                effective = effective with
                 {
-                    var pending = confirmations.Register(runtime.SessionId, toolName, arguments);
-                    channel.Writer.TryWrite(new ToolConfirmationRequestedEvent(
-                        pending.ConfirmationId, toolName, arguments, confirmations.TimeoutSeconds));
-                    return await confirmations.WaitAsync(pending, token).ConfigureAwait(false);
-                }
-            };
+                    ConfirmHandlerAsync = async (toolName, arguments, token) =>
+                    {
+                        var pending = confirmations.Register(runtime.SessionId, toolName, arguments);
+                        // 来源在「确认发起处」读取：AskUserAsync 与子代理工具调用同处一条异步链，
+                        // 编排节点的 AsyncLocal 来源在此可见；主代理发起的确认取到 null。
+                        channel.Writer.TryWrite(new ToolConfirmationRequestedEvent(
+                            pending.ConfirmationId, toolName, arguments, confirmations.TimeoutSeconds,
+                            ToolConfirmationContext.CurrentOrigin));
+                        return await confirmations.WaitAsync(pending, token).ConfigureAwait(false);
+                    }
+                };
+            }
+
+            if (request.AskUserHandlerAsync is null)
+            {
+                effective = effective with
+                {
+                    AskUserHandlerAsync = async (questions, token) =>
+                    {
+                        var pending = questionBroker.Register(runtime.SessionId, questions);
+                        // 来源口径同确认：在发起处读取编排节点标注，供宿主 UI 展示「谁在提问」
+                        channel.Writer.TryWrite(new UserQuestionRequestedEvent(
+                            pending.QuestionId, pending.Questions, questionBroker.TimeoutSeconds,
+                            ToolConfirmationContext.CurrentOrigin));
+                        return await questionBroker.WaitAsync(pending, token).ConfigureAwait(false);
+                    }
+                };
+            }
         }
 
         await runtime.EnqueueAsync(new RuntimeTurn
@@ -520,6 +541,10 @@ public sealed class AgentHost(
     {
         var sp = runtime.Services;
 
+        // 单回合用量/耗时采集：本轮所有 LLM 往返累加，供会话历史提供者落库时读取
+        var metrics = sp.GetService<TurnMetrics>();
+        metrics?.BeginTurn();
+
         // 运行时绑定即权威来源，不再按进程级“当前工作区”重建（避免跨工作区串扰）。
         var agent = runtime.Agent
             ?? throw new InvalidOperationException("Agent 初始化失败，请先调用 InitializeAsync");
@@ -540,7 +565,9 @@ public sealed class AgentHost(
             asyncConfirm,
             sessionContext: sessionContext,
             onPlannedAction: request.OnPlannedAction,
-            onUserDenied: request.OnUserDenied);
+            onUserDenied: request.OnUserDenied,
+            askCallback: request.AskUserHandlerAsync,
+            policyGuard: request.PolicyGuard);
 
         try
         {
@@ -560,6 +587,7 @@ public sealed class AgentHost(
                         ? r
                         : 0;
 
+                var at = DateTimeOffset.UtcNow;
                 foreach (var content in update.Contents)
                 {
                     // 编排进度：规划与节点执行均为长耗时非流式过程，
@@ -576,42 +604,47 @@ public sealed class AgentHost(
                     // 思考过程
                     if (content is TextReasoningContent reasoning && !string.IsNullOrEmpty(reasoning.Text))
                     {
-                        yield return new ThinkingDeltaEvent(reasoning.Text) { LlmRound = llmRound };
+                        metrics?.RecordThinking(at);
+                        yield return new ThinkingDeltaEvent(reasoning.Text) { LlmRound = llmRound, At = at };
                         continue;
                     }
 
                     // 工具调用
                     if (content is FunctionCallContent functionCall)
                     {
+                        // 工具调用是思考区间的天然边界：先落定上段思考，再开始计本次调用耗时
+                        metrics?.EndThinking();
+                        metrics?.RecordToolStart(functionCall.CallId, at);
                         var args = functionCall.Arguments != null
                             ? new Dictionary<string, object?>(functionCall.Arguments)
                             : new Dictionary<string, object?>();
                         yield return new ToolCallStartedEvent(
                             functionCall.Name,
                             functionCall.CallId,
-                            args) { LlmRound = llmRound };
+                            args) { LlmRound = llmRound, At = at };
                         continue;
                     }
 
                     // 工具结果
                     if (content is FunctionResultContent functionResult)
                     {
+                        metrics?.RecordToolEnd(functionResult.CallId, at);
                         if (functionResult.Exception is not null)
                         {
                             yield return new ToolCallFailedEvent(
                                 functionResult.CallId,
-                                functionResult.Exception.Message) { LlmRound = llmRound };
+                                functionResult.Exception.Message) { LlmRound = llmRound, At = at };
                         }
                         else if (ToolResult.IsUserCancelled(functionResult.Result))
                         {
                             // 拒绝与取消在结果层不可区分：用中性文案，宿主聊天流已分别提示
-                            yield return new ToolCallFailedEvent(functionResult.CallId, "工具调用被拒绝或已取消") { LlmRound = llmRound };
+                            yield return new ToolCallFailedEvent(functionResult.CallId, "工具调用被拒绝或已取消") { LlmRound = llmRound, At = at };
                         }
                         else
                         {
                             yield return new ToolCallCompletedEvent(
                                 functionResult.CallId,
-                                SummarizeResult(functionResult.Result)) { LlmRound = llmRound };
+                                SummarizeResult(functionResult.Result)) { LlmRound = llmRound, At = at };
                         }
                         continue;
                     }
@@ -619,7 +652,8 @@ public sealed class AgentHost(
                     // 正文回复
                     if (content is TextContent text && !string.IsNullOrEmpty(text.Text))
                     {
-                        yield return new TextDeltaEvent(text.Text) { LlmRound = llmRound };
+                        metrics?.EndThinking();
+                        yield return new TextDeltaEvent(text.Text) { LlmRound = llmRound, At = at };
                         continue;
                     }
 
@@ -630,12 +664,19 @@ public sealed class AgentHost(
                         continue;
                     }
 
-                    // UsageContent 静默跳过
+                    // 用量：累加到回合采集器，落库时写入助手消息；不作为流事件暴露给 UI
+                    if (content is UsageContent usage)
+                    {
+                        metrics?.RecordUsage(usage.Details);
+                        continue;
+                    }
                 }
             }
         }
         finally
         {
+            // 落定耗时：即便异常/取消也要记录，保证助手消息能显示实际用时
+            metrics?.EndTurn(ct.IsCancellationRequested);
             context.Reset();
         }
     }

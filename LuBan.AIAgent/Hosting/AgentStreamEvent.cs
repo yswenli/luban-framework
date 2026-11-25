@@ -34,6 +34,11 @@ public abstract record AgentStreamEvent
     /// UI 据此把同一轮的思考内容归并到同一思考块。
     /// </summary>
     public int LlmRound { get; init; }
+
+    /// <summary>
+    /// 事件产生时刻（UTC）。UI 据此计算思考段与每次工具调用的耗时；不显式赋值时取构造时刻。
+    /// </summary>
+    public DateTimeOffset At { get; init; } = DateTimeOffset.UtcNow;
 }
 
 /// <summary>
@@ -126,11 +131,26 @@ public sealed record AttachmentAddedEvent(
 /// <param name="ToolName">工具方法名。</param>
 /// <param name="Arguments">工具参数。</param>
 /// <param name="TimeoutSeconds">等待上限，超时按拒绝处理。</param>
+/// <param name="Origin">确认来源（编排子代理节点）；主代理发起的确认为 null。仅用于宿主 UI 标注。</param>
 public sealed record ToolConfirmationRequestedEvent(
     string ConfirmationId,
     string ToolName,
     IReadOnlyDictionary<string, object?> Arguments,
-    int TimeoutSeconds) : AgentStreamEvent;
+    int TimeoutSeconds,
+    ToolConfirmationOrigin? Origin = null) : AgentStreamEvent;
+
+/// <summary>
+/// Agent 向用户提问（要求作答而非授权）。Web 经 SSE 下发，前端另调 HTTP 接口回结果。
+/// </summary>
+/// <param name="QuestionId">本次提问标识（框架生成）。</param>
+/// <param name="Questions">待回答的问题列表。</param>
+/// <param name="TimeoutSeconds">等待上限；超时按取消处理（不失败节点）。</param>
+/// <param name="Origin">提问来源（编排子代理节点）；主代理发起时为 null，仅用于宿主 UI 标注。</param>
+public sealed record UserQuestionRequestedEvent(
+    string QuestionId,
+    IReadOnlyList<UserQuestion> Questions,
+    int TimeoutSeconds,
+    ToolConfirmationOrigin? Origin = null) : AgentStreamEvent;
 
 /// <summary>
 /// 附件被跳过（下载失败 / 路径不存在 / 类型不支持 / 超限 / 处理失败）。
