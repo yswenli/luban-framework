@@ -28,8 +28,6 @@
 *
 *****************************************************************************/
 // 由代码文件上移的命名空间（2026-10-28 规范化）
-global using LuBan.AIAgent.A2A.Abstractions;
-global using LuBan.AIAgent.A2A.Models;
 global using LuBan.AIAgent.Abstractions;
 global using LuBan.AIAgent.Abstractions.Models;
 global using LuBan.AIAgent.Attachments.Ingestion;
