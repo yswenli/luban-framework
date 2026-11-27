@@ -78,7 +78,11 @@ public class ScriptToolPlugin : ILuBanToolPlugin
     {
         var opts = toolsOptions?.Script ?? _options;
         var confirmationService = sp.GetRequiredService<IToolConfirmationService>();
-        var toolGroup = new ScriptToolGroup(opts, _processRunner, _luaRunner, _shellDetector, confirmationService);
+        // 会话上下文提供当前工作区根：工具未指定工作目录时以它为默认值，
+        // 避免所有会话都落在宿主进程目录（多用户/多项目会互相串目录）
+        var sessionContext = sp.GetService<ISessionContext>();
+        var toolGroup = new ScriptToolGroup(
+            opts, _processRunner, _luaRunner, _shellDetector, confirmationService, sessionContext);
         return new List<AIFunction>
         {
             AIFunctionFactoryHelper.Create(toolGroup, nameof(ScriptToolGroup.RunShellAsync)),
@@ -105,6 +109,7 @@ public class ScriptToolGroup
     private readonly LuaScriptRunner _luaRunner;
     private readonly ShellEnvironmentDetector _shellDetector;
     private readonly IToolConfirmationService _confirmationService;
+    private readonly ISessionContext? _sessionContext;
 
     /// <summary>
     /// 创建 ScriptToolGroup 实例
@@ -114,18 +119,52 @@ public class ScriptToolGroup
     /// <param name="luaRunner">内嵌 Lua 沙箱执行器</param>
     /// <param name="shellDetector">Shell 环境探测器</param>
     /// <param name="confirmationService">工具调用确认服务</param>
+    /// <param name="sessionContext">会话上下文（可空；提供当前工作区根，作为默认工作目录）</param>
     public ScriptToolGroup(
         ScriptToolOptions options,
         ProcessRunner processRunner,
         LuaScriptRunner luaRunner,
         ShellEnvironmentDetector shellDetector,
-        IToolConfirmationService confirmationService)
+        IToolConfirmationService confirmationService,
+        ISessionContext? sessionContext = null)
     {
         _options = options;
         _processRunner = processRunner;
         _luaRunner = luaRunner;
         _shellDetector = shellDetector;
         _confirmationService = confirmationService;
+        _sessionContext = sessionContext;
+    }
+
+    /// <summary>
+    /// 解析实际工作目录：空白用会话工作区根；相对路径按该根展开；绝对路径原样。
+    /// </summary>
+    /// <param name="requested">工具传入的工作目录（可空）。</param>
+    /// <returns>用于启动外部进程的工作目录；无上下文且未指定时返回 null（沿用既有默认）。</returns>
+    private string? ResolveWorkingDirectory(string? requested)
+    {
+        var root = _sessionContext?.EffectiveRoot;
+        if (string.IsNullOrWhiteSpace(root))
+        {
+            return requested;
+        }
+
+        if (string.IsNullOrWhiteSpace(requested))
+        {
+            return root;
+        }
+
+        try
+        {
+            return Path.IsPathFullyQualified(requested)
+                ? requested
+                : Path.GetFullPath(Path.Combine(root, requested));
+        }
+        catch
+        {
+            // 非法路径保持原样，交给执行器按既有语义报错
+            return requested;
+        }
     }
 
     /// <summary>
@@ -148,9 +187,12 @@ public class ScriptToolGroup
     public async Task<ToolResult<string>> RunShellAsync(
         string command, string? workingDirectory = null, CancellationToken cancellationToken = default)
     {
+        // 先解析工作目录，确认框里展示的就是实际执行目录
+        var resolvedWorkingDirectory = ResolveWorkingDirectory(workingDirectory);
+
         // 确认执行
         var outcome = await _confirmationService.EvaluateAsync(nameof(RunShellAsync), null,
-            new Dictionary<string, object?> { ["command"] = command, ["workingDirectory"] = workingDirectory });
+            new Dictionary<string, object?> { ["command"] = command, ["workingDirectory"] = resolvedWorkingDirectory });
         if (outcome == EnumConfirmationOutcome.Planned)
         {
             return ToolResult.Plan<string>();
@@ -188,7 +230,7 @@ public class ScriptToolGroup
             var result = await _processRunner.RunAsync(
                 shellCommand.Executable,
                 shellCommand.Arguments ?? string.Empty,
-                workingDirectory,
+                resolvedWorkingDirectory,
                 stdin: null,
                 timeoutMs: _options.DefaultTimeout,
                 cancellationToken: cancellationToken,
@@ -322,9 +364,12 @@ public class ScriptToolGroup
 public async Task<ToolResult<string>> RunPythonAsync(
     string script, string? workingDirectory = null, CancellationToken cancellationToken = default)
 {
+    // 先解析工作目录，确认框里展示的就是实际执行目录
+    var resolvedWorkingDirectory = ResolveWorkingDirectory(workingDirectory);
+
     // 确认执行
     var outcome = await _confirmationService.EvaluateAsync(nameof(RunPythonAsync), null,
-        new Dictionary<string, object?> { ["script"] = script, ["workingDirectory"] = workingDirectory });
+        new Dictionary<string, object?> { ["script"] = script, ["workingDirectory"] = resolvedWorkingDirectory });
     if (outcome == EnumConfirmationOutcome.Planned)
     {
         return ToolResult.Plan<string>();
@@ -340,7 +385,7 @@ public async Task<ToolResult<string>> RunPythonAsync(
         cancellationToken.ThrowIfCancellationRequested();
 
         // 诊断日志：Python 环境
-        Logger.Info($"Python 执行: executable={_options.PythonPath}, workingDir={workingDirectory ?? "未指定"}");
+        Logger.Info($"Python 执行: executable={_options.PythonPath}, workingDir={resolvedWorkingDirectory ?? "未指定"}");
         Logger.Debug($"脚本内容（前200字符）:\n{(script.Length > 200 ? script.Substring(0, 200) + "..." : script)}");
 
         // Python 通过 stdin 执行脚本：python - < script.py
@@ -348,7 +393,7 @@ public async Task<ToolResult<string>> RunPythonAsync(
         var result = await _processRunner.RunAsync(
             _options.PythonPath,
             "-",  // "-" 表示从 stdin 读取脚本
-            workingDirectory,
+            resolvedWorkingDirectory,
             stdin: script,
             timeoutMs: _options.DefaultTimeout,
             cancellationToken: cancellationToken);

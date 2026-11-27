@@ -22,6 +22,7 @@
 *****************************************************************************/
 using LuBan.AIAgent;
 using LuBan.AIAgent.Abstractions;
+using LuBan.AIAgent.Abstractions.Models;
 using LuBan.AIAgent.Configuration;
 using LuBan.AIAgent.Infrastructure;
 using LuBan.AIAgent.Tools.FileSystem;
@@ -399,6 +400,70 @@ public class AIAgentUnitTest
         var elapsed = DateTimeOffset.UtcNow - startedAt;
         Assert.IsNotNull(caught, "取消令牌未穿透到工具方法：长命令没有被中断");
         Assert.IsTrue(elapsed < TimeSpan.FromSeconds(20), $"取消耗时过长: {elapsed.TotalSeconds:F1}s");
+    }
+
+    /// <summary>
+    /// 会话工作区根作为默认工作目录：未传 workingDirectory 时命令在该根执行，
+    /// 相对路径按该根展开 —— 避免多用户/多会话都落在宿主进程目录。
+    /// </summary>
+    [TestMethod]
+    public async Task TestScriptTool_UsesSessionRootAsDefaultWorkingDirectory()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "luban-sess-" + Guid.NewGuid().ToString("N")[..8]);
+        var sub = Path.Combine(root, "sub");
+        Directory.CreateDirectory(sub);
+
+        try
+        {
+            var context = new ToolConfirmationContext { Mode = ToolPermissionMode.BypassPermissions };
+            var confirmation = new ToolConfirmationService(context);
+            using var lua = new LuaScriptRunner();
+            var group = new ScriptToolGroup(
+                new ScriptToolOptions { Shell = string.Empty, DefaultTimeout = 30000 },
+                new ProcessRunner(),
+                lua,
+                new ShellEnvironmentDetector(),
+                confirmation,
+                new FakeSessionContext(root));
+
+            var printCwd = OperatingSystem.IsWindows() ? "(Get-Location).Path" : "pwd";
+
+            var atRoot = await group.RunShellAsync(printCwd);
+            Assert.IsTrue(atRoot.IsSuccess, atRoot.Message);
+            Assert.AreEqual(TrimPath(root), TrimPath(ReadStdout(atRoot.Data!)), "未传工作目录时应落在会话有效根");
+
+            var atSub = await group.RunShellAsync(printCwd, "sub");
+            Assert.IsTrue(atSub.IsSuccess, atSub.Message);
+            Assert.AreEqual(TrimPath(sub), TrimPath(ReadStdout(atSub.Data!)), "相对工作目录应按会话有效根展开");
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    private static string ReadStdout(string json)
+    {
+        using var doc = System.Text.Json.JsonDocument.Parse(json);
+        return doc.RootElement.GetProperty("stdout").GetString()?.Trim() ?? "";
+    }
+
+    private static string TrimPath(string path)
+        => Path.GetFullPath(path.Trim()).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+    private sealed class FakeSessionContext(string root) : ISessionContext
+    {
+        public string? SessionId => "unit-test";
+
+        public string EffectiveRoot => root;
+
+        public WorktreeSession? ActiveWorktree => null;
+
+        public IReadOnlyList<string> AllowedRoots => [root];
+
+        public string ResolveTempDirectory() => Path.Combine(root, ".luban-agent", "temp");
+
+        public bool IsWithinEffectiveRoot(string path) => true;
     }
 }
 
